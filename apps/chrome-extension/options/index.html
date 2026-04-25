@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-lang="optionsTitle">One Proxy Settings</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="headline">
+        <div>
+          <p class="eyebrow">One Proxy</p>
+          <h1 data-lang="optionsHeading">Groups, nodes, and routing</h1>
+        </div>
+        <div class="headline-side">
+          <div class="theme-strip" id="themeMode">
+            <button type="button" data-theme-mode="vivid" data-lang="themeVivid">Vivid</button>
+            <button type="button" data-theme-mode="dark" data-lang="themeDark">Dark</button>
+          </div>
+          <button id="saveAll" class="primary" type="button" data-lang="save">Save</button>
+        </div>
+      </section>
+      <section class="layout">
+        <article class="panel panel-list">
+          <div class="panel-head">
+            <h2 data-lang="groups">Groups</h2>
+            <button id="addGroup" class="ghost" type="button" data-lang="addGroup">Add group</button>
+          </div>
+          <div id="groupList" class="list"></div>
+        </article>
+        <article class="panel panel-editor">
+          <div class="panel-head">
+            <h2 id="editorTitle">Group</h2>
+            <button id="removeGroup" class="danger" type="button" data-lang="remove">Remove</button>
+          </div>
+          <div class="form-grid">
+            <label>
+              <span data-lang="name">Name</span>
+              <input id="groupName" type="text" />
+            </label>
+            <label>
+              <span data-lang="mode">Mode</span>
+              <select id="groupMode"></select>
+            </label>
+            <label class="wide">
+              <span data-lang="bypassHosts">Bypass hosts</span>
+              <textarea id="bypassHosts"></textarea>
+            </label>
+            <label class="wide">
+              <span data-lang="proxyHosts">Proxy hosts</span>
+              <textarea id="proxyHosts"></textarea>
+            </label>
+            <label class="wide">
+              <span data-lang="internalDomains">Internal domains</span>
+              <textarea id="internalDomains"></textarea>
+            </label>
+            <label class="wide">
+              <span data-lang="internalCidrs">Internal CIDRs</span>
+              <textarea id="internalCidrs"></textarea>
+            </label>
+          </div>
+          <div class="panel-subhead">
+            <h3 data-lang="nodes">Nodes</h3>
+            <button id="addProfile" class="ghost" type="button" data-lang="addNode">Add node</button>
+          </div>
+          <div id="profileList" class="profile-list"></div>
+        </article>
+        <article class="panel panel-rules">
+          <div class="panel-head">
+            <h2 data-lang="quickRules">Quick rules</h2>
+          </div>
+          <div class="form-grid">
+            <label class="wide">
+              <span data-lang="globalDirectHosts">Global direct hosts</span>
+              <textarea id="quickBypass"></textarea>
+            </label>
+            <label class="wide">
+              <span data-lang="globalProxyHosts">Global proxy hosts</span>
+              <textarea id="quickProxy"></textarea>
+            </label>
+            <label class="wide">
+              <span data-lang="globalInternalDomains">Global internal domains</span>
+              <textarea id="quickInternal"></textarea>
+            </label>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="index.js"></script>
+  </body>
+</html>

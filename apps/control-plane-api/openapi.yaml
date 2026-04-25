@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: One Proxy Control Plane API
+  version: 0.1.0
+paths:
+  /healthz:
+    get:
+      responses:
+        "200":
+          description: Health response
+  /api/v1/auth/login:
+    post:
+      responses:
+        "200":
+          description: Token pair
+  /api/v1/nodes:
+    get:
+      responses:
+        "200":
+          description: Node list
+    post:
+      responses:
+        "201":
+          description: Node created
+  /api/v1/chains:
+    get:
+      responses:
+        "200":
+          description: Chain list
+    post:
+      responses:
+        "201":
+          description: Chain created
+  /api/v1/route-rules:
+    get:
+      responses:
+        "200":
+          description: Route rule list
+    post:
+      responses:
+        "201":
+          description: Route rule created
+  /api/v1/policies/publish:
+    post:
+      responses:
+        "200":
+          description: Policy published

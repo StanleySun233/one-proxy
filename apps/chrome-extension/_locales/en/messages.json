@@ -1,0 +1,183 @@
+{
+  "appDescription": {
+    "message": "Browser-only proxy groups with smart internal and external routing."
+  },
+  "popupEyebrow": {
+    "message": "Browser proxy control"
+  },
+  "groups": {
+    "message": "Groups"
+  },
+  "activeGroup": {
+    "message": "Active group"
+  },
+  "master": {
+    "message": "Master"
+  },
+  "internal": {
+    "message": "Internal"
+  },
+  "routing": {
+    "message": "Routing"
+  },
+  "group": {
+    "message": "Group"
+  },
+  "node": {
+    "message": "Node"
+  },
+  "nodes": {
+    "message": "Nodes"
+  },
+  "thisSiteDirect": {
+    "message": "This site direct"
+  },
+  "thisSiteProxy": {
+    "message": "This site proxy"
+  },
+  "thisSiteInternal": {
+    "message": "This site internal"
+  },
+  "optionsTitle": {
+    "message": "One Proxy Settings"
+  },
+  "optionsHeading": {
+    "message": "Groups, nodes, and routing"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "addGroup": {
+    "message": "Add group"
+  },
+  "remove": {
+    "message": "Remove"
+  },
+  "name": {
+    "message": "Name"
+  },
+  "mode": {
+    "message": "Mode"
+  },
+  "bypassHosts": {
+    "message": "Bypass hosts"
+  },
+  "proxyHosts": {
+    "message": "Proxy hosts"
+  },
+  "internalDomains": {
+    "message": "Internal domains"
+  },
+  "internalCidrs": {
+    "message": "Internal CIDRs"
+  },
+  "addNode": {
+    "message": "Add node"
+  },
+  "quickRules": {
+    "message": "Quick rules"
+  },
+  "globalDirectHosts": {
+    "message": "Global direct hosts"
+  },
+  "globalProxyHosts": {
+    "message": "Global proxy hosts"
+  },
+  "globalInternalDomains": {
+    "message": "Global internal domains"
+  },
+  "routingSmart": {
+    "message": "Smart"
+  },
+  "routingAll": {
+    "message": "All"
+  },
+  "routingInternalShort": {
+    "message": "Intra"
+  },
+  "routingExternalShort": {
+    "message": "Extra"
+  },
+  "routingMode_smart": {
+    "message": "Smart"
+  },
+  "routingMode_all": {
+    "message": "All"
+  },
+  "routingMode_internal": {
+    "message": "Internal"
+  },
+  "routingMode_external": {
+    "message": "External"
+  },
+  "on": {
+    "message": "On"
+  },
+  "off": {
+    "message": "Off"
+  },
+  "proxy": {
+    "message": "Proxy"
+  },
+  "direct": {
+    "message": "Direct"
+  },
+  "noGroup": {
+    "message": "No group"
+  },
+  "noNode": {
+    "message": "No node"
+  },
+  "noSite": {
+    "message": "No site"
+  },
+  "nodeCount": {
+    "message": "$COUNT$ node(s)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "active": {
+    "message": "Active"
+  },
+  "scheme": {
+    "message": "Scheme"
+  },
+  "host": {
+    "message": "Host"
+  },
+  "port": {
+    "message": "Port"
+  },
+  "duplicate": {
+    "message": "Duplicate"
+  },
+  "delete": {
+    "message": "Delete"
+  },
+  "copyName": {
+    "message": "$NAME$ Copy",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "untitledGroup": {
+    "message": "Untitled group"
+  },
+  "newNode": {
+    "message": "New Node"
+  },
+  "newGroup": {
+    "message": "New Group"
+  },
+  "themeVivid": {
+    "message": "Vivid"
+  },
+  "themeDark": {
+    "message": "Dark"
+  }
+}

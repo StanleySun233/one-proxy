@@ -223,4 +223,9 @@ runtime/*.out
 runtime/*.pid
 certs/*.crt
 certs/*.key
+prototypes/**/runtime/*.log
+prototypes/**/runtime/*.out
+prototypes/**/runtime/*.pid
+prototypes/**/certs/*.crt
+prototypes/**/certs/*.key
 plan/

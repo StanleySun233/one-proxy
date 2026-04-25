@@ -1,0 +1,183 @@
+{
+  "appDescription": {
+    "message": "浏览器内代理分组，支持智能内外网路由。"
+  },
+  "popupEyebrow": {
+    "message": "浏览器代理控制"
+  },
+  "groups": {
+    "message": "分组"
+  },
+  "activeGroup": {
+    "message": "当前分组"
+  },
+  "master": {
+    "message": "总开关"
+  },
+  "internal": {
+    "message": "内网"
+  },
+  "routing": {
+    "message": "路由"
+  },
+  "group": {
+    "message": "分组"
+  },
+  "node": {
+    "message": "节点"
+  },
+  "nodes": {
+    "message": "节点"
+  },
+  "thisSiteDirect": {
+    "message": "本站直连"
+  },
+  "thisSiteProxy": {
+    "message": "本站代理"
+  },
+  "thisSiteInternal": {
+    "message": "本站内网"
+  },
+  "optionsTitle": {
+    "message": "One Proxy 设置"
+  },
+  "optionsHeading": {
+    "message": "分组、节点和路由"
+  },
+  "save": {
+    "message": "保存"
+  },
+  "addGroup": {
+    "message": "新增分组"
+  },
+  "remove": {
+    "message": "移除"
+  },
+  "name": {
+    "message": "名称"
+  },
+  "mode": {
+    "message": "模式"
+  },
+  "bypassHosts": {
+    "message": "直连主机"
+  },
+  "proxyHosts": {
+    "message": "代理主机"
+  },
+  "internalDomains": {
+    "message": "内网域名"
+  },
+  "internalCidrs": {
+    "message": "内网 CIDR"
+  },
+  "addNode": {
+    "message": "新增节点"
+  },
+  "quickRules": {
+    "message": "快捷规则"
+  },
+  "globalDirectHosts": {
+    "message": "全局直连主机"
+  },
+  "globalProxyHosts": {
+    "message": "全局代理主机"
+  },
+  "globalInternalDomains": {
+    "message": "全局内网域名"
+  },
+  "routingSmart": {
+    "message": "智能"
+  },
+  "routingAll": {
+    "message": "全部"
+  },
+  "routingInternalShort": {
+    "message": "内网"
+  },
+  "routingExternalShort": {
+    "message": "外网"
+  },
+  "routingMode_smart": {
+    "message": "智能"
+  },
+  "routingMode_all": {
+    "message": "全部"
+  },
+  "routingMode_internal": {
+    "message": "内网"
+  },
+  "routingMode_external": {
+    "message": "外网"
+  },
+  "on": {
+    "message": "开"
+  },
+  "off": {
+    "message": "关"
+  },
+  "proxy": {
+    "message": "代理"
+  },
+  "direct": {
+    "message": "直连"
+  },
+  "noGroup": {
+    "message": "无分组"
+  },
+  "noNode": {
+    "message": "无节点"
+  },
+  "noSite": {
+    "message": "无站点"
+  },
+  "nodeCount": {
+    "message": "$COUNT$ 个节点",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "active": {
+    "message": "启用"
+  },
+  "scheme": {
+    "message": "协议"
+  },
+  "host": {
+    "message": "主机"
+  },
+  "port": {
+    "message": "端口"
+  },
+  "duplicate": {
+    "message": "复制"
+  },
+  "delete": {
+    "message": "删除"
+  },
+  "copyName": {
+    "message": "$NAME$ 副本",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "untitledGroup": {
+    "message": "未命名分组"
+  },
+  "newNode": {
+    "message": "新节点"
+  },
+  "newGroup": {
+    "message": "新分组"
+  },
+  "themeVivid": {
+    "message": "灵动"
+  },
+  "themeDark": {
+    "message": "暗色"
+  }
+}

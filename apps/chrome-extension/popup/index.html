@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>One Proxy</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow" data-lang="popupEyebrow">Browser proxy control</p>
+          <h1>One Proxy</h1>
+        </div>
+        <div class="hero-tools">
+          <div class="theme-switch" id="themeMode">
+            <button type="button" data-theme-mode="vivid" data-lang="themeVivid">Vivid</button>
+            <button type="button" data-theme-mode="dark" data-lang="themeDark">Dark</button>
+          </div>
+          <button id="openOptions" class="ghost" type="button" data-lang="groups">Groups</button>
+        </div>
+      </section>
+      <section class="status-card">
+        <div>
+          <p class="label" data-lang="activeGroup">Active group</p>
+          <h2 id="activeGroupName">-</h2>
+        </div>
+        <div class="pill" id="activeProfileName">-</div>
+      </section>
+      <section class="toggle-grid">
+        <button id="masterToggle" class="toggle-card" type="button">
+          <span class="toggle-label" data-lang="master">Master</span>
+          <span class="toggle-value" id="masterValue" data-lang="off">Off</span>
+        </button>
+        <button id="internalToggle" class="toggle-card" type="button">
+          <span class="toggle-label" data-lang="internal">Internal</span>
+          <span class="toggle-value" id="internalValue" data-lang="direct">Direct</span>
+        </button>
+      </section>
+      <section>
+        <p class="section-title" data-lang="routing">Routing</p>
+        <div class="segmented" id="routingMode"></div>
+      </section>
+      <section>
+        <div class="section-head">
+          <p class="section-title" data-lang="group">Group</p>
+          <span class="mono" id="currentSite" data-lang="noSite">No site</span>
+        </div>
+        <select id="groupSelect" class="select"></select>
+      </section>
+      <section>
+        <p class="section-title" data-lang="node">Node</p>
+        <select id="profileSelect" class="select"></select>
+      </section>
+      <section class="quick-actions">
+        <button id="addBypass" class="secondary" type="button" data-lang="thisSiteDirect">This site direct</button>
+        <button id="addProxy" class="secondary" type="button" data-lang="thisSiteProxy">This site proxy</button>
+        <button id="addInternal" class="secondary" type="button" data-lang="thisSiteInternal">This site internal</button>
+      </section>
+    </main>
+    <script type="module" src="index.js"></script>
+  </body>
+</html>
