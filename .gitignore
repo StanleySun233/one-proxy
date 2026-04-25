@@ -151,6 +151,7 @@ activemq-data/
 .env
 .envrc
 .venv
+.codex/
 env/
 venv/
 ENV/
@@ -216,3 +217,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+runtime/*.log
+runtime/*.out
+runtime/*.pid
+certs/*.crt
+certs/*.key
