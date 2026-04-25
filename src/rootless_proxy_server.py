@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
 
+from config_store import ConfigStore, Node
+
 
 HOP_BY_HOP_HEADERS = {
     "proxy-connection",
@@ -242,8 +244,46 @@ async def relay_response(method: str, upstream_reader: asyncio.StreamReader, cli
 
 
 class ProxyServer:
-    def __init__(self) -> None:
+    def __init__(self, config_store: ConfigStore, instance_id: str) -> None:
         self.log = logging.getLogger("rootless_proxy")
+        self.config_store = config_store
+        self.instance_id = instance_id
+
+    def get_local_node(self) -> Node:
+        return self.config_store.get_local_node(self.instance_id)
+
+    def get_upstream_node(self) -> Node | None:
+        return self.config_store.get_upstream_node(self.get_local_node().id)
+
+    async def open_upstream_connection(self, target_host: str, target_port: int) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        upstream_node = self.get_upstream_node()
+        if upstream_node is None:
+            return await asyncio.open_connection(target_host, target_port)
+        if upstream_node.protocol != "http_proxy":
+            raise ValueError(f"unsupported upstream protocol: {upstream_node.protocol}")
+        return await asyncio.open_connection(upstream_node.host, upstream_node.port)
+
+    async def negotiate_upstream_connect(
+        self,
+        upstream_reader: asyncio.StreamReader,
+        upstream_writer: asyncio.StreamWriter,
+        target_host: str,
+        target_port: int,
+    ) -> None:
+        address = format_host_port(target_host, target_port)
+        upstream_writer.write(
+            f"CONNECT {address} HTTP/1.1\r\n"
+            f"Host: {address}\r\n"
+            "Connection: close\r\n\r\n".encode("iso-8859-1")
+        )
+        await upstream_writer.drain()
+        raw = await upstream_reader.readuntil(b"\r\n\r\n")
+        lines = raw.decode("iso-8859-1").split("\r\n")
+        status_line = lines[0] if lines else ""
+        parts = status_line.split(" ", 2)
+        status_code = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+        if status_code != 200:
+            raise ValueError(f"upstream CONNECT failed: {status_line}")
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")
@@ -267,7 +307,9 @@ class ProxyServer:
 
     async def handle_connect(self, request: Request, client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter) -> None:
         host, port = parse_host_port(request.target, 443)
-        upstream_reader, upstream_writer = await asyncio.open_connection(host, port)
+        upstream_reader, upstream_writer = await self.open_upstream_connection(host, port)
+        if self.get_upstream_node() is not None:
+            await self.negotiate_upstream_connect(upstream_reader, upstream_writer, host, port)
         client_writer.write(f"{request.version} 200 Connection Established\r\n\r\n".encode("iso-8859-1"))
         await client_writer.drain()
         await tunnel(client_reader, client_writer, upstream_reader, upstream_writer)
@@ -293,7 +335,11 @@ class ProxyServer:
             host, port = parse_host_port(host_header, 80)
             path = request.target or "/"
 
-        upstream_reader, upstream_writer = await asyncio.open_connection(host, port)
+        upstream_node = self.get_upstream_node()
+        if upstream_node is None:
+            upstream_reader, upstream_writer = await asyncio.open_connection(host, port)
+        else:
+            upstream_reader, upstream_writer = await asyncio.open_connection(upstream_node.host, upstream_node.port)
 
         connection_tokens = {
             token.strip().lower()
@@ -323,7 +369,13 @@ class ProxyServer:
             headers_out.append(("Connection", "close"))
 
         header_blob = "".join(f"{name}: {value}\r\n" for name, value in headers_out).encode("iso-8859-1")
-        upstream_writer.write(f"{request.method} {path or '/'} {request.version}\r\n".encode("iso-8859-1"))
+        request_target = path or "/"
+        if upstream_node is not None:
+            if parsed.scheme and parsed.hostname:
+                request_target = request.target
+            else:
+                request_target = urlunsplit(("http", format_host_port(host, port), path or "/", "", ""))
+        upstream_writer.write(f"{request.method} {request_target} {request.version}\r\n".encode("iso-8859-1"))
         upstream_writer.write(header_blob)
         upstream_writer.write(b"\r\n")
         await upstream_writer.drain()
@@ -373,6 +425,8 @@ async def main() -> None:
     root = Path(__file__).resolve().parent.parent
     dotenv = load_dotenv(root / ".env")
     parser = argparse.ArgumentParser()
+    parser.add_argument("--instance-id", default=env_value("INSTANCE_ID", dotenv, "node-local"))
+    parser.add_argument("--db-path", default=str(root / env_value("DB_PATH", dotenv, "runtime/proxy.db")))
     parser.add_argument("--http-host", default=env_value("HTTP_HOST", dotenv, "0.0.0.0"))
     parser.add_argument("--http-port", type=int, default=int(env_value("HTTP_PORT", dotenv, "18888")))
     parser.add_argument("--https-host", default=env_value("HTTPS_HOST", dotenv, "0.0.0.0"))
@@ -385,7 +439,10 @@ async def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    server = ProxyServer()
+    config_store = ConfigStore(args.db_path)
+    config_store.init_schema()
+    config_store.bootstrap_local_instance(args.instance_id, args.http_host, args.http_port)
+    server = ProxyServer(config_store=config_store, instance_id=args.instance_id)
     log = logging.getLogger("rootless_proxy")
     ensure_certificate(args.certfile, args.keyfile, args.cert_days, args.cert_cn)
     ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

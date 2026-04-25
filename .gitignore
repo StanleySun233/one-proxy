@@ -223,3 +223,4 @@ runtime/*.out
 runtime/*.pid
 certs/*.crt
 certs/*.key
+plan/
