@@ -16,7 +16,7 @@ import {
   RouteRule
 } from '@/lib/control-plane-types';
 
-const CONTROL_PLANE_PROXY_BASE = '/api/control-plane/v1';
+const CONTROL_PLANE_PROXY_BASE = '/api/v1';
 const SESSION_STORAGE_KEY = 'one-proxy-control-plane-session';
 const AUTH_INVALID_EVENT = 'one-proxy-auth-invalid';
 

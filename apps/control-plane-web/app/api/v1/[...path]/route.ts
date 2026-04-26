@@ -5,7 +5,7 @@ const CONTROL_PLANE_URL = process.env.CONTROL_PLANE_URL || 'http://127.0.0.1:288
 async function proxy(request: NextRequest, params: {path: string[]}) {
   const targetPath = params.path.join('/');
   const search = request.nextUrl.search || '';
-  const url = `${CONTROL_PLANE_URL}/api/${targetPath}${search}`;
+  const url = `${CONTROL_PLANE_URL}/api/v1/${targetPath}${search}`;
   const headers = new Headers();
 
   const authorization = request.headers.get('authorization');

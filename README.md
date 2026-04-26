@@ -47,7 +47,7 @@ docker run --rm --name one-proxy-control-plane \
   one-proxy-control-plane
 ```
 
-Open `http://127.0.0.1:2886`. The frontend is the only exposed port. `/api/control-plane/*` is proxied inside the same container to the backend on `127.0.0.1:2887`.
+Open `http://127.0.0.1:2886`. The frontend is the only exposed port. `/api/v1/*` is proxied inside the same container to the backend on `127.0.0.1:2887`.
 
 ### Proxy Node
 
