@@ -23,15 +23,12 @@ func (s *SeedStore) BootstrapAdminPassword() string {
 func (s *SeedStore) GetOverview() domain.Overview {
 	return domain.Overview{
 		Nodes: domain.OverviewNodes{
-			Healthy:  3,
-			Degraded: 1,
+			Healthy:  0,
+			Degraded: 0,
 		},
-		Policies: domain.OverviewPolicies{
-			ActiveRevision: "rev-0007",
-			PublishedAt:    "2026-04-25T00:00:00Z",
-		},
+		Policies:     domain.OverviewPolicies{},
 		Certificates: domain.OverviewCertificates{
-			RenewSoon: 1,
+			RenewSoon: 0,
 		},
 	}
 }
@@ -59,7 +56,7 @@ func (s *SeedStore) CreateAccount(input domain.CreateAccountInput) (domain.Accou
 }
 
 func (s *SeedStore) ListNodeLinks() []domain.NodeLink {
-	return defaultNodeLinks()
+	return []domain.NodeLink{}
 }
 
 func (s *SeedStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.NodeLink, error) {
@@ -142,7 +139,7 @@ func (s *SeedStore) UpdateNodeOnboardingTaskStatus(taskID string, status string,
 }
 
 func (s *SeedStore) ListCertificates() []domain.Certificate {
-	return defaultCertificates()
+	return []domain.Certificate{}
 }
 
 func (s *SeedStore) UpdateAccount(accountID string, input domain.UpdateAccountInput) (domain.Account, error) {
@@ -221,7 +218,7 @@ func (s *SeedStore) Logout(accessToken string) bool {
 }
 
 func (s *SeedStore) ListNodes() []domain.Node {
-	return defaultNodes()
+	return []domain.Node{}
 }
 
 func (s *SeedStore) CreateNode(input domain.CreateNodeInput) (domain.Node, error) {
@@ -274,7 +271,7 @@ func (s *SeedStore) DeleteNode(nodeID string) error {
 }
 
 func (s *SeedStore) ListChains() []domain.Chain {
-	return defaultChains()
+	return []domain.Chain{}
 }
 
 func (s *SeedStore) CreateChain(input domain.CreateChainInput) (domain.Chain, error) {
@@ -303,7 +300,7 @@ func (s *SeedStore) DeleteChain(chainID string) error {
 }
 
 func (s *SeedStore) ListRouteRules() []domain.RouteRule {
-	return defaultRouteRules()
+	return []domain.RouteRule{}
 }
 
 func (s *SeedStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
@@ -338,7 +335,7 @@ func (s *SeedStore) DeleteRouteRule(ruleID string) error {
 }
 
 func (s *SeedStore) ListNodeHealth() []domain.NodeHealth {
-	return defaultNodeHealth()
+	return []domain.NodeHealth{}
 }
 
 func (s *SeedStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error) {
@@ -394,15 +391,7 @@ func (s *SeedStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentIn
 }
 
 func (s *SeedStore) ListPolicyRevisions() []domain.PolicyRevision {
-	return []domain.PolicyRevision{
-		{
-			ID:            "policy-rev-0007",
-			Version:       "rev-0007",
-			Status:        "published",
-			CreatedAt:     "2026-04-25T00:00:00Z",
-			AssignedNodes: 4,
-		},
-	}
+	return []domain.PolicyRevision{}
 }
 
 func (s *SeedStore) PublishPolicy(accountID string) (domain.PolicyRevision, error) {
@@ -412,23 +401,18 @@ func (s *SeedStore) PublishPolicy(accountID string) (domain.PolicyRevision, erro
 		Version:       fmt.Sprintf("rev-%d", time.Now().Unix()),
 		Status:        "published",
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
-		AssignedNodes: len(defaultNodes()),
+		AssignedNodes: 0,
 	}, nil
 }
 
 func (s *SeedStore) AuthenticateNodeToken(accessToken string) (string, bool) {
-	if accessToken == "" {
-		return "", false
-	}
-	return "edge-a", true
+	_ = accessToken
+	return "", false
 }
 
 func (s *SeedStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
-	return domain.NodeAgentPolicy{
-		NodeID:           nodeID,
-		PolicyRevisionID: "rev-0007",
-		PayloadJSON:      `{"seed":true}`,
-	}, true
+	_ = nodeID
+	return domain.NodeAgentPolicy{}, false
 }
 
 func (s *SeedStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domain.NodeHealth, error) {

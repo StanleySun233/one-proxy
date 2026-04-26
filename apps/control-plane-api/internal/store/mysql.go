@@ -102,7 +102,7 @@ func (s *MySQLStore) init(ctx context.Context) error {
 	if err := s.bootstrapAdmin(ctx); err != nil {
 		return err
 	}
-	if err := s.bootstrapTopology(ctx); err != nil {
+	if err := s.cleanupLegacyDemoTopology(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -210,99 +210,81 @@ func (s *MySQLStore) roleIDByName(ctx context.Context, name string) (string, boo
 	return id, true, nil
 }
 
-func (s *MySQLStore) bootstrapTopology(ctx context.Context) error {
-	exists, err := s.exists(ctx, "SELECT 1 FROM nodes LIMIT 1")
-	if err != nil || exists {
+func (s *MySQLStore) cleanupLegacyDemoTopology(ctx context.Context) error {
+	var nodeCount int
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM nodes").Scan(&nodeCount); err != nil {
 		return err
 	}
-	now := nowRFC3339()
-
-	for _, node := range defaultNodes() {
-		if _, err := s.db.ExecContext(ctx,
-			`INSERT INTO nodes (id, name, mode, public_host, public_port, scope_key, parent_node_id, enabled, status, created_at, updated_at)
-			 VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, ?, ?, ?)`,
-			node.ID, node.Name, node.Mode, node.PublicHost, node.PublicPort, node.ScopeKey, node.ParentNodeID, boolToInt(node.Enabled), node.Status, now, now,
-		); err != nil {
-			return err
-		}
+	if nodeCount == 0 {
+		return nil
 	}
-
-	for _, link := range defaultNodeLinks() {
-		if _, err := s.db.ExecContext(ctx,
-			`INSERT INTO node_links (id, source_node_id, target_node_id, link_type, trust_state, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			link.ID, link.SourceNodeID, link.TargetNodeID, link.LinkType, link.TrustState, now, now,
-		); err != nil {
-			return err
-		}
-	}
-
-	for _, chain := range defaultChains() {
-		if _, err := s.db.ExecContext(ctx,
-			`INSERT INTO chains (id, name, destination_scope, enabled, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?)`,
-			chain.ID, chain.Name, chain.DestinationScope, boolToInt(chain.Enabled), now, now,
-		); err != nil {
-			return err
-		}
-		for index, hop := range chain.Hops {
-			if _, err := s.db.ExecContext(ctx,
-				`INSERT INTO chain_hops (chain_id, hop_index, node_id) VALUES (?, ?, ?)`,
-				chain.ID, index, hop,
-			); err != nil {
-				return err
-			}
-		}
-	}
-
-	for _, rule := range defaultRouteRules() {
-		if _, err := s.db.ExecContext(ctx,
-			`INSERT INTO route_rules (id, priority, match_type, match_value, action_type, chain_id, destination_scope, enabled, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?)`,
-			rule.ID, rule.Priority, rule.MatchType, rule.MatchValue, rule.ActionType, rule.ChainID, rule.DestinationScope, boolToInt(rule.Enabled), now, now,
-		); err != nil {
-			return err
-		}
-	}
-
-	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO policy_revisions (id, version, payload_json, status, created_by_account_id, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		"policy-rev-0007", "rev-0007", `{"seed":true}`, "published", "acct-admin", now,
-	); err != nil {
+	var pathCount int
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM node_access_paths").Scan(&pathCount); err != nil {
 		return err
 	}
-
-	for _, health := range defaultNodeHealth() {
-		if _, err := s.db.ExecContext(ctx,
-			`INSERT INTO node_health_snapshots (node_id, heartbeat_at, policy_revision_id, listener_status_json, cert_status_json, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?)`,
-			health.NodeID, health.HeartbeatAt, "policy-rev-0007", encodeJSONMap(health.ListenerStatus), encodeJSONMap(health.CertStatus), now,
-		); err != nil {
+	if pathCount > 0 {
+		return nil
+	}
+	var taskCount int
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM node_onboarding_tasks").Scan(&taskCount); err != nil {
+		return err
+	}
+	if taskCount > 0 {
+		return nil
+	}
+	rows, err := s.db.QueryContext(ctx, "SELECT id FROM nodes ORDER BY id")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	nodeIDs := make([]string, 0, 4)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		nodeIDs = append(nodeIDs, id)
+	}
+	if len(nodeIDs) != 4 ||
+		nodeIDs[0] != "edge-a" ||
+		nodeIDs[1] != "relay-b" ||
+		nodeIDs[2] != "relay-c" ||
+		nodeIDs[3] != "relay-d" {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "SET FOREIGN_KEY_CHECKS = 0"); err != nil {
+		return err
+	}
+	statements := []string{
+		"DELETE FROM node_onboarding_tasks",
+		"DELETE FROM node_access_paths",
+		"DELETE FROM node_policy_assignments",
+		"DELETE FROM node_health_snapshots",
+		"DELETE FROM node_api_tokens",
+		"DELETE FROM node_trust_materials",
+		"DELETE FROM bootstrap_tokens",
+		"DELETE FROM certificates",
+		"DELETE FROM policy_revisions",
+		"DELETE FROM route_rules",
+		"DELETE FROM chain_hops",
+		"DELETE FROM chains",
+		"DELETE FROM node_links",
+		"DELETE FROM nodes",
+	}
+	for _, statement := range statements {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return err
 		}
 	}
-
-	for _, cert := range defaultCertificates() {
-		if _, err := s.db.ExecContext(ctx,
-			`INSERT INTO certificates (id, owner_type, owner_id, cert_type, provider, status, not_before, not_after, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			cert.ID, cert.OwnerType, cert.OwnerID, cert.CertType, cert.Provider, cert.Status, cert.NotBefore, cert.NotAfter, now, now,
-		); err != nil {
-			return err
-		}
+	if _, err := tx.ExecContext(ctx, "SET FOREIGN_KEY_CHECKS = 1"); err != nil {
+		return err
 	}
-
-	for _, node := range defaultNodes() {
-		if _, err := s.db.ExecContext(ctx,
-			`INSERT INTO node_policy_assignments (node_id, policy_revision_id, snapshot_json, assigned_at) VALUES (?, ?, ?, ?)`,
-			node.ID, "policy-rev-0007", `{"seed":true}`, now,
-		); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return tx.Commit()
 }
 
 func (s *MySQLStore) exists(ctx context.Context, query string, args ...any) (bool, error) {
