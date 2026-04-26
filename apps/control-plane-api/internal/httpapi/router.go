@@ -46,6 +46,7 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/node-access-paths", r.requireAccount(r.handleNodeAccessPaths))
 	r.mux.HandleFunc("/api/v1/node-access-paths/", r.requireAccount(r.handleNodeAccessPathByID))
 	r.mux.HandleFunc("/api/v1/node-onboarding-tasks", r.requireAccount(r.handleNodeOnboardingTasks))
+	r.mux.HandleFunc("/api/v1/node-onboarding-tasks/", r.requireAccount(r.handleNodeOnboardingTaskByID))
 	r.mux.HandleFunc("/api/v1/nodes", r.requireAccount(r.handleNodes))
 	r.mux.HandleFunc("/api/v1/nodes/", r.requireAccount(r.handleNodeByID))
 	r.mux.HandleFunc("/api/v1/nodes/connect", r.requireAccount(r.handleNodeConnect))

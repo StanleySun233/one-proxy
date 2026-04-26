@@ -189,6 +189,7 @@ export function connectNode(
   payload: {
     address: string;
     password: string;
+    newPassword: string;
     name: string;
     mode: string;
     scopeKey: string;
@@ -247,6 +248,34 @@ export function createNodeAccessPath(
   });
 }
 
+export function updateNodeAccessPath(
+  accessToken: string,
+  pathID: string,
+  payload: {
+    name: string;
+    mode: string;
+    targetNodeId: string;
+    entryNodeId: string;
+    relayNodeIds: string[];
+    targetHost: string;
+    targetPort: number;
+    enabled: boolean;
+  }
+) {
+  return request<NodeAccessPath>(`/node-access-paths/${pathID}`, {
+    method: 'PATCH',
+    accessToken,
+    body: payload
+  });
+}
+
+export function deleteNodeAccessPath(accessToken: string, pathID: string) {
+  return request<{status: string}>(`/node-access-paths/${pathID}`, {
+    method: 'DELETE',
+    accessToken
+  });
+}
+
 export function getNodeOnboardingTasks(accessToken: string) {
   return request<NodeOnboardingTask[]>('/node-onboarding-tasks', {accessToken});
 }
@@ -263,6 +292,21 @@ export function createNodeOnboardingTask(
 ) {
   return request<NodeOnboardingTask>('/node-onboarding-tasks', {
     method: 'POST',
+    accessToken,
+    body: payload
+  });
+}
+
+export function updateNodeOnboardingTaskStatus(
+  accessToken: string,
+  taskID: string,
+  payload: {
+    status: string;
+    statusMessage: string;
+  }
+) {
+  return request<NodeOnboardingTask>(`/node-onboarding-tasks/${taskID}`, {
+    method: 'PATCH',
     accessToken,
     body: payload
   });

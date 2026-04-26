@@ -141,4 +141,5 @@ export type ConnectedNodeResult = {
   nodeListenAddr: string;
   nodeHttpsListenAddr: string;
   controlPlaneBound: boolean;
+  mustRotatePassword: boolean;
 };

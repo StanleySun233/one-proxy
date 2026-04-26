@@ -22,8 +22,13 @@ export function QuickConnectTab({
       </div>
       <div className="field-stack">
         <span>Join password</span>
-        <input className="field-input" type="password" placeholder="NODE_JOIN_PASSWORD" {...form.register('password', {required: 'join password is required'})} />
+        <input className="field-input" type="password" placeholder="password" {...form.register('password', {required: 'join password is required'})} />
         {form.formState.errors.password ? <p className="error-text">{form.formState.errors.password.message}</p> : null}
+      </div>
+      <div className="field-stack">
+        <span>New join password</span>
+        <input className="field-input" type="password" placeholder="required when node still uses default password" {...form.register('newPassword')} />
+        <p className="field-hint">If the node started without `NODE_JOIN_PASSWORD`, enter `password` above and set the replacement password here.</p>
       </div>
       <div className="field-stack">
         <span>Name</span>
@@ -63,7 +68,7 @@ export function QuickConnectTab({
         <button className="primary-button" disabled={submitting} type="submit">
           {submitting ? 'Submitting' : 'Connect node'}
         </button>
-        <p className="field-hint">Fast path for nodes already running with a join password.</p>
+        <p className="field-hint">Nodes started without `NODE_JOIN_PASSWORD` now default to `password` and must rotate it during first panel connect.</p>
       </div>
     </form>
   );

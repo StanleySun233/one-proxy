@@ -30,6 +30,7 @@ export function useNodeConsole() {
     defaultValues: {
       address: '',
       password: '',
+      newPassword: '',
       name: '',
       mode: 'relay',
       scopeKey: '',
@@ -81,6 +82,7 @@ export function useNodeConsole() {
     mutationFn: (payload: {
       address: string;
       password: string;
+      newPassword: string;
       name: string;
       mode: string;
       scopeKey: string;
@@ -96,6 +98,7 @@ export function useNodeConsole() {
       quickConnectForm.reset({
         address: '',
         password: '',
+        newPassword: '',
         name: '',
         mode: 'relay',
         scopeKey: '',

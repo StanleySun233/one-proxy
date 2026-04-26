@@ -23,25 +23,35 @@ type Binding struct {
 	NodePublicPort  int    `json:"nodePublicPort"`
 }
 
-type Manager struct {
-	mu               sync.RWMutex
-	path             string
-	store            *policystore.Store
-	interval         time.Duration
-	listenerStatus   map[string]string
-	certStatus       map[string]string
-	managePublicCert bool
-	binding          Binding
+type persistedState struct {
+	Binding
+	JoinPassword       string `json:"joinPassword"`
+	MustRotatePassword bool   `json:"mustRotatePassword"`
 }
 
-func New(path string, store *policystore.Store, interval time.Duration, listenerStatus map[string]string, certStatus map[string]string, managePublicCert bool) *Manager {
+type Manager struct {
+	mu                 sync.RWMutex
+	path               string
+	store              *policystore.Store
+	interval           time.Duration
+	listenerStatus     map[string]string
+	certStatus         map[string]string
+	managePublicCert   bool
+	binding            Binding
+	joinPassword       string
+	mustRotatePassword bool
+}
+
+func New(path string, store *policystore.Store, interval time.Duration, listenerStatus map[string]string, certStatus map[string]string, managePublicCert bool, joinPassword string, mustRotatePassword bool) *Manager {
 	manager := &Manager{
-		path:             path,
-		store:            store,
-		interval:         interval,
-		listenerStatus:   cloneMap(listenerStatus),
-		certStatus:       cloneMap(certStatus),
-		managePublicCert: managePublicCert,
+		path:               path,
+		store:              store,
+		interval:           interval,
+		listenerStatus:     cloneMap(listenerStatus),
+		certStatus:         cloneMap(certStatus),
+		managePublicCert:   managePublicCert,
+		joinPassword:       joinPassword,
+		mustRotatePassword: mustRotatePassword,
 	}
 	manager.load()
 	return manager
@@ -73,6 +83,18 @@ func (m *Manager) Current() Binding {
 	return m.binding
 }
 
+func (m *Manager) JoinPassword() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.joinPassword
+}
+
+func (m *Manager) MustRotatePassword() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.mustRotatePassword
+}
+
 func (m *Manager) Bound() bool {
 	current := m.Current()
 	return current.ControlPlaneURL != "" && current.NodeID != "" && current.NodeAccessToken != ""
@@ -80,6 +102,22 @@ func (m *Manager) Bound() bool {
 
 func (m *Manager) NodeID() string {
 	return m.Current().NodeID
+}
+
+func (m *Manager) RotateJoinPassword(currentPassword string, newPassword string) error {
+	m.mu.Lock()
+	if currentPassword == "" || currentPassword != m.joinPassword {
+		m.mu.Unlock()
+		return os.ErrPermission
+	}
+	if newPassword == "" || newPassword == currentPassword {
+		m.mu.Unlock()
+		return os.ErrInvalid
+	}
+	m.joinPassword = newPassword
+	m.mustRotatePassword = false
+	m.mu.Unlock()
+	return m.persist()
 }
 
 func (m *Manager) tick() {
@@ -121,11 +159,15 @@ func (m *Manager) load() {
 	if err != nil {
 		return
 	}
-	var binding Binding
-	if err := json.Unmarshal(raw, &binding); err != nil {
+	var state persistedState
+	if err := json.Unmarshal(raw, &state); err != nil {
 		return
 	}
-	m.binding = binding
+	m.binding = state.Binding
+	if state.JoinPassword != "" {
+		m.joinPassword = state.JoinPassword
+		m.mustRotatePassword = state.MustRotatePassword
+	}
 }
 
 func (m *Manager) persist() error {
@@ -135,7 +177,14 @@ func (m *Manager) persist() error {
 	if err := os.MkdirAll(filepath.Dir(m.path), 0o755); err != nil {
 		return err
 	}
-	raw, err := json.Marshal(m.Current())
+	m.mu.RLock()
+	state := persistedState{
+		Binding:            m.binding,
+		JoinPassword:       m.joinPassword,
+		MustRotatePassword: m.mustRotatePassword,
+	}
+	m.mu.RUnlock()
+	raw, err := json.Marshal(state)
 	if err != nil {
 		return err
 	}

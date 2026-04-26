@@ -21,11 +21,11 @@ type Account struct {
 }
 
 type NodeLink struct {
-	ID         string `json:"id"`
+	ID           string `json:"id"`
 	SourceNodeID string `json:"sourceNodeId"`
 	TargetNodeID string `json:"targetNodeId"`
-	LinkType   string `json:"linkType"`
-	TrustState string `json:"trustState"`
+	LinkType     string `json:"linkType"`
+	TrustState   string `json:"trustState"`
 }
 
 type NodeAccessPath struct {
@@ -101,6 +101,11 @@ type CreateNodeOnboardingTaskInput struct {
 	TargetPort   int    `json:"targetPort"`
 }
 
+type UpdateNodeOnboardingTaskStatusInput struct {
+	Status        string `json:"status"`
+	StatusMessage string `json:"statusMessage"`
+}
+
 type CreateAccountInput struct {
 	Account  string `json:"account"`
 	Password string `json:"password"`
@@ -125,6 +130,7 @@ type CreateNodeInput struct {
 type ConnectNodeInput struct {
 	Address         string `json:"address"`
 	Password        string `json:"password"`
+	NewPassword     string `json:"newPassword"`
 	Name            string `json:"name"`
 	Mode            string `json:"mode"`
 	ScopeKey        string `json:"scopeKey"`
@@ -135,12 +141,13 @@ type ConnectNodeInput struct {
 }
 
 type ConnectedNodeResult struct {
-	Node                 Node     `json:"node"`
-	ConnectionStatus     string   `json:"connectionStatus"`
-	LocalIPs             []string `json:"localIps"`
-	NodeListenAddr       string   `json:"nodeListenAddr"`
-	NodeHTTPSListenAddr  string   `json:"nodeHttpsListenAddr"`
-	ControlPlaneBound    bool     `json:"controlPlaneBound"`
+	Node                Node     `json:"node"`
+	ConnectionStatus    string   `json:"connectionStatus"`
+	LocalIPs            []string `json:"localIps"`
+	NodeListenAddr      string   `json:"nodeListenAddr"`
+	NodeHTTPSListenAddr string   `json:"nodeHttpsListenAddr"`
+	ControlPlaneBound   bool     `json:"controlPlaneBound"`
+	MustRotatePassword  bool     `json:"mustRotatePassword"`
 }
 
 type UpdateNodeInput struct {
@@ -192,11 +199,11 @@ type CreateBootstrapTokenInput struct {
 }
 
 type BootstrapToken struct {
-	ID        string `json:"id"`
-	Token     string `json:"token"`
+	ID         string `json:"id"`
+	Token      string `json:"token"`
 	TargetType string `json:"targetType"`
-	TargetID  string `json:"targetId"`
-	ExpiresAt string `json:"expiresAt"`
+	TargetID   string `json:"targetId"`
+	ExpiresAt  string `json:"expiresAt"`
 }
 
 type EnrollNodeInput struct {
@@ -223,8 +230,8 @@ type ApproveNodeEnrollmentResult struct {
 }
 
 type ExchangeNodeEnrollmentInput struct {
-	NodeID            string `json:"nodeId"`
-	EnrollmentSecret  string `json:"enrollmentSecret"`
+	NodeID           string `json:"nodeId"`
+	EnrollmentSecret string `json:"enrollmentSecret"`
 }
 
 type NodeAgentPolicy struct {
@@ -246,10 +253,10 @@ type NodeCertRenewInput struct {
 }
 
 type NodeCertRenewResult struct {
-	NodeID    string `json:"nodeId"`
-	CertType  string `json:"certType"`
-	Status    string `json:"status"`
-	NotAfter  string `json:"notAfter"`
+	NodeID   string `json:"nodeId"`
+	CertType string `json:"certType"`
+	Status   string `json:"status"`
+	NotAfter string `json:"notAfter"`
 }
 
 type RefreshSessionInput struct {

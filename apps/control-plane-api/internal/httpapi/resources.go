@@ -139,6 +139,29 @@ func (r *Router) handleNodeOnboardingTasks(w http.ResponseWriter, req *http.Requ
 	}
 }
 
+func (r *Router) handleNodeOnboardingTaskByID(w http.ResponseWriter, req *http.Request) {
+	taskID := resourceID(req.URL.Path, "/api/v1/node-onboarding-tasks/")
+	if taskID == "" {
+		writeError(w, http.StatusBadRequest, "missing_task_id")
+		return
+	}
+	if req.Method != http.MethodPatch {
+		writeMethodNotAllowed(w, "PATCH")
+		return
+	}
+	var payload domain.UpdateNodeOnboardingTaskStatusInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	item, err := r.service.UpdateNodeOnboardingTaskStatus(taskID, payload)
+	if err != nil {
+		writeServiceError(w, req, err, "update_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, item)
+}
+
 func (r *Router) handleCertificates(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		writeMethodNotAllowed(w, "GET")

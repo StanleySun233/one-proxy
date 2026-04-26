@@ -102,6 +102,7 @@ type ApproveNodeEnrollmentResult struct {
 
 type NodeBootstrapAttachInput struct {
 	Password        string   `json:"password"`
+	NewPassword     string   `json:"newPassword"`
 	ControlPlaneURL string   `json:"controlPlaneUrl"`
 	NodeID          string   `json:"nodeId"`
 	NodeAccessToken string   `json:"nodeAccessToken"`
@@ -120,4 +121,10 @@ type NodeBootstrapAttachResult struct {
 	NodeListenAddr      string   `json:"nodeListenAddr"`
 	NodeHTTPSListenAddr string   `json:"nodeHttpsListenAddr"`
 	ControlPlaneBound   bool     `json:"controlPlaneBound"`
+	MustRotatePassword  bool     `json:"mustRotatePassword"`
+}
+
+type NodeBootstrapPasswordRotateInput struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
 }

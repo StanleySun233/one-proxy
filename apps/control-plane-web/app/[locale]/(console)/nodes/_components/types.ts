@@ -12,6 +12,7 @@ export type NodeFormValues = {
 export type QuickConnectFormValues = {
   address: string;
   password: string;
+  newPassword: string;
   name: string;
   mode: string;
   scopeKey: string;

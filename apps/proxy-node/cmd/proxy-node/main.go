@@ -31,7 +31,7 @@ func main() {
 	listenerStatus := map[string]string{"http": "healthy"}
 	certStatus := map[string]string{"internal": "healthy"}
 	managePublicCert := cfg.PublicCertProvider == "lets_encrypt" && cfg.NodeMode == "edge" && cfg.NodePublicHost != "" && cfg.LetsEncryptEmail != ""
-	manager := runtime.New(cfg.RuntimeConfigPath, store, interval, listenerStatus, certStatus, managePublicCert)
+	manager := runtime.New(cfg.RuntimeConfigPath, store, interval, listenerStatus, certStatus, managePublicCert, cfg.NodeJoinPassword, !cfg.NodeJoinPasswordProvided)
 	if cfg.ControlPlaneURL != "" && cfg.NodeAccessToken != "" && cfg.NodeID != "" {
 		if err := manager.Attach(runtime.Binding{
 			ControlPlaneURL: cfg.ControlPlaneURL,
@@ -99,7 +99,7 @@ func main() {
 	mux.Handle("/", proxyHandler)
 	httpHandler := http.Handler(mux)
 	mux.Handle("/api/v1/control-relay/probe", controlrelay.NewProbeHandler())
-	mux.Handle("/api/v1/node/bootstrap/attach", bootstrap.New(cfg.NodeJoinPassword, cfg.ListenAddr, cfg.HTTPSListenAddr, manager))
+	mux.Handle("/api/v1/node/bootstrap/attach", bootstrap.New(cfg.ListenAddr, cfg.HTTPSListenAddr, manager))
 	if manager.Bound() {
 		current := manager.Current()
 		forwarder, err := controlproxy.New(current.ControlPlaneURL)

@@ -32,6 +32,7 @@ export function NodeConnectPageContent() {
               nodeConsole.quickConnect.mutate({
                 address: values.address.trim(),
                 password: values.password,
+                newPassword: values.newPassword,
                 name: values.name.trim(),
                 mode: values.mode,
                 scopeKey: values.scopeKey.trim(),

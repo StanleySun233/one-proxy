@@ -18,11 +18,11 @@ import (
 )
 
 type ControlPlane struct {
-	store              store.Store
-	sessionTTL         time.Duration
-	bootstrapTokenTTL  time.Duration
-	nodeHeartbeatTTL   time.Duration
-	publicRenewWindow  time.Duration
+	store             store.Store
+	sessionTTL        time.Duration
+	bootstrapTokenTTL time.Duration
+	nodeHeartbeatTTL  time.Duration
+	publicRenewWindow time.Duration
 }
 
 func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
@@ -133,6 +133,16 @@ func (c *ControlPlane) CreateNodeOnboardingTask(accountID string, input domain.C
 	}
 }
 
+func (c *ControlPlane) UpdateNodeOnboardingTaskStatus(taskID string, input domain.UpdateNodeOnboardingTaskStatusInput) (domain.NodeOnboardingTask, error) {
+	if taskID == "" {
+		return domain.NodeOnboardingTask{}, invalidInput("missing_task_id")
+	}
+	if input.Status == "" {
+		return domain.NodeOnboardingTask{}, invalidInput("invalid_task_status")
+	}
+	return c.store.UpdateNodeOnboardingTaskStatus(taskID, input.Status, input.StatusMessage)
+}
+
 func (c *ControlPlane) Certificates() []domain.Certificate {
 	return c.store.ListCertificates()
 }
@@ -223,17 +233,18 @@ func (c *ControlPlane) ConnectNode(input domain.ConnectNodeInput) (domain.Connec
 		return domain.ConnectedNodeResult{}, err
 	}
 	result, err := connectRemoteNode(input.Address, remoteNodeAttachInput{
-		Password:          input.Password,
-		ControlPlaneURL:   input.ControlPlaneURL,
-		NodeID:            issued.Node.ID,
-		NodeAccessToken:   issued.AccessToken,
-		NodeName:          issued.Node.Name,
-		NodeMode:          issued.Node.Mode,
-		NodeScopeKey:      issued.Node.ScopeKey,
-		NodeParentID:      issued.Node.ParentNodeID,
-		NodePublicHost:    issued.Node.PublicHost,
-		NodePublicPort:    issued.Node.PublicPort,
-		LocalIPs:          network.LocalIPs(),
+		Password:        input.Password,
+		NewPassword:     input.NewPassword,
+		ControlPlaneURL: input.ControlPlaneURL,
+		NodeID:          issued.Node.ID,
+		NodeAccessToken: issued.AccessToken,
+		NodeName:        issued.Node.Name,
+		NodeMode:        issued.Node.Mode,
+		NodeScopeKey:    issued.Node.ScopeKey,
+		NodeParentID:    issued.Node.ParentNodeID,
+		NodePublicHost:  issued.Node.PublicHost,
+		NodePublicPort:  issued.Node.PublicPort,
+		LocalIPs:        network.LocalIPs(),
 	})
 	if err != nil {
 		_ = c.store.DeleteNode(node.ID)
@@ -246,6 +257,7 @@ func (c *ControlPlane) ConnectNode(input domain.ConnectNodeInput) (domain.Connec
 		NodeListenAddr:      result.NodeListenAddr,
 		NodeHTTPSListenAddr: result.NodeHTTPSListenAddr,
 		ControlPlaneBound:   result.ControlPlaneBound,
+		MustRotatePassword:  result.MustRotatePassword,
 	}, nil
 }
 
@@ -441,6 +453,7 @@ func parseDuration(raw string, fallback time.Duration) time.Duration {
 
 type remoteNodeAttachInput struct {
 	Password        string   `json:"password"`
+	NewPassword     string   `json:"newPassword"`
 	ControlPlaneURL string   `json:"controlPlaneUrl"`
 	NodeID          string   `json:"nodeId"`
 	NodeAccessToken string   `json:"nodeAccessToken"`
@@ -454,11 +467,12 @@ type remoteNodeAttachInput struct {
 }
 
 type remoteNodeAttachResult struct {
-	ConnectionStatus   string   `json:"connectionStatus"`
-	LocalIPs           []string `json:"localIps"`
-	NodeListenAddr     string   `json:"nodeListenAddr"`
-	NodeHTTPSListenAddr string  `json:"nodeHttpsListenAddr"`
-	ControlPlaneBound  bool     `json:"controlPlaneBound"`
+	ConnectionStatus    string   `json:"connectionStatus"`
+	LocalIPs            []string `json:"localIps"`
+	NodeListenAddr      string   `json:"nodeListenAddr"`
+	NodeHTTPSListenAddr string   `json:"nodeHttpsListenAddr"`
+	ControlPlaneBound   bool     `json:"controlPlaneBound"`
+	MustRotatePassword  bool     `json:"mustRotatePassword"`
 }
 
 type remoteEnvelope[T any] struct {

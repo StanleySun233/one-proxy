@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 
 	"github.com/StanleySun233/python-proxy/apps/proxy-node/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/proxy-node/internal/network"
@@ -10,7 +11,6 @@ import (
 )
 
 type Handler struct {
-	joinPassword    string
 	listenAddr      string
 	httpsListenAddr string
 	manager         *runtime.Manager
@@ -22,9 +22,8 @@ type responseEnvelope[T any] struct {
 	Data    T      `json:"data,omitempty"`
 }
 
-func New(joinPassword string, listenAddr string, httpsListenAddr string, manager *runtime.Manager) *Handler {
+func New(listenAddr string, httpsListenAddr string, manager *runtime.Manager) *Handler {
 	return &Handler{
-		joinPassword:    joinPassword,
 		listenAddr:      listenAddr,
 		httpsListenAddr: httpsListenAddr,
 		manager:         manager,
@@ -32,11 +31,19 @@ func New(joinPassword string, listenAddr string, httpsListenAddr string, manager
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
+	switch req.Method {
+	case http.MethodPost:
+		h.handleAttach(w, req)
+	case http.MethodPatch:
+		h.handleRotatePassword(w, req)
+	default:
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed")
-		return
 	}
-	if h.joinPassword == "" {
+}
+
+func (h *Handler) handleAttach(w http.ResponseWriter, req *http.Request) {
+	joinPassword := h.manager.JoinPassword()
+	if joinPassword == "" {
 		writeError(w, http.StatusForbidden, "node_join_password_not_configured")
 		return
 	}
@@ -45,9 +52,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	if payload.Password == "" || payload.Password != h.joinPassword {
+	if payload.Password == "" || payload.Password != joinPassword {
 		writeError(w, http.StatusUnauthorized, "invalid_join_password")
 		return
+	}
+	if h.manager.MustRotatePassword() {
+		if payload.NewPassword == "" {
+			writeError(w, http.StatusBadRequest, "node_password_rotation_required")
+			return
+		}
+		if payload.NewPassword == joinPassword {
+			writeError(w, http.StatusBadRequest, "invalid_new_join_password")
+			return
+		}
 	}
 	if payload.ControlPlaneURL == "" || payload.NodeID == "" || payload.NodeAccessToken == "" {
 		writeError(w, http.StatusBadRequest, "invalid_attach_payload")
@@ -67,12 +84,44 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if h.manager.MustRotatePassword() {
+		if err := h.manager.RotateJoinPassword(joinPassword, payload.NewPassword); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
 	writeSuccess(w, http.StatusOK, domain.NodeBootstrapAttachResult{
 		ConnectionStatus:    "connected",
 		LocalIPs:            network.LocalIPs(),
 		NodeListenAddr:      h.listenAddr,
 		NodeHTTPSListenAddr: h.httpsListenAddr,
 		ControlPlaneBound:   h.manager.Bound(),
+		MustRotatePassword:  h.manager.MustRotatePassword(),
+	})
+}
+
+func (h *Handler) handleRotatePassword(w http.ResponseWriter, req *http.Request) {
+	var payload domain.NodeBootstrapPasswordRotateInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	err := h.manager.RotateJoinPassword(payload.CurrentPassword, payload.NewPassword)
+	if err == os.ErrPermission {
+		writeError(w, http.StatusUnauthorized, "invalid_join_password")
+		return
+	}
+	if err == os.ErrInvalid {
+		writeError(w, http.StatusBadRequest, "invalid_new_join_password")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeSuccess(w, http.StatusOK, map[string]any{
+		"status":             "updated",
+		"mustRotatePassword": h.manager.MustRotatePassword(),
 	})
 }
 
