@@ -25,22 +25,12 @@ func New() *App {
 func (a *App) Run() error {
 	activeStore, err := store.NewMySQLStore(a.config.MySQLDSN)
 	if err != nil {
-		log.Printf("mysql store unavailable, using seed store: %v", err)
-		activeStore = nil
-	} else if password := activeStore.BootstrapAdminPassword(); password != "" {
+		return err
+	}
+	if password := activeStore.BootstrapAdminPassword(); password != "" {
 		log.Printf("bootstrap admin account initialized: account=admin")
 	}
-	var dataStore store.Store
-	if activeStore == nil {
-		seedStore := store.NewSeedStore()
-		if password := seedStore.BootstrapAdminPassword(); password != "" {
-			log.Printf("seed bootstrap admin account initialized: account=admin")
-		}
-		dataStore = seedStore
-	} else {
-		dataStore = activeStore
-	}
-	controlPlane := service.NewControlPlane(dataStore, a.config)
+	controlPlane := service.NewControlPlane(activeStore, a.config)
 	sched := scheduler.New(controlPlane, a.config)
 	sched.Start()
 	defer sched.Stop()

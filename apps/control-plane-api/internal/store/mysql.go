@@ -14,6 +14,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/control-plane-api/internal/auth"
 	"github.com/StanleySun233/python-proxy/apps/control-plane-api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/control-plane-api/internal/policy"
+	mysqldriver "github.com/go-sql-driver/mysql"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -25,6 +26,9 @@ type MySQLStore struct {
 }
 
 func NewMySQLStore(dsn string) (*MySQLStore, error) {
+	if err := ensureDatabaseExists(dsn); err != nil {
+		return nil, err
+	}
 	gormDB, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
@@ -46,6 +50,31 @@ func NewMySQLStore(dsn string) (*MySQLStore, error) {
 		return nil, err
 	}
 	return store, nil
+}
+
+func ensureDatabaseExists(dsn string) error {
+	config, err := mysqldriver.ParseDSN(dsn)
+	if err != nil {
+		return err
+	}
+	databaseName := config.DBName
+	if databaseName == "" {
+		return nil
+	}
+	config.DBName = ""
+	rootDB, err := sql.Open("mysql", config.FormatDSN())
+	if err != nil {
+		return err
+	}
+	defer rootDB.Close()
+	if err := rootDB.Ping(); err != nil {
+		return err
+	}
+	quotedName := "`" + strings.ReplaceAll(databaseName, "`", "``") + "`"
+	_, err = rootDB.Exec(
+		"CREATE DATABASE IF NOT EXISTS " + quotedName + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+	)
+	return err
 }
 
 func (s *MySQLStore) BootstrapAdminPassword() string {

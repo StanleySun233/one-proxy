@@ -22,8 +22,8 @@ ENV CONTROL_PLANE_URL=http://127.0.0.1:2887
 COPY --from=api-builder /out/control-plane /app/bin/control-plane
 COPY --from=api-builder /workspace/apps/control-plane-api/schema /app/apps/control-plane-api/schema
 COPY --from=web-builder /workspace/apps/control-plane-web/.next/standalone /app
-COPY --from=web-builder /workspace/apps/control-plane-web/.next/static /app/apps/control-plane-web/.next/static
-COPY --from=web-builder /workspace/apps/control-plane-web/public /app/apps/control-plane-web/public
+COPY --from=web-builder /workspace/apps/control-plane-web/.next/static /app/.next/static
+COPY --from=web-builder /workspace/apps/control-plane-web/public /app/public
 COPY docker/control-plane-start.sh /app/control-plane-start.sh
 
 RUN chmod +x /app/control-plane-start.sh
