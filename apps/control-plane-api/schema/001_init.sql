@@ -1,11 +1,11 @@
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE accounts (
+CREATE TABLE IF NOT EXISTS accounts (
   id TEXT PRIMARY KEY,
   account TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
@@ -17,9 +17,10 @@ CREATE TABLE accounts (
   FOREIGN KEY (role_id) REFERENCES roles(id)
 );
 
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   account_id TEXT NOT NULL,
+  access_token_hash TEXT NOT NULL UNIQUE,
   refresh_token_hash TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL,
@@ -27,7 +28,7 @@ CREATE TABLE sessions (
   FOREIGN KEY (account_id) REFERENCES accounts(id)
 );
 
-CREATE TABLE nodes (
+CREATE TABLE IF NOT EXISTS nodes (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   mode TEXT NOT NULL,
@@ -42,7 +43,7 @@ CREATE TABLE nodes (
   FOREIGN KEY (parent_node_id) REFERENCES nodes(id)
 );
 
-CREATE TABLE node_links (
+CREATE TABLE IF NOT EXISTS node_links (
   id TEXT PRIMARY KEY,
   source_node_id TEXT NOT NULL,
   target_node_id TEXT NOT NULL,
@@ -54,7 +55,7 @@ CREATE TABLE node_links (
   FOREIGN KEY (target_node_id) REFERENCES nodes(id)
 );
 
-CREATE TABLE chains (
+CREATE TABLE IF NOT EXISTS chains (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   destination_scope TEXT NOT NULL,
@@ -63,7 +64,7 @@ CREATE TABLE chains (
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE chain_hops (
+CREATE TABLE IF NOT EXISTS chain_hops (
   chain_id TEXT NOT NULL,
   hop_index INTEGER NOT NULL,
   node_id TEXT NOT NULL,
@@ -72,7 +73,7 @@ CREATE TABLE chain_hops (
   FOREIGN KEY (node_id) REFERENCES nodes(id)
 );
 
-CREATE TABLE route_rules (
+CREATE TABLE IF NOT EXISTS route_rules (
   id TEXT PRIMARY KEY,
   priority INTEGER NOT NULL,
   match_type TEXT NOT NULL,
@@ -86,7 +87,7 @@ CREATE TABLE route_rules (
   FOREIGN KEY (chain_id) REFERENCES chains(id)
 );
 
-CREATE TABLE policy_revisions (
+CREATE TABLE IF NOT EXISTS policy_revisions (
   id TEXT PRIMARY KEY,
   version TEXT NOT NULL UNIQUE,
   payload_json TEXT NOT NULL,
@@ -96,7 +97,7 @@ CREATE TABLE policy_revisions (
   FOREIGN KEY (created_by_account_id) REFERENCES accounts(id)
 );
 
-CREATE TABLE node_policy_assignments (
+CREATE TABLE IF NOT EXISTS node_policy_assignments (
   node_id TEXT PRIMARY KEY,
   policy_revision_id TEXT NOT NULL,
   assigned_at TEXT NOT NULL,
@@ -104,7 +105,7 @@ CREATE TABLE node_policy_assignments (
   FOREIGN KEY (policy_revision_id) REFERENCES policy_revisions(id)
 );
 
-CREATE TABLE bootstrap_tokens (
+CREATE TABLE IF NOT EXISTS bootstrap_tokens (
   id TEXT PRIMARY KEY,
   token_hash TEXT NOT NULL UNIQUE,
   target_type TEXT NOT NULL,
@@ -114,11 +115,12 @@ CREATE TABLE bootstrap_tokens (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE certificates (
+CREATE TABLE IF NOT EXISTS certificates (
   id TEXT PRIMARY KEY,
   owner_type TEXT NOT NULL,
   owner_id TEXT NOT NULL,
   cert_type TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'manual',
   status TEXT NOT NULL,
   not_before TEXT,
   not_after TEXT,
@@ -126,7 +128,7 @@ CREATE TABLE certificates (
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE node_health_snapshots (
+CREATE TABLE IF NOT EXISTS node_health_snapshots (
   node_id TEXT PRIMARY KEY,
   heartbeat_at TEXT NOT NULL,
   policy_revision_id TEXT,
@@ -135,4 +137,25 @@ CREATE TABLE node_health_snapshots (
   updated_at TEXT NOT NULL,
   FOREIGN KEY (node_id) REFERENCES nodes(id),
   FOREIGN KEY (policy_revision_id) REFERENCES policy_revisions(id)
+);
+
+CREATE TABLE IF NOT EXISTS node_api_tokens (
+  id TEXT PRIMARY KEY,
+  node_id TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (node_id) REFERENCES nodes(id)
+);
+
+CREATE TABLE IF NOT EXISTS node_trust_materials (
+  id TEXT PRIMARY KEY,
+  node_id TEXT NOT NULL,
+  material_type TEXT NOT NULL,
+  material_value TEXT NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (node_id) REFERENCES nodes(id)
 );

@@ -218,6 +218,14 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+apps/control-plane-api/tmp/
+apps/control-plane-api/runtime/*.db
+apps/proxy-node/tmp/
+apps/proxy-node/runtime/*.json
+apps/control-plane-web/.next/
+apps/control-plane-web/node_modules/
+apps/control-plane-web/package-lock.json
+
 runtime/*.log
 runtime/*.out
 runtime/*.pid

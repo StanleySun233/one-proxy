@@ -1,47 +1,287 @@
 openapi: 3.1.0
 info:
   title: One Proxy Control Plane API
-  version: 0.1.0
+  version: 0.2.0
+components:
+  securitySchemes:
+    controlPlaneBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+    nodeBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
 paths:
   /healthz:
     get:
       responses:
         "200":
-          description: Health response
+          description: Envelope health response
   /api/v1/auth/login:
     post:
       responses:
         "200":
-          description: Token pair
+          description: Envelope token pair response
+        "401":
+          description: Invalid credentials
+  /api/v1/auth/refresh:
+    post:
+      responses:
+        "200":
+          description: Envelope refreshed token pair response
+        "401":
+          description: Invalid refresh token
+  /api/v1/auth/logout:
+    post:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope logout response
+        "401":
+          description: Invalid access token
+  /api/v1/overview:
+    get:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope overview response
+  /api/v1/accounts:
+    get:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope account list response
+    post:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "201":
+          description: Envelope account created response
+  /api/v1/accounts/{accountId}:
+    patch:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope account updated response
+  /api/v1/node-links:
+    get:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope node link list response
+    post:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "201":
+          description: Envelope node link created response
+  /api/v1/node-access-paths:
+    get:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope node access path list response
+    post:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "201":
+          description: Envelope node access path created response
+  /api/v1/node-access-paths/{pathId}:
+    patch:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope node access path updated response
+    delete:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope node access path deleted response
+  /api/v1/node-onboarding-tasks:
+    get:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope node onboarding task list response
+    post:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "201":
+          description: Envelope node onboarding task created response
   /api/v1/nodes:
     get:
+      security:
+        - controlPlaneBearer: []
       responses:
         "200":
-          description: Node list
+          description: Envelope node list response
+    post:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "201":
+          description: Envelope node created response
+  /api/v1/nodes/{nodeId}:
+    patch:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope node updated response
+    delete:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope node deleted response
+  /api/v1/nodes/bootstrap-token:
+    post:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "201":
+          description: Envelope bootstrap token response
+  /api/v1/nodes/enroll:
     post:
       responses:
         "201":
-          description: Node created
+          description: Envelope pending node enrollment response
+        "400":
+          description: Invalid enrollment payload
+  /api/v1/nodes/approve/{nodeId}:
+    post:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope node approval response with node token and trust material
+        "400":
+          description: Invalid approval request
+  /api/v1/nodes/exchange:
+    post:
+      responses:
+        "200":
+          description: Envelope node enrollment exchange response
+        "400":
+          description: Invalid enrollment exchange payload
   /api/v1/chains:
     get:
+      security:
+        - controlPlaneBearer: []
       responses:
         "200":
-          description: Chain list
+          description: Envelope chain list response
     post:
+      security:
+        - controlPlaneBearer: []
       responses:
         "201":
-          description: Chain created
+          description: Envelope chain created response
+  /api/v1/chains/{chainId}:
+    patch:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope chain updated response
+    delete:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope chain deleted response
   /api/v1/route-rules:
     get:
+      security:
+        - controlPlaneBearer: []
       responses:
         "200":
-          description: Route rule list
+          description: Envelope route rule list response
     post:
+      security:
+        - controlPlaneBearer: []
       responses:
         "201":
-          description: Route rule created
-  /api/v1/policies/publish:
-    post:
+          description: Envelope route rule created response
+  /api/v1/route-rules/{ruleId}:
+    patch:
+      security:
+        - controlPlaneBearer: []
       responses:
         "200":
-          description: Policy published
+          description: Envelope route rule updated response
+    delete:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope route rule deleted response
+  /api/v1/policies/revisions:
+    get:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope policy revision list response
+  /api/v1/policies/publish:
+    post:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope policy publish response
+        "400":
+          description: Invalid policy graph
+  /api/v1/certificates:
+    get:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope certificate list response
+  /api/v1/nodes/health:
+    get:
+      security:
+        - controlPlaneBearer: []
+      responses:
+        "200":
+          description: Envelope node health list response
+  /api/v1/node-agent/policy:
+    get:
+      security:
+        - nodeBearer: []
+      responses:
+        "200":
+          description: Envelope node policy payload
+        "401":
+          description: Invalid node token
+  /api/v1/node-agent/heartbeat:
+    post:
+      security:
+        - nodeBearer: []
+      responses:
+        "200":
+          description: Envelope node health updated response
+        "401":
+          description: Invalid node token
+  /api/v1/node-agent/cert/renew:
+    post:
+      security:
+        - nodeBearer: []
+      responses:
+        "200":
+          description: Envelope node certificate renewed response
+        "401":
+          description: Invalid node token

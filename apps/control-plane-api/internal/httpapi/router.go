@@ -1,47 +1,67 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"net/http"
 
-	"github.com/StanleySun233/python-proxy/apps/control-plane-api/internal/config"
+	"github.com/StanleySun233/python-proxy/apps/control-plane-api/internal/network"
+	"github.com/StanleySun233/python-proxy/apps/control-plane-api/internal/service"
 )
 
 type Router struct {
-	mux *http.ServeMux
+	mux     *http.ServeMux
+	service *service.ControlPlane
 }
 
-func NewRouter(cfg config.Config) http.Handler {
-	router := &Router{mux: http.NewServeMux()}
+func NewRouter(cfg HTTPConfig, service *service.ControlPlane) http.Handler {
+	router := &Router{
+		mux:     http.NewServeMux(),
+		service: service,
+	}
 	router.routes(cfg)
-	return router.mux
+	return withObservability(router.mux)
 }
 
-func (r *Router) routes(cfg config.Config) {
+type HTTPConfig struct {
+	HTTPAddr   string
+	SQLitePath string
+}
+
+func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"status": "ok",
-			"httpAddr": cfg.HTTPAddr,
+		writeSuccess(w, http.StatusOK, map[string]any{
+			"status":     "ok",
+			"httpAddr":   cfg.HTTPAddr,
 			"sqlitePath": cfg.SQLitePath,
+			"localIPs":   network.LocalIPs(),
 		})
 	})
 
-	r.mux.HandleFunc("/api/v1/overview", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"nodes": map[string]int{
-				"healthy": 4,
-				"degraded": 1,
-			},
-			"policies": map[string]string{
-				"activeRevision": "rev-0007",
-				"publishedAt": "2026-04-25T00:00:00Z",
-			},
-		})
-	})
-}
-
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+	r.mux.HandleFunc("/api/v1/auth/login", r.handleLogin)
+	r.mux.HandleFunc("/api/v1/auth/refresh", r.handleRefresh)
+	r.mux.HandleFunc("/api/v1/auth/logout", r.requireAccount(r.handleLogout))
+	r.mux.HandleFunc("/api/v1/overview", r.requireAccount(r.handleOverview))
+	r.mux.HandleFunc("/api/v1/accounts", r.requireAccount(r.handleAccounts))
+	r.mux.HandleFunc("/api/v1/accounts/", r.requireAccount(r.handleAccountByID))
+	r.mux.HandleFunc("/api/v1/node-links", r.requireAccount(r.handleNodeLinks))
+	r.mux.HandleFunc("/api/v1/node-access-paths", r.requireAccount(r.handleNodeAccessPaths))
+	r.mux.HandleFunc("/api/v1/node-access-paths/", r.requireAccount(r.handleNodeAccessPathByID))
+	r.mux.HandleFunc("/api/v1/node-onboarding-tasks", r.requireAccount(r.handleNodeOnboardingTasks))
+	r.mux.HandleFunc("/api/v1/nodes", r.requireAccount(r.handleNodes))
+	r.mux.HandleFunc("/api/v1/nodes/", r.requireAccount(r.handleNodeByID))
+	r.mux.HandleFunc("/api/v1/nodes/connect", r.requireAccount(r.handleNodeConnect))
+	r.mux.HandleFunc("/api/v1/nodes/approve/", r.requireAccount(r.handleNodeApprove))
+	r.mux.HandleFunc("/api/v1/nodes/bootstrap-token", r.requireAccount(r.handleNodeBootstrapToken))
+	r.mux.HandleFunc("/api/v1/nodes/enroll", r.handleNodeEnroll)
+	r.mux.HandleFunc("/api/v1/nodes/exchange", r.handleNodeExchange)
+	r.mux.HandleFunc("/api/v1/chains", r.requireAccount(r.handleChains))
+	r.mux.HandleFunc("/api/v1/chains/", r.requireAccount(r.handleChainByID))
+	r.mux.HandleFunc("/api/v1/route-rules", r.requireAccount(r.handleRouteRules))
+	r.mux.HandleFunc("/api/v1/route-rules/", r.requireAccount(r.handleRouteRuleByID))
+	r.mux.HandleFunc("/api/v1/policies/revisions", r.requireAccount(r.handlePolicyRevisions))
+	r.mux.HandleFunc("/api/v1/policies/publish", r.requireAccount(r.handlePolicyPublish))
+	r.mux.HandleFunc("/api/v1/certificates", r.requireAccount(r.handleCertificates))
+	r.mux.HandleFunc("/api/v1/nodes/health", r.requireAccount(r.handleNodeHealth))
+	r.mux.HandleFunc("/api/v1/node-agent/policy", r.requireNode(r.handleNodeAgentPolicy))
+	r.mux.HandleFunc("/api/v1/node-agent/heartbeat", r.requireNode(r.handleNodeAgentHeartbeat))
+	r.mux.HandleFunc("/api/v1/node-agent/cert/renew", r.requireNode(r.handleNodeAgentCertRenew))
 }
