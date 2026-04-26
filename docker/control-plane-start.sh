@@ -5,11 +5,13 @@ HTTP_ADDR="${HTTP_ADDR:-127.0.0.1:2887}"
 PORT="${PORT:-2886}"
 HOSTNAME="${HOSTNAME:-0.0.0.0}"
 CONTROL_PLANE_URL="${CONTROL_PLANE_URL:-http://127.0.0.1:2887}"
+TZ="${TZ:-Asia/Shanghai}"
 
 export HTTP_ADDR
 export PORT
 export HOSTNAME
 export CONTROL_PLANE_URL
+export TZ
 
 /app/bin/control-plane &
 backend_pid="$!"

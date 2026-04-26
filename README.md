@@ -36,6 +36,8 @@ docker run -d --name one-proxy-mysql8 \
 cp docker/control-plane.env.example .env.control-plane
 ```
 
+Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.control-plane` if needed.
+
 3. Build and run the single control-plane container:
 
 ```bash
@@ -56,6 +58,8 @@ Open `http://127.0.0.1:2886`. The frontend is the only exposed port. `/api/v1/*`
 ```bash
 cp docker/proxy-node.env.example .env.proxy-node
 ```
+
+Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.proxy-node` if needed.
 
 2. Build and run:
 
