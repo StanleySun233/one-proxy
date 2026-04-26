@@ -23,10 +23,11 @@ jobs:
 
       - name: Start mysql8
         run: |
+          docker network create one-proxy-ci
           docker run -d --rm --name one-proxy-mysql8 \
+            --network one-proxy-ci \
             -e MYSQL_ROOT_PASSWORD=password \
             -e MYSQL_DATABASE=one_proxy \
-            -p 3307:3306 \
             mysql:8.0
           until docker exec one-proxy-mysql8 mysql -uroot -ppassword -e "SELECT 1" >/dev/null 2>&1; do
             sleep 2
@@ -35,9 +36,9 @@ jobs:
       - name: Start control-plane container
         run: |
           docker run -d --rm --name one-proxy-control-plane \
-            --add-host host.docker.internal:host-gateway \
+            --network one-proxy-ci \
             -p 3886:2886 \
-            --env MYSQL_DSN='root:password@tcp(host.docker.internal:3307)/one_proxy?charset=utf8mb4&parseTime=true&loc=UTC' \
+            --env MYSQL_DSN='root:password@tcp(one-proxy-mysql8:3306)/one_proxy?charset=utf8mb4&parseTime=true&loc=UTC' \
             --env JWT_SIGNING_KEY='ci-secret' \
             one-proxy-control-plane:ci
           until curl -fsS http://127.0.0.1:3886/ >/dev/null; do
@@ -65,6 +66,7 @@ jobs:
           docker logs one-proxy-control-plane || true
           docker logs one-proxy-proxy-node || true
           docker stop one-proxy-control-plane one-proxy-proxy-node one-proxy-mysql8 || true
+          docker network rm one-proxy-ci || true
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
