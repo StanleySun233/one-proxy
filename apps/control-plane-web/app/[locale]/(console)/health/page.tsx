@@ -47,20 +47,38 @@ export default function HealthPage() {
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
 
   const healthRows = useMemo(() => {
-    return health.map((item) => {
+    const healthByNodeID = new Map(health.map((item) => [item.nodeId, item]));
+    return nodes.map((node) => {
+      const item = healthByNodeID.get(node.id);
+      if (!item) {
+        return {
+          nodeId: node.id,
+          heartbeatAt: '',
+          policyRevisionId: '',
+          listenerStatus: {},
+          certStatus: {},
+          name: node.name,
+          mode: node.mode,
+          scopeKey: node.scopeKey,
+          derivedStatus: 'unreported',
+          derivedLabel: 'unreported',
+          listenerSummary: '',
+          certSummary: ''
+        };
+      }
       const derived = deriveHealthState(item);
       return {
         ...item,
-        name: nodesByID.get(item.nodeId)?.name || item.nodeId,
-        mode: nodesByID.get(item.nodeId)?.mode || '',
-        scopeKey: nodesByID.get(item.nodeId)?.scopeKey || '',
+        name: node.name,
+        mode: node.mode,
+        scopeKey: node.scopeKey,
         derivedStatus: derived.status,
         derivedLabel: derived.label,
         listenerSummary: joinMap(item.listenerStatus),
         certSummary: joinMap(item.certStatus)
       };
     });
-  }, [health, nodesByID]);
+  }, [health, nodes]);
 
   const certificateRows = useMemo(() => {
     return certificates.map((item) => ({
@@ -93,8 +111,9 @@ export default function HealthPage() {
     const healthy = healthRows.filter((item) => item.derivedStatus === 'healthy').length;
     const stale = healthRows.filter((item) => item.derivedStatus === 'stale').length;
     const degraded = healthRows.filter((item) => item.derivedStatus === 'degraded').length;
+    const unreported = healthRows.filter((item) => item.derivedStatus === 'unreported').length;
     const certPressure = certificateRows.filter((item) => item.status !== 'healthy' && item.status !== 'renewed').length;
-    return {healthy, stale, degraded, certPressure};
+    return {healthy, stale, degraded, unreported, certPressure};
   }, [certificateRows, healthRows]);
 
   const availableCertStatuses = useMemo(
@@ -107,7 +126,7 @@ export default function HealthPage() {
       <div className="page-stack">
         <PageHero eyebrow="Health" title={t('healthTitle')} description={t('healthDesc')} />
 
-        <section className="triple-grid">
+        <section className="metrics-grid">
           <article className="metric-card panel-card">
             <span className="metric-label">Healthy heartbeats</span>
             <strong>{summary.healthy}</strong>
@@ -117,6 +136,11 @@ export default function HealthPage() {
             <span className="metric-label">Stale heartbeats</span>
             <strong>{summary.stale}</strong>
             <span className="metric-foot">Last heartbeat older than the configured freshness window.</span>
+          </article>
+          <article className="metric-card panel-card warm-card">
+            <span className="metric-label">Unreported nodes</span>
+            <strong>{summary.unreported}</strong>
+            <span className="metric-foot">Registered nodes that have never sent a heartbeat row.</span>
           </article>
           <article className="metric-card panel-card warm-card">
             <span className="metric-label">Certificate pressure</span>
@@ -165,6 +189,7 @@ export default function HealthPage() {
                     <option value="healthy">healthy</option>
                     <option value="degraded">degraded</option>
                     <option value="stale">stale</option>
+                    <option value="unreported">unreported</option>
                   </select>
                 </label>
               </div>
@@ -197,7 +222,7 @@ export default function HealthPage() {
                             <span className={healthBadgeClassName(item.derivedStatus)}>{item.derivedLabel}</span>
                           </td>
                           <td>{item.mode || <span className="muted-text">unknown</span>}</td>
-                          <td className="mono">{item.heartbeatAt}</td>
+                          <td className="mono">{item.heartbeatAt || <span className="muted-text">never</span>}</td>
                           <td>{item.policyRevisionId || <span className="muted-text">unassigned</span>}</td>
                           <td>{item.listenerSummary || <span className="muted-text">none</span>}</td>
                           <td>{item.certSummary || <span className="muted-text">none</span>}</td>
@@ -311,6 +336,9 @@ function healthBadgeClassName(status: string) {
   }
   if (status === 'stale') {
     return 'badge is-warn';
+  }
+  if (status === 'unreported') {
+    return 'badge is-neutral';
   }
   return 'badge is-danger';
 }

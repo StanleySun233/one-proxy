@@ -5,7 +5,7 @@ import {useForm} from 'react-hook-form';
 import {toast} from 'sonner';
 
 import {useAuth} from '@/components/auth-provider';
-import {approveNode, connectNode, createBootstrapToken, createNode, deleteNode, getNodeLinks, getNodes, updateNode} from '@/lib/control-plane-api';
+import {approveNode, connectNode, createBootstrapToken, createNode, deleteNode, getNodeHealth, getNodeLinks, getNodes, updateNode} from '@/lib/control-plane-api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 import {BootstrapFormValues, NodeFormValues, QuickConnectFormValues} from './types';
@@ -57,6 +57,13 @@ export function useNodeConsole() {
     queryKey: ['node-links', accessToken],
     queryFn: () => getNodeLinks(accessToken),
     enabled: !!accessToken
+  });
+
+  const healthQuery = useQuery({
+    queryKey: ['node-health', accessToken],
+    queryFn: () => getNodeHealth(accessToken),
+    enabled: !!accessToken,
+    refetchInterval: 5000
   });
 
   const createNodeMutation = useMutation({
@@ -183,6 +190,7 @@ export function useNodeConsole() {
     bootstrapForm,
     nodesQuery,
     linksQuery,
+    healthQuery,
     latestToken: (queryClient.getQueryData(['latest-bootstrap-token']) as string | undefined) || '',
     createNode: createNodeMutation,
     quickConnect: quickConnectMutation,

@@ -26,7 +26,7 @@ func (s *SeedStore) GetOverview() domain.Overview {
 			Healthy:  0,
 			Degraded: 0,
 		},
-		Policies:     domain.OverviewPolicies{},
+		Policies: domain.OverviewPolicies{},
 		Certificates: domain.OverviewCertificates{
 			RenewSoon: 0,
 		},
@@ -238,12 +238,12 @@ func (s *SeedStore) CreateNode(input domain.CreateNodeInput) (domain.Node, error
 func (s *SeedStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrollmentResult, error) {
 	return domain.ApproveNodeEnrollmentResult{
 		Node: domain.Node{
-			ID:      nodeID,
-			Name:    "seed-node",
-			Mode:    "relay",
+			ID:       nodeID,
+			Name:     "seed-node",
+			Mode:     "relay",
 			ScopeKey: "seed-scope",
-			Enabled: true,
-			Status:  "degraded",
+			Enabled:  true,
+			Status:   "healthy",
 		},
 		AccessToken:   "seed-node-token",
 		TrustMaterial: "seed-shared-secret",
@@ -373,12 +373,12 @@ func (s *SeedStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnro
 	trustMaterial, _ := auth.RandomToken()
 	return domain.ApproveNodeEnrollmentResult{
 		Node: domain.Node{
-			ID:      nodeID,
-			Name:    nodeID,
-			Mode:    "relay",
-			ScopeKey:"seed-scope",
-			Enabled: true,
-			Status:  "degraded",
+			ID:       nodeID,
+			Name:     nodeID,
+			Mode:     "relay",
+			ScopeKey: "seed-scope",
+			Enabled:  true,
+			Status:   "degraded",
 		},
 		AccessToken:   accessToken,
 		TrustMaterial: trustMaterial,

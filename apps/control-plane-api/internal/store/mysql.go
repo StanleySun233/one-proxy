@@ -105,6 +105,9 @@ func (s *MySQLStore) init(ctx context.Context) error {
 	if err := s.cleanupLegacyDemoTopology(ctx); err != nil {
 		return err
 	}
+	if err := s.repairLegacyUnreportedNodeStatus(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -285,6 +288,17 @@ func (s *MySQLStore) cleanupLegacyDemoTopology(ctx context.Context) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *MySQLStore) repairLegacyUnreportedNodeStatus(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE nodes
+		 SET status = 'healthy', updated_at = ?
+		 WHERE status = 'degraded'
+		   AND id NOT IN (SELECT node_id FROM node_health_snapshots)`,
+		nowRFC3339(),
+	)
+	return err
 }
 
 func (s *MySQLStore) exists(ctx context.Context, query string, args ...any) (bool, error) {
@@ -763,7 +777,7 @@ func (s *MySQLStore) CreateNode(input domain.CreateNodeInput) (domain.Node, erro
 		ScopeKey:     input.ScopeKey,
 		ParentNodeID: input.ParentNodeID,
 		Enabled:      true,
-		Status:       "degraded",
+		Status:       "healthy",
 		PublicHost:   input.PublicHost,
 		PublicPort:   input.PublicPort,
 	}
@@ -814,7 +828,7 @@ func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrol
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "degraded", now, nodeID); err != nil {
+	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "healthy", now, nodeID); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
@@ -837,7 +851,7 @@ func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrol
 	if err := tx.Commit(); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	node.Status = "degraded"
+	node.Status = "healthy"
 	return domain.ApproveNodeEnrollmentResult{
 		Node:          node,
 		AccessToken:   accessToken,
@@ -1237,7 +1251,7 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnr
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "degraded", now, nodeID); err != nil {
+	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "healthy", now, nodeID); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
@@ -1263,7 +1277,7 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnr
 	if err := tx.Commit(); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	node.Status = "degraded"
+	node.Status = "healthy"
 	return domain.ApproveNodeEnrollmentResult{
 		Node:          node,
 		AccessToken:   accessToken,
@@ -1484,12 +1498,6 @@ func (s *MySQLStore) RefreshCertificateStatus(window time.Duration) error {
 func (s *MySQLStore) RefreshNodeStatus(staleAfter time.Duration) error {
 	staleAt := time.Now().UTC().Add(-staleAfter).Format(time.RFC3339)
 	if _, err := s.db.Exec(
-		"UPDATE nodes SET status = 'degraded', updated_at = ? WHERE id NOT IN (SELECT node_id FROM node_health_snapshots)",
-		nowRFC3339(),
-	); err != nil {
-		return err
-	}
-	if _, err := s.db.Exec(
 		"UPDATE nodes SET status = 'degraded', updated_at = ? WHERE id IN (SELECT node_id FROM node_health_snapshots WHERE heartbeat_at <= ?)",
 		nowRFC3339(), staleAt,
 	); err != nil {
@@ -1566,7 +1574,13 @@ func (s *MySQLStore) compileLatestPolicyForNode(nodeID string) (string, string, 
 
 func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domain.NodeHealth, error) {
 	now := nowRFC3339()
-	_, err := s.db.Exec(
+	status := heartbeatNodeStatus(input.ListenerStatus, input.CertStatus)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return domain.NodeHealth{}, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(
 		`INSERT INTO node_health_snapshots (node_id, heartbeat_at, policy_revision_id, listener_status_json, cert_status_json, updated_at)
 		 VALUES (?, ?, NULLIF(?, ''), ?, ?, ?)
 		 ON DUPLICATE KEY UPDATE
@@ -1576,8 +1590,13 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 		   cert_status_json = VALUES(cert_status_json),
 		   updated_at = VALUES(updated_at)`,
 		input.NodeID, now, input.PolicyRevisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
-	)
-	if err != nil {
+	); err != nil {
+		return domain.NodeHealth{}, err
+	}
+	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", status, now, input.NodeID); err != nil {
+		return domain.NodeHealth{}, err
+	}
+	if err := tx.Commit(); err != nil {
 		return domain.NodeHealth{}, err
 	}
 	return domain.NodeHealth{
@@ -1587,6 +1606,20 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 		ListenerStatus:   input.ListenerStatus,
 		CertStatus:       input.CertStatus,
 	}, nil
+}
+
+func heartbeatNodeStatus(listenerStatus map[string]string, certStatus map[string]string) string {
+	for _, value := range listenerStatus {
+		if value != "up" && value != "healthy" && value != "renewed" {
+			return "degraded"
+		}
+	}
+	for _, value := range certStatus {
+		if value != "up" && value != "healthy" && value != "renewed" {
+			return "degraded"
+		}
+	}
+	return "healthy"
 }
 
 func (s *MySQLStore) RenewNodeCertificate(input domain.NodeCertRenewInput) (domain.NodeCertRenewResult, error) {

@@ -140,6 +140,11 @@ func (c *ControlPlane) UpdateNodeOnboardingTaskStatus(taskID string, input domai
 	if input.Status == "" {
 		return domain.NodeOnboardingTask{}, invalidInput("invalid_task_status")
 	}
+	switch input.Status {
+	case "planned", "pending", "connected", "failed", "cancelled":
+	default:
+		return domain.NodeOnboardingTask{}, invalidInput("invalid_task_status")
+	}
 	return c.store.UpdateNodeOnboardingTaskStatus(taskID, input.Status, input.StatusMessage)
 }
 

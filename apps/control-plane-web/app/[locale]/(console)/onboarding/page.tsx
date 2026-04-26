@@ -239,6 +239,42 @@ export default function OnboardingPage() {
   const tasks = tasksQuery.data || [];
 
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const pathsByID = useMemo(() => new Map(paths.map((path) => [path.id, path])), [paths]);
+  const taskCountByPathID = useMemo(() => {
+    const counts = new Map<string, number>();
+    tasks.forEach((task) => {
+      if (!task.pathId) {
+        return;
+      }
+      counts.set(task.pathId, (counts.get(task.pathId) || 0) + 1);
+    });
+    return counts;
+  }, [tasks]);
+  const taskSummaryByPathID = useMemo(() => {
+    const summaries = new Map<string, {pending: number; failed: number; connected: number}>();
+    tasks.forEach((task) => {
+      if (!task.pathId) {
+        return;
+      }
+      const current = summaries.get(task.pathId) || {pending: 0, failed: 0, connected: 0};
+      if (task.status === 'planned' || task.status === 'pending') {
+        current.pending += 1;
+      } else if (task.status === 'failed') {
+        current.failed += 1;
+      } else if (task.status === 'connected') {
+        current.connected += 1;
+      }
+      summaries.set(task.pathId, current);
+    });
+    return summaries;
+  }, [tasks]);
+  const onboardingSummary = useMemo(() => {
+    const enabledPaths = paths.filter((path) => path.enabled).length;
+    const relayPaths = paths.filter((path) => path.mode === 'relay_chain').length;
+    const pendingTasks = tasks.filter((task) => task.status === 'planned' || task.status === 'pending').length;
+    const failedTasks = tasks.filter((task) => task.status === 'failed').length;
+    return {enabledPaths, relayPaths, pendingTasks, failedTasks};
+  }, [paths, tasks]);
   const availableTaskStatuses = useMemo(
     () => Array.from(new Set(tasks.map((task) => task.status))).sort(),
     [tasks]
@@ -311,6 +347,29 @@ export default function OnboardingPage() {
     <AuthGate>
       <div className="page-stack">
         <PageHero eyebrow="Onboarding" title={pageT('onboardingTitle')} description={pageT('onboardingDesc')} />
+
+        <section className="metrics-grid">
+          <article className="metric-card panel-card">
+            <span className="metric-label">Enabled paths</span>
+            <strong>{onboardingSummary.enabledPaths}</strong>
+            <span className="metric-foot">Reusable path definitions currently available for dispatch.</span>
+          </article>
+          <article className="metric-card panel-card soft-card">
+            <span className="metric-label">Relay-chain paths</span>
+            <strong>{onboardingSummary.relayPaths}</strong>
+            <span className="metric-foot">Multi-hop definitions that need the clearest task visibility.</span>
+          </article>
+          <article className="metric-card panel-card warm-card">
+            <span className="metric-label">Pending tasks</span>
+            <strong>{onboardingSummary.pendingTasks}</strong>
+            <span className="metric-foot">Onboarding work still waiting for node-side completion or operator follow-through.</span>
+          </article>
+          <article className="metric-card panel-card">
+            <span className="metric-label">Failed tasks</span>
+            <strong>{onboardingSummary.failedTasks}</strong>
+            <span className="metric-foot">Tasks that need path or target remediation before retrying.</span>
+          </article>
+        </section>
 
         <section className="forms-grid">
           <article className="panel-card">
@@ -577,6 +636,7 @@ export default function OnboardingPage() {
                         <th>Target</th>
                         <th>Entry</th>
                         <th>Relay chain</th>
+                        <th>Tasks</th>
                         <th>Status</th>
                         <th>ID</th>
                         <th>Actions</th>
@@ -592,6 +652,12 @@ export default function OnboardingPage() {
                             <td>{describePathTarget(path, nodesByID)}</td>
                             <td>{describeNodeLabel(path.entryNodeId, nodesByID)}</td>
                             <td>{path.relayNodeIds.length > 0 ? path.relayNodeIds.join(' -> ') : <span className="muted-text">direct</span>}</td>
+                            <td>
+                              <div className="registry-name-cell">
+                                <strong>{taskCountByPathID.get(path.id) || 0}</strong>
+                                <span className="muted-text">{describePathTaskSummary(taskSummaryByPathID.get(path.id))}</span>
+                              </div>
+                            </td>
                             <td>
                               <span className={`badge ${path.enabled ? 'is-good-soft' : 'is-neutral'}`}>{path.enabled ? 'enabled' : 'disabled'}</span>
                             </td>
@@ -812,6 +878,7 @@ export default function OnboardingPage() {
                         <th>Status</th>
                         <th>Mode</th>
                         <th>Path</th>
+                        <th>Requested at</th>
                         <th>Requested by</th>
                         <th>Updated</th>
                         <th>ID</th>
@@ -833,7 +900,8 @@ export default function OnboardingPage() {
                               <span className={taskBadgeClassName(task.status)}>{task.status}</span>
                             </td>
                             <td>{task.mode}</td>
-                            <td>{task.pathId || <span className="muted-text">no-path</span>}</td>
+                            <td>{describeTaskPath(task.pathId, pathsByID)}</td>
+                            <td className="mono">{task.createdAt}</td>
                             <td>{task.requestedByAccountId || <span className="muted-text">system</span>}</td>
                             <td className="mono">{task.updatedAt || task.createdAt}</td>
                             <td className="mono registry-id-cell">{task.id}</td>
@@ -948,15 +1016,42 @@ function describeTaskTarget(task: NodeOnboardingTask, nodesByID: Map<string, Nod
   return task.id;
 }
 
+function describeTaskPath(pathID: string, pathsByID: Map<string, NodeAccessPath>) {
+  if (!pathID) {
+    return <span className="muted-text">no-path</span>;
+  }
+  return pathsByID.get(pathID)?.name || pathID;
+}
+
+function describePathTaskSummary(summary?: {pending: number; failed: number; connected: number}) {
+  if (!summary) {
+    return 'no tasks';
+  }
+  const parts = [];
+  if (summary.pending > 0) {
+    parts.push(`${summary.pending} pending`);
+  }
+  if (summary.failed > 0) {
+    parts.push(`${summary.failed} failed`);
+  }
+  if (summary.connected > 0) {
+    parts.push(`${summary.connected} connected`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : 'no tasks';
+}
+
 function taskBadgeClassName(status: string) {
   if (status === 'connected') {
     return 'badge is-good';
   }
-  if (status === 'failed' || status === 'cancelled') {
+  if (status === 'failed') {
     return 'badge is-danger';
   }
   if (status === 'pending' || status === 'planned') {
     return 'badge is-warn';
+  }
+  if (status === 'cancelled') {
+    return 'badge is-neutral';
   }
   return 'badge is-neutral';
 }

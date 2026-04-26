@@ -127,11 +127,10 @@ func (m *Manager) tick() {
 	}
 	client := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken)
 	policy, err := client.FetchPolicy()
-	if err != nil {
-		return
-	}
-	if err := m.store.Update(policy.PolicyRevisionID, policy.PayloadJSON); err != nil {
-		return
+	if err == nil {
+		if err := m.store.Update(policy.PolicyRevisionID, policy.PayloadJSON); err != nil {
+			return
+		}
 	}
 	if m.managePublicCert {
 		result, renewErr := client.RenewCertificate("public")
