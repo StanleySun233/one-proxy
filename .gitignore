@@ -225,6 +225,8 @@ apps/proxy-node/runtime/*.json
 apps/control-plane-web/.next/
 apps/control-plane-web/node_modules/
 apps/control-plane-web/package-lock.json
+!apps/control-plane-web/lib/
+!apps/control-plane-web/lib/*.ts
 
 runtime/*.log
 runtime/*.out
