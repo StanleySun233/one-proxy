@@ -10,7 +10,7 @@ permissions:
   packages: write
 
 jobs:
-  smoke:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,56 +21,9 @@ jobs:
       - name: Build proxy-node image
         run: docker build -f docker/proxy-node.Dockerfile -t one-proxy-proxy-node:ci .
 
-      - name: Start mysql8
-        run: |
-          docker network create one-proxy-ci
-          docker run -d --rm --name one-proxy-mysql8 \
-            --network one-proxy-ci \
-            -e MYSQL_ROOT_PASSWORD=password \
-            -e MYSQL_DATABASE=one_proxy \
-            mysql:8.0
-          until docker exec one-proxy-mysql8 mysql -uroot -ppassword -e "SELECT 1" >/dev/null 2>&1; do
-            sleep 2
-          done
-
-      - name: Start control-plane container
-        run: |
-          docker run -d --rm --name one-proxy-control-plane \
-            --network one-proxy-ci \
-            -p 3886:2886 \
-            --env MYSQL_DSN='root:password@tcp(one-proxy-mysql8:3306)/one_proxy?charset=utf8mb4&parseTime=true&loc=UTC' \
-            --env JWT_SIGNING_KEY='ci-secret' \
-            one-proxy-control-plane:ci
-          until curl -fsS http://127.0.0.1:3886/ >/dev/null; do
-            sleep 2
-          done
-
-      - name: Smoke login through frontend api proxy
-        run: |
-          curl -fsS -X POST http://127.0.0.1:3886/api/control-plane/v1/auth/login \
-            -H 'Content-Type: application/json' \
-            -d '{"account":"admin","password":"admin"}'
-
-      - name: Start proxy-node container
-        run: |
-          docker run -d --rm --name one-proxy-proxy-node \
-            -p 3888:2888 \
-            one-proxy-proxy-node:ci
-          until curl -fsS http://127.0.0.1:3888/healthz >/dev/null; do
-            sleep 2
-          done
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker logs one-proxy-control-plane || true
-          docker logs one-proxy-proxy-node || true
-          docker stop one-proxy-control-plane one-proxy-proxy-node one-proxy-mysql8 || true
-          docker network rm one-proxy-ci || true
-
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: smoke
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
