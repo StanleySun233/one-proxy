@@ -22,17 +22,17 @@ func NewRouter(cfg HTTPConfig, service *service.ControlPlane) http.Handler {
 }
 
 type HTTPConfig struct {
-	HTTPAddr   string
-	SQLitePath string
+	HTTPAddr  string
+	DBBackend string
 }
 
 func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeSuccess(w, http.StatusOK, map[string]any{
-			"status":     "ok",
-			"httpAddr":   cfg.HTTPAddr,
-			"sqlitePath": cfg.SQLitePath,
-			"localIPs":   network.LocalIPs(),
+			"status":    "ok",
+			"httpAddr":  cfg.HTTPAddr,
+			"dbBackend": cfg.DBBackend,
+			"localIPs":  network.LocalIPs(),
 		})
 	})
 

@@ -1,0 +1,16 @@
+.git
+.github
+.codex
+.next
+node_modules
+**/node_modules
+**/.next
+**/tmp
+**/runtime/*.db
+**/runtime/*.json
+**/runtime/autocert
+**/*.log
+.env
+.env.*
+Dockerfile*
+docker-compose.yaml

@@ -1,161 +1,195 @@
 CREATE TABLE IF NOT EXISTS roles (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  id VARCHAR(191) PRIMARY KEY,
+  name VARCHAR(191) NOT NULL UNIQUE,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS accounts (
-  id TEXT PRIMARY KEY,
-  account TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  role_id TEXT NOT NULL,
-  status TEXT NOT NULL,
-  must_rotate_password INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (role_id) REFERENCES roles(id)
+  id VARCHAR(191) PRIMARY KEY,
+  account VARCHAR(191) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role_id VARCHAR(191) NOT NULL,
+  status VARCHAR(64) NOT NULL,
+  must_rotate_password TINYINT(1) NOT NULL DEFAULT 1,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_accounts_role_id FOREIGN KEY (role_id) REFERENCES roles(id)
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-  id TEXT PRIMARY KEY,
-  account_id TEXT NOT NULL,
-  access_token_hash TEXT NOT NULL UNIQUE,
-  refresh_token_hash TEXT NOT NULL,
-  expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (account_id) REFERENCES accounts(id)
+  id VARCHAR(191) PRIMARY KEY,
+  account_id VARCHAR(191) NOT NULL,
+  access_token_hash VARCHAR(255) NOT NULL UNIQUE,
+  refresh_token_hash VARCHAR(255) NOT NULL,
+  expires_at VARCHAR(64) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_sessions_account_id FOREIGN KEY (account_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS nodes (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  mode TEXT NOT NULL,
-  public_host TEXT,
-  public_port INTEGER,
-  scope_key TEXT NOT NULL,
-  parent_node_id TEXT,
-  enabled INTEGER NOT NULL DEFAULT 1,
-  status TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (parent_node_id) REFERENCES nodes(id)
+  id VARCHAR(191) PRIMARY KEY,
+  name VARCHAR(191) NOT NULL,
+  mode VARCHAR(64) NOT NULL,
+  public_host VARCHAR(255),
+  public_port INT,
+  scope_key VARCHAR(191) NOT NULL,
+  parent_node_id VARCHAR(191),
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  status VARCHAR(64) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_nodes_parent_node_id FOREIGN KEY (parent_node_id) REFERENCES nodes(id)
 );
 
 CREATE TABLE IF NOT EXISTS node_links (
-  id TEXT PRIMARY KEY,
-  source_node_id TEXT NOT NULL,
-  target_node_id TEXT NOT NULL,
-  link_type TEXT NOT NULL,
-  trust_state TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (source_node_id) REFERENCES nodes(id),
-  FOREIGN KEY (target_node_id) REFERENCES nodes(id)
+  id VARCHAR(191) PRIMARY KEY,
+  source_node_id VARCHAR(191) NOT NULL,
+  target_node_id VARCHAR(191) NOT NULL,
+  link_type VARCHAR(64) NOT NULL,
+  trust_state VARCHAR(64) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_node_links_source_node_id FOREIGN KEY (source_node_id) REFERENCES nodes(id),
+  CONSTRAINT fk_node_links_target_node_id FOREIGN KEY (target_node_id) REFERENCES nodes(id)
 );
 
 CREATE TABLE IF NOT EXISTS chains (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  destination_scope TEXT NOT NULL,
-  enabled INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  id VARCHAR(191) PRIMARY KEY,
+  name VARCHAR(191) NOT NULL UNIQUE,
+  destination_scope VARCHAR(191) NOT NULL,
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS chain_hops (
-  chain_id TEXT NOT NULL,
-  hop_index INTEGER NOT NULL,
-  node_id TEXT NOT NULL,
+  chain_id VARCHAR(191) NOT NULL,
+  hop_index INT NOT NULL,
+  node_id VARCHAR(191) NOT NULL,
   PRIMARY KEY (chain_id, hop_index),
-  FOREIGN KEY (chain_id) REFERENCES chains(id),
-  FOREIGN KEY (node_id) REFERENCES nodes(id)
+  CONSTRAINT fk_chain_hops_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id),
+  CONSTRAINT fk_chain_hops_node_id FOREIGN KEY (node_id) REFERENCES nodes(id)
 );
 
 CREATE TABLE IF NOT EXISTS route_rules (
-  id TEXT PRIMARY KEY,
-  priority INTEGER NOT NULL,
-  match_type TEXT NOT NULL,
-  match_value TEXT NOT NULL,
-  action_type TEXT NOT NULL,
-  chain_id TEXT,
-  destination_scope TEXT,
-  enabled INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (chain_id) REFERENCES chains(id)
+  id VARCHAR(191) PRIMARY KEY,
+  priority INT NOT NULL,
+  match_type VARCHAR(64) NOT NULL,
+  match_value VARCHAR(255) NOT NULL,
+  action_type VARCHAR(64) NOT NULL,
+  chain_id VARCHAR(191),
+  destination_scope VARCHAR(191),
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_route_rules_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id)
 );
 
 CREATE TABLE IF NOT EXISTS policy_revisions (
-  id TEXT PRIMARY KEY,
-  version TEXT NOT NULL UNIQUE,
-  payload_json TEXT NOT NULL,
-  status TEXT NOT NULL,
-  created_by_account_id TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  FOREIGN KEY (created_by_account_id) REFERENCES accounts(id)
+  id VARCHAR(191) PRIMARY KEY,
+  version VARCHAR(191) NOT NULL UNIQUE,
+  payload_json LONGTEXT NOT NULL,
+  status VARCHAR(64) NOT NULL,
+  created_by_account_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_policy_revisions_created_by_account_id FOREIGN KEY (created_by_account_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS node_policy_assignments (
-  node_id TEXT PRIMARY KEY,
-  policy_revision_id TEXT NOT NULL,
-  assigned_at TEXT NOT NULL,
-  FOREIGN KEY (node_id) REFERENCES nodes(id),
-  FOREIGN KEY (policy_revision_id) REFERENCES policy_revisions(id)
+  node_id VARCHAR(191) PRIMARY KEY,
+  policy_revision_id VARCHAR(191) NOT NULL,
+  snapshot_json LONGTEXT NOT NULL,
+  assigned_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_node_policy_assignments_node_id FOREIGN KEY (node_id) REFERENCES nodes(id),
+  CONSTRAINT fk_node_policy_assignments_policy_revision_id FOREIGN KEY (policy_revision_id) REFERENCES policy_revisions(id)
 );
 
 CREATE TABLE IF NOT EXISTS bootstrap_tokens (
-  id TEXT PRIMARY KEY,
-  token_hash TEXT NOT NULL UNIQUE,
-  target_type TEXT NOT NULL,
-  target_id TEXT,
-  expires_at TEXT NOT NULL,
-  consumed_at TEXT,
-  created_at TEXT NOT NULL
+  id VARCHAR(191) PRIMARY KEY,
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  target_type VARCHAR(64) NOT NULL,
+  target_id VARCHAR(191),
+  expires_at VARCHAR(64) NOT NULL,
+  consumed_at VARCHAR(64),
+  created_at VARCHAR(64) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS certificates (
-  id TEXT PRIMARY KEY,
-  owner_type TEXT NOT NULL,
-  owner_id TEXT NOT NULL,
-  cert_type TEXT NOT NULL,
-  provider TEXT NOT NULL DEFAULT 'manual',
-  status TEXT NOT NULL,
-  not_before TEXT,
-  not_after TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  id VARCHAR(191) PRIMARY KEY,
+  owner_type VARCHAR(64) NOT NULL,
+  owner_id VARCHAR(191) NOT NULL,
+  cert_type VARCHAR(64) NOT NULL,
+  provider VARCHAR(64) NOT NULL DEFAULT 'manual',
+  status VARCHAR(64) NOT NULL,
+  not_before VARCHAR(64),
+  not_after VARCHAR(64),
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS node_health_snapshots (
-  node_id TEXT PRIMARY KEY,
-  heartbeat_at TEXT NOT NULL,
-  policy_revision_id TEXT,
-  listener_status_json TEXT NOT NULL,
-  cert_status_json TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (node_id) REFERENCES nodes(id),
-  FOREIGN KEY (policy_revision_id) REFERENCES policy_revisions(id)
+  node_id VARCHAR(191) PRIMARY KEY,
+  heartbeat_at VARCHAR(64) NOT NULL,
+  policy_revision_id VARCHAR(191),
+  listener_status_json LONGTEXT NOT NULL,
+  cert_status_json LONGTEXT NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_node_health_snapshots_node_id FOREIGN KEY (node_id) REFERENCES nodes(id),
+  CONSTRAINT fk_node_health_snapshots_policy_revision_id FOREIGN KEY (policy_revision_id) REFERENCES policy_revisions(id)
 );
 
 CREATE TABLE IF NOT EXISTS node_api_tokens (
-  id TEXT PRIMARY KEY,
-  node_id TEXT NOT NULL,
-  token_hash TEXT NOT NULL UNIQUE,
-  expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (node_id) REFERENCES nodes(id)
+  id VARCHAR(191) PRIMARY KEY,
+  node_id VARCHAR(191) NOT NULL,
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  expires_at VARCHAR(64) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_node_api_tokens_node_id FOREIGN KEY (node_id) REFERENCES nodes(id)
 );
 
 CREATE TABLE IF NOT EXISTS node_trust_materials (
-  id TEXT PRIMARY KEY,
-  node_id TEXT NOT NULL,
-  material_type TEXT NOT NULL,
-  material_value TEXT NOT NULL,
-  status TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (node_id) REFERENCES nodes(id)
+  id VARCHAR(191) PRIMARY KEY,
+  node_id VARCHAR(191) NOT NULL,
+  material_type VARCHAR(64) NOT NULL,
+  material_value LONGTEXT NOT NULL,
+  status VARCHAR(64) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_node_trust_materials_node_id FOREIGN KEY (node_id) REFERENCES nodes(id)
+);
+
+CREATE TABLE IF NOT EXISTS node_access_paths (
+  id VARCHAR(191) PRIMARY KEY,
+  name VARCHAR(191) NOT NULL,
+  mode VARCHAR(64) NOT NULL,
+  target_node_id VARCHAR(191),
+  entry_node_id VARCHAR(191),
+  relay_node_ids_json LONGTEXT NOT NULL,
+  target_host VARCHAR(255),
+  target_port INT NOT NULL DEFAULT 0,
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_node_access_paths_target_node_id FOREIGN KEY (target_node_id) REFERENCES nodes(id),
+  CONSTRAINT fk_node_access_paths_entry_node_id FOREIGN KEY (entry_node_id) REFERENCES nodes(id)
+);
+
+CREATE TABLE IF NOT EXISTS node_onboarding_tasks (
+  id VARCHAR(191) PRIMARY KEY,
+  mode VARCHAR(64) NOT NULL,
+  path_id VARCHAR(191),
+  target_node_id VARCHAR(191),
+  target_host VARCHAR(255),
+  target_port INT NOT NULL DEFAULT 0,
+  status VARCHAR(64) NOT NULL,
+  status_message VARCHAR(255) NOT NULL,
+  requested_by_account_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_node_onboarding_tasks_path_id FOREIGN KEY (path_id) REFERENCES node_access_paths(id),
+  CONSTRAINT fk_node_onboarding_tasks_target_node_id FOREIGN KEY (target_node_id) REFERENCES nodes(id),
+  CONSTRAINT fk_node_onboarding_tasks_requested_by_account_id FOREIGN KEY (requested_by_account_id) REFERENCES accounts(id)
 );

@@ -1,0 +1,92 @@
+name: docker-images
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build control-plane image
+        run: docker build -f docker/control-plane.Dockerfile -t one-proxy-control-plane:ci .
+
+      - name: Build proxy-node image
+        run: docker build -f docker/proxy-node.Dockerfile -t one-proxy-proxy-node:ci .
+
+      - name: Start mysql8
+        run: |
+          docker run -d --rm --name one-proxy-mysql8 \
+            -e MYSQL_ROOT_PASSWORD=password \
+            -e MYSQL_DATABASE=one_proxy \
+            -p 3307:3306 \
+            mysql:8.0
+          until docker exec one-proxy-mysql8 mysql -uroot -ppassword -e "SELECT 1" >/dev/null 2>&1; do
+            sleep 2
+          done
+
+      - name: Start control-plane container
+        run: |
+          docker run -d --rm --name one-proxy-control-plane \
+            --add-host host.docker.internal:host-gateway \
+            -p 3886:2886 \
+            --env MYSQL_DSN='root:password@tcp(host.docker.internal:3307)/one_proxy?charset=utf8mb4&parseTime=true&loc=UTC' \
+            --env JWT_SIGNING_KEY='ci-secret' \
+            one-proxy-control-plane:ci
+          until curl -fsS http://127.0.0.1:3886/ >/dev/null; do
+            sleep 2
+          done
+
+      - name: Smoke login through frontend api proxy
+        run: |
+          curl -fsS -X POST http://127.0.0.1:3886/api/control-plane/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"account":"admin","password":"admin"}'
+
+      - name: Start proxy-node container
+        run: |
+          docker run -d --rm --name one-proxy-proxy-node \
+            -p 3888:2888 \
+            one-proxy-proxy-node:ci
+          until curl -fsS http://127.0.0.1:3888/healthz >/dev/null; do
+            sleep 2
+          done
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker logs one-proxy-control-plane || true
+          docker logs one-proxy-proxy-node || true
+          docker stop one-proxy-control-plane one-proxy-proxy-node one-proxy-mysql8 || true
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build control-plane image
+        run: docker build -f docker/control-plane.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/one-proxy-control-plane:latest .
+
+      - name: Build proxy-node image
+        run: docker build -f docker/proxy-node.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/one-proxy-proxy-node:latest .
+
+      - name: Push control-plane image
+        run: docker push ghcr.io/${{ env.OWNER_LC }}/one-proxy-control-plane:latest
+
+      - name: Push proxy-node image
+        run: docker push ghcr.io/${{ env.OWNER_LC }}/one-proxy-proxy-node:latest

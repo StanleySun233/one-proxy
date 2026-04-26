@@ -23,9 +23,9 @@ func New() *App {
 }
 
 func (a *App) Run() error {
-	activeStore, err := store.NewSQLiteStore(a.config.SQLitePath)
+	activeStore, err := store.NewMySQLStore(a.config.MySQLDSN)
 	if err != nil {
-		log.Printf("sqlite store unavailable, using seed store: %v", err)
+		log.Printf("mysql store unavailable, using seed store: %v", err)
 		activeStore = nil
 	} else if password := activeStore.BootstrapAdminPassword(); password != "" {
 		log.Printf("bootstrap admin account initialized: account=admin")
@@ -45,10 +45,10 @@ func (a *App) Run() error {
 	sched.Start()
 	defer sched.Stop()
 	server := &http.Server{
-		Addr:    a.config.HTTPAddr,
+		Addr: a.config.HTTPAddr,
 		Handler: httpapi.NewRouter(httpapi.HTTPConfig{
-			HTTPAddr:   a.config.HTTPAddr,
-			SQLitePath: a.config.SQLitePath,
+			HTTPAddr:  a.config.HTTPAddr,
+			DBBackend: "mysql",
 		}, controlPlane),
 	}
 	log.Printf("control-plane listening on %s localIPs=%v", a.config.HTTPAddr, network.LocalIPs())

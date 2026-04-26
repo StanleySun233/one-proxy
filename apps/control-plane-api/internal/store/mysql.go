@@ -11,29 +11,36 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
-
 	"github.com/StanleySun233/python-proxy/apps/control-plane-api/internal/auth"
 	"github.com/StanleySun233/python-proxy/apps/control-plane-api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/control-plane-api/internal/policy"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
-type SQLiteStore struct {
-	db                    *sql.DB
+type MySQLStore struct {
+	gormDB                 *gorm.DB
+	db                     *sql.DB
 	bootstrapAdminPassword string
 }
 
-func NewSQLiteStore(path string) (*SQLiteStore, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, err
-	}
-
-	db, err := sql.Open("sqlite", path)
+func NewMySQLStore(dsn string) (*MySQLStore, error) {
+	gormDB, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
+	db, err := gormDB.DB()
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(30 * time.Minute)
 
-	store := &SQLiteStore{db: db}
+	store := &MySQLStore{
+		gormDB: gormDB,
+		db:     db,
+	}
 	if err := store.init(context.Background()); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -41,11 +48,11 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 	return store, nil
 }
 
-func (s *SQLiteStore) BootstrapAdminPassword() string {
+func (s *MySQLStore) BootstrapAdminPassword() string {
 	return s.bootstrapAdminPassword
 }
 
-func (s *SQLiteStore) init(ctx context.Context) error {
+func (s *MySQLStore) init(ctx context.Context) error {
 	schemaPath, err := resolveSchemaPath()
 	if err != nil {
 		return err
@@ -54,19 +61,13 @@ func (s *SQLiteStore) init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if _, err := s.db.ExecContext(ctx, string(schemaBytes)); err != nil {
-		return err
+	statements := splitSQLStatements(string(schemaBytes))
+	for _, statement := range statements {
+		if _, err := s.db.ExecContext(ctx, statement); err != nil {
+			return err
+		}
 	}
-	if err := s.ensureSessionColumns(ctx); err != nil {
-		return err
-	}
-	if err := s.ensureNodeTokenTable(ctx); err != nil {
-		return err
-	}
-	if err := s.ensureNodeAccessTables(ctx); err != nil {
-		return err
-	}
-	if err := s.ensurePolicyAssignmentColumns(ctx); err != nil {
+	if err := s.gormDB.WithContext(ctx).Exec("SELECT 1").Error; err != nil {
 		return err
 	}
 	if err := s.bootstrapAdmin(ctx); err != nil {
@@ -76,44 +77,6 @@ func (s *SQLiteStore) init(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-func (s *SQLiteStore) ensureNodeAccessTables(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS node_access_paths (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		mode TEXT NOT NULL,
-		target_node_id TEXT,
-		entry_node_id TEXT,
-		relay_node_ids_json TEXT NOT NULL DEFAULT '[]',
-		target_host TEXT,
-		target_port INTEGER NOT NULL DEFAULT 0,
-		enabled INTEGER NOT NULL DEFAULT 1,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		FOREIGN KEY (target_node_id) REFERENCES nodes(id),
-		FOREIGN KEY (entry_node_id) REFERENCES nodes(id)
-	)`)
-	if err != nil {
-		return err
-	}
-	_, err = s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS node_onboarding_tasks (
-		id TEXT PRIMARY KEY,
-		mode TEXT NOT NULL,
-		path_id TEXT,
-		target_node_id TEXT,
-		target_host TEXT,
-		target_port INTEGER NOT NULL DEFAULT 0,
-		status TEXT NOT NULL,
-		status_message TEXT NOT NULL,
-		requested_by_account_id TEXT NOT NULL,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		FOREIGN KEY (path_id) REFERENCES node_access_paths(id),
-		FOREIGN KEY (target_node_id) REFERENCES nodes(id),
-		FOREIGN KEY (requested_by_account_id) REFERENCES accounts(id)
-	)`)
-	return err
 }
 
 func resolveSchemaPath() (string, error) {
@@ -136,49 +99,30 @@ func resolveSchemaPath() (string, error) {
 	return "", fmt.Errorf("schema file not found")
 }
 
-func (s *SQLiteStore) ensureSessionColumns(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, "ALTER TABLE sessions ADD COLUMN access_token_hash TEXT")
-	if err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
-		return err
+func splitSQLStatements(schema string) []string {
+	statements := make([]string, 0)
+	current := ""
+	for _, line := range strings.Split(schema, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		current += line + "\n"
+		if strings.HasSuffix(trimmed, ";") {
+			statement := strings.TrimSpace(strings.TrimSuffix(current, ";"))
+			if statement != "" {
+				statements = append(statements, statement)
+			}
+			current = ""
+		}
 	}
-	return nil
+	if strings.TrimSpace(current) != "" {
+		statements = append(statements, strings.TrimSpace(current))
+	}
+	return statements
 }
 
-func (s *SQLiteStore) ensurePolicyAssignmentColumns(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, "ALTER TABLE node_policy_assignments ADD COLUMN snapshot_json TEXT NOT NULL DEFAULT '{}'")
-	if err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
-		return err
-	}
-	return nil
-}
-
-func (s *SQLiteStore) ensureNodeTokenTable(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS node_api_tokens (
-		id TEXT PRIMARY KEY,
-		node_id TEXT NOT NULL,
-		token_hash TEXT NOT NULL UNIQUE,
-		expires_at TEXT NOT NULL,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		FOREIGN KEY (node_id) REFERENCES nodes(id)
-	)`)
-	if err != nil {
-		return err
-	}
-	_, err = s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS node_trust_materials (
-		id TEXT PRIMARY KEY,
-		node_id TEXT NOT NULL,
-		material_type TEXT NOT NULL,
-		material_value TEXT NOT NULL,
-		status TEXT NOT NULL,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL,
-		FOREIGN KEY (node_id) REFERENCES nodes(id)
-	)`)
-	return err
-}
-
-func (s *SQLiteStore) bootstrapAdmin(ctx context.Context) error {
+func (s *MySQLStore) bootstrapAdmin(ctx context.Context) error {
 	now := nowRFC3339()
 	if err := s.ensureRole(ctx, "role-super-admin", "super_admin", now); err != nil {
 		return err
@@ -204,7 +148,7 @@ func (s *SQLiteStore) bootstrapAdmin(ctx context.Context) error {
 	return err
 }
 
-func (s *SQLiteStore) ensureRole(ctx context.Context, id string, name string, now string) error {
+func (s *MySQLStore) ensureRole(ctx context.Context, id string, name string, now string) error {
 	existingID, ok, err := s.roleIDByName(ctx, name)
 	if err != nil {
 		return err
@@ -225,7 +169,7 @@ func (s *SQLiteStore) ensureRole(ctx context.Context, id string, name string, no
 	return err
 }
 
-func (s *SQLiteStore) roleIDByName(ctx context.Context, name string) (string, bool, error) {
+func (s *MySQLStore) roleIDByName(ctx context.Context, name string) (string, bool, error) {
 	var id string
 	err := s.db.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = ?", name).Scan(&id)
 	if err == sql.ErrNoRows {
@@ -237,7 +181,7 @@ func (s *SQLiteStore) roleIDByName(ctx context.Context, name string) (string, bo
 	return id, true, nil
 }
 
-func (s *SQLiteStore) bootstrapTopology(ctx context.Context) error {
+func (s *MySQLStore) bootstrapTopology(ctx context.Context) error {
 	exists, err := s.exists(ctx, "SELECT 1 FROM nodes LIMIT 1")
 	if err != nil || exists {
 		return err
@@ -332,7 +276,7 @@ func (s *SQLiteStore) bootstrapTopology(ctx context.Context) error {
 	return nil
 }
 
-func (s *SQLiteStore) exists(ctx context.Context, query string, args ...any) (bool, error) {
+func (s *MySQLStore) exists(ctx context.Context, query string, args ...any) (bool, error) {
 	var value int
 	err := s.db.QueryRowContext(ctx, query, args...).Scan(&value)
 	if err == nil {
@@ -344,7 +288,7 @@ func (s *SQLiteStore) exists(ctx context.Context, query string, args ...any) (bo
 	return false, err
 }
 
-func (s *SQLiteStore) GetOverview() domain.Overview {
+func (s *MySQLStore) GetOverview() domain.Overview {
 	nodes := s.ListNodes()
 	health := s.ListNodeHealth()
 	healthy := 0
@@ -376,7 +320,7 @@ func (s *SQLiteStore) GetOverview() domain.Overview {
 	}
 }
 
-func (s *SQLiteStore) ListAccounts() []domain.Account {
+func (s *MySQLStore) ListAccounts() []domain.Account {
 	rows, err := s.db.Query(
 		`SELECT a.id, a.account, r.name, a.status, a.must_rotate_password
 		 FROM accounts a
@@ -400,7 +344,7 @@ func (s *SQLiteStore) ListAccounts() []domain.Account {
 	return accounts
 }
 
-func (s *SQLiteStore) CreateAccount(input domain.CreateAccountInput) (domain.Account, error) {
+func (s *MySQLStore) CreateAccount(input domain.CreateAccountInput) (domain.Account, error) {
 	roleID := roleIDForName(input.Role)
 	now := nowRFC3339()
 	if err := s.ensureRole(context.Background(), roleID, input.Role, now); err != nil {
@@ -425,7 +369,7 @@ func (s *SQLiteStore) CreateAccount(input domain.CreateAccountInput) (domain.Acc
 	return item, err
 }
 
-func (s *SQLiteStore) ListNodeLinks() []domain.NodeLink {
+func (s *MySQLStore) ListNodeLinks() []domain.NodeLink {
 	rows, err := s.db.Query(
 		`SELECT id, source_node_id, target_node_id, link_type, trust_state FROM node_links ORDER BY source_node_id, target_node_id`,
 	)
@@ -444,7 +388,7 @@ func (s *SQLiteStore) ListNodeLinks() []domain.NodeLink {
 	return items
 }
 
-func (s *SQLiteStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.NodeLink, error) {
+func (s *MySQLStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.NodeLink, error) {
 	item := domain.NodeLink{
 		ID:           newID("link"),
 		SourceNodeID: input.SourceNodeID,
@@ -461,7 +405,7 @@ func (s *SQLiteStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.N
 	return item, err
 }
 
-func (s *SQLiteStore) ListNodeAccessPaths() []domain.NodeAccessPath {
+func (s *MySQLStore) ListNodeAccessPaths() []domain.NodeAccessPath {
 	rows, err := s.db.Query(
 		`SELECT id, name, mode, COALESCE(target_node_id, ''), COALESCE(entry_node_id, ''), relay_node_ids_json, COALESCE(target_host, ''), COALESCE(target_port, 0), enabled
 		 FROM node_access_paths
@@ -486,7 +430,7 @@ func (s *SQLiteStore) ListNodeAccessPaths() []domain.NodeAccessPath {
 	return items
 }
 
-func (s *SQLiteStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error) {
+func (s *MySQLStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error) {
 	item := domain.NodeAccessPath{
 		ID:           newID("path"),
 		Name:         input.Name,
@@ -507,7 +451,7 @@ func (s *SQLiteStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInpu
 	return item, err
 }
 
-func (s *SQLiteStore) UpdateNodeAccessPath(pathID string, input domain.UpdateNodeAccessPathInput) (domain.NodeAccessPath, error) {
+func (s *MySQLStore) UpdateNodeAccessPath(pathID string, input domain.UpdateNodeAccessPathInput) (domain.NodeAccessPath, error) {
 	now := nowRFC3339()
 	_, err := s.db.Exec(
 		`UPDATE node_access_paths
@@ -526,12 +470,12 @@ func (s *SQLiteStore) UpdateNodeAccessPath(pathID string, input domain.UpdateNod
 	return domain.NodeAccessPath{}, sql.ErrNoRows
 }
 
-func (s *SQLiteStore) DeleteNodeAccessPath(pathID string) error {
+func (s *MySQLStore) DeleteNodeAccessPath(pathID string) error {
 	_, err := s.db.Exec("DELETE FROM node_access_paths WHERE id = ?", pathID)
 	return err
 }
 
-func (s *SQLiteStore) ListNodeOnboardingTasks() []domain.NodeOnboardingTask {
+func (s *MySQLStore) ListNodeOnboardingTasks() []domain.NodeOnboardingTask {
 	rows, err := s.db.Query(
 		`SELECT id, mode, COALESCE(path_id, ''), COALESCE(target_node_id, ''), COALESCE(target_host, ''), COALESCE(target_port, 0), status, status_message, requested_by_account_id, created_at, updated_at
 		 FROM node_onboarding_tasks
@@ -552,7 +496,7 @@ func (s *SQLiteStore) ListNodeOnboardingTasks() []domain.NodeOnboardingTask {
 	return items
 }
 
-func (s *SQLiteStore) CreateNodeOnboardingTask(accountID string, input domain.CreateNodeOnboardingTaskInput) (domain.NodeOnboardingTask, error) {
+func (s *MySQLStore) CreateNodeOnboardingTask(accountID string, input domain.CreateNodeOnboardingTaskInput) (domain.NodeOnboardingTask, error) {
 	now := nowRFC3339()
 	item := domain.NodeOnboardingTask{
 		ID:                   newID("task"),
@@ -575,7 +519,7 @@ func (s *SQLiteStore) CreateNodeOnboardingTask(accountID string, input domain.Cr
 	return item, err
 }
 
-func (s *SQLiteStore) UpdateNodeOnboardingTaskStatus(taskID string, status string, statusMessage string) (domain.NodeOnboardingTask, error) {
+func (s *MySQLStore) UpdateNodeOnboardingTaskStatus(taskID string, status string, statusMessage string) (domain.NodeOnboardingTask, error) {
 	now := nowRFC3339()
 	_, err := s.db.Exec(
 		`UPDATE node_onboarding_tasks SET status = ?, status_message = ?, updated_at = ? WHERE id = ?`,
@@ -592,7 +536,7 @@ func (s *SQLiteStore) UpdateNodeOnboardingTaskStatus(taskID string, status strin
 	return domain.NodeOnboardingTask{}, sql.ErrNoRows
 }
 
-func (s *SQLiteStore) ListCertificates() []domain.Certificate {
+func (s *MySQLStore) ListCertificates() []domain.Certificate {
 	rows, err := s.db.Query(
 		`SELECT id, owner_type, owner_id, cert_type, provider, status, COALESCE(not_before, ''), COALESCE(not_after, '')
 		 FROM certificates
@@ -613,7 +557,7 @@ func (s *SQLiteStore) ListCertificates() []domain.Certificate {
 	return items
 }
 
-func (s *SQLiteStore) UpdateAccount(accountID string, input domain.UpdateAccountInput) (domain.Account, error) {
+func (s *MySQLStore) UpdateAccount(accountID string, input domain.UpdateAccountInput) (domain.Account, error) {
 	current, ok := s.getAccountByID(accountID)
 	if !ok {
 		return domain.Account{}, sql.ErrNoRows
@@ -659,7 +603,7 @@ func roleIDForName(name string) string {
 	return "role-" + replacer.Replace(name)
 }
 
-func (s *SQLiteStore) getAccountByID(accountID string) (domain.Account, bool) {
+func (s *MySQLStore) getAccountByID(accountID string) (domain.Account, bool) {
 	var item domain.Account
 	var mustRotate int
 	err := s.db.QueryRow(
@@ -676,7 +620,7 @@ func (s *SQLiteStore) getAccountByID(accountID string) (domain.Account, bool) {
 	return item, true
 }
 
-func (s *SQLiteStore) Authenticate(account string, password string) (domain.LoginResult, bool) {
+func (s *MySQLStore) Authenticate(account string, password string) (domain.LoginResult, bool) {
 	var (
 		id         string
 		name       string
@@ -698,7 +642,7 @@ func (s *SQLiteStore) Authenticate(account string, password string) (domain.Logi
 	return s.createSession(id, name, role, status, mustRotate == 1)
 }
 
-func (s *SQLiteStore) AuthenticateAccessToken(accessToken string) (domain.Account, bool) {
+func (s *MySQLStore) AuthenticateAccessToken(accessToken string) (domain.Account, bool) {
 	var (
 		accountID string
 		expiresAt string
@@ -721,7 +665,7 @@ func (s *SQLiteStore) AuthenticateAccessToken(accessToken string) (domain.Accoun
 	return item, true
 }
 
-func (s *SQLiteStore) RefreshSession(refreshToken string) (domain.LoginResult, bool) {
+func (s *MySQLStore) RefreshSession(refreshToken string) (domain.LoginResult, bool) {
 	var (
 		accountID string
 		expiresAt string
@@ -744,7 +688,7 @@ func (s *SQLiteStore) RefreshSession(refreshToken string) (domain.LoginResult, b
 	return s.createSession(item.ID, item.Account, item.Role, item.Status, item.MustRotatePassword)
 }
 
-func (s *SQLiteStore) createSession(accountID string, account string, role string, status string, mustRotate bool) (domain.LoginResult, bool) {
+func (s *MySQLStore) createSession(accountID string, account string, role string, status string, mustRotate bool) (domain.LoginResult, bool) {
 	accessToken, err := auth.RandomToken()
 	if err != nil {
 		return domain.LoginResult{}, false
@@ -769,7 +713,7 @@ func (s *SQLiteStore) createSession(accountID string, account string, role strin
 	}, true
 }
 
-func (s *SQLiteStore) Logout(accessToken string) bool {
+func (s *MySQLStore) Logout(accessToken string) bool {
 	result, err := s.db.Exec("DELETE FROM sessions WHERE access_token_hash = ?", accessToken)
 	if err != nil {
 		return false
@@ -778,7 +722,7 @@ func (s *SQLiteStore) Logout(accessToken string) bool {
 	return err == nil && affected > 0
 }
 
-func (s *SQLiteStore) ListNodes() []domain.Node {
+func (s *MySQLStore) ListNodes() []domain.Node {
 	rows, err := s.db.Query(
 		`SELECT id, name, mode, scope_key, COALESCE(parent_node_id, ''), enabled, status, COALESCE(public_host, ''), COALESCE(public_port, 0)
 		 FROM nodes ORDER BY name`,
@@ -800,7 +744,7 @@ func (s *SQLiteStore) ListNodes() []domain.Node {
 	return items
 }
 
-func (s *SQLiteStore) CreateNode(input domain.CreateNodeInput) (domain.Node, error) {
+func (s *MySQLStore) CreateNode(input domain.CreateNodeInput) (domain.Node, error) {
 	item := domain.Node{
 		ID:           newID("node"),
 		Name:         input.Name,
@@ -821,7 +765,7 @@ func (s *SQLiteStore) CreateNode(input domain.CreateNodeInput) (domain.Node, err
 	return item, err
 }
 
-func (s *SQLiteStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrollmentResult, error) {
+func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrollmentResult, error) {
 	var (
 		node    domain.Node
 		enabled int
@@ -891,7 +835,7 @@ func (s *SQLiteStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnro
 	}, nil
 }
 
-func (s *SQLiteStore) assignLatestPolicyTx(tx *sql.Tx, nodeID string, assignedAt string) error {
+func (s *MySQLStore) assignLatestPolicyTx(tx *sql.Tx, nodeID string, assignedAt string) error {
 	var latestRevisionID string
 	err := tx.QueryRow(
 		`SELECT id FROM policy_revisions ORDER BY created_at DESC LIMIT 1`,
@@ -916,7 +860,7 @@ func (s *SQLiteStore) assignLatestPolicyTx(tx *sql.Tx, nodeID string, assignedAt
 	return err
 }
 
-func (s *SQLiteStore) UpdateNode(nodeID string, input domain.UpdateNodeInput) (domain.Node, error) {
+func (s *MySQLStore) UpdateNode(nodeID string, input domain.UpdateNodeInput) (domain.Node, error) {
 	now := nowRFC3339()
 	_, err := s.db.Exec(
 		`UPDATE nodes
@@ -935,12 +879,42 @@ func (s *SQLiteStore) UpdateNode(nodeID string, input domain.UpdateNodeInput) (d
 	return domain.Node{}, sql.ErrNoRows
 }
 
-func (s *SQLiteStore) DeleteNode(nodeID string) error {
-	_, err := s.db.Exec("DELETE FROM nodes WHERE id = ?", nodeID)
-	return err
+func (s *MySQLStore) DeleteNode(nodeID string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	statements := []string{
+		"DELETE FROM chain_hops WHERE node_id = ?",
+		"DELETE FROM node_links WHERE source_node_id = ? OR target_node_id = ?",
+		"DELETE FROM node_onboarding_tasks WHERE target_node_id = ?",
+		"DELETE FROM node_access_paths WHERE target_node_id = ? OR entry_node_id = ?",
+		"DELETE FROM node_policy_assignments WHERE node_id = ?",
+		"DELETE FROM node_health_snapshots WHERE node_id = ?",
+		"DELETE FROM node_api_tokens WHERE node_id = ?",
+		"DELETE FROM node_trust_materials WHERE node_id = ?",
+		"UPDATE nodes SET parent_node_id = NULL WHERE parent_node_id = ?",
+	}
+	for _, statement := range statements {
+		if strings.Count(statement, "?") == 2 {
+			if _, err := tx.Exec(statement, nodeID, nodeID); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err := tx.Exec(statement, nodeID); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", nodeID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
-func (s *SQLiteStore) ListChains() []domain.Chain {
+func (s *MySQLStore) ListChains() []domain.Chain {
 	rows, err := s.db.Query("SELECT id, name, destination_scope, enabled FROM chains ORDER BY name")
 	if err != nil {
 		return nil
@@ -960,7 +934,7 @@ func (s *SQLiteStore) ListChains() []domain.Chain {
 	return items
 }
 
-func (s *SQLiteStore) loadChainHops(chainID string) []string {
+func (s *MySQLStore) loadChainHops(chainID string) []string {
 	rows, err := s.db.Query("SELECT node_id FROM chain_hops WHERE chain_id = ? ORDER BY hop_index", chainID)
 	if err != nil {
 		return nil
@@ -977,7 +951,7 @@ func (s *SQLiteStore) loadChainHops(chainID string) []string {
 	return hops
 }
 
-func (s *SQLiteStore) CreateChain(input domain.CreateChainInput) (domain.Chain, error) {
+func (s *MySQLStore) CreateChain(input domain.CreateChainInput) (domain.Chain, error) {
 	item := domain.Chain{ID: newID("chain"), Name: input.Name, DestinationScope: input.DestinationScope, Enabled: true, Hops: input.Hops}
 	now := nowRFC3339()
 	tx, err := s.db.Begin()
@@ -1002,7 +976,7 @@ func (s *SQLiteStore) CreateChain(input domain.CreateChainInput) (domain.Chain, 
 	return item, nil
 }
 
-func (s *SQLiteStore) UpdateChain(chainID string, input domain.UpdateChainInput) (domain.Chain, error) {
+func (s *MySQLStore) UpdateChain(chainID string, input domain.UpdateChainInput) (domain.Chain, error) {
 	now := nowRFC3339()
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -1034,7 +1008,7 @@ func (s *SQLiteStore) UpdateChain(chainID string, input domain.UpdateChainInput)
 	return domain.Chain{}, sql.ErrNoRows
 }
 
-func (s *SQLiteStore) DeleteChain(chainID string) error {
+func (s *MySQLStore) DeleteChain(chainID string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -1049,7 +1023,7 @@ func (s *SQLiteStore) DeleteChain(chainID string) error {
 	return tx.Commit()
 }
 
-func (s *SQLiteStore) ListRouteRules() []domain.RouteRule {
+func (s *MySQLStore) ListRouteRules() []domain.RouteRule {
 	rows, err := s.db.Query(
 		`SELECT id, priority, match_type, match_value, action_type, COALESCE(chain_id, ''), COALESCE(destination_scope, ''), enabled
 		 FROM route_rules ORDER BY priority ASC`,
@@ -1071,7 +1045,7 @@ func (s *SQLiteStore) ListRouteRules() []domain.RouteRule {
 	return items
 }
 
-func (s *SQLiteStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
+func (s *MySQLStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
 	item := domain.RouteRule{
 		ID:               newID("rule"),
 		Priority:         input.Priority,
@@ -1091,7 +1065,7 @@ func (s *SQLiteStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain
 	return item, err
 }
 
-func (s *SQLiteStore) UpdateRouteRule(ruleID string, input domain.UpdateRouteRuleInput) (domain.RouteRule, error) {
+func (s *MySQLStore) UpdateRouteRule(ruleID string, input domain.UpdateRouteRuleInput) (domain.RouteRule, error) {
 	now := nowRFC3339()
 	_, err := s.db.Exec(
 		`UPDATE route_rules
@@ -1110,12 +1084,12 @@ func (s *SQLiteStore) UpdateRouteRule(ruleID string, input domain.UpdateRouteRul
 	return domain.RouteRule{}, sql.ErrNoRows
 }
 
-func (s *SQLiteStore) DeleteRouteRule(ruleID string) error {
+func (s *MySQLStore) DeleteRouteRule(ruleID string) error {
 	_, err := s.db.Exec("DELETE FROM route_rules WHERE id = ?", ruleID)
 	return err
 }
 
-func (s *SQLiteStore) ListNodeHealth() []domain.NodeHealth {
+func (s *MySQLStore) ListNodeHealth() []domain.NodeHealth {
 	rows, err := s.db.Query(
 		`SELECT node_id, heartbeat_at, COALESCE(policy_revision_id, ''), listener_status_json, cert_status_json
 		 FROM node_health_snapshots ORDER BY node_id`,
@@ -1139,7 +1113,7 @@ func (s *SQLiteStore) ListNodeHealth() []domain.NodeHealth {
 	return items
 }
 
-func (s *SQLiteStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error) {
+func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error) {
 	token, err := auth.RandomToken()
 	if err != nil {
 		return domain.BootstrapToken{}, err
@@ -1159,7 +1133,7 @@ func (s *SQLiteStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInpu
 	return item, err
 }
 
-func (s *SQLiteStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
+func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
 	var (
 		tokenID    string
 		expiresAt  string
@@ -1220,9 +1194,9 @@ func (s *SQLiteStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNod
 	}, nil
 }
 
-func (s *SQLiteStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnrollmentResult, error) {
+func (s *MySQLStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnrollmentResult, error) {
 	var (
-		node domain.Node
+		node    domain.Node
 		enabled int
 	)
 	err := s.db.QueryRow(
@@ -1287,7 +1261,7 @@ func (s *SQLiteStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEn
 	}, nil
 }
 
-func (s *SQLiteStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentInput) (domain.ApproveNodeEnrollmentResult, error) {
+func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentInput) (domain.ApproveNodeEnrollmentResult, error) {
 	var (
 		node        domain.Node
 		enabled     int
@@ -1342,7 +1316,7 @@ func (s *SQLiteStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollment
 	}, nil
 }
 
-func (s *SQLiteStore) ListPolicyRevisions() []domain.PolicyRevision {
+func (s *MySQLStore) ListPolicyRevisions() []domain.PolicyRevision {
 	rows, err := s.db.Query(
 		`SELECT p.id, p.version, p.status, p.created_at, COUNT(a.node_id)
 		 FROM policy_revisions p
@@ -1365,7 +1339,7 @@ func (s *SQLiteStore) ListPolicyRevisions() []domain.PolicyRevision {
 	return items
 }
 
-func (s *SQLiteStore) PublishPolicy(accountID string) (domain.PolicyRevision, error) {
+func (s *MySQLStore) PublishPolicy(accountID string) (domain.PolicyRevision, error) {
 	nodes := s.policyNodes()
 	links := s.ListNodeLinks()
 	chains := s.ListChains()
@@ -1414,7 +1388,7 @@ func (s *SQLiteStore) PublishPolicy(accountID string) (domain.PolicyRevision, er
 	return item, nil
 }
 
-func (s *SQLiteStore) AuthenticateNodeToken(accessToken string) (string, bool) {
+func (s *MySQLStore) AuthenticateNodeToken(accessToken string) (string, bool) {
 	var (
 		nodeID    string
 		expiresAt string
@@ -1438,7 +1412,7 @@ func (s *SQLiteStore) AuthenticateNodeToken(accessToken string) (string, bool) {
 	return nodeID, true
 }
 
-func (s *SQLiteStore) policyNodes() []domain.Node {
+func (s *MySQLStore) policyNodes() []domain.Node {
 	all := s.ListNodes()
 	items := make([]domain.Node, 0, len(all))
 	for _, node := range all {
@@ -1450,7 +1424,7 @@ func (s *SQLiteStore) policyNodes() []domain.Node {
 	return items
 }
 
-func (s *SQLiteStore) CleanupExpiredSessions() (int64, error) {
+func (s *MySQLStore) CleanupExpiredSessions() (int64, error) {
 	result, err := s.db.Exec("DELETE FROM sessions WHERE expires_at <= ?", nowRFC3339())
 	if err != nil {
 		return 0, err
@@ -1458,7 +1432,7 @@ func (s *SQLiteStore) CleanupExpiredSessions() (int64, error) {
 	return result.RowsAffected()
 }
 
-func (s *SQLiteStore) CleanupExpiredBootstrapTokens() (int64, error) {
+func (s *MySQLStore) CleanupExpiredBootstrapTokens() (int64, error) {
 	result, err := s.db.Exec("DELETE FROM bootstrap_tokens WHERE expires_at <= ? OR consumed_at IS NOT NULL", nowRFC3339())
 	if err != nil {
 		return 0, err
@@ -1466,7 +1440,7 @@ func (s *SQLiteStore) CleanupExpiredBootstrapTokens() (int64, error) {
 	return result.RowsAffected()
 }
 
-func (s *SQLiteStore) CleanupExpiredNodeTokens() (int64, error) {
+func (s *MySQLStore) CleanupExpiredNodeTokens() (int64, error) {
 	result, err := s.db.Exec("DELETE FROM node_api_tokens WHERE expires_at <= ?", nowRFC3339())
 	if err != nil {
 		return 0, err
@@ -1474,7 +1448,7 @@ func (s *SQLiteStore) CleanupExpiredNodeTokens() (int64, error) {
 	return result.RowsAffected()
 }
 
-func (s *SQLiteStore) RefreshCertificateStatus(window time.Duration) error {
+func (s *MySQLStore) RefreshCertificateStatus(window time.Duration) error {
 	now := time.Now().UTC()
 	renewBefore := now.Add(window).Format(time.RFC3339)
 	if _, err := s.db.Exec(
@@ -1496,7 +1470,7 @@ func (s *SQLiteStore) RefreshCertificateStatus(window time.Duration) error {
 	return err
 }
 
-func (s *SQLiteStore) RefreshNodeStatus(staleAfter time.Duration) error {
+func (s *MySQLStore) RefreshNodeStatus(staleAfter time.Duration) error {
 	staleAt := time.Now().UTC().Add(-staleAfter).Format(time.RFC3339)
 	if _, err := s.db.Exec(
 		"UPDATE nodes SET status = 'degraded', updated_at = ? WHERE id NOT IN (SELECT node_id FROM node_health_snapshots)",
@@ -1517,7 +1491,7 @@ func (s *SQLiteStore) RefreshNodeStatus(staleAfter time.Duration) error {
 	return err
 }
 
-func (s *SQLiteStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
+func (s *MySQLStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
 	var (
 		policyID string
 		payload  string
@@ -1558,7 +1532,7 @@ func (s *SQLiteStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy,
 	}, true
 }
 
-func (s *SQLiteStore) compileLatestPolicyForNode(nodeID string) (string, string, bool) {
+func (s *MySQLStore) compileLatestPolicyForNode(nodeID string) (string, string, bool) {
 	exists, err := s.exists(context.Background(), "SELECT 1 FROM nodes WHERE id = ? AND enabled = 1 AND status != 'pending'", nodeID)
 	if err != nil || !exists {
 		return "", "", false
@@ -1579,17 +1553,17 @@ func (s *SQLiteStore) compileLatestPolicyForNode(nodeID string) (string, string,
 	return version, snapshotJSON, true
 }
 
-func (s *SQLiteStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domain.NodeHealth, error) {
+func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domain.NodeHealth, error) {
 	now := nowRFC3339()
 	_, err := s.db.Exec(
 		`INSERT INTO node_health_snapshots (node_id, heartbeat_at, policy_revision_id, listener_status_json, cert_status_json, updated_at)
 		 VALUES (?, ?, NULLIF(?, ''), ?, ?, ?)
-		 ON CONFLICT(node_id) DO UPDATE SET
-		   heartbeat_at = excluded.heartbeat_at,
-		   policy_revision_id = excluded.policy_revision_id,
-		   listener_status_json = excluded.listener_status_json,
-		   cert_status_json = excluded.cert_status_json,
-		   updated_at = excluded.updated_at`,
+		 ON DUPLICATE KEY UPDATE
+		   heartbeat_at = VALUES(heartbeat_at),
+		   policy_revision_id = VALUES(policy_revision_id),
+		   listener_status_json = VALUES(listener_status_json),
+		   cert_status_json = VALUES(cert_status_json),
+		   updated_at = VALUES(updated_at)`,
 		input.NodeID, now, input.PolicyRevisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
 	)
 	if err != nil {
@@ -1604,7 +1578,7 @@ func (s *SQLiteStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (doma
 	}, nil
 }
 
-func (s *SQLiteStore) RenewNodeCertificate(input domain.NodeCertRenewInput) (domain.NodeCertRenewResult, error) {
+func (s *MySQLStore) RenewNodeCertificate(input domain.NodeCertRenewInput) (domain.NodeCertRenewResult, error) {
 	now := nowRFC3339()
 	notAfter := time.Now().UTC().Add(30 * 24 * time.Hour).Format(time.RFC3339)
 	var certID string
