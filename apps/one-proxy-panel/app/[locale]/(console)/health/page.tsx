@@ -10,7 +10,7 @@ import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {getCertificates, getNodeHealth, getNodes} from '@/lib/control-plane-api';
 import {Certificate, NodeHealth} from '@/lib/control-plane-types';
-import {formatControlPlaneError} from '@/lib/presentation';
+import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 const staleThresholdMs = 2 * 60 * 1000;
 
@@ -222,7 +222,7 @@ export default function HealthPage() {
                             <span className={healthBadgeClassName(item.derivedStatus)}>{item.derivedLabel}</span>
                           </td>
                           <td>{item.mode || <span className="muted-text">unknown</span>}</td>
-                          <td className="mono">{item.heartbeatAt || <span className="muted-text">never</span>}</td>
+                          <td className="mono">{item.heartbeatAt ? formatISODateTime(item.heartbeatAt) : <span className="muted-text">never</span>}</td>
                           <td>{item.policyRevisionId || <span className="muted-text">unassigned</span>}</td>
                           <td>{item.listenerSummary || <span className="muted-text">none</span>}</td>
                           <td>{item.certSummary || <span className="muted-text">none</span>}</td>
@@ -293,7 +293,7 @@ export default function HealthPage() {
                           </td>
                           <td>{item.certType}</td>
                           <td>{item.provider}</td>
-                          <td className="mono">{item.notAfter || '-'}</td>
+                          <td className="mono">{formatISODateTime(item.notAfter, '-')}</td>
                           <td className="mono registry-id-cell">{item.id}</td>
                         </tr>
                       ))}

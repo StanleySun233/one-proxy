@@ -10,7 +10,7 @@ import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {createRouteRule, getChains, getPolicyRevisions, getRouteRules, publishPolicy} from '@/lib/control-plane-api';
-import {formatControlPlaneError} from '@/lib/presentation';
+import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 type RouteRuleFormValues = {
   priority: string;
@@ -229,7 +229,7 @@ export default function RoutesPage() {
                     <span className="muted-text">
                       {policy.status} · {policy.assignedNodes} nodes
                     </span>
-                    <span className="mono">{policy.createdAt}</span>
+                    <span className="mono">{formatISODateTime(policy.createdAt)}</span>
                   </div>
                 ))}
               </div>

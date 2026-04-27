@@ -21,7 +21,7 @@ import {
   updateNodeOnboardingTaskStatus
 } from '@/lib/control-plane-api';
 import {Node, NodeAccessPath, NodeOnboardingTask} from '@/lib/control-plane-types';
-import {formatControlPlaneError, joinList, splitList} from '@/lib/presentation';
+import {formatControlPlaneError, formatISODateTime, joinList, splitList} from '@/lib/presentation';
 
 type AccessPathFormValues = {
   name: string;
@@ -901,9 +901,9 @@ export default function OnboardingPage() {
                             </td>
                             <td>{task.mode}</td>
                             <td>{describeTaskPath(task.pathId, pathsByID)}</td>
-                            <td className="mono">{task.createdAt}</td>
+                            <td className="mono">{formatISODateTime(task.createdAt)}</td>
                             <td>{task.requestedByAccountId || <span className="muted-text">system</span>}</td>
-                            <td className="mono">{task.updatedAt || task.createdAt}</td>
+                            <td className="mono">{formatISODateTime(task.updatedAt || task.createdAt)}</td>
                             <td className="mono registry-id-cell">{task.id}</td>
                             <td>
                               <div className="registry-actions">

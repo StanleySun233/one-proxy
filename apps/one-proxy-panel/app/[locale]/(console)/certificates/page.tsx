@@ -8,7 +8,7 @@ import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {getCertificates} from '@/lib/control-plane-api';
-import {formatControlPlaneError} from '@/lib/presentation';
+import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 export default function CertificatesPage() {
   const t = useTranslations('pages');
@@ -53,7 +53,7 @@ export default function CertificatesPage() {
                       <td>
                         <span className={`badge ${cert.status === 'healthy' || cert.status === 'renewed' ? 'is-good' : 'is-warn'}`}>{cert.status}</span>
                       </td>
-                      <td className="mono">{cert.notAfter || '-'}</td>
+                      <td className="mono">{formatISODateTime(cert.notAfter, '-')}</td>
                     </tr>
                   ))}
                 </tbody>

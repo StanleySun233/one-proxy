@@ -5,7 +5,7 @@ import {ReactNode, useEffect, useMemo, useState} from 'react';
 import {AuthGate} from '@/components/auth-gate';
 import {AsyncState} from '@/components/async-state';
 import {Node, NodeHealth, NodeLink, NodeTransport} from '@/lib/control-plane-types';
-import {formatControlPlaneError} from '@/lib/presentation';
+import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {BootstrapTokenTab} from './bootstrap-token-tab';
 import {ManualNodeTab} from './manual-node-tab';
@@ -204,7 +204,7 @@ export function NodeApprovalsPageContent() {
                         {node.requiresApproval ? 'awaiting approval' : 'awaiting first heartbeat'}
                       </span>
                       <span className={healthBadgeClassName(node.derivedHealthStatus)}>{node.derivedHealthLabel}</span>
-                      <span className="muted-text">{node.heartbeatAt || 'heartbeat: never'}</span>
+                      <span className="muted-text">{node.heartbeatAt ? formatISODateTime(node.heartbeatAt) : 'heartbeat: never'}</span>
                     </div>
                   }
                   key={node.id}
@@ -435,7 +435,7 @@ export function NodeRegistryPageContent() {
                             </td>
                             <td>{node.mode}</td>
                             <td>{node.scopeKey || <span className="muted-text">no-scope</span>}</td>
-                            <td className="mono">{node.heartbeatAt || <span className="muted-text">never</span>}</td>
+                            <td className="mono">{node.heartbeatAt ? formatISODateTime(node.heartbeatAt) : <span className="muted-text">never</span>}</td>
                             <td>{node.policyRevisionId || <span className="muted-text">unassigned</span>}</td>
                             <td>{node.publicHost ? `${node.publicHost}:${node.publicPort}` : <span className="muted-text">No public endpoint</span>}</td>
                             <td>{describeNodeName(node.parentNodeId, nodesByID) || <span className="muted-text">root</span>}</td>
@@ -686,7 +686,7 @@ export function NodeTopologyPageContent() {
                           </td>
                           <td className="mono">{transport.address}</td>
                           <td>{describeNodeName(transport.parentNodeId, nodesByID) || <span className="muted-text">root</span>}</td>
-                          <td className="mono">{transport.lastHeartbeatAt || <span className="muted-text">never</span>}</td>
+                          <td className="mono">{transport.lastHeartbeatAt ? formatISODateTime(transport.lastHeartbeatAt) : <span className="muted-text">never</span>}</td>
                         </tr>
                       ))
                     )}
@@ -816,7 +816,7 @@ function NodeLinkCard({
         <div className="node-approval-meta">
           <span className={transportBadgeClassName(childTunnel.status)}>{childTunnel.status}</span>
           <span className="mono">{childTunnel.transportType}</span>
-          <span className="muted-text">{childTunnel.lastHeartbeatAt || 'heartbeat: never'}</span>
+          <span className="muted-text">{childTunnel.lastHeartbeatAt ? formatISODateTime(childTunnel.lastHeartbeatAt) : 'heartbeat: never'}</span>
         </div>
       ) : (
         <span className="badge is-neutral">no active child tunnel</span>
