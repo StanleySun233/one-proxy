@@ -3,6 +3,7 @@ WORKDIR /workspace/apps/one-proxy-node
 COPY apps/one-proxy-node/go.mod apps/one-proxy-node/go.sum ./
 RUN go mod download
 COPY apps/one-proxy-node ./
+RUN go mod tidy
 RUN mkdir -p /out/runtime /out/zoneinfo && cp -a /usr/share/zoneinfo/. /out/zoneinfo/ && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/one-proxy-node ./cmd/one-proxy-node
 
 FROM gcr.io/distroless/static-debian12:nonroot
