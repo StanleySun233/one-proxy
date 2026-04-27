@@ -8,7 +8,7 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {getCertificates, getNodes} from '@/lib/control-plane-api';
+import {fetchEnums, getCertificates, getNodes} from '@/lib/control-plane-api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 export default function CertificatesPage() {
@@ -32,6 +32,8 @@ export default function CertificatesPage() {
     refetchInterval: 10000
   });
 
+  const enumsQuery = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const enums = enumsQuery.data;
   const nodes = nodesQuery.data || [];
   const certificates = certificatesQuery.data || [];
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
@@ -157,7 +159,7 @@ export default function CertificatesPage() {
                         <tr key={item.id}>
                           <td>{item.ownerName}</td>
                           <td>
-                            <span className={certificateBadgeClassName(item.status)}>{item.status}</span>
+                            <span className={certBadgeClassName(item.status, enums?.cert_status)}>{item.status}</span>
                           </td>
                           <td>{item.certType}</td>
                           <td>{item.provider}</td>
@@ -201,12 +203,7 @@ function expiryDotColor(daysRemaining: number | null): string {
   return 'is-good';
 }
 
-function certificateBadgeClassName(status: string) {
-  if (status === 'healthy' || status === 'renewed') {
-    return 'badge is-good';
-  }
-  if (status === 'renew-soon' || status === 'rotate') {
-    return 'badge is-warn';
-  }
-  return 'badge is-danger';
+function certBadgeClassName(status: string, certStatusEnum?: Record<string, {name: string; meta?: {className?: string}}>): string {
+  const className = certStatusEnum?.[status]?.meta?.className;
+  return `badge ${className || 'is-neutral'}`;
 }

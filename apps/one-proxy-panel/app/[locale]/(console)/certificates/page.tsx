@@ -7,7 +7,7 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {getCertificates} from '@/lib/control-plane-api';
+import {fetchEnums, getCertificates} from '@/lib/control-plane-api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 export default function CertificatesPage() {
@@ -19,6 +19,8 @@ export default function CertificatesPage() {
     queryFn: () => getCertificates(accessToken),
     enabled: !!accessToken
   });
+  const enumsQuery = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const enums = enumsQuery.data;
   const certificates = certificatesQuery.data || [];
 
   return (
@@ -51,7 +53,7 @@ export default function CertificatesPage() {
                       <td>{cert.certType}</td>
                       <td>{cert.provider}</td>
                       <td>
-                        <span className={`badge ${cert.status === 'healthy' || cert.status === 'renewed' ? 'is-good' : 'is-warn'}`}>{cert.status}</span>
+                        <span className={`badge ${enums?.cert_status?.[cert.status]?.meta?.className || 'is-neutral'}`}>{cert.status}</span>
                       </td>
                       <td className="mono">{formatISODateTime(cert.notAfter, '-')}</td>
                     </tr>
