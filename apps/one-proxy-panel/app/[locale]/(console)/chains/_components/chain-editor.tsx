@@ -225,16 +225,14 @@ export function ChainEditor({
 
       {validationResult && (validationResult.errors.length > 0 || validationResult.warnings.length > 0) && (
         <div className="probe-results-section">
-          {validationResult.errors.map((err, i) => (
+          {validationResult.errors.map((msg, i) => (
             <div className="token-box" key={`err-${i}`} style={{borderColor: 'var(--danger)'}}>
-              <strong style={{color: 'var(--danger)'}}>{err.field}</strong>
-              <span className="field-hint" style={{color: 'var(--danger)'}}>{err.message}</span>
+              <span className="field-hint" style={{color: 'var(--danger)'}}>{msg}</span>
             </div>
           ))}
-          {validationResult.warnings.map((warn, i) => (
+          {validationResult.warnings.map((msg, i) => (
             <div className="token-box" key={`warn-${i}`} style={{borderColor: 'var(--accent)'}}>
-              <strong style={{color: 'var(--accent)'}}>{warn.field}</strong>
-              <span className="field-hint" style={{color: 'var(--accent)'}}>{warn.message}</span>
+              <span className="field-hint" style={{color: 'var(--accent)'}}>{msg}</span>
             </div>
           ))}
         </div>

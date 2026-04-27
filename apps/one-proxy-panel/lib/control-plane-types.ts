@@ -214,18 +214,12 @@ export type GroupDetail = Group & {
   scopes: string[];
 };
 
-export type ChainValidationError = {
-  field: string;
-  message: string;
-  severity: 'error' | 'warning';
-};
-
 export type ChainValidationResult = {
   valid: boolean;
-  errors: ChainValidationError[];
-  warnings: ChainValidationError[];
-  hopConnectivity: Record<string, { reachable: boolean; message: string }>;
-  scopeOwnership: Record<string, boolean>;
+  errors: string[];
+  warnings: string[];
+  hopConnectivity: { from: string; to: string; reachable: boolean }[];
+  scopeOwnership: { scope: string; ownerNodeId: string; valid: boolean };
 };
 
 export type CompiledChainHop = {
@@ -239,15 +233,37 @@ export type CompiledChainConfig = {
   name: string;
   hops: CompiledChainHop[];
   destinationScope: string;
-  routingPath: string[];
+  routingPath: string;
 };
 
 export type ChainPreviewResult = {
   compiledConfig: CompiledChainConfig;
 };
 
+export type MatchValueValidation = {
+  valid: boolean;
+  format: string;
+  message: string;
+};
+
+export type ChainValidation = {
+  valid: boolean;
+  chainEnabled: boolean;
+  chainHops: string[];
+};
+
+export type ScopeValidation = {
+  valid: boolean;
+  scopeExists: boolean;
+  scopeOwnerNodeId: string;
+  matchesChainFinalHop: boolean;
+};
+
 export type RouteRuleValidationResult = {
   valid: boolean;
-  errors: ChainValidationError[];
-  warnings: ChainValidationError[];
+  errors: string[];
+  warnings: string[];
+  matchValueValidation: MatchValueValidation;
+  chainValidation: ChainValidation;
+  scopeValidation: ScopeValidation;
 };

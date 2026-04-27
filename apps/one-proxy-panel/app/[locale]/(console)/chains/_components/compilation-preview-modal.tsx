@@ -31,17 +31,7 @@ export function CompilationPreviewModal({config, onClose}: CompilationPreviewMod
         <div className="field-stack">
           <span>Routing Path</span>
           <div className="token-box">
-            <div className="mono" style={{display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap'}}>
-              <span className="badge is-neutral">user</span>
-              {config.routingPath.map((hop, i) => (
-                <span key={i} style={{display: 'inline-flex', alignItems: 'center', gap: 8}}>
-                  <span className="muted-text">→</span>
-                  <span className="badge is-good">{hop}</span>
-                </span>
-              ))}
-              <span className="muted-text">→</span>
-              <span className="badge is-warn">{config.destinationScope}</span>
-            </div>
+            <div className="mono">{config.routingPath}</div>
           </div>
         </div>
 

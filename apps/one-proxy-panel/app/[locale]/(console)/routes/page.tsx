@@ -202,15 +202,6 @@ export default function RoutesPage() {
   const chains = chainsQuery.data || [];
   const nodes = nodesQuery.data || [];
 
-  const getFieldErrors = (field: string) => {
-    if (!validationResult) return [];
-    return validationResult.errors.filter((e) => e.field === field);
-  };
-
-  const getFieldWarnings = (field: string) => {
-    if (!validationResult) return [];
-    return validationResult.warnings.filter((e) => e.field === field);
-  };
 
   const selectedChain = chains.find((c) => c.id === selectedChainId);
   const availableScopes = Array.from(new Set([...nodes.map((n) => n.scopeKey).filter(Boolean), ...chains.map((c) => c.destinationScope)]));
@@ -224,7 +215,15 @@ export default function RoutesPage() {
 
         <section className="forms-grid">
           <article className="panel-card">
-            <h3>Create route rule</h3>
+            <div className="inline-cluster" style={{gap: 8}}>
+              <h3>Create route rule</h3>
+              {validationPending && <span className="badge is-neutral">validating...</span>}
+              {!validationPending && validationResult && (
+                <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
+                  {validationResult.valid ? 'valid' : 'invalid'}
+                </span>
+              )}
+            </div>
             <form
               className="sub-grid"
               onSubmit={form.handleSubmit((values) => {
@@ -250,8 +249,6 @@ export default function RoutesPage() {
                   })}
                 />
                 {form.formState.errors.priority ? <p className="error-text">{form.formState.errors.priority.message}</p> : null}
-                {getFieldErrors('priority').map((e, i) => <p className="error-text" key={`priority-err-${i}`}>{e.message}</p>)}
-                {getFieldWarnings('priority').map((e, i) => <p className="error-text" key={`priority-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
               <div className="field-stack">
                 <span>Match type</span>
@@ -267,8 +264,6 @@ export default function RoutesPage() {
                   ))}
                 </select>
                 {form.formState.errors.matchType ? <p className="error-text">{form.formState.errors.matchType.message}</p> : null}
-                {getFieldErrors('matchType').map((e, i) => <p className="error-text" key={`matchType-err-${i}`}>{e.message}</p>)}
-                {getFieldWarnings('matchType').map((e, i) => <p className="error-text" key={`matchType-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
               <div className="field-stack">
                 <span>Match value</span>
@@ -290,8 +285,6 @@ export default function RoutesPage() {
                   )}
                 </div>
                 {form.formState.errors.matchValue ? <p className="error-text">{form.formState.errors.matchValue.message}</p> : null}
-                {getFieldErrors('matchValue').map((e, i) => <p className="error-text" key={`matchValue-err-${i}`}>{e.message}</p>)}
-                {getFieldWarnings('matchValue').map((e, i) => <p className="error-text" key={`matchValue-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
               <div className="field-stack">
                 <span>Action type</span>
@@ -299,8 +292,6 @@ export default function RoutesPage() {
                   <option value="chain">chain</option>
                   <option value="direct">direct</option>
                 </select>
-                {getFieldErrors('actionType').map((e, i) => <p className="error-text" key={`actionType-err-${i}`}>{e.message}</p>)}
-                {getFieldWarnings('actionType').map((e, i) => <p className="error-text" key={`actionType-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
               <div className="field-stack">
                 <span>Chain</span>
@@ -325,8 +316,6 @@ export default function RoutesPage() {
                   })}
                 </select>
                 {form.formState.errors.chainId ? <p className="error-text">{form.formState.errors.chainId.message}</p> : null}
-                {getFieldErrors('chainId').map((e, i) => <p className="error-text" key={`chainId-err-${i}`}>{e.message}</p>)}
-                {getFieldWarnings('chainId').map((e, i) => <p className="error-text" key={`chainId-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
                 {selectedChain && actionType === 'chain' ? (
                   <div className="field-hint">
                     <span className="muted-text">
@@ -353,11 +342,9 @@ export default function RoutesPage() {
                   ))}
                 </datalist>
                 {form.formState.errors.destinationScope ? <p className="error-text">{form.formState.errors.destinationScope.message}</p> : null}
-                {getFieldErrors('destinationScope').map((e, i) => <p className="error-text" key={`destScope-err-${i}`}>{e.message}</p>)}
-                {getFieldWarnings('destinationScope').map((e, i) => <p className="error-text" key={`destScope-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
 
-              {validationResult && (validationResult.errors.length > 0 || validationResult.warnings.length > 0) && (
+              {validationResult && (
                 <div className="probe-results-section">
                   <div className="section-header">
                     <h4>Validation</h4>
@@ -367,6 +354,36 @@ export default function RoutesPage() {
                       </span>
                     )}
                   </div>
+                  {validationResult.errors.map((msg, i) => (
+                    <div className="token-box" key={`err-${i}`} style={{borderColor: 'var(--danger)'}}>
+                      <span className="field-hint" style={{color: 'var(--danger)'}}>{msg}</span>
+                    </div>
+                  ))}
+                  {validationResult.warnings.map((msg, i) => (
+                    <div className="token-box" key={`warn-${i}`} style={{borderColor: 'var(--accent)'}}>
+                      <span className="field-hint" style={{color: 'var(--accent)'}}>{msg}</span>
+                    </div>
+                  ))}
+                  {validationResult.matchValueValidation && !validationResult.matchValueValidation.valid && (
+                    <div className="token-box" style={{borderColor: 'var(--danger)'}}>
+                      <span className="field-hint" style={{color: 'var(--danger)'}}>{validationResult.matchValueValidation.message}</span>
+                    </div>
+                  )}
+                  {validationResult.chainValidation && !validationResult.chainValidation.valid && (
+                    <div className="token-box" style={{borderColor: 'var(--danger)'}}>
+                      <span className="field-hint" style={{color: 'var(--danger)'}}>Chain not found</span>
+                    </div>
+                  )}
+                  {validationResult.scopeValidation && !validationResult.scopeValidation.valid && (
+                    <div className="token-box" style={{borderColor: 'var(--danger)'}}>
+                      <span className="field-hint" style={{color: 'var(--danger)'}}>Scope not found</span>
+                    </div>
+                  )}
+                  {validationResult.scopeValidation && validationResult.scopeValidation.valid && !validationResult.scopeValidation.matchesChainFinalHop && (
+                    <div className="token-box" style={{borderColor: 'var(--accent)'}}>
+                      <span className="field-hint" style={{color: 'var(--accent)'}}>Scope does not match chain's final hop node</span>
+                    </div>
+                  )}
                 </div>
               )}
 
