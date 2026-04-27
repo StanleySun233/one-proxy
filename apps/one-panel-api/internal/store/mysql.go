@@ -1534,7 +1534,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 			`UPDATE nodes
 			 SET name = ?, mode = ?, public_host = NULLIF(?, ''), public_port = ?, scope_key = ?, parent_node_id = NULLIF(?, ''), enabled = ?, status = ?, updated_at = ?
 			 WHERE id = ?`,
-			effectiveName, input.Mode, input.PublicHost, input.PublicPort, input.ScopeKey, input.ParentNodeID, 1, domain.NodeStatusPending, now, node.ID,
+			effectiveName, input.Mode, input.PublicHost, input.PublicPort, input.ScopeKey, input.ParentNodeID, 1, domain.NodeStatusHealthy, now, node.ID,
 		); err != nil {
 			return domain.EnrollNodeResult{}, err
 		}
@@ -1545,7 +1545,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 		node.PublicHost = input.PublicHost
 		node.PublicPort = input.PublicPort
 		node.Enabled = true
-		node.Status = domain.NodeStatusPending
+		node.Status = domain.NodeStatusHealthy
 	} else {
 		nodeID, err := s.nextNodeID()
 		if err != nil {
@@ -1714,7 +1714,18 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 		input.NodeID,
 	).Scan(&trustValue)
 	if err != nil {
-		return domain.ApproveNodeEnrollmentResult{}, err
+		trustValue, err = auth.RandomToken()
+		if err != nil {
+			return domain.ApproveNodeEnrollmentResult{}, err
+		}
+		_, err = s.db.Exec(
+			`INSERT INTO node_trust_materials (id, node_id, material_type, material_value, status, created_at, updated_at)
+			 VALUES (?, ?, 'shared_secret', ?, 'active', ?, ?)`,
+			newID("trust"), input.NodeID, trustValue, nowRFC3339(), nowRFC3339(),
+		)
+		if err != nil {
+			return domain.ApproveNodeEnrollmentResult{}, err
+		}
 	}
 	if _, err := s.db.Exec(
 		`UPDATE node_trust_materials
@@ -2319,6 +2330,13 @@ func (s *MySQLStore) compileLatestPolicyForNode(nodeID string) (string, string, 
 func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domain.NodeHealth, error) {
 	now := nowRFC3339()
 	status := heartbeatNodeStatus(input.ListenerStatus, input.CertStatus)
+	revisionID := input.PolicyRevisionID
+	if revisionID != "" {
+		var found int
+		if err := s.db.QueryRow("SELECT 1 FROM policy_revisions WHERE id = ?", revisionID).Scan(&found); err != nil {
+			revisionID = ""
+		}
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return domain.NodeHealth{}, err
@@ -2333,14 +2351,14 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 		   listener_status_json = VALUES(listener_status_json),
 		   cert_status_json = VALUES(cert_status_json),
 		   updated_at = VALUES(updated_at)`,
-		input.NodeID, now, input.PolicyRevisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
+		input.NodeID, now, revisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
 	); err != nil {
 		return domain.NodeHealth{}, err
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO node_health_history (node_id, heartbeat_at, policy_revision_id, listener_status_json, cert_status_json, created_at)
 		 VALUES (?, ?, NULLIF(?, ''), ?, ?, ?)`,
-		input.NodeID, now, input.PolicyRevisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
+		input.NodeID, now, revisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
 	); err != nil {
 		return domain.NodeHealth{}, err
 	}
@@ -2353,7 +2371,7 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 	return domain.NodeHealth{
 		NodeID:           input.NodeID,
 		HeartbeatAt:      now,
-		PolicyRevisionID: input.PolicyRevisionID,
+		PolicyRevisionID: revisionID,
 		ListenerStatus:   input.ListenerStatus,
 		CertStatus:       input.CertStatus,
 	}, nil
