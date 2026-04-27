@@ -2135,6 +2135,23 @@ func (s *MySQLStore) SetGroupScopes(groupID string, scopeKeys []string) error {
 	return tx.Commit()
 }
 
+func (s *MySQLStore) ListFieldEnums() ([]domain.FieldEnum, error) {
+	rows, err := s.db.Query("SELECT id, field, value, name FROM field_enum ORDER BY field, value")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]domain.FieldEnum, 0)
+	for rows.Next() {
+		var item domain.FieldEnum
+		if err := rows.Scan(&item.ID, &item.Field, &item.Value, &item.Name); err != nil {
+			continue
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
 func (s *MySQLStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
 	var (
 		policyID string

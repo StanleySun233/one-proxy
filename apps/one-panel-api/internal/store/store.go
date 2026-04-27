@@ -77,4 +77,5 @@ type Store interface {
 	SetGroupAccounts(groupID string, accountIDs []string) error
 	GetGroupScopes(groupID string) ([]string, error)
 	SetGroupScopes(groupID string, scopeKeys []string) error
+	ListFieldEnums() ([]domain.FieldEnum, error)
 }
