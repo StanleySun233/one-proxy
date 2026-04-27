@@ -9,8 +9,8 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {getCertificates, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/control-plane-api';
-import {NodeHealthHistory} from '@/lib/control-plane-types';
+import {fetchEnums, getCertificates, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/control-plane-api';
+import {FieldEnumMap, NodeHealthHistory} from '@/lib/control-plane-types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 const staleThresholdMs = 2 * 60 * 1000;
@@ -39,6 +39,11 @@ export default function HealthOverviewPage() {
     enabled: !!accessToken,
     refetchInterval: 10000
   });
+  const enumsQuery = useQuery({
+    queryKey: ['enums'],
+    queryFn: () => fetchEnums()
+  });
+  const enums = enumsQuery.data;
 
   const nodes = nodesQuery.data || [];
   const health = healthQuery.data || [];
@@ -66,7 +71,7 @@ export default function HealthOverviewPage() {
           certSummary: ''
         };
       }
-      const derived = deriveHealthState(item);
+      const derived = deriveHealthState(item, enums);
       return {
         ...item,
         name: node.name,
@@ -78,7 +83,7 @@ export default function HealthOverviewPage() {
         certSummary: joinMap(item.certStatus)
       };
     });
-  }, [health, nodes]);
+  }, [health, nodes, enums]);
 
   const certificateRows = useMemo(() => {
     return certificates.map((item) => ({
@@ -92,9 +97,12 @@ export default function HealthOverviewPage() {
     const stale = healthRows.filter((item) => item.derivedStatus === 'stale').length;
     const degraded = healthRows.filter((item) => item.derivedStatus === 'degraded').length;
     const unreported = healthRows.filter((item) => item.derivedStatus === 'unreported').length;
-    const certPressure = certificateRows.filter((item) => item.status !== 'healthy' && item.status !== 'renewed').length;
+    const certPressure = certificateRows.filter((item) => {
+      const entry = enums?.cert_status?.[item.status];
+      return entry ? entry.meta?.className !== 'is-good' : (item.status !== 'healthy' && item.status !== 'renewed');
+    }).length;
     return {healthy, stale, degraded, unreported, certPressure};
-  }, [certificateRows, healthRows]);
+  }, [certificateRows, healthRows, enums]);
 
   const historyQuery = useQuery({
     queryKey: ['node-health-history', accessToken, selectedNodeId],
@@ -105,25 +113,33 @@ export default function HealthOverviewPage() {
   const isLoading = healthQuery.isPending || nodesQuery.isPending;
   const isError = healthQuery.isError || nodesQuery.isError;
 
-  const pieOption = useMemo(() => ({
-    tooltip: {trigger: 'item' as const, formatter: '{b}: {c} ({d}%)'},
-    legend: {bottom: '0%', textStyle: {color: '#94a3b8'}},
-    series: [{
-      type: 'pie' as const,
-      radius: ['40%', '70%'],
-      center: ['50%', '45%'],
-      avoidLabelOverlap: true,
-      itemStyle: {borderRadius: 4, borderColor: 'transparent'},
-      label: {color: '#e2e8f0'},
-      labelLine: {lineStyle: {color: '#475569'}},
-      data: [
-        {name: 'Healthy', value: summary.healthy, itemStyle: {color: '#22c55e'}},
-        {name: 'Stale', value: summary.stale, itemStyle: {color: '#f59e0b'}},
-        {name: 'Degraded', value: summary.degraded, itemStyle: {color: '#ef4444'}},
-        {name: 'Unreported', value: summary.unreported, itemStyle: {color: '#6b7280'}}
-      ].filter((d) => d.value > 0)
-    }]
-  }), [summary]);
+  const pieOption = useMemo(() => {
+    const healthColors: Record<string, string> = {
+      healthy: enums?.node_status?.healthy?.meta?.color || '#22c55e',
+      degraded: enums?.node_status?.degraded?.meta?.color || '#ef4444',
+      stale: '#f59e0b',
+      unreported: '#6b7280'
+    };
+    return {
+      tooltip: {trigger: 'item' as const, formatter: '{b}: {c} ({d}%)'},
+      legend: {bottom: '0%', textStyle: {color: '#94a3b8'}},
+      series: [{
+        type: 'pie' as const,
+        radius: ['40%', '70%'],
+        center: ['50%', '45%'],
+        avoidLabelOverlap: true,
+        itemStyle: {borderRadius: 4, borderColor: 'transparent'},
+        label: {color: '#e2e8f0'},
+        labelLine: {lineStyle: {color: '#475569'}},
+        data: [
+          {name: 'Healthy', value: summary.healthy, itemStyle: {color: healthColors.healthy}},
+          {name: 'Stale', value: summary.stale, itemStyle: {color: healthColors.stale}},
+          {name: 'Degraded', value: summary.degraded, itemStyle: {color: healthColors.degraded}},
+          {name: 'Unreported', value: summary.unreported, itemStyle: {color: healthColors.unreported}}
+        ].filter((d) => d.value > 0)
+      }]
+    };
+  }, [summary, enums]);
 
   const certStatusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -132,15 +148,6 @@ export default function HealthOverviewPage() {
     });
     return counts;
   }, [certificateRows]);
-
-  const certBarColors: Record<string, string> = {
-    healthy: '#22c55e',
-    renewed: '#22c55e',
-    'renew-soon': '#f59e0b',
-    rotate: '#f97316',
-    failed: '#ef4444',
-    expired: '#dc2626'
-  };
 
   const barOption = useMemo(() => {
     const statuses = Object.keys(certStatusCounts).sort();
@@ -166,13 +173,13 @@ export default function HealthOverviewPage() {
           borderRadius: [4, 4, 0, 0],
           color: (params: {dataIndex: number}) => {
             const status = statuses[params.dataIndex];
-            return certBarColors[status] || '#6b7280';
+            return enums?.cert_status?.[status]?.meta?.color || '#6b7280';
           }
         },
         data: statuses.map((s) => certStatusCounts[s])
       }]
     };
-  }, [certStatusCounts]);
+  }, [certStatusCounts, enums]);
 
   const trendChartData = useMemo(() => {
     if (!selectedNodeId) return null;
@@ -182,25 +189,28 @@ export default function HealthOverviewPage() {
         heartbeatAt: item.heartbeatAt,
         listenerStatus: item.listenerStatus,
         certStatus: item.certStatus
-      });
+      }, enums);
       return {
         time: item.heartbeatAt,
         status: derived.status,
         label: derived.label
       };
     });
-  }, [historyQuery.data, selectedNodeId]);
+  }, [historyQuery.data, selectedNodeId, enums]);
 
   const trendOption = useMemo(() => {
     if (!trendChartData || trendChartData.length === 0) return null;
 
     const statusOrder = ['healthy', 'degraded', 'stale', 'unreported'];
-    const statusColor: Record<string, string> = {
-      healthy: '#22c55e',
-      degraded: '#ef4444',
-      stale: '#f59e0b',
-      unreported: '#6b7280'
-    };
+    const statusColor: Record<string, string> = {};
+    statusOrder.forEach((s) => {
+      statusColor[s] = enums?.node_status?.[s]?.meta?.color || ({
+        healthy: '#22c55e',
+        degraded: '#ef4444',
+        stale: '#f59e0b',
+        unreported: '#6b7280'
+      } as Record<string, string>)[s] || '#6b7280';
+    });
 
     const times = trendChartData.map((d) => formatISODateTime(d.time, d.time));
     const values = trendChartData.map((d) => statusOrder.indexOf(d.status));
@@ -239,7 +249,7 @@ export default function HealthOverviewPage() {
         areaStyle: {color: 'rgba(59, 130, 246, 0.1)'}
       }]
     };
-  }, [trendChartData]);
+  }, [trendChartData, enums]);
 
   return (
     <AuthGate>
@@ -325,19 +335,19 @@ export default function HealthOverviewPage() {
             <div className="trend-summary">
               <div className="trend-summary-grid">
                 <div className="trend-summary-item">
-                  <strong style={{color: '#22c55e'}}>{summary.healthy}</strong>
+                  <strong style={{color: enums?.node_status?.healthy?.meta?.color || '#22c55e'}}>{summary.healthy}</strong>
                   <span>Healthy</span>
                 </div>
                 <div className="trend-summary-item">
-                  <strong style={{color: '#f59e0b'}}>{summary.stale}</strong>
+                  <strong style={{color: enums?.node_status?.stale?.meta?.color || '#f59e0b'}}>{summary.stale}</strong>
                   <span>Stale</span>
                 </div>
                 <div className="trend-summary-item">
-                  <strong style={{color: '#ef4444'}}>{summary.degraded}</strong>
+                  <strong style={{color: enums?.node_status?.degraded?.meta?.color || '#ef4444'}}>{summary.degraded}</strong>
                   <span>Degraded</span>
                 </div>
                 <div className="trend-summary-item">
-                  <strong style={{color: '#6b7280'}}>{summary.unreported}</strong>
+                  <strong style={{color: enums?.node_status?.unreported?.meta?.color || '#6b7280'}}>{summary.unreported}</strong>
                   <span>Unreported</span>
                 </div>
               </div>
@@ -365,12 +375,21 @@ export default function HealthOverviewPage() {
   );
 }
 
-function deriveHealthState(item: {heartbeatAt: string; listenerStatus: Record<string, string>; certStatus: Record<string, string>}) {
+function deriveHealthState(
+  item: {heartbeatAt: string; listenerStatus: Record<string, string>; certStatus: Record<string, string>},
+  enums?: FieldEnumMap
+) {
   const heartbeatTime = Date.parse(item.heartbeatAt);
   const isStale = Number.isFinite(heartbeatTime) ? Date.now() - heartbeatTime > staleThresholdMs : true;
   const listenerValues = Object.values(item.listenerStatus || {});
   const certValues = Object.values(item.certStatus || {});
-  const hasDegradedSignal = [...listenerValues, ...certValues].some((value) => value !== 'up' && value !== 'healthy' && value !== 'renewed');
+  const allValues = [...listenerValues, ...certValues];
+  const isGoodValue = (value: string) =>
+    enums?.listener_status?.[value]?.meta?.className === 'is-good' ||
+    enums?.cert_status?.[value]?.meta?.className === 'is-good';
+  const hasDegradedSignal = enums
+    ? allValues.some(v => !isGoodValue(v))
+    : allValues.some((value) => value !== 'up' && value !== 'healthy' && value !== 'renewed');
   if (isStale) {
     return {status: 'stale', label: 'stale'};
   }

@@ -264,7 +264,15 @@ export type RouteRuleValidationResult = {
   scopeValidation: ScopeValidation;
 };
 
-export type FieldEnumMap = Record<string, Record<string, string>>;
+export type FieldEnumEntry = {
+  name: string;
+  meta?: {
+    color?: string;
+    className?: string;
+  };
+};
+
+export type FieldEnumMap = Record<string, Record<string, FieldEnumEntry>>;
 
 export type SetupStatus = {
   configured: boolean;
