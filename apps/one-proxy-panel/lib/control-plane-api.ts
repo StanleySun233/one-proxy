@@ -8,6 +8,7 @@ import {
   ChainProbeResult,
   ChainValidationResult,
   ConnectedNodeResult,
+  FieldEnumMap,
   GenerateKeyResult,
   Group,
   GroupDetail,
@@ -498,6 +499,10 @@ export function validateRouteRule(accessToken: string, payload: {
     accessToken,
     body: payload
   });
+}
+
+export function fetchEnums() {
+  return request<FieldEnumMap>('/enums');
 }
 
 export function getSetupStatus() {

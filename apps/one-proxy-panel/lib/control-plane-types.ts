@@ -255,6 +255,8 @@ export type RouteRuleValidationResult = {
   scopeValidation: ScopeValidation;
 };
 
+export type FieldEnumMap = Record<string, Record<string, string>>;
+
 export type SetupStatus = {
   configured: boolean;
 };
