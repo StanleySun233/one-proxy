@@ -471,7 +471,7 @@ export function NodeRegistryPageContent() {
                     <label className="field-stack">
                       <span>Mode</span>
                       <select className="field-select" onChange={(event) => setFormState((current) => ({...current, mode: event.target.value}))} value={formState.mode}>
-                        {availableModes.map((mode) => (
+                        {['edge', 'relay'].map((mode) => (
                           <option key={mode} value={mode}>
                             {mode}
                           </option>
@@ -483,8 +483,15 @@ export function NodeRegistryPageContent() {
                       <input className="field-input" onChange={(event) => setFormState((current) => ({...current, scopeKey: event.target.value}))} value={formState.scopeKey} />
                     </label>
                     <label className="field-stack">
-                      <span>Parent node id</span>
-                      <input className="field-input" onChange={(event) => setFormState((current) => ({...current, parentNodeId: event.target.value}))} value={formState.parentNodeId} />
+                      <span>Parent node</span>
+                      <select className="field-select" onChange={(event) => setFormState((current) => ({...current, parentNodeId: event.target.value}))} value={formState.parentNodeId}>
+                        <option value="">None (root node)</option>
+                        {nodes.filter((n) => n.id !== editingNode!.id).map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {n.name} ({n.mode})
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <label className="field-stack">
                       <span>Public host</span>
@@ -602,6 +609,12 @@ export function NodeTopologyPageContent() {
             </div>
             <span className="badge">{links.length}</span>
           </div>
+          <CreateNodeLinkForm
+            accessToken={nodeConsole.accessToken}
+            nodes={nodes}
+            pending={nodeConsole.createNodeLink.isPending}
+            onSubmit={(payload) => nodeConsole.createNodeLink.mutate(payload)}
+          />
           {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending || nodeConsole.transportsQuery.isPending ? (
             <AsyncState detail="Loading" title="Loading topology links" />
           ) : nodeConsole.nodesQuery.error ? (
@@ -806,3 +819,51 @@ function NodeLinkCard({
     </article>
   );
 }
+function CreateNodeLinkForm({
+  accessToken,
+  nodes,
+  pending,
+  onSubmit
+}: {
+  accessToken: string;
+  nodes: Node[];
+  pending: boolean;
+  onSubmit: (payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) => void;
+}) {
+  const [sourceNodeId, setSourceNodeId] = useState('');
+  const [targetNodeId, setTargetNodeId] = useState('');
+
+  return (
+    <div className="forms-grid" style={{marginBottom: 16}}>
+      <label className="field-stack">
+        <span>Source</span>
+        <select className="field-select" onChange={(e) => setSourceNodeId(e.target.value)} value={sourceNodeId}>
+          <option value="">Select source</option>
+          {nodes.map((n) => (
+            <option key={n.id} value={n.id}>{n.id} - {n.name} ({n.mode})</option>
+          ))}
+        </select>
+      </label>
+      <label className="field-stack">
+        <span>Target</span>
+        <select className="field-select" onChange={(e) => setTargetNodeId(e.target.value)} value={targetNodeId}>
+          <option value="">Select target</option>
+          {nodes.map((n) => (
+            <option key={n.id} value={n.id}>{n.id} - {n.name} ({n.mode})</option>
+          ))}
+        </select>
+      </label>
+      <div className="field-stack" style={{alignSelf: 'flex-end'}}>
+        <button
+          className="secondary-button"
+          disabled={pending || !sourceNodeId || !targetNodeId}
+          onClick={() => onSubmit({sourceNodeId, targetNodeId, linkType: 'relay', trustState: 'trusted'})}
+          type="button"
+        >
+          {pending ? 'Creating...' : 'Add Link'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
