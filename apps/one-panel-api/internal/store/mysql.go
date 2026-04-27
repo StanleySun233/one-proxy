@@ -254,7 +254,7 @@ func splitSQLStatements(schema string) []string {
 
 func (s *MySQLStore) bootstrapAdmin(ctx context.Context) error {
 	now := nowRFC3339()
-	if err := s.ensureRole(ctx, "role-super-admin", "super_admin", now); err != nil {
+	if err := s.ensureRole(ctx, "role-super-admin", domain.AccountRoleSuperAdmin, now); err != nil {
 		return err
 	}
 	exists, err := s.exists(ctx, "SELECT 1 FROM accounts WHERE account = ?", "admin")
@@ -273,7 +273,7 @@ func (s *MySQLStore) bootstrapAdmin(ctx context.Context) error {
 		`INSERT INTO accounts
 		 (id, account, password_hash, role_id, status, must_rotate_password, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"acct-admin", "admin", hash, "role-super-admin", "active", 0, now, now,
+		"acct-admin", "admin", hash, "role-super-admin", domain.AccountStatusActive, 0, now, now,
 	)
 	if err == nil {
 		s.bootstrapAdminPassword = password
@@ -420,7 +420,7 @@ func (s *MySQLStore) GetOverview() domain.Overview {
 	healthy := 0
 	degraded := 0
 	for _, node := range nodes {
-		if node.Status == "healthy" {
+		if node.Status == domain.NodeStatusHealthy {
 			healthy++
 		} else {
 			degraded++
@@ -429,7 +429,7 @@ func (s *MySQLStore) GetOverview() domain.Overview {
 	renewSoon := 0
 	for _, item := range health {
 		for _, state := range item.CertStatus {
-			if state == "renew-soon" || state == "rotate" {
+			if state == domain.CertStatusRenewSoon || state == "rotate" {
 				renewSoon++
 				break
 			}
@@ -484,7 +484,7 @@ func (s *MySQLStore) CreateAccount(input domain.CreateAccountInput) (domain.Acco
 		ID:                 newID("acct"),
 		Account:            input.Account,
 		Role:               input.Role,
-		Status:             "active",
+		Status:             domain.AccountStatusActive,
 		MustRotatePassword: false,
 	}
 	_, err = s.db.Exec(
@@ -631,7 +631,7 @@ func (s *MySQLStore) CreateNodeOnboardingTask(accountID string, input domain.Cre
 		TargetNodeID:         input.TargetNodeID,
 		TargetHost:           input.TargetHost,
 		TargetPort:           input.TargetPort,
-		Status:               "planned",
+		Status:               domain.TaskStatusPlanned,
 		StatusMessage:        "task created",
 		RequestedByAccountID: accountID,
 		CreatedAt:            now,
@@ -774,7 +774,7 @@ func (s *MySQLStore) Authenticate(account string, password string) (domain.Login
 		 WHERE a.account = ?`,
 		account,
 	).Scan(&id, &name, &role, &status, &hash, &mustRotate)
-	if err != nil || status != "active" || !auth.CheckPassword(hash, password) {
+	if err != nil || status != domain.AccountStatusActive || !auth.CheckPassword(hash, password) {
 		return domain.LoginResult{}, false
 	}
 	return s.createSession(id, name, role, status, mustRotate == 1)
@@ -797,7 +797,7 @@ func (s *MySQLStore) AuthenticateAccessToken(accessToken string) (domain.Account
 		return domain.Account{}, false
 	}
 	item, ok := s.getAccountByID(accountID)
-	if !ok || item.Status != "active" {
+	if !ok || item.Status != domain.AccountStatusActive {
 		return domain.Account{}, false
 	}
 	return item, true
@@ -820,7 +820,7 @@ func (s *MySQLStore) RefreshSession(refreshToken string) (domain.LoginResult, bo
 		return domain.LoginResult{}, false
 	}
 	item, ok := s.getAccountByID(accountID)
-	if !ok || item.Status != "active" {
+	if !ok || item.Status != domain.AccountStatusActive {
 		return domain.LoginResult{}, false
 	}
 	return s.createSession(item.ID, item.Account, item.Role, item.Status, item.MustRotatePassword)
@@ -923,12 +923,12 @@ func (s *MySQLStore) syntheticPublicTransports(items []domain.NodeTransport) []d
 		if _, ok := seen[key]; ok {
 			continue
 		}
-		status := "available"
+		status := domain.TransportStatusAvailable
 		lastHeartbeat := ""
 		if health, ok := healthByNodeID[node.ID]; ok {
 			lastHeartbeat = health.HeartbeatAt
-			if node.Status == "healthy" {
-				status = "connected"
+			if node.Status == domain.NodeStatusHealthy {
+				status = domain.TransportStatusConnected
 			} else {
 				status = node.Status
 			}
@@ -936,7 +936,7 @@ func (s *MySQLStore) syntheticPublicTransports(items []domain.NodeTransport) []d
 		items = append(items, domain.NodeTransport{
 			ID:              "derived-public-" + node.ID,
 			NodeID:          node.ID,
-			TransportType:   "public_http",
+			TransportType:   domain.TransportTypePublicHTTP,
 			Direction:       "inbound",
 			Address:         address,
 			Status:          status,
@@ -1005,7 +1005,7 @@ func (s *MySQLStore) CreateNode(input domain.CreateNodeInput) (domain.Node, erro
 		ScopeKey:     input.ScopeKey,
 		ParentNodeID: input.ParentNodeID,
 		Enabled:      true,
-		Status:       "healthy",
+		Status:       domain.NodeStatusHealthy,
 		PublicHost:   input.PublicHost,
 		PublicPort:   input.PublicPort,
 	}
@@ -1052,17 +1052,17 @@ func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrol
 	}
 	if _, err := tx.Exec(
 		`UPDATE node_trust_materials SET status = ?, updated_at = ? WHERE node_id = ? AND status = 'active'`,
-		"rotated", now, nodeID,
+		domain.TrustMaterialStatusRotated, now, nodeID,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-		if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "healthy", now, nodeID); err != nil {
+		if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", domain.NodeStatusHealthy, now, nodeID); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO node_trust_materials (id, node_id, material_type, material_value, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		newID("trust"), nodeID, "shared_secret", trustMaterial, "active", now, now,
+		newID("trust"), nodeID, "shared_secret", trustMaterial, domain.TrustMaterialStatusActive, now, now,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
@@ -1079,7 +1079,7 @@ func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrol
 	if err := tx.Commit(); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	node.Status = "healthy"
+	node.Status = domain.NodeStatusHealthy
 	return domain.ApproveNodeEnrollmentResult{
 		Node:          node,
 		AccessToken:   accessToken,
@@ -1534,7 +1534,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 			`UPDATE nodes
 			 SET name = ?, mode = ?, public_host = NULLIF(?, ''), public_port = ?, scope_key = ?, parent_node_id = NULLIF(?, ''), enabled = ?, status = ?, updated_at = ?
 			 WHERE id = ?`,
-			effectiveName, input.Mode, input.PublicHost, input.PublicPort, input.ScopeKey, input.ParentNodeID, 1, "pending", now, node.ID,
+			effectiveName, input.Mode, input.PublicHost, input.PublicPort, input.ScopeKey, input.ParentNodeID, 1, domain.NodeStatusPending, now, node.ID,
 		); err != nil {
 			return domain.EnrollNodeResult{}, err
 		}
@@ -1545,7 +1545,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 		node.PublicHost = input.PublicHost
 		node.PublicPort = input.PublicPort
 		node.Enabled = true
-		node.Status = "pending"
+		node.Status = domain.NodeStatusPending
 	} else {
 		nodeID, err := s.nextNodeID()
 		if err != nil {
@@ -1558,7 +1558,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 			ScopeKey:     input.ScopeKey,
 			ParentNodeID: input.ParentNodeID,
 			Enabled:      true,
-			Status:       "pending",
+			Status:       domain.NodeStatusPending,
 			PublicHost:   input.PublicHost,
 			PublicPort:   input.PublicPort,
 		}
@@ -1578,14 +1578,14 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	}
 	if _, err := tx.Exec(
 		`UPDATE node_trust_materials SET status = ?, updated_at = ? WHERE node_id = ?`,
-		"rotated", now, node.ID,
+		domain.TrustMaterialStatusRotated, now, node.ID,
 	); err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO node_trust_materials (id, node_id, material_type, material_value, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		newID("trust"), node.ID, "enrollment_secret", enrollmentSecret, "pending", now, now,
+		newID("trust"), node.ID, "enrollment_secret", enrollmentSecret, domain.TrustMaterialStatusPending, now, now,
 	); err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
@@ -1593,9 +1593,9 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 		return domain.EnrollNodeResult{}, err
 	}
 	return domain.EnrollNodeResult{
-		Node:             domain.Node{ID: node.ID, Name: node.Name, Mode: node.Mode, ScopeKey: node.ScopeKey, ParentNodeID: node.ParentNodeID, Enabled: node.Enabled, Status: "pending", PublicHost: node.PublicHost, PublicPort: node.PublicPort},
+		Node:             domain.Node{ID: node.ID, Name: node.Name, Mode: node.Mode, ScopeKey: node.ScopeKey, ParentNodeID: node.ParentNodeID, Enabled: node.Enabled, Status: domain.NodeStatusPending, PublicHost: node.PublicHost, PublicPort: node.PublicPort},
 		EnrollmentSecret: enrollmentSecret,
-		ApprovalState:    "pending",
+		ApprovalState:    domain.ApprovalStatePending,
 	}, nil
 }
 
@@ -1613,7 +1613,7 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (do
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	node.Enabled = enabled == 1
-	if node.Status != "pending" {
+	if node.Status != domain.NodeStatusPending {
 		return domain.ApproveNodeEnrollmentResult{}, fmt.Errorf("node_not_pending")
 	}
 	trustMaterial, err := auth.RandomToken()
@@ -1634,19 +1634,19 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (do
 	if _, err := tx.Exec("DELETE FROM node_api_tokens WHERE node_id = ?", nodeID); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	if _, err := tx.Exec("UPDATE nodes SET status = ?, reviewed_by = ?, reviewed_at = ?, updated_at = ? WHERE id = ?", "healthy", reviewedBy, now, now, nodeID); err != nil {
+	if _, err := tx.Exec("UPDATE nodes SET status = ?, reviewed_by = ?, reviewed_at = ?, updated_at = ? WHERE id = ?", domain.NodeStatusHealthy, reviewedBy, now, now, nodeID); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
 		`UPDATE node_trust_materials SET status = ?, updated_at = ? WHERE node_id = ? AND material_type = 'shared_secret' AND status = 'active'`,
-		"rotated", now, nodeID,
+		domain.TrustMaterialStatusRotated, now, nodeID,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO node_trust_materials (id, node_id, material_type, material_value, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		newID("trust"), nodeID, "shared_secret", trustMaterial, "active", now, now,
+		newID("trust"), nodeID, "shared_secret", trustMaterial, domain.TrustMaterialStatusActive, now, now,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
@@ -1660,7 +1660,7 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (do
 	if err := tx.Commit(); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	node.Status = "healthy"
+	node.Status = domain.NodeStatusHealthy
 	return domain.ApproveNodeEnrollmentResult{
 		Node:          node,
 		AccessToken:   accessToken,
@@ -1697,7 +1697,7 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 	if enrollmentSecretCount == 0 {
 		return domain.ApproveNodeEnrollmentResult{}, fmt.Errorf("invalid_enrollment_secret")
 	}
-	if node.Status == "pending" {
+	if node.Status == domain.NodeStatusPending {
 		return domain.ApproveNodeEnrollmentResult{}, fmt.Errorf("node_enrollment_pending")
 	}
 	err = s.db.QueryRow(
@@ -1720,7 +1720,7 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 		`UPDATE node_trust_materials
 		 SET status = ?, updated_at = ?
 		 WHERE node_id = ? AND material_type = 'enrollment_secret' AND material_value = ? AND status = 'pending'`,
-		"consumed", nowRFC3339(), input.NodeID, input.EnrollmentSecret,
+		domain.TrustMaterialStatusConsumed, nowRFC3339(), input.NodeID, input.EnrollmentSecret,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
@@ -1768,13 +1768,13 @@ func (s *MySQLStore) RejectNodeEnrollment(nodeID string, reviewedBy string, reas
 	if err != nil {
 		return err
 	}
-	if status != "pending" {
+	if status != domain.NodeStatusPending {
 		return fmt.Errorf("node_not_pending")
 	}
 	now := nowRFC3339()
 	_, err = s.db.Exec(
 		"UPDATE nodes SET status = ?, reviewed_by = ?, reviewed_at = ?, reject_reason = ?, updated_at = ? WHERE id = ?",
-		"rejected", reviewedBy, now, reason, now, nodeID,
+		domain.ApprovalStateRejected, reviewedBy, now, reason, now, nodeID,
 	)
 	return err
 }
@@ -1869,7 +1869,7 @@ func (s *MySQLStore) PublishPolicy(accountID string) (domain.PolicyRevision, err
 	item := domain.PolicyRevision{
 		ID:            newID("policy"),
 		Version:       fmt.Sprintf("rev-%d", time.Now().Unix()),
-		Status:        "published",
+		Status:        domain.PolicyStatusPublished,
 		CreatedAt:     nowRFC3339(),
 		AssignedNodes: len(nodes),
 	}
@@ -1924,7 +1924,7 @@ func (s *MySQLStore) AuthenticateNodeToken(accessToken string) (string, bool) {
 		return "", false
 	}
 	expiry, err := time.Parse(time.RFC3339, expiresAt)
-	if err != nil || time.Now().UTC().After(expiry) || enabled != 1 || status == "pending" {
+	if err != nil || time.Now().UTC().After(expiry) || enabled != 1 || status == domain.NodeStatusPending {
 		return "", false
 	}
 	return nodeID, true
@@ -1934,7 +1934,7 @@ func (s *MySQLStore) policyNodes() []domain.Node {
 	all := s.ListNodes()
 	items := make([]domain.Node, 0, len(all))
 	for _, node := range all {
-		if !node.Enabled || node.Status == "pending" {
+		if !node.Enabled || node.Status == domain.NodeStatusPending {
 			continue
 		}
 		items = append(items, node)
@@ -2359,21 +2359,21 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 	}, nil
 }
 
-var healthyListenerValues = map[string]bool{"up": true}
-var healthyCertValues = map[string]bool{"healthy": true, "renewed": true}
+var healthyListenerValues = map[string]bool{domain.ListenerStatusUp: true}
+var healthyCertValues = map[string]bool{domain.CertStatusHealthy: true, domain.CertStatusRenewed: true}
 
 func heartbeatNodeStatus(listenerStatus map[string]string, certStatus map[string]string) string {
 	for _, value := range listenerStatus {
 		if !healthyListenerValues[value] {
-			return "degraded"
+			return domain.NodeStatusDegraded
 		}
 	}
 	for _, value := range certStatus {
 		if !healthyCertValues[value] {
-			return "degraded"
+			return domain.NodeStatusDegraded
 		}
 	}
-	return "healthy"
+	return domain.NodeStatusHealthy
 }
 
 func (s *MySQLStore) RenewNodeCertificate(input domain.NodeCertRenewInput) (domain.NodeCertRenewResult, error) {
@@ -2381,7 +2381,7 @@ func (s *MySQLStore) RenewNodeCertificate(input domain.NodeCertRenewInput) (doma
 	notAfter := time.Now().UTC().Add(30 * 24 * time.Hour).Format(time.RFC3339)
 	var certID string
 	provider := "internal_ca"
-	if input.CertType == "public" {
+	if input.CertType == domain.CertTypePublic {
 		provider = "lets_encrypt"
 	}
 	err := s.db.QueryRow(
@@ -2393,12 +2393,12 @@ func (s *MySQLStore) RenewNodeCertificate(input domain.NodeCertRenewInput) (doma
 		_, err = s.db.Exec(
 			`INSERT INTO certificates (id, owner_type, owner_id, cert_type, provider, status, not_before, not_after, created_at, updated_at)
 			 VALUES (?, 'node', ?, ?, ?, ?, ?, ?, ?, ?)`,
-			certID, input.NodeID, input.CertType, provider, "renewed", now, notAfter, now, now,
+			certID, input.NodeID, input.CertType, provider, domain.CertStatusRenewed, now, notAfter, now, now,
 		)
 	} else {
 		_, err = s.db.Exec(
 			`UPDATE certificates SET provider = ?, status = ?, not_before = ?, not_after = ?, updated_at = ? WHERE id = ?`,
-			provider, "renewed", now, notAfter, now, certID,
+			provider, domain.CertStatusRenewed, now, notAfter, now, certID,
 		)
 	}
 	if err != nil {
@@ -2407,7 +2407,7 @@ func (s *MySQLStore) RenewNodeCertificate(input domain.NodeCertRenewInput) (doma
 	return domain.NodeCertRenewResult{
 		NodeID:   input.NodeID,
 		CertType: input.CertType,
-		Status:   "renewed",
+		Status:   domain.CertStatusRenewed,
 		NotAfter: notAfter,
 	}, nil
 }

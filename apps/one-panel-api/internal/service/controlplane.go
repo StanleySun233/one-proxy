@@ -64,7 +64,7 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 
 	filteredNodes := nodes
 	filteredRules := rules
-	if account.Role != "super_admin" {
+	if account.Role != domain.AccountRoleSuperAdmin {
 		accountGroups, err := c.store.ListAccountGroups(account.ID)
 		if err == nil && len(accountGroups) > 0 {
 			allowedScopes := make(map[string]bool)
@@ -94,7 +94,7 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 		if !node.Enabled || node.PublicHost == "" || node.PublicPort <= 0 {
 			continue
 		}
-		if node.Mode != "edge" && node.ParentNodeID != "" {
+		if node.Mode != domain.NodeModeEdge && node.ParentNodeID != "" {
 			continue
 		}
 		group := domain.ExtensionGroup{
@@ -115,23 +115,23 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 				continue
 			}
 			switch rule.MatchType {
-			case "domain":
-				if rule.ActionType == "direct" {
+			case domain.MatchTypeDomain:
+				if rule.ActionType == domain.ActionTypeDirect {
 					group.DirectHosts = append(group.DirectHosts, value)
-				} else if rule.ActionType == "chain" {
+				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyHosts = append(group.ProxyHosts, value)
 				}
-			case "domain_suffix":
+			case domain.MatchTypeDomainSuffix:
 				pattern := "*" + value
-				if rule.ActionType == "direct" {
+				if rule.ActionType == domain.ActionTypeDirect {
 					group.DirectHosts = append(group.DirectHosts, pattern)
-				} else if rule.ActionType == "chain" {
+				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyHosts = append(group.ProxyHosts, pattern)
 				}
 			case "cidr":
-				if rule.ActionType == "direct" {
+				if rule.ActionType == domain.ActionTypeDirect {
 					group.DirectCIDRs = append(group.DirectCIDRs, value)
-				} else if rule.ActionType == "chain" {
+				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyCIDRs = append(group.ProxyCIDRs, value)
 				}
 			}
@@ -319,7 +319,7 @@ func (c *ControlPlane) CreateNodeOnboardingTask(accountID string, input domain.C
 	if err := c.validateNodeOnboardingTask(input.Mode, input.PathID, input.TargetHost, input.TargetPort); err != nil {
 		return domain.NodeOnboardingTask{}, err
 	}
-	if input.Mode != "direct" && !hasNodeAccessPath(c.store.ListNodeAccessPaths(), input.PathID) {
+	if input.Mode != domain.PathModeDirect && !hasNodeAccessPath(c.store.ListNodeAccessPaths(), input.PathID) {
 		return domain.NodeOnboardingTask{}, invalidInput("invalid_node_access_path")
 	}
 	item, err := c.store.CreateNodeOnboardingTask(accountID, input)
@@ -327,22 +327,22 @@ func (c *ControlPlane) CreateNodeOnboardingTask(accountID string, input domain.C
 		return domain.NodeOnboardingTask{}, err
 	}
 	switch input.Mode {
-	case "direct":
+	case domain.PathModeDirect:
 		status, message := probeDirectNodeTarget(input.TargetHost, input.TargetPort)
 		updated, updateErr := c.store.UpdateNodeOnboardingTaskStatus(item.ID, status, message)
 		if updateErr != nil {
 			return item, nil
 		}
 		return updated, nil
-	case "relay_chain":
+	case domain.PathModeRelayChain:
 		status, message := c.probeRelayPath(input.PathID)
 		updated, updateErr := c.store.UpdateNodeOnboardingTaskStatus(item.ID, status, message)
 		if updateErr != nil {
 			return item, nil
 		}
 		return updated, nil
-	case "upstream_pull":
-		updated, updateErr := c.store.UpdateNodeOnboardingTaskStatus(item.ID, "pending", "waiting_for_target_node_pull")
+	case domain.PathModeUpstreamPull:
+		updated, updateErr := c.store.UpdateNodeOnboardingTaskStatus(item.ID, domain.TaskStatusPending, "waiting_for_target_node_pull")
 		if updateErr != nil {
 			return item, nil
 		}
@@ -449,8 +449,8 @@ func (c *ControlPlane) ConnectNode(input domain.ConnectNodeInput) (domain.Connec
 		if _, err := c.store.CreateNodeLink(domain.CreateNodeLinkInput{
 			SourceNodeID: input.ParentNodeID,
 			TargetNodeID: node.ID,
-			LinkType:     "managed",
-			TrustState:   "active",
+			LinkType:     domain.LinkTypeManaged,
+			TrustState:   domain.TrustStateActive,
 		}); err != nil {
 			_ = c.store.DeleteNode(node.ID)
 			return domain.ConnectedNodeResult{}, err
@@ -592,7 +592,7 @@ func (c *ControlPlane) ProbeChain(chainID string) (domain.ChainProbeResult, erro
 	transports := c.store.ListNodeTransports()
 	result := domain.ChainProbeResult{
 		ChainID:      chainID,
-		Status:       "connected",
+		Status:       domain.ProbeResultStatusConnected,
 		Message:      "chain_transport_ready",
 		ResolvedHops: make([]domain.ChainProbeHop, 0, len(chain.Hops)),
 		ProbedAt:     time.Now().UTC().Format(time.RFC3339),
@@ -601,7 +601,7 @@ func (c *ControlPlane) ProbeChain(chainID string) (domain.ChainProbeResult, erro
 	for _, hopID := range chain.Hops {
 		node, ok := nodeByID(nodes, hopID)
 		if !ok || !node.Enabled {
-			result.Status = "failed"
+			result.Status = domain.ProbeResultStatusFailed
 			result.Message = "chain_blocked"
 			result.BlockingNodeID = hopID
 			result.BlockingReason = "unknown_or_disabled_node"
@@ -609,7 +609,7 @@ func (c *ControlPlane) ProbeChain(chainID string) (domain.ChainProbeResult, erro
 		}
 		transport, ok := resolveProbeTransport(node, prevHopID, transports)
 		if !ok {
-			result.Status = "failed"
+			result.Status = domain.ProbeResultStatusFailed
 			result.Message = "chain_blocked"
 			result.BlockingNodeID = node.ID
 			if prevHopID == "" {
@@ -628,12 +628,12 @@ func (c *ControlPlane) ProbeChain(chainID string) (domain.ChainProbeResult, erro
 		})
 		prevHopID = node.ID
 	}
-	if len(result.ResolvedHops) > 0 && (result.ResolvedHops[0].TransportType == "public_http" || result.ResolvedHops[0].TransportType == "public_https") {
+	if len(result.ResolvedHops) > 0 && (result.ResolvedHops[0].TransportType == domain.TransportTypePublicHTTP || result.ResolvedHops[0].TransportType == domain.TransportTypePublicHTTPS) {
 		probeResult, err := controlrelay.Execute(result.ResolvedHops[0].Address, controlrelay.ProbeRequest{
 			RemainingHopNodeIDs: chain.Hops[1:],
 		})
 		if err != nil {
-			result.Status = "failed"
+			result.Status = domain.ProbeResultStatusFailed
 			result.Message = "chain_probe_failed"
 			result.BlockingNodeID = chain.Hops[0]
 			result.BlockingReason = "probe_dispatch_failed"
@@ -641,7 +641,7 @@ func (c *ControlPlane) ProbeChain(chainID string) (domain.ChainProbeResult, erro
 		}
 		result.Status = probeResult.Status
 		result.Message = probeResult.Message
-		if probeResult.Status != "connected" && result.BlockingReason == "" && len(chain.Hops) > 0 {
+		if probeResult.Status != domain.ProbeResultStatusConnected && result.BlockingReason == "" && len(chain.Hops) > 0 {
 			result.BlockingNodeID = chain.Hops[len(chain.Hops)-1]
 			result.BlockingReason = probeResult.Message
 		}
@@ -691,7 +691,7 @@ func (c *ControlPlane) ValidateChain(input domain.ValidateChainInput) (domain.Ch
 		return result, nil
 	}
 
-	if firstHopNode.Mode != "edge" {
+	if firstHopNode.Mode != domain.NodeModeEdge {
 		result.Valid = false
 		result.Errors = append(result.Errors, "First hop must be an edge node")
 	}
@@ -986,43 +986,43 @@ func (c *ControlPlane) validateMatchValue(matchType, matchValue string) domain.M
 		return domain.MatchValueValidation{Valid: false, Format: matchType, Message: "Unknown match type"}
 	}
 	switch matchType {
-	case "domain":
+	case domain.MatchTypeDomain:
 		pattern := `^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`
 		matched, _ := regexp.MatchString(pattern, matchValue)
 		if matched {
 			return domain.MatchValueValidation{Valid: true, Format: "domain", Message: "Valid domain format"}
 		}
 		return domain.MatchValueValidation{Valid: false, Format: "domain", Message: "Invalid domain format"}
-	case "domain_suffix":
+	case domain.MatchTypeDomainSuffix:
 		if !strings.HasPrefix(matchValue, ".") && !strings.HasPrefix(matchValue, "*.") {
 			return domain.MatchValueValidation{Valid: false, Format: "domain_suffix", Message: "Domain suffix must start with . or *."}
 		}
 		return domain.MatchValueValidation{Valid: true, Format: "domain_suffix", Message: "Valid domain suffix"}
-	case "ip_cidr":
+	case domain.MatchTypeIPCIDR:
 		_, _, err := net.ParseCIDR(matchValue)
 		if err != nil {
 			return domain.MatchValueValidation{Valid: false, Format: "ip_cidr", Message: "Invalid CIDR notation"}
 		}
 		return domain.MatchValueValidation{Valid: true, Format: "ip_cidr", Message: "Valid CIDR notation"}
-	case "ip_range":
+	case domain.MatchTypeIPRange:
 		parts := strings.SplitN(matchValue, "-", 2)
 		if len(parts) != 2 || net.ParseIP(strings.TrimSpace(parts[0])) == nil || net.ParseIP(strings.TrimSpace(parts[1])) == nil {
 			return domain.MatchValueValidation{Valid: false, Format: "ip_range", Message: "Invalid IP range format"}
 		}
 		return domain.MatchValueValidation{Valid: true, Format: "ip_range", Message: "Valid IP range"}
-	case "port":
+	case domain.MatchTypePort:
 		p, err := strconv.Atoi(matchValue)
 		if err != nil || p < 1 || p > 65535 {
 			return domain.MatchValueValidation{Valid: false, Format: "port", Message: "Port must be between 1 and 65535"}
 		}
 		return domain.MatchValueValidation{Valid: true, Format: "port", Message: "Valid port"}
-	case "url_regex":
+	case domain.MatchTypeURLRegex:
 		_, err := regexp.Compile(matchValue)
 		if err != nil {
 			return domain.MatchValueValidation{Valid: false, Format: "url_regex", Message: fmt.Sprintf("Invalid regex: %s", err.Error())}
 		}
 		return domain.MatchValueValidation{Valid: true, Format: "url_regex", Message: "Valid regex pattern"}
-	case "default":
+	case domain.MatchTypeDefault:
 		return domain.MatchValueValidation{Valid: true, Format: "default", Message: "Default match type"}
 	}
 	return domain.MatchValueValidation{Valid: false, Format: matchType, Message: "Unknown match type"}
@@ -1108,10 +1108,10 @@ func resolveProbeTransport(node domain.Node, prevHopID string, transports []doma
 			if transport.NodeID != node.ID || transport.ParentNodeID != prevHopID {
 				continue
 			}
-			if transport.Status != "connected" {
+			if transport.Status != domain.TransportStatusConnected {
 				continue
 			}
-			if strings.HasPrefix(transport.TransportType, "reverse_ws") || strings.HasPrefix(transport.TransportType, "child_ws") {
+			if strings.HasPrefix(transport.TransportType, domain.TransportTypeReverseWS) || strings.HasPrefix(transport.TransportType, domain.TransportTypeChildWS) {
 				return transport, true
 			}
 		}
@@ -1120,7 +1120,7 @@ func resolveProbeTransport(node domain.Node, prevHopID string, transports []doma
 		if transport.NodeID != node.ID {
 			continue
 		}
-		if transport.TransportType == "public_https" || transport.TransportType == "public_http" {
+		if transport.TransportType == domain.TransportTypePublicHTTPS || transport.TransportType == domain.TransportTypePublicHTTP {
 			return transport, true
 		}
 	}
@@ -1234,10 +1234,10 @@ func (c *ControlPlane) RunMaintenance() error {
 		return err
 	}
 	for _, cert := range c.store.ListCertificates() {
-		if cert.OwnerType != "node" || cert.CertType != "public" {
+		if cert.OwnerType != "node" || cert.CertType != domain.CertTypePublic {
 			continue
 		}
-		if cert.Status != "renew-soon" && cert.Status != "expired" {
+		if cert.Status != domain.CertStatusRenewSoon && cert.Status != domain.CertStatusExpired {
 			continue
 		}
 		if _, err := c.store.RenewNodeCertificate(domain.NodeCertRenewInput{
@@ -1391,11 +1391,11 @@ func (c *ControlPlane) validateRouteRule(actionType string, chainID string, dest
 		return invalidInput("invalid_route_rule_payload")
 	}
 	switch actionType {
-	case "chain":
+	case domain.ActionTypeChain:
 		if chainID == "" {
 			return invalidInput("invalid_route_rule_payload")
 		}
-	case "direct":
+	case domain.ActionTypeDirect:
 		if destinationScope == "" {
 			return invalidInput("invalid_route_rule_payload")
 		}
@@ -1411,7 +1411,7 @@ func (c *ControlPlane) validateNodeAccessPath(name string, mode string, targetHo
 		return invalidInput("invalid_node_access_path_payload")
 	}
 	switch mode {
-	case "direct", "relay_chain":
+	case domain.PathModeDirect, domain.PathModeRelayChain:
 		if targetHost == "" || targetPort <= 0 {
 			return invalidInput("invalid_node_access_path_payload")
 		}
@@ -1424,11 +1424,11 @@ func (c *ControlPlane) validateNodeOnboardingTask(mode string, pathID string, ta
 		return invalidInput("invalid_node_onboarding_task_payload")
 	}
 	switch mode {
-	case "direct":
+	case domain.PathModeDirect:
 		if targetHost == "" || targetPort <= 0 {
 			return invalidInput("invalid_node_onboarding_task_payload")
 		}
-	case "relay_chain", "upstream_pull":
+	case domain.PathModeRelayChain, domain.PathModeUpstreamPull:
 		if pathID == "" {
 			return invalidInput("invalid_node_onboarding_task_payload")
 		}
@@ -1440,13 +1440,13 @@ func probeDirectNodeTarget(targetHost string, targetPort int) (string, string) {
 	client := &http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Get(fmt.Sprintf("http://%s:%d/healthz", targetHost, targetPort))
 	if err != nil {
-		return "failed", "target_unreachable"
+		return domain.ProbeResultStatusFailed, "target_unreachable"
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= http.StatusBadRequest {
-		return "failed", "target_unhealthy"
+		return domain.ProbeResultStatusFailed, "target_unhealthy"
 	}
-	return "connected", "target_reachable"
+	return domain.ProbeResultStatusConnected, "target_reachable"
 }
 
 func hasNodeAccessPath(items []domain.NodeAccessPath, pathID string) bool {
@@ -1461,11 +1461,11 @@ func hasNodeAccessPath(items []domain.NodeAccessPath, pathID string) bool {
 func (c *ControlPlane) probeRelayPath(pathID string) (string, string) {
 	path, ok := nodeAccessPathByID(c.store.ListNodeAccessPaths(), pathID)
 	if !ok || !path.Enabled {
-		return "failed", "invalid_node_access_path"
+		return domain.ProbeResultStatusFailed, "invalid_node_access_path"
 	}
 	relayURLs, ok := relayURLsForPath(c.store.ListNodes(), path)
 	if !ok || len(relayURLs) == 0 {
-		return "failed", "invalid_relay_chain"
+		return domain.ProbeResultStatusFailed, "invalid_relay_chain"
 	}
 	result, err := controlrelay.Execute(relayURLs[0], controlrelay.ProbeRequest{
 		RemainingRelayURLs: relayURLs[1:],
@@ -1473,7 +1473,7 @@ func (c *ControlPlane) probeRelayPath(pathID string) (string, string) {
 		TargetPort:         path.TargetPort,
 	})
 	if err != nil {
-		return "failed", "relay_probe_failed"
+		return domain.ProbeResultStatusFailed, "relay_probe_failed"
 	}
 	return result.Status, result.Message
 }

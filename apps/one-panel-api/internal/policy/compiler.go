@@ -25,7 +25,7 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain
 	activeNodes := make([]domain.Node, 0, len(nodes))
 	nodeSet := make(map[string]domain.Node, len(nodes))
 	for _, node := range nodes {
-		if !node.Enabled || node.Status == "pending" {
+		if !node.Enabled || node.Status == domain.NodeStatusPending {
 			continue
 		}
 		activeNodes = append(activeNodes, node)
@@ -64,15 +64,15 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain
 		if !rule.Enabled {
 			continue
 		}
-		if rule.ActionType != "chain" && rule.ActionType != "direct" {
+		if rule.ActionType != domain.ActionTypeChain && rule.ActionType != domain.ActionTypeDirect {
 			return "", fmt.Errorf("rule %s has invalid_action_type", rule.ID)
 		}
 		switch rule.ActionType {
-		case "chain":
+		case domain.ActionTypeChain:
 			if _, ok := chainSet[rule.ChainID]; !ok {
 				return "", fmt.Errorf("rule %s references unknown_chain %s", rule.ID, rule.ChainID)
 			}
-		case "direct":
+		case domain.ActionTypeDirect:
 			if rule.DestinationScope == "" {
 				return "", fmt.Errorf("rule %s missing_destination_scope", rule.ID)
 			}
@@ -137,7 +137,7 @@ func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink,
 	}
 	filteredRules := make([]domain.RouteRule, 0)
 	for _, rule := range snapshot.RouteRules {
-		if rule.ActionType == "chain" {
+		if rule.ActionType == domain.ActionTypeChain {
 			if _, ok := visibleChainIDs[rule.ChainID]; ok {
 				filteredRules = append(filteredRules, rule)
 			}
