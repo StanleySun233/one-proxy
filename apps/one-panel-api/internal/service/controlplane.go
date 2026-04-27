@@ -156,6 +156,10 @@ func (c *ControlPlane) CreateAccount(input domain.CreateAccountInput) (domain.Ac
 	return c.store.CreateAccount(input)
 }
 
+func (c *ControlPlane) ListFieldEnums() ([]domain.FieldEnum, error) {
+	return c.store.ListFieldEnums()
+}
+
 func (c *ControlPlane) ListGroups() ([]domain.Group, error) {
 	return c.store.ListGroups()
 }
