@@ -10,6 +10,7 @@ WORKDIR /workspace/apps/one-panel-api
 COPY apps/one-panel-api/go.mod apps/one-panel-api/go.sum ./
 RUN go mod download
 COPY apps/one-panel-api ./
+RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/one-proxy-panel ./cmd/one-proxy-panel
 
 FROM node:22-bookworm-slim
