@@ -1,4 +1,4 @@
-export type { Account, LoginResult } from './types/auth';
+export type { Account, LoginResult } from './auth';
 export type {
   Node,
   NodeLink,
@@ -10,7 +10,7 @@ export type {
   BootstrapToken,
   UnconsumedBootstrapToken,
   ConnectedNodeResult,
-} from './types/nodes';
+} from './nodes';
 export type {
   Chain,
   ChainProbeHop,
@@ -19,15 +19,15 @@ export type {
   CompiledChainHop,
   CompiledChainConfig,
   ChainPreviewResult,
-} from './types/chains';
+} from './chains';
 export type {
   RouteRule,
   MatchValueValidation,
   ChainValidation,
   ScopeValidation,
   RouteRuleValidationResult,
-} from './types/routes';
-export type { Group, GroupDetail } from './types/groups';
+} from './routes';
+export type { Group, GroupDetail } from './groups';
 export type {
   APIResponse,
   Overview,
@@ -41,4 +41,4 @@ export type {
   InitRequest,
   PolicyRevision,
   Certificate,
-} from './types/common';
+} from './common';
