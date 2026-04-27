@@ -189,6 +189,27 @@ func (c *ControlPlane) DeleteGroup(id string) error {
 	return c.store.DeleteGroup(id)
 }
 
+func (c *ControlPlane) ListGroupAccounts(groupID string) ([]domain.Account, error) {
+	if groupID == "" {
+		return nil, invalidInput("missing_group_id")
+	}
+	return c.store.ListGroupAccounts(groupID)
+}
+
+func (c *ControlPlane) SetGroupAccounts(groupID string, input domain.SetGroupAccountsInput) error {
+	if groupID == "" {
+		return invalidInput("missing_group_id")
+	}
+	return c.store.SetGroupAccounts(groupID, input.AccountIDs)
+}
+
+func (c *ControlPlane) SetGroupScopes(groupID string, input domain.SetGroupScopesInput) error {
+	if groupID == "" {
+		return invalidInput("missing_group_id")
+	}
+	return c.store.SetGroupScopes(groupID, input.ScopeKeys)
+}
+
 func (c *ControlPlane) NodeLinks() []domain.NodeLink {
 	return c.store.ListNodeLinks()
 }

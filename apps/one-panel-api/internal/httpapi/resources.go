@@ -770,6 +770,14 @@ func (r *Router) handleGroups(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleGroupByID(w http.ResponseWriter, req *http.Request) {
+	if strings.HasSuffix(req.URL.Path, "/accounts") {
+		r.handleGroupAccounts(w, req)
+		return
+	}
+	if strings.HasSuffix(req.URL.Path, "/scopes") {
+		r.handleGroupScopes(w, req)
+		return
+	}
 	groupID := resourceID(req.URL.Path, "/api/v1/groups/")
 	if groupID == "" {
 		writeError(w, http.StatusBadRequest, "missing_group_id")
@@ -804,4 +812,56 @@ func (r *Router) handleGroupByID(w http.ResponseWriter, req *http.Request) {
 	default:
 		writeMethodNotAllowed(w, "GET, PUT, DELETE")
 	}
+}
+
+func (r *Router) handleGroupAccounts(w http.ResponseWriter, req *http.Request) {
+	groupID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/groups/"), "/accounts")
+	if groupID == "" {
+		writeError(w, http.StatusBadRequest, "missing_group_id")
+		return
+	}
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.service.ListGroupAccounts(groupID)
+		if err != nil {
+			writeServiceError(w, req, err, "list_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, items)
+	case http.MethodPut:
+		var payload domain.SetGroupAccountsInput
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if err := r.service.SetGroupAccounts(groupID, payload); err != nil {
+			writeServiceError(w, req, err, "set_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, map[string]any{"status": "updated"})
+	default:
+		writeMethodNotAllowed(w, "GET, PUT")
+	}
+}
+
+func (r *Router) handleGroupScopes(w http.ResponseWriter, req *http.Request) {
+	groupID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/groups/"), "/scopes")
+	if groupID == "" {
+		writeError(w, http.StatusBadRequest, "missing_group_id")
+		return
+	}
+	if req.Method != http.MethodPut {
+		writeMethodNotAllowed(w, "PUT")
+		return
+	}
+	var payload domain.SetGroupScopesInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if err := r.service.SetGroupScopes(groupID, payload); err != nil {
+		writeServiceError(w, req, err, "set_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, map[string]any{"status": "updated"})
 }
