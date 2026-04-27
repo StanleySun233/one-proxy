@@ -13,6 +13,7 @@ import {
   createNode,
   createNodeLink,
   deleteNode,
+  fetchEnums,
   getNodeHealth,
   getNodeLinks,
   getNodes,
@@ -31,10 +32,16 @@ export function useNodeConsole() {
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
 
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const nodeModeKeys = Object.keys(enums?.node_mode || {});
+  const DEFAULT_MODE = nodeModeKeys.find(k => k === 'relay') || 'relay';
+  const bootstrapTargetKeys = Object.keys(enums?.bootstrap_target_type || {});
+  const DEFAULT_TARGET_TYPE = bootstrapTargetKeys.find(k => k === 'node') || 'node';
+
   const nodeForm = useForm<NodeFormValues>({
     defaultValues: {
       name: '',
-      mode: 'relay',
+      mode: DEFAULT_MODE,
       scopeKey: '',
       parentNodeId: '',
       publicHost: '',
@@ -48,7 +55,7 @@ export function useNodeConsole() {
       password: '',
       newPassword: '',
       name: '',
-      mode: 'relay',
+      mode: DEFAULT_MODE,
       scopeKey: '',
       parentNodeId: '',
       publicHost: '',
@@ -146,7 +153,7 @@ export function useNodeConsole() {
         password: '',
         newPassword: '',
         name: '',
-        mode: 'relay',
+        mode: DEFAULT_MODE,
         scopeKey: '',
         parentNodeId: '',
         publicHost: '',
@@ -160,7 +167,7 @@ export function useNodeConsole() {
   });
 
   const bootstrapMutation = useMutation({
-    mutationFn: ({targetId, nodeName}: {targetId: string; nodeName: string}) => createBootstrapToken(accessToken, {targetType: 'node', targetId, nodeName}),
+    mutationFn: ({targetId, nodeName}: {targetId: string; nodeName: string}) => createBootstrapToken(accessToken, {targetType: DEFAULT_TARGET_TYPE, targetId, nodeName}),
     onSuccess: (result) => {
       toast.success('bootstrap token created');
       bootstrapForm.reset();

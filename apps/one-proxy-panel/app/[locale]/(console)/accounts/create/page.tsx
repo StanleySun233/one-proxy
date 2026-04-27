@@ -1,6 +1,6 @@
 'use client';
 
-import {useMutation, useQueryClient} from '@tanstack/react-query';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useForm} from 'react-hook-form';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
@@ -8,7 +8,7 @@ import {toast} from 'sonner';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createAccount} from '@/lib/control-plane-api';
+import {createAccount, fetchEnums} from '@/lib/control-plane-api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 type AccountFormValues = {
@@ -23,11 +23,15 @@ export default function CreateAccountPage() {
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const accountRoleKeys = Object.keys(enums?.account_role || {});
+  const DEFAULT_ROLE = accountRoleKeys.find(k => k === 'operator') || 'operator';
+  const accountRoleOptions = enums?.account_role ? Object.entries(enums.account_role).map(([value, item]) => ({value, label: item.name})) : [];
   const form = useForm<AccountFormValues>({
     defaultValues: {
       account: '',
       password: '',
-      role: 'operator'
+      role: DEFAULT_ROLE
     }
   });
 
@@ -36,7 +40,7 @@ export default function CreateAccountPage() {
     onSuccess: () => {
       toast.success('account created');
       queryClient.invalidateQueries({queryKey: ['accounts']});
-      form.reset({account: '', password: '', role: 'operator'});
+      form.reset({account: '', password: '', role: DEFAULT_ROLE});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -84,12 +88,14 @@ export default function CreateAccountPage() {
             </div>
             <div className="field-stack">
               <span>Role</span>
-              <input
-                aria-invalid={form.formState.errors.role ? 'true' : 'false'}
-                className="field-input"
-                placeholder="operator"
+              <select
+                className="field-select"
                 {...form.register('role', {required: 'role is required'})}
-              />
+              >
+                {accountRoleOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
               {form.formState.errors.role ? <p className="error-text">{form.formState.errors.role.message}</p> : null}
             </div>
             <div className="submit-row">

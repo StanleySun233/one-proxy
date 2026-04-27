@@ -73,19 +73,23 @@ export default function RoutesPage() {
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const matchTypeKeys = Object.keys(enums?.match_type || {});
+  const actionTypeKeys = Object.keys(enums?.action_type || {});
+  const DEFAULT_MATCH_TYPE = matchTypeKeys.find(k => k === 'domain') || 'domain';
+  const DEFAULT_ACTION_TYPE = actionTypeKeys.find(k => k === 'chain') || 'chain';
   const form = useForm<RouteRuleFormValues>({
     defaultValues: {
       priority: '100',
-      matchType: 'domain',
+      matchType: DEFAULT_MATCH_TYPE,
       matchValue: '',
-      actionType: 'chain',
+      actionType: DEFAULT_ACTION_TYPE,
       chainId: '',
       destinationScope: ''
     }
   });
   const actionType = form.watch('actionType');
   const matchType = form.watch('matchType');
-  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const matchTypeOptions = enums?.match_type ? Object.entries(enums.match_type).map(([value, item]) => ({value, label: item.name})) : [];
   const actionTypeOptions = enums?.action_type ? Object.entries(enums.action_type).map(([value, item]) => ({value, label: item.name})) : [];
   const selectedChainId = form.watch('chainId');
