@@ -4,13 +4,14 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useForm} from 'react-hook-form';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
-import {useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createRouteRule, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy} from '@/lib/control-plane-api';
+import {createRouteRule, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy, validateRouteRule} from '@/lib/control-plane-api';
+import {RouteRuleValidationResult} from '@/lib/control-plane-types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {RegexTesterModal} from './_components/regex-tester-modal';
@@ -96,6 +97,49 @@ export default function RoutesPage() {
   const matchType = form.watch('matchType');
   const selectedChainId = form.watch('chainId');
   const [regexTesterOpen, setRegexTesterOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState<RouteRuleValidationResult | null>(null);
+  const [validationPending, setValidationPending] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const formValues = form.watch();
+
+  const runValidation = useCallback(async (values: RouteRuleFormValues) => {
+    const payload = {
+      priority: Number(values.priority) || 0,
+      matchType: values.matchType,
+      matchValue: values.matchValue.trim(),
+      actionType: values.actionType,
+      chainId: values.chainId.trim(),
+      destinationScope: values.destinationScope.trim()
+    };
+    if (!payload.matchValue) {
+      setValidationResult(null);
+      return;
+    }
+    setValidationPending(true);
+    try {
+      const result = await validateRouteRule(accessToken, payload);
+      setValidationResult(result);
+    } catch {
+      setValidationResult(null);
+    } finally {
+      setValidationPending(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      runValidation(formValues);
+    }, 500);
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [formValues, runValidation]);
 
   const routeRulesQuery = useQuery({
     queryKey: ['route-rules', accessToken],
@@ -158,6 +202,16 @@ export default function RoutesPage() {
   const chains = chainsQuery.data || [];
   const nodes = nodesQuery.data || [];
 
+  const getFieldErrors = (field: string) => {
+    if (!validationResult) return [];
+    return validationResult.errors.filter((e) => e.field === field);
+  };
+
+  const getFieldWarnings = (field: string) => {
+    if (!validationResult) return [];
+    return validationResult.warnings.filter((e) => e.field === field);
+  };
+
   const selectedChain = chains.find((c) => c.id === selectedChainId);
   const availableScopes = Array.from(new Set([...nodes.map((n) => n.scopeKey).filter(Boolean), ...chains.map((c) => c.destinationScope)]));
   const matchTypeOption = matchTypeOptions.find((opt) => opt.value === matchType);
@@ -196,6 +250,8 @@ export default function RoutesPage() {
                   })}
                 />
                 {form.formState.errors.priority ? <p className="error-text">{form.formState.errors.priority.message}</p> : null}
+                {getFieldErrors('priority').map((e, i) => <p className="error-text" key={`priority-err-${i}`}>{e.message}</p>)}
+                {getFieldWarnings('priority').map((e, i) => <p className="error-text" key={`priority-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
               <div className="field-stack">
                 <span>Match type</span>
@@ -211,6 +267,8 @@ export default function RoutesPage() {
                   ))}
                 </select>
                 {form.formState.errors.matchType ? <p className="error-text">{form.formState.errors.matchType.message}</p> : null}
+                {getFieldErrors('matchType').map((e, i) => <p className="error-text" key={`matchType-err-${i}`}>{e.message}</p>)}
+                {getFieldWarnings('matchType').map((e, i) => <p className="error-text" key={`matchType-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
               <div className="field-stack">
                 <span>Match value</span>
@@ -232,6 +290,8 @@ export default function RoutesPage() {
                   )}
                 </div>
                 {form.formState.errors.matchValue ? <p className="error-text">{form.formState.errors.matchValue.message}</p> : null}
+                {getFieldErrors('matchValue').map((e, i) => <p className="error-text" key={`matchValue-err-${i}`}>{e.message}</p>)}
+                {getFieldWarnings('matchValue').map((e, i) => <p className="error-text" key={`matchValue-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
               <div className="field-stack">
                 <span>Action type</span>
@@ -239,6 +299,8 @@ export default function RoutesPage() {
                   <option value="chain">chain</option>
                   <option value="direct">direct</option>
                 </select>
+                {getFieldErrors('actionType').map((e, i) => <p className="error-text" key={`actionType-err-${i}`}>{e.message}</p>)}
+                {getFieldWarnings('actionType').map((e, i) => <p className="error-text" key={`actionType-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
               <div className="field-stack">
                 <span>Chain</span>
@@ -263,6 +325,8 @@ export default function RoutesPage() {
                   })}
                 </select>
                 {form.formState.errors.chainId ? <p className="error-text">{form.formState.errors.chainId.message}</p> : null}
+                {getFieldErrors('chainId').map((e, i) => <p className="error-text" key={`chainId-err-${i}`}>{e.message}</p>)}
+                {getFieldWarnings('chainId').map((e, i) => <p className="error-text" key={`chainId-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
                 {selectedChain && actionType === 'chain' ? (
                   <div className="field-hint">
                     <span className="muted-text">
@@ -289,7 +353,23 @@ export default function RoutesPage() {
                   ))}
                 </datalist>
                 {form.formState.errors.destinationScope ? <p className="error-text">{form.formState.errors.destinationScope.message}</p> : null}
+                {getFieldErrors('destinationScope').map((e, i) => <p className="error-text" key={`destScope-err-${i}`}>{e.message}</p>)}
+                {getFieldWarnings('destinationScope').map((e, i) => <p className="error-text" key={`destScope-warn-${i}`} style={{color: 'var(--accent)'}}>{e.message}</p>)}
               </div>
+
+              {validationResult && (validationResult.errors.length > 0 || validationResult.warnings.length > 0) && (
+                <div className="probe-results-section">
+                  <div className="section-header">
+                    <h4>Validation</h4>
+                    {validationPending ? <span className="badge is-neutral">validating...</span> : (
+                      <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
+                        {validationResult.valid ? 'valid' : 'invalid'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="submit-row">
                 <button className="primary-button" disabled={createRuleMutation.isPending} type="submit">
                   {createRuleMutation.isPending ? t('common.submitting') : 'Create rule'}
