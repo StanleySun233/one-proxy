@@ -324,6 +324,28 @@ async function login(controlPlaneUrl, account, password) {
   return syncRemoteConfig(nextState);
 }
 
+async function testConnection(controlPlaneUrl) {
+  const baseUrl = String(controlPlaneUrl || '').trim().replace(/\/$/, '');
+  if (!baseUrl) {
+    throw new Error('missing_control_plane_url');
+  }
+  let response;
+  try {
+    response = await fetch(`${baseUrl}/healthz`);
+  } catch (_error) {
+    throw new Error('connection_failed');
+  }
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_error) {
+  }
+  if (!response.ok) {
+    throw new Error((payload && payload.message) || 'connection_failed');
+  }
+  return payload ? payload.data : null;
+}
+
 async function refreshSession(sourceState) {
   const state = mergeState(sourceState || (await getState()));
   if (!state.controlPlaneUrl || !state.session.refreshToken) {
@@ -457,6 +479,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return;
       case 'login':
         sendResponse(await login(message.controlPlaneUrl, message.account, message.password));
+        return;
+      case 'test-connection':
+        sendResponse(await testConnection(message.controlPlaneUrl));
         return;
       case 'logout':
         sendResponse(await logout());

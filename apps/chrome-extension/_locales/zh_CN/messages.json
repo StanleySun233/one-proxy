@@ -56,6 +56,9 @@
   "password": {
     "message": "密码"
   },
+  "testConnection": {
+    "message": "测试连接"
+  },
   "login": {
     "message": "登录"
   },
@@ -154,6 +157,18 @@
   },
   "statusLoggedIn": {
     "message": "登录成功，远程分组已加载。"
+  },
+  "statusConnectionOk": {
+    "message": "服务器可达，可以继续登录。"
+  },
+  "statusInvalidCredentials": {
+    "message": "服务器可达，但账号或密码被拒绝。"
+  },
+  "statusMissingControlPlaneUrl": {
+    "message": "请先填写控制面 URL。"
+  },
+  "statusConnectionFailed": {
+    "message": "无法连接到控制面服务器。"
   },
   "statusLoggedOut": {
     "message": "会话已清除。"

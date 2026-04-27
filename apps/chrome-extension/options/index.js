@@ -4,6 +4,7 @@ import { applyThemeMode, bindThemeMode } from '../shared/theme.js';
 const controlPlaneUrl = document.getElementById('controlPlaneUrl');
 const account = document.getElementById('account');
 const password = document.getElementById('password');
+const testConnectionButton = document.getElementById('testConnectionButton');
 const loginButton = document.getElementById('loginButton');
 const logoutButton = document.getElementById('logoutButton');
 const syncRemote = document.getElementById('syncRemote');
@@ -28,6 +29,19 @@ function sendMessage(message) {
 function setFeedback(kind, message) {
   feedback.className = `feedback is-${kind}`;
   feedback.textContent = message;
+}
+
+function formatError(message) {
+  if (message === 'invalid_credentials') {
+    return text('statusInvalidCredentials');
+  }
+  if (message === 'missing_control_plane_url') {
+    return text('statusMissingControlPlaneUrl');
+  }
+  if (message === 'connection_failed') {
+    return text('statusConnectionFailed');
+  }
+  return message;
 }
 
 function linesToArray(value) {
@@ -104,7 +118,7 @@ loginButton.addEventListener('click', async () => {
     password: password.value
   });
   if (result && result.error) {
-    setFeedback('error', result.error);
+    setFeedback('error', formatError(result.error));
     return;
   }
   password.value = '';
@@ -112,10 +126,22 @@ loginButton.addEventListener('click', async () => {
   setFeedback('ok', text('statusLoggedIn'));
 });
 
+testConnectionButton.addEventListener('click', async () => {
+  const result = await sendMessage({
+    type: 'test-connection',
+    controlPlaneUrl: controlPlaneUrl.value.trim()
+  });
+  if (result && result.error) {
+    setFeedback('error', formatError(result.error));
+    return;
+  }
+  setFeedback('ok', text('statusConnectionOk'));
+});
+
 logoutButton.addEventListener('click', async () => {
   const result = await sendMessage({ type: 'logout' });
   if (result && result.error) {
-    setFeedback('error', result.error);
+    setFeedback('error', formatError(result.error));
     return;
   }
   render(result);
@@ -125,7 +151,7 @@ logoutButton.addEventListener('click', async () => {
 syncRemote.addEventListener('click', async () => {
   const result = await sendMessage({ type: 'sync-remote-config' });
   if (result && result.error) {
-    setFeedback('error', result.error);
+    setFeedback('error', formatError(result.error));
     return;
   }
   render(result);
@@ -139,7 +165,7 @@ saveOverrides.addEventListener('click', async () => {
     proxyHosts: linesToArray(proxyHosts.value)
   });
   if (result && result.error) {
-    setFeedback('error', result.error);
+    setFeedback('error', formatError(result.error));
     return;
   }
   render(result);
@@ -149,7 +175,7 @@ saveOverrides.addEventListener('click', async () => {
 bindThemeMode(themeMode, async (mode) => {
   const result = await sendMessage({ type: 'set-theme-mode', themeMode: mode });
   if (result && result.error) {
-    setFeedback('error', result.error);
+    setFeedback('error', formatError(result.error));
     return;
   }
   render(result);

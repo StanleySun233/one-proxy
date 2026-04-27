@@ -56,6 +56,9 @@
   "password": {
     "message": "Password"
   },
+  "testConnection": {
+    "message": "Test Connection"
+  },
   "login": {
     "message": "Login"
   },
@@ -154,6 +157,18 @@
   },
   "statusLoggedIn": {
     "message": "Login succeeded and remote groups were loaded."
+  },
+  "statusConnectionOk": {
+    "message": "Server reachable. You can try signing in now."
+  },
+  "statusInvalidCredentials": {
+    "message": "Server reachable, but the account or password was rejected."
+  },
+  "statusMissingControlPlaneUrl": {
+    "message": "Enter the control plane URL first."
+  },
+  "statusConnectionFailed": {
+    "message": "Could not reach the control plane server."
   },
   "statusLoggedOut": {
     "message": "Session cleared."
