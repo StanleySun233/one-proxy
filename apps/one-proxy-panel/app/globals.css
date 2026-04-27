@@ -283,8 +283,7 @@ button:disabled {
 
 .menu-link,
 .submenu-link,
-.locale-chip:hover,
-.mode-toggle:hover {
+.capsule-select-shell:hover {
   transform: translateY(-1px);
 }
 
@@ -341,19 +340,6 @@ button:disabled {
   color: var(--text);
 }
 
-.mode-toggle {
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--panel-2) 84%, var(--panel) 16%);
-  color: var(--text);
-  padding: 12px 14px;
-  border-radius: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: center;
-  cursor: pointer;
-}
-
 .secondary-button,
 .primary-button,
 .danger-button {
@@ -379,23 +365,65 @@ button:disabled {
   color: var(--danger);
 }
 
-.locale-switch {
+.capsule-select-group {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
 }
 
-.locale-chip {
+.capsule-select-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.capsule-select-shell {
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel-2) 84%, var(--panel) 16%);
   color: var(--text);
-  padding: 10px 12px;
+  padding: 0 14px 0 12px;
+  min-height: 46px;
   border-radius: 999px;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
 }
 
-.locale-chip.is-current {
-  background: color-mix(in srgb, var(--primary) 18%, var(--panel) 82%);
+.capsule-select-shell:focus-within {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line) 58%);
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel) 90%);
+}
+
+.capsule-select-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--success);
+}
+
+.capsule-select-field {
+  appearance: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: 1;
+  padding-right: 18px;
+  cursor: pointer;
+}
+
+.capsule-select-field option {
+  color: #111;
+}
+
+.capsule-select-divider {
+  width: 1px;
+  align-self: stretch;
+  background: color-mix(in srgb, var(--line) 82%, transparent 18%);
 }
 
 .hero-panel {

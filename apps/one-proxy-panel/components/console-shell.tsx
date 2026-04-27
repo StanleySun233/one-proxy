@@ -6,25 +6,27 @@ import {
   ChevronRight,
   GitBranch,
   LayoutDashboard,
-  MoonStar,
+  Languages,
   Route,
   ShieldCheck,
-  SunMedium,
+  Shirt,
   Users,
   Waypoints,
   Workflow
 } from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import {useTheme} from 'next-themes';
-import {ReactNode} from 'react';
+import {ChangeEvent, ReactNode} from 'react';
 
 import {useAuth} from '@/components/auth-provider';
-import {Link, usePathname} from '@/i18n/navigation';
+import {CapsuleSelect, CapsuleSelectGroup} from '@/components/common/capsule-select';
+import {Link, usePathname, useRouter} from '@/i18n/navigation';
 
 export function ConsoleShell({children}: {children: ReactNode}) {
   const t = useTranslations();
   const locale = useLocale();
   const pathname = usePathname();
+  const router = useRouter();
   const {resolvedTheme, setTheme} = useTheme();
   const {session, logout} = useAuth();
   const navSections = [
@@ -97,6 +99,15 @@ export function ConsoleShell({children}: {children: ReactNode}) {
       section.items.some((item) => (item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`)))
     ) || navSections[0];
   const accountInitial = session?.account.account?.slice(0, 1).toUpperCase() || 'U';
+  const themeValue = resolvedTheme === 'light' ? 'light' : 'dark';
+
+  const handleThemeChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setTheme(event.target.value);
+  };
+
+  const handleLocaleChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    router.replace(pathname, {locale: event.target.value});
+  };
 
   return (
     <div className="console-shell">
@@ -111,19 +122,17 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         </div>
 
         <div className="console-topbar-actions">
-          <button className="mode-toggle" onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')} type="button">
-            {resolvedTheme === 'dark' ? <SunMedium size={16} /> : <MoonStar size={16} />}
-            <span>{resolvedTheme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')}</span>
-          </button>
+          <CapsuleSelectGroup>
+            <CapsuleSelect aria-label="Theme" icon={<Shirt size={16} />} onChange={handleThemeChange} value={themeValue}>
+              <option value="dark">{t('shell.themeDark')}</option>
+              <option value="light">{t('shell.themeLight')}</option>
+            </CapsuleSelect>
 
-          <div className="locale-switch">
-            <Link className={`locale-chip${locale === 'zh' ? ' is-current' : ''}`} href={pathname} locale="zh">
-              {t('shell.localeZh')}
-            </Link>
-            <Link className={`locale-chip${locale === 'en' ? ' is-current' : ''}`} href={pathname} locale="en">
-              {t('shell.localeEn')}
-            </Link>
-          </div>
+            <CapsuleSelect aria-label="Language" icon={<Languages size={16} />} onChange={handleLocaleChange} value={locale}>
+              <option value="zh">{t('shell.localeZh')}</option>
+              <option value="en">{t('shell.localeEn')}</option>
+            </CapsuleSelect>
+          </CapsuleSelectGroup>
 
           <div className="console-user-card">
             <div className="console-user-avatar">{accountInitial}</div>
