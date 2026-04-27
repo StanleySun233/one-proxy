@@ -28,7 +28,8 @@ import {
   RouteRuleValidationResult,
   SetupStatus,
   TestConnectionRequest,
-  TestConnectionResult
+  TestConnectionResult,
+  UnconsumedBootstrapToken
 } from '@/lib/control-plane-types';
 
 const CONTROL_PLANE_PROXY_BASE = '/api/v1';
@@ -242,6 +243,10 @@ export function createBootstrapToken(accessToken: string, payload: {targetType: 
     accessToken,
     body: payload
   });
+}
+
+export function getUnconsumedBootstrapTokens(accessToken: string) {
+  return request<UnconsumedBootstrapToken[]>('/nodes/bootstrap-tokens/unconsumed', {accessToken});
 }
 
 export function approveNode(accessToken: string, nodeID: string) {

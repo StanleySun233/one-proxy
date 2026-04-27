@@ -177,6 +177,15 @@ export type BootstrapToken = {
   expiresAt: string;
 };
 
+export type UnconsumedBootstrapToken = {
+  id: string;
+  targetType: string;
+  targetId: string;
+  nodeName: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
 export type ConnectedNodeResult = {
   node: Node;
   connectionStatus: string;

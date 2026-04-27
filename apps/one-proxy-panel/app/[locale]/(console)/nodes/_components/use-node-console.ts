@@ -18,6 +18,7 @@ import {
   getNodes,
   getNodeTransports,
   getPendingNodes,
+  getUnconsumedBootstrapTokens,
   rejectNode,
   updateNode
 } from '@/lib/control-plane-api';
@@ -92,6 +93,13 @@ export function useNodeConsole() {
   const pendingNodesQuery = useQuery({
     queryKey: ['pending-nodes', accessToken],
     queryFn: () => getPendingNodes(accessToken),
+    enabled: !!accessToken,
+    refetchInterval: 30000
+  });
+
+  const unconsumedTokensQuery = useQuery({
+    queryKey: ['unconsumed-bootstrap-tokens', accessToken],
+    queryFn: () => getUnconsumedBootstrapTokens(accessToken),
     enabled: !!accessToken,
     refetchInterval: 30000
   });
@@ -253,6 +261,7 @@ export function useNodeConsole() {
     healthQuery,
     transportsQuery,
     pendingNodesQuery,
+    unconsumedTokensQuery,
     latestToken: (queryClient.getQueryData(['latest-bootstrap-token']) as BootstrapToken | undefined) || null,
     createNode: createNodeMutation,
     quickConnect: quickConnectMutation,

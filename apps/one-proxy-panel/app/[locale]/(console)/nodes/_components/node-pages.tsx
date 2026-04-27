@@ -4,7 +4,7 @@ import {ReactNode, useEffect, useMemo, useState} from 'react';
 
 import {AuthGate} from '@/components/auth-gate';
 import {AsyncState} from '@/components/async-state';
-import {Node, NodeHealth, NodeLink, NodeTransport} from '@/lib/control-plane-types';
+import {Node, NodeHealth, NodeLink, NodeTransport, UnconsumedBootstrapToken} from '@/lib/control-plane-types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {BootstrapTokenTab} from './bootstrap-token-tab';
@@ -115,6 +115,12 @@ export function NodeBootstrapPageContent() {
 export function NodeApprovalsPageContent() {
   const nodeConsole = useNodeConsole();
   const pendingNodes = nodeConsole.pendingNodesQuery.data || [];
+  const unconsumedTokens = nodeConsole.unconsumedTokensQuery.data || [];
+  const allItems: Array<{kind: 'pending'; data: Node} | {kind: 'unconsumed'; data: UnconsumedBootstrapToken}> = [
+    ...pendingNodes.map((node) => ({kind: 'pending' as const, data: node})),
+    ...unconsumedTokens.map((token) => ({kind: 'unconsumed' as const, data: token}))
+  ];
+  const combinedCount = allItems.length;
 
   return (
     <AuthGate>
@@ -126,9 +132,9 @@ export function NodeApprovalsPageContent() {
               <h3>Pending node enrollments</h3>
               <p className="section-copy">Review and approve pending node enrollment requests created via bootstrap tokens.</p>
             </div>
-            <span className="badge">{pendingNodes.length}</span>
+            <span className="badge">{combinedCount}</span>
           </div>
-          {nodeConsole.pendingNodesQuery.isPending ? (
+          {nodeConsole.pendingNodesQuery.isPending || nodeConsole.unconsumedTokensQuery.isPending ? (
             <AsyncState detail="Loading" title="Loading pending enrollments" />
           ) : nodeConsole.pendingNodesQuery.error ? (
             <AsyncState
@@ -137,58 +143,82 @@ export function NodeApprovalsPageContent() {
               onAction={() => void nodeConsole.pendingNodesQuery.refetch()}
               title="Failed to load pending enrollments"
             />
-          ) : pendingNodes.length === 0 ? (
+          ) : combinedCount === 0 ? (
             <AsyncState detail="No pending enrollment requests. Create a bootstrap token to start." title="Empty" />
           ) : (
             <div className="table-card">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Node ID</th>
                     <th>Name</th>
-                    <th>Mode</th>
-                    <th>Scope</th>
+                    <th>Type</th>
+                    <th>Target</th>
                     <th>Status</th>
+                    <th>Created / Expires</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingNodes.map((node) => (
-                      <tr key={node.id}>
-                        <td className="mono">{node.id.substring(0, 12)}</td>
-                        <td>{node.name || <span className="muted-text">not specified</span>}</td>
-                        <td>{node.mode}</td>
-                        <td className="mono">{node.scopeKey}</td>
+                  {allItems.map((item) => {
+                    if (item.kind === 'pending') {
+                      const node = item.data;
+                      return (
+                        <tr key={node.id}>
+                          <td>{node.name || <span className="muted-text">not specified</span>}</td>
+                          <td>{node.mode}</td>
+                          <td className="mono">{node.id.substring(0, 12)}</td>
+                          <td>
+                            <span className={statusBadgeClassName(node.status)}>{node.status}</span>
+                          </td>
+                          <td className="muted-text">—</td>
+                          <td>
+                            <div className="registry-actions">
+                              <button
+                                className="secondary-button"
+                                disabled={nodeConsole.approve.isPending}
+                                onClick={() => nodeConsole.approve.mutate(node.id)}
+                                type="button"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                className="danger-button"
+                                disabled={nodeConsole.rejectNode.isPending}
+                                onClick={() => {
+                                  if (!window.confirm(`Reject enrollment for ${node.name || 'this node'}?`)) {
+                                    return;
+                                  }
+                                  nodeConsole.rejectNode.mutate({nodeId: node.id});
+                                }}
+                                type="button"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    const token = item.data;
+                    return (
+                      <tr key={token.id}>
+                        <td>{token.nodeName || <span className="muted-text">not specified</span>}</td>
+                        <td><span className="badge is-neutral">unconnected</span></td>
+                        <td className="mono">{token.targetId || <span className="muted-text">new node</span>}</td>
                         <td>
-                          <span className={statusBadgeClassName(node.status)}>{node.status}</span>
+                          <span className="badge is-neutral">unused</span>
                         </td>
                         <td>
-                          <div className="registry-actions">
-                            <button
-                              className="secondary-button"
-                              disabled={nodeConsole.approve.isPending}
-                              onClick={() => nodeConsole.approve.mutate(node.id)}
-                              type="button"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              className="danger-button"
-                              disabled={nodeConsole.rejectNode.isPending}
-                              onClick={() => {
-                                if (!window.confirm(`Reject enrollment for ${node.name || 'this node'}?`)) {
-                                  return;
-                                }
-                                nodeConsole.rejectNode.mutate({nodeId: node.id});
-                              }}
-                              type="button"
-                            >
-                              Reject
-                            </button>
-                          </div>
+                          <span className="muted-text">{formatISODateTime(token.createdAt)}</span>
+                          <br />
+                          <span className="muted-text">expires {formatISODateTime(token.expiresAt)}</span>
+                        </td>
+                        <td>
+                          <span className="muted-text">awaiting connection</span>
                         </td>
                       </tr>
-                    ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
