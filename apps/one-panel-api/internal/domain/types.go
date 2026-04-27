@@ -291,6 +291,15 @@ type Chain struct {
 	Hops             []string `json:"hops"`
 }
 
+type ChainWithDetails struct {
+	ID               string           `json:"id"`
+	Name             string           `json:"name"`
+	DestinationScope string           `json:"destinationScope"`
+	Enabled          bool             `json:"enabled"`
+	Hops             []string         `json:"hops"`
+	HopDetails       []ChainHopDetail `json:"hopDetails"`
+}
+
 type NodeTransport struct {
 	ID              string            `json:"id"`
 	NodeID          string            `json:"nodeId"`

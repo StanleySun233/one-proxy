@@ -445,7 +445,12 @@ func (r *Router) handleNodeEnrollmentApprovalReject(w http.ResponseWriter, req *
 func (r *Router) handleChains(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
-		writeSuccess(w, http.StatusOK, r.service.Chains())
+		includeDetails := req.URL.Query().Get("details") == "true"
+		if includeDetails {
+			writeSuccess(w, http.StatusOK, r.service.ChainsWithDetails())
+		} else {
+			writeSuccess(w, http.StatusOK, r.service.Chains())
+		}
 	case http.MethodPost:
 		var payload domain.CreateChainInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
@@ -474,6 +479,13 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	switch req.Method {
+	case http.MethodGet:
+		item, err := r.service.GetChain(chainID)
+		if err != nil {
+			writeServiceError(w, req, err, "get_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, item)
 	case http.MethodPatch:
 		var payload domain.UpdateChainInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
@@ -493,7 +505,7 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 		}
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
-		writeMethodNotAllowed(w, "PATCH, DELETE")
+		writeMethodNotAllowed(w, "GET, PATCH, DELETE")
 	}
 }
 

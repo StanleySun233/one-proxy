@@ -369,6 +369,71 @@ func (c *ControlPlane) Chains() []domain.Chain {
 	return c.store.ListChains()
 }
 
+func (c *ControlPlane) ChainsWithDetails() []domain.ChainWithDetails {
+	chains := c.store.ListChains()
+	nodes := c.store.ListNodes()
+	result := make([]domain.ChainWithDetails, 0, len(chains))
+
+	for _, chain := range chains {
+		hopDetails := make([]domain.ChainHopDetail, 0, len(chain.Hops))
+		for _, hopID := range chain.Hops {
+			node, ok := nodeByID(nodes, hopID)
+			if ok {
+				hopDetails = append(hopDetails, domain.ChainHopDetail{
+					NodeID:   node.ID,
+					NodeName: node.Name,
+					Mode:     node.Mode,
+				})
+			}
+		}
+
+		result = append(result, domain.ChainWithDetails{
+			ID:               chain.ID,
+			Name:             chain.Name,
+			DestinationScope: chain.DestinationScope,
+			Enabled:          chain.Enabled,
+			Hops:             chain.Hops,
+			HopDetails:       hopDetails,
+		})
+	}
+
+	return result
+}
+
+func (c *ControlPlane) GetChain(chainID string) (domain.ChainWithDetails, error) {
+	if chainID == "" {
+		return domain.ChainWithDetails{}, invalidInput("missing_chain_id")
+	}
+
+	chains := c.store.ListChains()
+	chain, ok := chainByID(chains, chainID)
+	if !ok {
+		return domain.ChainWithDetails{}, invalidInput("chain_not_found")
+	}
+
+	nodes := c.store.ListNodes()
+	hopDetails := make([]domain.ChainHopDetail, 0, len(chain.Hops))
+	for _, hopID := range chain.Hops {
+		node, ok := nodeByID(nodes, hopID)
+		if ok {
+			hopDetails = append(hopDetails, domain.ChainHopDetail{
+				NodeID:   node.ID,
+				NodeName: node.Name,
+				Mode:     node.Mode,
+			})
+		}
+	}
+
+	return domain.ChainWithDetails{
+		ID:               chain.ID,
+		Name:             chain.Name,
+		DestinationScope: chain.DestinationScope,
+		Enabled:          chain.Enabled,
+		Hops:             chain.Hops,
+		HopDetails:       hopDetails,
+	}, nil
+}
+
 func (c *ControlPlane) LatestChainProbe(chainID string) (domain.ChainProbeResult, bool) {
 	if chainID == "" {
 		return domain.ChainProbeResult{}, false
