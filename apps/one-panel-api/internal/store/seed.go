@@ -16,6 +16,10 @@ func NewSeedStore() *SeedStore {
 	return &SeedStore{adminPassword: "admin"}
 }
 
+func (s *SeedStore) IsInitialized() bool {
+	return false
+}
+
 func (s *SeedStore) BootstrapAdminPassword() string {
 	return s.adminPassword
 }

@@ -7,6 +7,7 @@ import (
 )
 
 type Store interface {
+	IsInitialized() bool
 	GetOverview() domain.Overview
 	ListAccounts() []domain.Account
 	CreateAccount(input domain.CreateAccountInput) (domain.Account, error)

@@ -72,14 +72,18 @@ func ensureDatabaseExists(dsn string) error {
 		return err
 	}
 	quotedName := "`" + strings.ReplaceAll(databaseName, "`", "``") + "`"
-	_, err = rootDB.Exec("DROP DATABASE IF EXISTS " + quotedName)
-	if err != nil {
-		return err
-	}
 	_, err = rootDB.Exec(
-		"CREATE DATABASE " + quotedName + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+		"CREATE DATABASE IF NOT EXISTS " + quotedName + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 	)
 	return err
+}
+
+func (s *MySQLStore) IsInitialized() bool {
+	var count int
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM accounts").Scan(&count); err != nil {
+		return false
+	}
+	return count > 0
 }
 
 func (s *MySQLStore) BootstrapAdminPassword() string {

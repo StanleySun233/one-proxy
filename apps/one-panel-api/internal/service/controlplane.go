@@ -39,6 +39,10 @@ func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
 	}
 }
 
+func (c *ControlPlane) IsInitialized() bool {
+	return c.store.IsInitialized()
+}
+
 func (c *ControlPlane) Overview() domain.Overview {
 	return c.store.GetOverview()
 }

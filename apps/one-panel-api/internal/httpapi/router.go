@@ -28,7 +28,8 @@ type HTTPConfig struct {
 
 func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/setup/status", func(w http.ResponseWriter, _ *http.Request) {
-		writeSuccess(w, http.StatusOK, map[string]any{"configured": true})
+		configured := r.service.IsInitialized()
+		writeSuccess(w, http.StatusOK, map[string]any{"configured": configured})
 	})
 
 	r.mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
