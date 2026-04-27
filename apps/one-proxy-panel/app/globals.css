@@ -378,6 +378,7 @@ button:disabled {
 }
 
 .capsule-select-shell {
+  position: relative;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel-2) 84%, var(--panel) 16%);
   color: var(--text);
@@ -402,22 +403,75 @@ button:disabled {
   align-items: center;
   justify-content: center;
   color: var(--success);
+  flex-shrink: 0;
 }
 
-.capsule-select-field {
-  appearance: none;
+.capsule-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--text);
   font: inherit;
   line-height: 1;
-  padding-right: 18px;
+  padding: 0;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.capsule-select-field option {
-  color: #111;
+.capsule-select-arrow {
+  color: var(--muted);
+  transition: transform 180ms ease;
+  flex-shrink: 0;
+}
+
+.capsule-select-arrow.is-open {
+  transform: rotate(180deg);
+}
+
+.capsule-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 6px;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.capsule-select-option {
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+  white-space: nowrap;
+}
+
+.capsule-select-option:hover {
+  background: color-mix(in srgb, var(--primary) 18%, var(--panel) 82%);
+}
+
+.capsule-select-option.is-active {
+  background: color-mix(in srgb, var(--primary) 26%, var(--panel) 74%);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .capsule-select-divider {
@@ -687,6 +741,48 @@ button:disabled {
 .badge.is-good-soft {
   background: color-mix(in srgb, var(--primary) 10%, var(--panel) 90%);
   color: var(--success);
+}
+
+.expiry-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.expiry-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.expiry-dot.is-good {
+  background: var(--success);
+}
+
+.expiry-dot.is-warn {
+  background: var(--accent);
+}
+
+.expiry-dot.is-danger {
+  background: var(--danger);
+}
+
+.expiry-days {
+  font-size: 11px;
+}
+
+.expiry-days.is-good {
+  color: var(--success);
+}
+
+.expiry-days.is-warn {
+  color: var(--accent);
+}
+
+.expiry-days.is-danger {
+  color: var(--danger);
 }
 
 .alert-banner {
