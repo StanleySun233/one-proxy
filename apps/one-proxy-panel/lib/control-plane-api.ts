@@ -233,6 +233,10 @@ export function getNodeLinks(accessToken: string) {
   return request<NodeLink[]>('/node-links', {accessToken});
 }
 
+export function createNodeLink(accessToken: string, payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) {
+  return request<NodeLink>('/node-links', {method: 'POST', accessToken, body: payload});
+}
+
 export function getNodeTransports(accessToken: string) {
   return request<NodeTransport[]>('/node-transports', {accessToken});
 }
