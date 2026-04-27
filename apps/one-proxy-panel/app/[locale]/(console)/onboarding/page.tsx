@@ -65,6 +65,10 @@ export default function OnboardingPage() {
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const pathModeOptions = enums?.path_mode ? Object.keys(enums.path_mode) : [];
   const taskStatusOptions = enums?.task_status ? Object.keys(enums.task_status) : [];
+  const pathModeKeys = Object.keys(enums?.path_mode || {});
+  const UPSTREAM_PULL = pathModeKeys.find(k => k === 'upstream_pull') || 'upstream_pull';
+  const RELAY_CHAIN = pathModeKeys.find(k => k === 'relay_chain') || 'relay_chain';
+  const DIRECT = pathModeKeys.find(k => k === 'direct') || 'direct';
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
 
@@ -83,7 +87,7 @@ export default function OnboardingPage() {
   const pathForm = useForm<AccessPathFormValues>({
     defaultValues: {
       name: '',
-      mode: 'upstream_pull',
+      mode: UPSTREAM_PULL,
       targetNodeId: '',
       entryNodeId: '',
       relayNodeIds: '',
@@ -93,7 +97,7 @@ export default function OnboardingPage() {
   });
   const taskForm = useForm<OnboardingTaskFormValues>({
     defaultValues: {
-      mode: 'upstream_pull',
+      mode: UPSTREAM_PULL,
       pathId: '',
       targetNodeId: '',
       targetHost: '',
@@ -135,7 +139,7 @@ export default function OnboardingPage() {
       queryClient.invalidateQueries({queryKey: ['node-access-paths']});
       pathForm.reset({
         name: '',
-        mode: 'upstream_pull',
+        mode: UPSTREAM_PULL,
         targetNodeId: '',
         entryNodeId: '',
         relayNodeIds: '',
@@ -206,7 +210,7 @@ export default function OnboardingPage() {
       toast.success('onboarding task created');
       queryClient.invalidateQueries({queryKey: ['node-onboarding-tasks']});
       taskForm.reset({
-        mode: 'upstream_pull',
+        mode: UPSTREAM_PULL,
         pathId: '',
         targetNodeId: '',
         targetHost: '',
@@ -273,7 +277,7 @@ export default function OnboardingPage() {
   }, [tasks, taskStatusClassName]);
   const onboardingSummary = useMemo(() => {
     const enabledPaths = paths.filter((path) => path.enabled).length;
-    const relayPaths = paths.filter((path) => path.mode === 'relay_chain').length;
+    const relayPaths = paths.filter((path) => path.mode === RELAY_CHAIN).length;
     const pendingTasks = tasks.filter((task) => taskStatusClassName(task.status) === 'is-warn').length;
     const failedTasks = tasks.filter((task) => taskStatusClassName(task.status) === 'is-danger').length;
     return {enabledPaths, relayPaths, pendingTasks, failedTasks};

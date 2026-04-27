@@ -606,11 +606,19 @@ export function NodeTopologyPageContent() {
   const transports = nodeConsole.transportsQuery.data || [];
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  // Derive enum value references from the enums object
+  const transportTypeKeys = Object.keys(enums?.transport_type || {});
+  const PUBLIC_HTTP = transportTypeKeys.find(k => k === 'public_http') || 'public_http';
+  const PUBLIC_HTTPS = transportTypeKeys.find(k => k === 'public_https') || 'public_https';
+  const REVERSE_WS_PARENT = transportTypeKeys.find(k => k === 'reverse_ws_parent') || 'reverse_ws_parent';
+  const CONNECTED = Object.keys(enums?.transport_status || {}).find(k => k === 'connected') || 'connected';
+  const LINK_TYPE_RELAY = Object.keys(enums?.link_type || {}).find(k => k === 'relay') || 'relay';
+  const TRUST_STATE_TRUSTED = Object.keys(enums?.trust_state || {}).find(k => k === 'trusted') || 'trusted';
   const transportSummary = useMemo(
     () => ({
-      publicEndpoints: transports.filter((item) => item.transportType === 'public_http' || item.transportType === 'public_https').length,
-      reverseConnected: transports.filter((item) => item.transportType === 'reverse_ws_parent' && item.status === 'connected').length,
-      reverseBlocked: transports.filter((item) => item.transportType === 'reverse_ws_parent' && item.status !== 'connected').length
+      publicEndpoints: transports.filter((item) => item.transportType === PUBLIC_HTTP || item.transportType === PUBLIC_HTTPS).length,
+      reverseConnected: transports.filter((item) => item.transportType === REVERSE_WS_PARENT && item.status === CONNECTED).length,
+      reverseBlocked: transports.filter((item) => item.transportType === REVERSE_WS_PARENT && item.status !== CONNECTED).length
     }),
     [transports]
   );
@@ -650,6 +658,8 @@ export function NodeTopologyPageContent() {
             nodes={nodes}
             pending={nodeConsole.createNodeLink.isPending}
             onSubmit={(payload) => nodeConsole.createNodeLink.mutate(payload)}
+            defaultLinkType={LINK_TYPE_RELAY}
+            defaultTrustState={TRUST_STATE_TRUSTED}
           />
           {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending || nodeConsole.transportsQuery.isPending ? (
             <AsyncState detail="Loading" title="Loading topology links" />
@@ -680,7 +690,7 @@ export function NodeTopologyPageContent() {
             <div className="topology-stack">
               <div className="nodes-link-grid">
                 {links.map((link) => (
-                  <NodeLinkCard key={link.id} link={link} nodesByID={nodesByID} transports={transports} />
+                  <NodeLinkCard key={link.id} link={link} nodesByID={nodesByID} transports={transports} reverseWsType={REVERSE_WS_PARENT} />
                 ))}
               </div>
               <div className="table-card">
@@ -819,17 +829,19 @@ function transportBadgeClassName(status: string, enums?: FieldEnumMap) {
 function NodeLinkCard({
   link,
   nodesByID,
-  transports
+  transports,
+  reverseWsType
 }: {
   link: NodeLink;
   nodesByID: Map<string, Node>;
   transports: NodeTransport[];
+  reverseWsType: string;
 }) {
   const childTunnel = transports.find(
     (transport) =>
       transport.nodeId === link.targetNodeId &&
       transport.parentNodeId === link.sourceNodeId &&
-      transport.transportType === 'reverse_ws_parent'
+      transport.transportType === reverseWsType
   );
 
   return (
@@ -862,12 +874,16 @@ function CreateNodeLinkForm({
   accessToken,
   nodes,
   pending,
-  onSubmit
+  onSubmit,
+  defaultLinkType,
+  defaultTrustState
 }: {
   accessToken: string;
   nodes: Node[];
   pending: boolean;
   onSubmit: (payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) => void;
+  defaultLinkType: string;
+  defaultTrustState: string;
 }) {
   const [sourceNodeId, setSourceNodeId] = useState('');
   const [targetNodeId, setTargetNodeId] = useState('');
@@ -896,7 +912,7 @@ function CreateNodeLinkForm({
         <button
           className="secondary-button"
           disabled={pending || !sourceNodeId || !targetNodeId}
-          onClick={() => onSubmit({sourceNodeId, targetNodeId, linkType: 'relay', trustState: 'trusted'})}
+          onClick={() => onSubmit({sourceNodeId, targetNodeId, linkType: defaultLinkType, trustState: defaultTrustState})}
           type="button"
         >
           {pending ? 'Creating...' : 'Add Link'}
