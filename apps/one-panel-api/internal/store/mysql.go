@@ -1532,6 +1532,13 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	); err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
+	if _, err := tx.Exec(
+		`INSERT INTO node_enrollment_approvals (id, bootstrap_token_id, node_name, node_mode, scope_key, parent_node_id, public_host, public_port, status, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?)`,
+		newID("approval"), tokenID, input.Name, input.Mode, input.ScopeKey, input.ParentNodeID, input.PublicHost, input.PublicPort, "pending", now, now,
+	); err != nil {
+		return domain.EnrollNodeResult{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
@@ -1691,13 +1698,23 @@ func (s *MySQLStore) ListNodeEnrollmentApprovals() []domain.NodeEnrollmentApprov
 	items := make([]domain.NodeEnrollmentApproval, 0)
 	for rows.Next() {
 		var item domain.NodeEnrollmentApproval
-		var reviewedBy, reviewedAt, rejectReason sql.NullString
+		var parentNodeID, publicHost, reviewedBy, reviewedAt, rejectReason sql.NullString
+		var publicPort sql.NullInt64
 		if err := rows.Scan(
 			&item.ID, &item.BootstrapTokenID, &item.NodeName, &item.NodeMode, &item.ScopeKey,
-			&item.ParentNodeID, &item.PublicHost, &item.PublicPort, &item.Status,
+			&parentNodeID, &publicHost, &publicPort, &item.Status,
 			&reviewedBy, &reviewedAt, &rejectReason, &item.CreatedAt, &item.UpdatedAt,
 		); err != nil {
 			continue
+		}
+		if parentNodeID.Valid {
+			item.ParentNodeID = parentNodeID.String
+		}
+		if publicHost.Valid {
+			item.PublicHost = publicHost.String
+		}
+		if publicPort.Valid {
+			item.PublicPort = int(publicPort.Int64)
 		}
 		if reviewedBy.Valid {
 			item.ReviewedBy = reviewedBy.String
