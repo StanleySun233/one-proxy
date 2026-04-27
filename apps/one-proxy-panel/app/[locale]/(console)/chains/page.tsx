@@ -10,11 +10,12 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createChain, getChains, getNodes, probeChain} from '@/lib/control-plane-api';
-import {Chain, ChainProbeResult} from '@/lib/control-plane-types';
+import {createChain, getChains, getNodes, previewChain, probeChain} from '@/lib/control-plane-api';
+import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/control-plane-types';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 import {ChainEditor} from './_components/chain-editor';
+import {CompilationPreviewModal} from './_components/compilation-preview-modal';
 
 export default function ChainsPage() {
   const t = useTranslations();
@@ -29,6 +30,8 @@ export default function ChainsPage() {
   const [destinationScope, setDestinationScope] = useState('');
   const [hops, setHops] = useState<number[]>([]);
   const [probeResults, setProbeResults] = useState<Record<string, ChainProbeResult>>({});
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewConfig, setPreviewConfig] = useState<CompiledChainConfig | null>(null);
 
   const chainsQuery = useQuery({
     queryKey: ['chains', accessToken],
@@ -59,6 +62,17 @@ export default function ChainsPage() {
     onSuccess: (result) => {
       toast.success(result.status === 'connected' ? 'chain probe ready' : 'chain probe blocked');
       setProbeResults((current) => ({...current, [result.chainId]: result}));
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: (payload: {name: string; destinationScope: string; hops: number[]}) => previewChain(accessToken, payload),
+    onSuccess: (result: ChainPreviewResult) => {
+      setPreviewConfig(result.compiledConfig);
+      setPreviewOpen(true);
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -96,6 +110,14 @@ export default function ChainsPage() {
     });
   };
 
+  const handlePreview = () => {
+    previewMutation.mutate({
+      name: chainName,
+      destinationScope,
+      hops
+    });
+  };
+
   const chains = chainsQuery.data || [];
   const nodes = nodesQuery.data || [];
 
@@ -114,8 +136,10 @@ export default function ChainsPage() {
               onCancel={handleCloseEditor}
               onHopsChange={setHops}
               onNameChange={setChainName}
+              onPreview={handlePreview}
               onSave={handleSaveChain}
               onScopeChange={setDestinationScope}
+              previewing={previewMutation.isPending}
               saving={createChainMutation.isPending}
             />
           </section>
@@ -207,6 +231,10 @@ export default function ChainsPage() {
               </div>
             )}
           </section>
+        )}
+
+        {previewOpen && previewConfig && (
+          <CompilationPreviewModal config={previewConfig} onClose={() => setPreviewOpen(false)} />
         )}
       </div>
     </AuthGate>

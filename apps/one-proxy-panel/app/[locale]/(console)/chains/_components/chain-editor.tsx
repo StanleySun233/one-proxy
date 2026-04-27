@@ -26,7 +26,9 @@ type ChainEditorProps = {
   onHopsChange: (hops: number[]) => void;
   onSave: () => void;
   onCancel: () => void;
+  onPreview: () => void;
   saving: boolean;
+  previewing: boolean;
 };
 
 export function ChainEditor({
@@ -39,7 +41,9 @@ export function ChainEditor({
   onHopsChange,
   onSave,
   onCancel,
-  saving
+  onPreview,
+  saving,
+  previewing
 }: ChainEditorProps) {
   const [hopItems, setHopItems] = useState<HopItem[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string>('');
@@ -178,6 +182,9 @@ export function ChainEditor({
       <div className="submit-row">
         <button className="primary-button" disabled={saving || !chainName || !destinationScope || hopItems.length === 0} onClick={onSave} type="button">
           {saving ? 'Saving...' : 'Save Chain'}
+        </button>
+        <button className="secondary-button" disabled={previewing || !chainName || !destinationScope} onClick={onPreview} type="button">
+          {previewing ? 'Compiling...' : 'Preview'}
         </button>
         <button className="secondary-button" onClick={onCancel} type="button">
           Cancel

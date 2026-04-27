@@ -4,7 +4,9 @@ import {
   BootstrapToken,
   Certificate,
   Chain,
+  ChainPreviewResult,
   ChainProbeResult,
+  ChainValidationResult,
   ConnectedNodeResult,
   Group,
   GroupDetail,
@@ -19,7 +21,8 @@ import {
   NodeOnboardingTask,
   Overview,
   PolicyRevision,
-  RouteRule
+  RouteRule,
+  RouteRuleValidationResult
 } from '@/lib/control-plane-types';
 
 const CONTROL_PLANE_PROXY_BASE = '/api/v1';
@@ -466,6 +469,37 @@ export function setGroupScopes(accessToken: string, groupID: string, scopeKeys: 
     method: 'PUT',
     accessToken,
     body: {scopeKeys}
+  });
+}
+
+export function validateChain(accessToken: string, payload: {name: string; destinationScope: string; hops: number[]}) {
+  return request<ChainValidationResult>('/chains/validate', {
+    method: 'POST',
+    accessToken,
+    body: payload
+  });
+}
+
+export function previewChain(accessToken: string, payload: {name: string; destinationScope: string; hops: number[]}) {
+  return request<ChainPreviewResult>('/chains/preview', {
+    method: 'POST',
+    accessToken,
+    body: payload
+  });
+}
+
+export function validateRouteRule(accessToken: string, payload: {
+  priority: number;
+  matchType: string;
+  matchValue: string;
+  actionType: string;
+  chainId: string;
+  destinationScope: string;
+}) {
+  return request<RouteRuleValidationResult>('/route-rules/validate', {
+    method: 'POST',
+    accessToken,
+    body: payload
   });
 }
 

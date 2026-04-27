@@ -213,3 +213,41 @@ export type GroupDetail = Group & {
   accounts: Account[];
   scopes: string[];
 };
+
+export type ChainValidationError = {
+  field: string;
+  message: string;
+  severity: 'error' | 'warning';
+};
+
+export type ChainValidationResult = {
+  valid: boolean;
+  errors: ChainValidationError[];
+  warnings: ChainValidationError[];
+  hopConnectivity: Record<string, { reachable: boolean; message: string }>;
+  scopeOwnership: Record<string, boolean>;
+};
+
+export type CompiledChainHop = {
+  nodeId: string;
+  nodeName: string;
+  mode: string;
+};
+
+export type CompiledChainConfig = {
+  chainId: string;
+  name: string;
+  hops: CompiledChainHop[];
+  destinationScope: string;
+  routingPath: string[];
+};
+
+export type ChainPreviewResult = {
+  compiledConfig: CompiledChainConfig;
+};
+
+export type RouteRuleValidationResult = {
+  valid: boolean;
+  errors: ChainValidationError[];
+  warnings: ChainValidationError[];
+};
