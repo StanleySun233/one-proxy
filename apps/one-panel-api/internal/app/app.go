@@ -66,6 +66,9 @@ func (a *App) runSetupMode() error {
 			log.Printf("bootstrap admin account initialized: account=admin")
 		}
 		controlPlane := service.NewControlPlane(activeStore, cfg)
+		if err := controlPlane.LoadEnums(); err != nil {
+			log.Printf("warn: load enums: %v", err)
+		}
 		sched := scheduler.New(controlPlane, cfg)
 		sched.Start()
 		fullHandler := httpapi.NewRouter(httpapi.HTTPConfig{
@@ -101,6 +104,9 @@ func (a *App) runFullMode() error {
 		log.Printf("bootstrap admin account initialized: account=admin")
 	}
 	controlPlane := service.NewControlPlane(activeStore, a.config)
+	if err := controlPlane.LoadEnums(); err != nil {
+		log.Printf("warn: load enums: %v", err)
+	}
 	sched := scheduler.New(controlPlane, a.config)
 	sched.Start()
 	defer sched.Stop()

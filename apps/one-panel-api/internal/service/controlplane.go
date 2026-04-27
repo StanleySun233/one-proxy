@@ -27,6 +27,7 @@ type ControlPlane struct {
 	bootstrapTokenTTL time.Duration
 	nodeHeartbeatTTL  time.Duration
 	publicRenewWindow time.Duration
+	enumsByField      map[string]map[string]domain.FieldEnum
 }
 
 func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
@@ -156,8 +157,43 @@ func (c *ControlPlane) CreateAccount(input domain.CreateAccountInput) (domain.Ac
 	return c.store.CreateAccount(input)
 }
 
+func (c *ControlPlane) LoadEnums() error {
+	items, err := c.store.ListFieldEnums()
+	if err != nil {
+		return err
+	}
+	c.enumsByField = make(map[string]map[string]domain.FieldEnum)
+	for _, item := range items {
+		if c.enumsByField[item.Field] == nil {
+			c.enumsByField[item.Field] = make(map[string]domain.FieldEnum)
+		}
+		c.enumsByField[item.Field][item.Value] = item
+	}
+	return nil
+}
+
 func (c *ControlPlane) ListFieldEnums() ([]domain.FieldEnum, error) {
 	return c.store.ListFieldEnums()
+}
+
+func (c *ControlPlane) ListFieldEnumsByField(field string) ([]domain.FieldEnum, error) {
+	return c.store.ListFieldEnumsByField(field)
+}
+
+func (c *ControlPlane) enumValues(field string) map[string]domain.FieldEnum {
+	if c.enumsByField == nil {
+		return nil
+	}
+	return c.enumsByField[field]
+}
+
+func (c *ControlPlane) isValidEnum(field, value string) bool {
+	m := c.enumValues(field)
+	if m == nil {
+		return true // cache not loaded, allow all
+	}
+	_, ok := m[value]
+	return ok
 }
 
 func (c *ControlPlane) ListGroups() ([]domain.Group, error) {
@@ -816,64 +852,33 @@ func (c *ControlPlane) GetRouteRule(ruleID string) (domain.RouteRuleWithDetails,
 	return domain.RouteRuleWithDetails{}, invalidInput("route_rule_not_found")
 }
 
-func (c *ControlPlane) MatchTypes() []domain.MatchType {
-	domainRegex := "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
-	domainSuffixRegex := "^\\*\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
-	ipCIDRRegex := "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
-	ipRangeRegex := "^([0-9]{1,3}\\.){3}[0-9]{1,3}-([0-9]{1,3}\\.){3}[0-9]{1,3}$"
-	portRegex := "^[0-9]{1,5}$"
+type matchTypeMeta struct {
+	Placeholder     string `json:"placeholder"`
+	ValidationRegex string `json:"validationRegex"`
+}
 
-	return []domain.MatchType{
-		{
-			Type:            "domain",
-			Label:           "Domain",
-			Description:     "Match exact domain name",
-			Placeholder:     "example.com",
-			ValidationRegex: &domainRegex,
-		},
-		{
-			Type:            "domain_suffix",
-			Label:           "Domain Suffix",
-			Description:     "Match domain suffix (e.g., *.example.com)",
-			Placeholder:     "*.example.com",
-			ValidationRegex: &domainSuffixRegex,
-		},
-		{
-			Type:            "ip_cidr",
-			Label:           "IP CIDR",
-			Description:     "Match IP address range in CIDR notation",
-			Placeholder:     "10.0.0.0/24",
-			ValidationRegex: &ipCIDRRegex,
-		},
-		{
-			Type:            "ip_range",
-			Label:           "IP Range",
-			Description:     "Match IP address range",
-			Placeholder:     "10.0.0.1-10.0.0.255",
-			ValidationRegex: &ipRangeRegex,
-		},
-		{
-			Type:            "port",
-			Label:           "Port",
-			Description:     "Match port number",
-			Placeholder:     "8080",
-			ValidationRegex: &portRegex,
-		},
-		{
-			Type:            "url_regex",
-			Label:           "URL Regex",
-			Description:     "Match URL using regular expression",
-			Placeholder:     "^https://api\\..*",
-			ValidationRegex: nil,
-		},
-		{
-			Type:            "default",
-			Label:           "Default",
-			Description:     "Catch-all rule (lowest priority)",
-			Placeholder:     "*",
-			ValidationRegex: nil,
-		},
+func (c *ControlPlane) MatchTypes() []domain.MatchType {
+	items, _ := c.store.ListFieldEnumsByField("match_type")
+	result := make([]domain.MatchType, 0, len(items))
+	for _, item := range items {
+		mt := domain.MatchType{
+			Type:        item.Value,
+			Label:       item.Name,
+			Description: item.Name,
+		}
+		if item.Meta != nil && *item.Meta != "" {
+			var meta matchTypeMeta
+			if json.Unmarshal([]byte(*item.Meta), &meta) == nil {
+				mt.Placeholder = meta.Placeholder
+				if meta.ValidationRegex != "" {
+					re := meta.ValidationRegex
+					mt.ValidationRegex = &re
+				}
+			}
+		}
+		result = append(result, mt)
 	}
+	return result
 }
 
 func (c *ControlPlane) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
@@ -1182,7 +1187,7 @@ func (c *ControlPlane) PublishPolicy(accountID string) (domain.PolicyRevision, e
 	if accountID == "" {
 		return domain.PolicyRevision{}, unauthorized("invalid_access_token")
 	}
-	if _, err := policy.Compile(c.store.ListNodes(), c.store.ListNodeLinks(), c.store.ListChains(), c.store.ListRouteRules()); err != nil {
+	if _, err := policy.Compile(c.store.ListNodes(), c.store.ListNodeLinks(), c.store.ListChains(), c.store.ListRouteRules(), nil); err != nil {
 		return domain.PolicyRevision{}, invalidInput("invalid_policy_graph")
 	}
 	return c.store.PublishPolicy(accountID)

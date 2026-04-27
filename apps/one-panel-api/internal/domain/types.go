@@ -503,10 +503,11 @@ type NodeScope struct {
 }
 
 type FieldEnum struct {
-	ID    string `json:"id"`
-	Field string `json:"field"`
-	Value string `json:"value"`
-	Name  string `json:"name"`
+	ID    string  `json:"id"`
+	Field string  `json:"field"`
+	Value string  `json:"value"`
+	Name  string  `json:"name"`
+	Meta  *string `json:"meta,omitempty"`
 }
 
 type Group struct {

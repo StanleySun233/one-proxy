@@ -634,7 +634,14 @@ func (r *Router) handleEnums(w http.ResponseWriter, req *http.Request) {
 		writeMethodNotAllowed(w, "GET")
 		return
 	}
-	items, err := r.service.ListFieldEnums()
+	field := req.URL.Query().Get("field")
+	var items []domain.FieldEnum
+	var err error
+	if field != "" {
+		items, err = r.service.ListFieldEnumsByField(field)
+	} else {
+		items, err = r.service.ListFieldEnums()
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list_enums_failed")
 		return
@@ -646,15 +653,15 @@ func (r *Router) handleEnums(w http.ResponseWriter, req *http.Request) {
 		}
 		grouped[item.Field][item.Value] = item.Name
 	}
-	writeSuccess(w, http.StatusOK, grouped)
-}
-
-func (r *Router) handleMatchTypes(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		writeMethodNotAllowed(w, "GET")
+	if field != "" {
+		if m, ok := grouped[field]; ok {
+			writeSuccess(w, http.StatusOK, m)
+		} else {
+			writeSuccess(w, http.StatusOK, map[string]string{})
+		}
 		return
 	}
-	writeSuccess(w, http.StatusOK, r.service.MatchTypes())
+	writeSuccess(w, http.StatusOK, grouped)
 }
 
 func (r *Router) handleRouteRuleValidate(w http.ResponseWriter, req *http.Request) {

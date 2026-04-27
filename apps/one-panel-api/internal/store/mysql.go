@@ -1802,12 +1802,67 @@ func (s *MySQLStore) ListPolicyRevisions() []domain.PolicyRevision {
 	return items
 }
 
+func (s *MySQLStore) buildGroupEntries() []policy.GroupScopeEntry {
+	groupRows, err := s.db.Query("SELECT id, name FROM `groups` WHERE enabled = 1")
+	if err != nil {
+		return nil
+	}
+	defer groupRows.Close()
+	type rawEntry struct {
+		id    string
+		entry policy.GroupScopeEntry
+	}
+	var rawEntries []rawEntry
+	for groupRows.Next() {
+		var id, name string
+		if err := groupRows.Scan(&id, &name); err != nil {
+			continue
+		}
+		rawEntries = append(rawEntries, rawEntry{id: id, entry: policy.GroupScopeEntry{GroupName: name}})
+	}
+	for i, re := range rawEntries {
+		scopeRows, err := s.db.Query("SELECT scope_key FROM group_scopes WHERE group_id = ?", re.id)
+		if err != nil {
+			continue
+		}
+		var scopes []string
+		for scopeRows.Next() {
+			var sk string
+			if err := scopeRows.Scan(&sk); err == nil {
+				scopes = append(scopes, sk)
+			}
+		}
+		scopeRows.Close()
+		rawEntries[i].entry.ScopeKeys = scopes
+
+		acctRows, err := s.db.Query("SELECT account_id FROM account_groups WHERE group_id = ?", re.id)
+		if err != nil {
+			continue
+		}
+		var accts []string
+		for acctRows.Next() {
+			var aid string
+			if err := acctRows.Scan(&aid); err == nil {
+				accts = append(accts, aid)
+			}
+		}
+		acctRows.Close()
+		rawEntries[i].entry.AccountIDs = accts
+	}
+	entries := make([]policy.GroupScopeEntry, 0, len(rawEntries))
+	for _, re := range rawEntries {
+		entries = append(entries, re.entry)
+	}
+	return entries
+}
+
 func (s *MySQLStore) PublishPolicy(accountID string) (domain.PolicyRevision, error) {
 	nodes := s.policyNodes()
 	links := s.ListNodeLinks()
 	chains := s.ListChains()
 	rules := s.ListRouteRules()
-	raw, err := policy.Compile(nodes, links, chains, rules)
+	groupEntries := s.buildGroupEntries()
+	raw, err := policy.Compile(nodes, links, chains, rules, groupEntries)
 	if err != nil {
 		return domain.PolicyRevision{}, err
 	}
@@ -1834,7 +1889,7 @@ func (s *MySQLStore) PublishPolicy(accountID string) (domain.PolicyRevision, err
 		return domain.PolicyRevision{}, err
 	}
 	for _, node := range nodes {
-		snapshotJSON, err := policy.CompileForNode(node.ID, nodes, links, chains, rules)
+		snapshotJSON, err := policy.CompileForNode(node.ID, nodes, links, chains, rules, groupEntries)
 		if err != nil {
 			return domain.PolicyRevision{}, err
 		}
@@ -2166,7 +2221,7 @@ func (s *MySQLStore) SetGroupScopes(groupID string, scopeKeys []string) error {
 }
 
 func (s *MySQLStore) ListFieldEnums() ([]domain.FieldEnum, error) {
-	rows, err := s.db.Query("SELECT id, field, value, name FROM field_enum ORDER BY field, value")
+	rows, err := s.db.Query("SELECT id, field, value, name, meta FROM field_enum ORDER BY field, value")
 	if err != nil {
 		return nil, err
 	}
@@ -2174,7 +2229,24 @@ func (s *MySQLStore) ListFieldEnums() ([]domain.FieldEnum, error) {
 	items := make([]domain.FieldEnum, 0)
 	for rows.Next() {
 		var item domain.FieldEnum
-		if err := rows.Scan(&item.ID, &item.Field, &item.Value, &item.Name); err != nil {
+		if err := rows.Scan(&item.ID, &item.Field, &item.Value, &item.Name, &item.Meta); err != nil {
+			continue
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (s *MySQLStore) ListFieldEnumsByField(field string) ([]domain.FieldEnum, error) {
+	rows, err := s.db.Query("SELECT id, field, value, name, meta FROM field_enum WHERE field = ? ORDER BY value", field)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]domain.FieldEnum, 0)
+	for rows.Next() {
+		var item domain.FieldEnum
+		if err := rows.Scan(&item.ID, &item.Field, &item.Value, &item.Name, &item.Meta); err != nil {
 			continue
 		}
 		items = append(items, item)

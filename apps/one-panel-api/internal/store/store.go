@@ -79,4 +79,5 @@ type Store interface {
 	GetGroupScopes(groupID string) ([]string, error)
 	SetGroupScopes(groupID string, scopeKeys []string) error
 	ListFieldEnums() ([]domain.FieldEnum, error)
+	ListFieldEnumsByField(field string) ([]domain.FieldEnum, error)
 }
