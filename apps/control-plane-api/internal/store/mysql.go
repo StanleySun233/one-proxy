@@ -1323,30 +1323,20 @@ func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput
 func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
 	var (
 		tokenID    string
+		targetID   sql.NullString
 		expiresAt  string
 		consumedAt sql.NullString
 	)
 	err := s.db.QueryRow(
-		`SELECT id, expires_at, consumed_at FROM bootstrap_tokens WHERE token_hash = ?`,
+		`SELECT id, target_id, expires_at, consumed_at FROM bootstrap_tokens WHERE token_hash = ?`,
 		input.Token,
-	).Scan(&tokenID, &expiresAt, &consumedAt)
+	).Scan(&tokenID, &targetID, &expiresAt, &consumedAt)
 	if err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
 	expiry, err := time.Parse(time.RFC3339, expiresAt)
 	if err != nil || time.Now().UTC().After(expiry) || consumedAt.Valid {
 		return domain.EnrollNodeResult{}, fmt.Errorf("invalid bootstrap token")
-	}
-	node, err := s.CreateNode(domain.CreateNodeInput{
-		Name:         input.Name,
-		Mode:         input.Mode,
-		ScopeKey:     input.ScopeKey,
-		ParentNodeID: input.ParentNodeID,
-		PublicHost:   input.PublicHost,
-		PublicPort:   input.PublicPort,
-	})
-	if err != nil {
-		return domain.EnrollNodeResult{}, err
 	}
 	now := nowRFC3339()
 	enrollmentSecret, err := auth.RandomToken()
@@ -1358,7 +1348,63 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 		return domain.EnrollNodeResult{}, err
 	}
 	defer tx.Rollback()
+	var node domain.Node
+	if targetID.Valid && targetID.String != "" {
+		var enabled int
+		err = tx.QueryRow(
+			`SELECT id, name, mode, scope_key, COALESCE(parent_node_id, ''), enabled, status, COALESCE(public_host, ''), COALESCE(public_port, 0)
+			 FROM nodes WHERE id = ?`,
+			targetID.String,
+		).Scan(&node.ID, &node.Name, &node.Mode, &node.ScopeKey, &node.ParentNodeID, &enabled, &node.Status, &node.PublicHost, &node.PublicPort)
+		if err != nil {
+			return domain.EnrollNodeResult{}, err
+		}
+		if _, err := tx.Exec(
+			`UPDATE nodes
+			 SET name = ?, mode = ?, public_host = NULLIF(?, ''), public_port = ?, scope_key = ?, parent_node_id = NULLIF(?, ''), enabled = ?, status = ?, updated_at = ?
+			 WHERE id = ?`,
+			input.Name, input.Mode, input.PublicHost, input.PublicPort, input.ScopeKey, input.ParentNodeID, 1, "pending", now, node.ID,
+		); err != nil {
+			return domain.EnrollNodeResult{}, err
+		}
+		node.Name = input.Name
+		node.Mode = input.Mode
+		node.ScopeKey = input.ScopeKey
+		node.ParentNodeID = input.ParentNodeID
+		node.PublicHost = input.PublicHost
+		node.PublicPort = input.PublicPort
+		node.Enabled = true
+		node.Status = "pending"
+	} else {
+		node = domain.Node{
+			ID:           newID("node"),
+			Name:         input.Name,
+			Mode:         input.Mode,
+			ScopeKey:     input.ScopeKey,
+			ParentNodeID: input.ParentNodeID,
+			Enabled:      true,
+			Status:       "pending",
+			PublicHost:   input.PublicHost,
+			PublicPort:   input.PublicPort,
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO nodes (id, name, mode, public_host, public_port, scope_key, parent_node_id, enabled, status, created_at, updated_at)
+			 VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, ?, ?, ?)`,
+			node.ID, node.Name, node.Mode, node.PublicHost, node.PublicPort, node.ScopeKey, node.ParentNodeID, 1, node.Status, now, now,
+		); err != nil {
+			return domain.EnrollNodeResult{}, err
+		}
+	}
 	if _, err := tx.Exec("UPDATE bootstrap_tokens SET consumed_at = ? WHERE id = ?", now, tokenID); err != nil {
+		return domain.EnrollNodeResult{}, err
+	}
+	if _, err := tx.Exec("DELETE FROM node_api_tokens WHERE node_id = ?", node.ID); err != nil {
+		return domain.EnrollNodeResult{}, err
+	}
+	if _, err := tx.Exec(
+		`UPDATE node_trust_materials SET status = ?, updated_at = ? WHERE node_id = ?`,
+		"rotated", now, node.ID,
+	); err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
 	if _, err := tx.Exec(
@@ -1366,9 +1412,6 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		newID("trust"), node.ID, "enrollment_secret", enrollmentSecret, "pending", now, now,
 	); err != nil {
-		return domain.EnrollNodeResult{}, err
-	}
-	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "pending", now, node.ID); err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -1413,12 +1456,15 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnr
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	defer tx.Rollback()
+	if _, err := tx.Exec("DELETE FROM node_api_tokens WHERE node_id = ?", nodeID); err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
 	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "healthy", now, nodeID); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
-		`UPDATE node_trust_materials SET status = ?, updated_at = ? WHERE node_id = ?`,
-		"active", now, nodeID,
+		`UPDATE node_trust_materials SET status = ?, updated_at = ? WHERE node_id = ? AND material_type = 'shared_secret' AND status = 'active'`,
+		"rotated", now, nodeID,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
@@ -1468,7 +1514,7 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 	var enrollmentSecretCount int
 	if err := s.db.QueryRow(
 		`SELECT COUNT(1) FROM node_trust_materials
-		 WHERE node_id = ? AND material_type = 'enrollment_secret' AND material_value = ?`,
+		 WHERE node_id = ? AND material_type = 'enrollment_secret' AND material_value = ? AND status = 'pending'`,
 		input.NodeID, input.EnrollmentSecret,
 	).Scan(&enrollmentSecretCount); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
@@ -1493,6 +1539,14 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 		input.NodeID,
 	).Scan(&trustValue)
 	if err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	if _, err := s.db.Exec(
+		`UPDATE node_trust_materials
+		 SET status = ?, updated_at = ?
+		 WHERE node_id = ? AND material_type = 'enrollment_secret' AND material_value = ? AND status = 'pending'`,
+		"consumed", nowRFC3339(), input.NodeID, input.EnrollmentSecret,
+	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	return domain.ApproveNodeEnrollmentResult{
