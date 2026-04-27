@@ -19,6 +19,7 @@ export function SetupForm() {
   const [user, setUser] = useState('root');
   const [password, setPassword] = useState('');
   const [database, setDatabase] = useState('one_proxy');
+  const [adminPassword, setAdminPassword] = useState('');
   const [needInitialize, setNeedInitialize] = useState(true);
   const [jwtKey, setJwtKey] = useState('');
   const [testPending, setTestPending] = useState(false);
@@ -72,6 +73,7 @@ export function SetupForm() {
         password,
         database,
         jwtSigningKey: jwtKey,
+        adminPassword,
         needInitialize,
       });
 
@@ -166,6 +168,17 @@ export function SetupForm() {
             {t('setup.skipInitialize')}
           </button>
         </div>
+
+        <label className="field-stack">
+          <span>{t('setup.adminPassword')}</span>
+          <input
+            className="field-input"
+            type="password"
+            value={adminPassword}
+            onChange={(e) => setAdminPassword(e.target.value)}
+            placeholder={t('setup.adminPasswordHint')}
+          />
+        </label>
 
         <div style={{display: 'flex', gap: '8px'}}>
           <button type="button" className="secondary-button" disabled={testPending} onClick={handleTestConnection}>

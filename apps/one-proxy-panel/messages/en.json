@@ -68,6 +68,8 @@
     "mysqlDatabase": "Database Name",
     "needInitialize": "Initialize database schema",
     "skipInitialize": "Use existing database",
+    "adminPassword": "Admin Password",
+    "adminPasswordHint": "Leave empty for default password and force change on first login",
     "testConnection": "Test Connection",
     "testing": "Testing...",
     "connectionSuccess": "Connection successful",

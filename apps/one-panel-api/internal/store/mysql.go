@@ -235,6 +235,11 @@ func (s *MySQLStore) bootstrapAdmin(ctx context.Context) error {
 		return err
 	}
 	password := "admin"
+	mustRotate := 1
+	if envPassword := os.Getenv("ADMIN_PASSWORD"); envPassword != "" {
+		password = envPassword
+		mustRotate = 0
+	}
 	hash, err := auth.HashPassword(password)
 	if err != nil {
 		return err
@@ -243,7 +248,7 @@ func (s *MySQLStore) bootstrapAdmin(ctx context.Context) error {
 		`INSERT INTO accounts
 		 (id, account, password_hash, role_id, status, must_rotate_password, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"acct-admin", "admin", hash, "role-super-admin", "active", 1, now, now,
+		"acct-admin", "admin", hash, "role-super-admin", "active", mustRotate, now, now,
 	)
 	if err == nil {
 		s.bootstrapAdminPassword = password

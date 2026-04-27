@@ -86,6 +86,7 @@ type initRequest struct {
 	Password       string `json:"password"`
 	Database       string `json:"database"`
 	JWTSigningKey  string `json:"jwtSigningKey"`
+	AdminPassword  string `json:"adminPassword"`
 	NeedInitialize bool   `json:"needInitialize"`
 }
 
@@ -208,6 +209,9 @@ func (h *SetupHandler) handleInit(w http.ResponseWriter, r *http.Request) {
 	testDB.Close()
 
 	envContent := fmt.Sprintf("MYSQL_DSN=%s\nJWT_SIGNING_KEY=%s\n", dsn, req.JWTSigningKey)
+	if req.AdminPassword != "" {
+		envContent += fmt.Sprintf("ADMIN_PASSWORD=%s\n", req.AdminPassword)
+	}
 	if err := os.WriteFile(h.envFilePath, []byte(envContent), 0600); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

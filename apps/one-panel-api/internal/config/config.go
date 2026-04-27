@@ -10,6 +10,7 @@ type Config struct {
 	HTTPAddr              string
 	MySQLDSN              string
 	JWTSigningKey         string
+	AdminPassword         string
 	BootstrapTokenTTL     string
 	NodeCertTTL           string
 	PublicCertRenewWindow string
@@ -69,6 +70,7 @@ func Load() Config {
 		HTTPAddr:              envOrDefault("HTTP_ADDR", ":2887"),
 		MySQLDSN:              envOrDefault("MYSQL_DSN", "root:password@tcp(127.0.0.1:3306)/one_proxy?charset=utf8mb4&parseTime=true&loc=UTC"),
 		JWTSigningKey:         envOrDefault("JWT_SIGNING_KEY", "change-me"),
+		AdminPassword:         os.Getenv("ADMIN_PASSWORD"),
 		BootstrapTokenTTL:     envOrDefault("BOOTSTRAP_TOKEN_TTL", "15m"),
 		NodeCertTTL:           envOrDefault("NODE_CERT_TTL", "720h"),
 		PublicCertRenewWindow: envOrDefault("PUBLIC_CERT_RENEW_WINDOW", "168h"),

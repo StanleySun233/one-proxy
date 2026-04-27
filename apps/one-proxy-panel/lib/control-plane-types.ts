@@ -301,5 +301,6 @@ export type InitRequest = {
   password: string;
   database: string;
   jwtSigningKey: string;
+  adminPassword: string;
   needInitialize: boolean;
 };
