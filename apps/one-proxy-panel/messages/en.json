@@ -1,12 +1,12 @@
 {
   "meta": {
-    "title": "One Proxy Control Plane",
+    "title": "Control Plane",
     "description": "Control surface for node orchestration, onboarding paths, routing policy and certificate state."
   },
   "shell": {
-    "product": "One Proxy",
-    "name": "Control Plane",
-    "tagline": "A Lingdong-themed multi-node proxy console",
+    "product": "",
+    "name": "",
+    "tagline": "",
     "search": "Search nodes, paths, tasks",
     "themeLight": "Light",
     "themeDark": "Dark",
@@ -27,6 +27,17 @@
     "healthCertificates": "Certificate monitor",
     "accountCreate": "Create account",
     "accountList": "Account list",
+    "groupList": "User groups",
+    "groupCreate": "Create group",
+    "groupName": "Group name",
+    "groupDescription": "Description",
+    "groupEnabled": "Enabled",
+    "groupScopes": "Allowed scopes",
+    "groupAccounts": "Members",
+    "groupDeleteConfirm": "Are you sure you want to delete this group?",
+    "groupCreateSuccess": "Group created",
+    "groupUpdateSuccess": "Group updated",
+    "groupDeleteSuccess": "Group deleted",
     "certificateBoard": "Certificate status"
   },
   "auth": {

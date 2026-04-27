@@ -1,12 +1,12 @@
 {
   "meta": {
-    "title": "One Proxy 控制面板",
-    "description": "用于节点编排、路径接入、代理规则与证书状态管理的控制面板。"
+    "title": "控制面板",
+    "description": "用于节点编排、路径接入、代理规则与证书状态管理。"
   },
   "shell": {
-    "product": "One Proxy",
-    "name": "控制面板",
-    "tagline": "灵动主题下的多节点代理控制台",
+    "product": "",
+    "name": "",
+    "tagline": "",
     "search": "搜索节点、路径、任务",
     "themeLight": "浅色",
     "themeDark": "暗色",
@@ -27,6 +27,17 @@
     "healthCertificates": "证书监控",
     "accountCreate": "创建账号",
     "accountList": "账号查询",
+    "groupList": "用户组",
+    "groupCreate": "创建用户组",
+    "groupName": "组名称",
+    "groupDescription": "描述",
+    "groupEnabled": "启用",
+    "groupScopes": "允许的 Scope",
+    "groupAccounts": "成员",
+    "groupDeleteConfirm": "确定要删除此用户组吗？",
+    "groupCreateSuccess": "用户组已创建",
+    "groupUpdateSuccess": "用户组已更新",
+    "groupDeleteSuccess": "用户组已删除",
     "certificateBoard": "证书状态"
   },
   "auth": {
