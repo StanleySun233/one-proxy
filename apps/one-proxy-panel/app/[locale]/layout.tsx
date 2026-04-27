@@ -6,6 +6,7 @@ import {notFound} from 'next/navigation';
 import {ReactNode} from 'react';
 
 import {Providers} from '@/components/providers';
+import {SetupGuard} from '@/components/setup-guard';
 import {routing} from '@/i18n/routing';
 
 const sans = IBM_Plex_Sans({
@@ -51,7 +52,9 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <Providers>
-        <div className={`${sans.variable} ${mono.variable}`}>{children}</div>
+        <div className={`${sans.variable} ${mono.variable}`}>
+          <SetupGuard>{children}</SetupGuard>
+        </div>
       </Providers>
     </NextIntlClientProvider>
   );

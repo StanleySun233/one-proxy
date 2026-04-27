@@ -148,23 +148,19 @@ export function NodeApprovalsPageContent() {
                     <th>Node Name</th>
                     <th>Node Type</th>
                     <th>Created At</th>
-                    <th>Expires At</th>
+                    <th>Updated At</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingApprovals.map((approval) => {
-                    const isExpired = new Date(approval.expiresAt) < new Date();
-                    return (
+                  {pendingApprovals.map((approval) => (
                       <tr key={approval.id}>
-                        <td className="mono">{approval.tokenId.substring(0, 8)}</td>
-                        <td>{approval.targetNodeName || <span className="muted-text">not specified</span>}</td>
-                        <td>{approval.targetNodeType}</td>
+                        <td className="mono">{approval.bootstrapTokenId.substring(0, 8)}</td>
+                        <td>{approval.nodeName || <span className="muted-text">not specified</span>}</td>
+                        <td>{approval.nodeMode}</td>
                         <td className="mono">{formatISODateTime(approval.createdAt)}</td>
-                        <td className="mono">
-                          <span className={isExpired ? 'badge is-danger' : ''}>{formatISODateTime(approval.expiresAt)}</span>
-                        </td>
+                        <td className="mono">{formatISODateTime(approval.updatedAt)}</td>
                         <td>
                           <span className={statusBadgeClassName(approval.status)}>{approval.status}</span>
                         </td>
@@ -172,7 +168,7 @@ export function NodeApprovalsPageContent() {
                           <div className="registry-actions">
                             <button
                               className="secondary-button"
-                              disabled={nodeConsole.approveEnrollment.isPending || isExpired}
+                              disabled={nodeConsole.approveEnrollment.isPending}
                               onClick={() => nodeConsole.approveEnrollment.mutate({approvalId: approval.id})}
                               type="button"
                             >
@@ -182,7 +178,7 @@ export function NodeApprovalsPageContent() {
                               className="danger-button"
                               disabled={nodeConsole.rejectEnrollment.isPending}
                               onClick={() => {
-                                if (!window.confirm(`Reject enrollment for ${approval.targetNodeName || 'this node'}?`)) {
+                                if (!window.confirm(`Reject enrollment for ${approval.nodeName || 'this node'}?`)) {
                                   return;
                                 }
                                 nodeConsole.rejectEnrollment.mutate({approvalId: approval.id});
@@ -194,8 +190,7 @@ export function NodeApprovalsPageContent() {
                           </div>
                         </td>
                       </tr>
-                    );
-                  })}
+                    ))}
                 </tbody>
               </table>
             </div>

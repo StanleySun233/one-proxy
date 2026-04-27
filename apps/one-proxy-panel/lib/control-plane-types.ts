@@ -176,18 +176,19 @@ export type BootstrapToken = {
 
 export type NodeEnrollmentApproval = {
   id: string;
-  tokenId: string;
-  targetNodeName: string;
-  targetNodeType: string;
-  parentNodeId: number | null;
+  bootstrapTokenId: string;
+  nodeName: string;
+  nodeMode: string;
+  scopeKey: string;
+  parentNodeId: string;
+  publicHost: string;
+  publicPort: number;
   status: string;
-  operatorNote?: string;
-  approvedBy?: string;
-  approvedAt?: string;
-  rejectedBy?: string;
-  rejectedAt?: string;
+  reviewedBy: string;
+  reviewedAt: string;
+  rejectReason: string;
   createdAt: string;
-  expiresAt: string;
+  updatedAt: string;
 };
 
 export type ConnectedNodeResult = {
