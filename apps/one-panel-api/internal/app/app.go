@@ -69,8 +69,9 @@ func (a *App) runSetupMode() error {
 		sched := scheduler.New(controlPlane, cfg)
 		sched.Start()
 		fullHandler := httpapi.NewRouter(httpapi.HTTPConfig{
-			HTTPAddr:  cfg.HTTPAddr,
-			DBBackend: "mysql",
+			HTTPAddr:    cfg.HTTPAddr,
+			DBBackend:   "mysql",
+			EnvFilePath: config.EnvFilePath(),
 		}, controlPlane)
 		dh.handler.Store(fullHandler)
 		log.Printf("control-plane transitioned to full mode")

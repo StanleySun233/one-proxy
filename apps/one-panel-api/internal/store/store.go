@@ -8,6 +8,7 @@ import (
 
 type Store interface {
 	IsInitialized() bool
+	ReinitializeStore(adminPassword string) error
 	GetOverview() domain.Overview
 	ListAccounts() []domain.Account
 	CreateAccount(input domain.CreateAccountInput) (domain.Account, error)

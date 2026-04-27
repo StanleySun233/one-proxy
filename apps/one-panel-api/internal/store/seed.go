@@ -20,6 +20,11 @@ func (s *SeedStore) IsInitialized() bool {
 	return false
 }
 
+func (s *SeedStore) ReinitializeStore(adminPassword string) error {
+	s.adminPassword = adminPassword
+	return nil
+}
+
 func (s *SeedStore) BootstrapAdminPassword() string {
 	return s.adminPassword
 }

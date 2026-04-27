@@ -86,6 +86,29 @@ func (s *MySQLStore) IsInitialized() bool {
 	return count > 0
 }
 
+func (s *MySQLStore) ReinitializeStore(adminPassword string) error {
+	s.bootstrapAdminPassword = adminPassword
+	if err := os.Setenv("ADMIN_PASSWORD", adminPassword); err != nil {
+		return err
+	}
+	ctx := context.Background()
+	if err := s.init(ctx); err != nil {
+		return err
+	}
+	// Update existing admin password if account already existed
+	if adminPassword != "" {
+		hash, err := auth.HashPassword(adminPassword)
+		if err != nil {
+			return err
+		}
+		_, _ = s.db.ExecContext(ctx,
+			"UPDATE accounts SET password_hash = ?, must_rotate_password = 0, updated_at = ? WHERE account = ?",
+			hash, nowRFC3339(), "admin",
+		)
+	}
+	return nil
+}
+
 func (s *MySQLStore) BootstrapAdminPassword() string {
 	return s.bootstrapAdminPassword
 }

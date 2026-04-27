@@ -43,6 +43,10 @@ func (c *ControlPlane) IsInitialized() bool {
 	return c.store.IsInitialized()
 }
 
+func (c *ControlPlane) ReinitializeStore(adminPassword string) error {
+	return c.store.ReinitializeStore(adminPassword)
+}
+
 func (c *ControlPlane) Overview() domain.Overview {
 	return c.store.GetOverview()
 }
