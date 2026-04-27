@@ -4,6 +4,7 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useForm} from 'react-hook-form';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
+import {useState} from 'react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
@@ -11,6 +12,8 @@ import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {createRouteRule, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy} from '@/lib/control-plane-api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
+
+import {RegexTesterModal} from './_components/regex-tester-modal';
 
 type RouteRuleFormValues = {
   priority: string;
@@ -92,6 +95,7 @@ export default function RoutesPage() {
   const actionType = form.watch('actionType');
   const matchType = form.watch('matchType');
   const selectedChainId = form.watch('chainId');
+  const [regexTesterOpen, setRegexTesterOpen] = useState(false);
 
   const routeRulesQuery = useQuery({
     queryKey: ['route-rules', accessToken],
@@ -210,15 +214,23 @@ export default function RoutesPage() {
               </div>
               <div className="field-stack">
                 <span>Match value</span>
-                <input
-                  aria-invalid={form.formState.errors.matchValue ? 'true' : 'false'}
-                  className="field-input"
-                  placeholder={matchValuePlaceholder}
-                  {...form.register('matchValue', {
-                    required: 'match value is required',
-                    validate: (value) => validateMatchValue(matchType, value)
-                  })}
-                />
+                <div className="inline-cluster">
+                  <input
+                    aria-invalid={form.formState.errors.matchValue ? 'true' : 'false'}
+                    className="field-input"
+                    placeholder={matchValuePlaceholder}
+                    style={{flex: 1}}
+                    {...form.register('matchValue', {
+                      required: 'match value is required',
+                      validate: (value) => validateMatchValue(matchType, value)
+                    })}
+                  />
+                  {matchType === 'url_regex' && (
+                    <button className="secondary-button" onClick={() => setRegexTesterOpen(true)} type="button">
+                      Test Regex
+                    </button>
+                  )}
+                </div>
                 {form.formState.errors.matchValue ? <p className="error-text">{form.formState.errors.matchValue.message}</p> : null}
               </div>
               <div className="field-stack">
@@ -376,6 +388,10 @@ export default function RoutesPage() {
             </div>
           )}
         </article>
+
+        {regexTesterOpen && (
+          <RegexTesterModal initialPattern={form.getValues('matchValue')} onClose={() => setRegexTesterOpen(false)} />
+        )}
       </div>
     </AuthGate>
   );
