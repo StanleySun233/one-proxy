@@ -44,6 +44,7 @@ type Store interface {
 	UpdateRouteRule(ruleID string, input domain.UpdateRouteRuleInput) (domain.RouteRule, error)
 	DeleteRouteRule(ruleID string) error
 	ListNodeHealth() []domain.NodeHealth
+	ListNodeHealthHistory(nodeID string, window time.Duration) ([]domain.NodeHealth, error)
 	CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error)
 	EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error)
 	ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnrollmentResult, error)

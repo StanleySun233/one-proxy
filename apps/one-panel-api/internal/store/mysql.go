@@ -1362,6 +1362,31 @@ func (s *MySQLStore) ListNodeHealth() []domain.NodeHealth {
 	return items
 }
 
+func (s *MySQLStore) ListNodeHealthHistory(nodeID string, window time.Duration) ([]domain.NodeHealth, error) {
+	since := time.Now().Add(-window).UTC().Format(time.RFC3339)
+	rows, err := s.db.Query(
+		`SELECT node_id, heartbeat_at, policy_revision_id, listener_status_json, cert_status_json
+		 FROM node_health_history
+		 WHERE node_id = ? AND heartbeat_at >= ?
+		 ORDER BY heartbeat_at ASC`, nodeID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]domain.NodeHealth, 0)
+	for rows.Next() {
+		var item domain.NodeHealth
+		var listenerJSON, certJSON string
+		if err := rows.Scan(&item.NodeID, &item.HeartbeatAt, &item.PolicyRevisionID, &listenerJSON, &certJSON); err != nil {
+			continue
+		}
+		item.ListenerStatus = decodeJSONMap(listenerJSON)
+		item.CertStatus = decodeJSONMap(certJSON)
+		items = append(items, item)
+	}
+	return items, nil
+}
+
 func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error) {
 	token, err := auth.RandomToken()
 	if err != nil {
@@ -1998,6 +2023,13 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 		   listener_status_json = VALUES(listener_status_json),
 		   cert_status_json = VALUES(cert_status_json),
 		   updated_at = VALUES(updated_at)`,
+		input.NodeID, now, input.PolicyRevisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
+	); err != nil {
+		return domain.NodeHealth{}, err
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO node_health_history (node_id, heartbeat_at, policy_revision_id, listener_status_json, cert_status_json, created_at)
+		 VALUES (?, ?, NULLIF(?, ''), ?, ?, ?)`,
 		input.NodeID, now, input.PolicyRevisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
 	); err != nil {
 		return domain.NodeHealth{}, err

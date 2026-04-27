@@ -384,6 +384,10 @@ func (s *SeedStore) ListNodeHealth() []domain.NodeHealth {
 	return []domain.NodeHealth{}
 }
 
+func (s *SeedStore) ListNodeHealthHistory(nodeID string, window time.Duration) ([]domain.NodeHealth, error) {
+	return []domain.NodeHealth{}, nil
+}
+
 func (s *SeedStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error) {
 	token, _ := auth.RandomToken()
 	return domain.BootstrapToken{
