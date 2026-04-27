@@ -1,6 +1,10 @@
 package config
 
-import "os"
+import (
+	"bufio"
+	"os"
+	"strings"
+)
 
 type Config struct {
 	HTTPAddr              string
@@ -21,6 +25,43 @@ func envOrDefault(key string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+const defaultEnvFilePath = "./.env"
+
+func EnvFilePath() string {
+	path := os.Getenv("ENV_FILE_PATH")
+	if path == "" {
+		return defaultEnvFilePath
+	}
+	return path
+}
+
+func IsUnconfigured() bool {
+	_, err := os.Stat(EnvFilePath())
+	return os.IsNotExist(err)
+}
+
+func LoadEnvFile(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok || key == "" {
+			continue
+		}
+		_ = os.Setenv(strings.TrimSpace(key), strings.TrimSpace(value))
+	}
+	return scanner.Err()
 }
 
 func Load() Config {
