@@ -64,4 +64,11 @@ type Store interface {
 	RefreshCertificateStatus(window time.Duration) error
 	RefreshNodeStatus(staleAfter time.Duration) error
 	CleanupNodeHealthHistory(retention time.Duration) (int64, error)
+	CreateGroup(input domain.CreateGroupInput) (domain.Group, error)
+	UpdateGroup(id string, input domain.UpdateGroupInput) (domain.Group, error)
+	DeleteGroup(id string) error
+	GetGroup(id string) (domain.Group, error)
+	ListGroups() ([]domain.Group, error)
+	ListAccountGroups(accountID string) ([]domain.Group, error)
+	GetGroupScopes(groupID string) ([]string, error)
 }
