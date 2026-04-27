@@ -7,8 +7,7 @@ import {ChevronDown, ChevronRight} from 'lucide-react';
 import ReactECharts from 'echarts-for-react';
 
 import {AsyncState} from '@/components/async-state';
-import {AuthGate} from '@/components/auth-provider';
-import {useAuth} from '@/components/auth-provider';
+import {AuthGate, useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/control-plane-api';
 import {NodeHealth} from '@/lib/control-plane-types';

@@ -1060,6 +1060,60 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.data-row-clickable {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.data-row-clickable:hover {
+  background: color-mix(in srgb, var(--primary) 6%, var(--panel-2) 94%);
+}
+
+.registry-expand-col {
+  width: 32px;
+  padding-right: 0;
+}
+
+.registry-expand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
+}
+
+.detail-row td {
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.detail-panel {
+  padding: 20px 24px 20px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: color-mix(in srgb, var(--panel-2) 94%, var(--panel) 6%);
+}
+
+.detail-section h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary);
+  margin: 0 0 8px;
+}
+
+.detail-badge-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.detail-badge-grid .badge {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
 .registry-actions {
   grid-auto-flow: column;
   justify-content: start;
