@@ -592,3 +592,7 @@ func (s *SeedStore) ListGroupAccounts(groupID string) ([]domain.Account, error) 
 func (s *SeedStore) SetGroupAccounts(groupID string, accountIDs []string) error {
 	return nil
 }
+
+func (s *SeedStore) SetGroupScopes(groupID string, scopeKeys []string) error {
+	return nil
+}

@@ -75,4 +75,5 @@ type Store interface {
 	ListGroupAccounts(groupID string) ([]domain.Account, error)
 	SetGroupAccounts(groupID string, accountIDs []string) error
 	GetGroupScopes(groupID string) ([]string, error)
+	SetGroupScopes(groupID string, scopeKeys []string) error
 }

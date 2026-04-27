@@ -2144,6 +2144,23 @@ func (s *MySQLStore) SetGroupAccounts(groupID string, accountIDs []string) error
 	return tx.Commit()
 }
 
+func (s *MySQLStore) SetGroupScopes(groupID string, scopeKeys []string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("DELETE FROM group_scopes WHERE group_id = ?", groupID); err != nil {
+		return err
+	}
+	for _, key := range scopeKeys {
+		if _, err := tx.Exec("INSERT INTO group_scopes (group_id, scope_key) VALUES (?, ?)", groupID, key); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (s *MySQLStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
 	var (
 		policyID string
