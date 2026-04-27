@@ -17,10 +17,12 @@ import {
 import {useLocale, useTranslations} from 'next-intl';
 import {useTheme} from 'next-themes';
 import {ChangeEvent, ReactNode} from 'react';
+import {useQuery} from '@tanstack/react-query';
 
 import {useAuth} from '@/components/auth-provider';
 import {CapsuleSelect, CapsuleSelectGroup} from '@/components/common/capsule-select';
 import {Link, usePathname, useRouter} from '@/i18n/navigation';
+import {getNodeEnrollmentApprovals} from '@/lib/control-plane-api';
 
 export function ConsoleShell({children}: {children: ReactNode}) {
   const t = useTranslations();
@@ -29,6 +31,16 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const router = useRouter();
   const {resolvedTheme, setTheme} = useTheme();
   const {session, logout} = useAuth();
+  const accessToken = session?.accessToken || '';
+
+  const approvalsQuery = useQuery({
+    queryKey: ['node-approvals', accessToken],
+    queryFn: () => getNodeEnrollmentApprovals(accessToken),
+    enabled: !!accessToken,
+    refetchInterval: 30000
+  });
+
+  const pendingCount = (approvalsQuery.data || []).filter((approval) => approval.status === 'pending').length;
   const navSections = [
     {
       key: 'overview',
@@ -180,10 +192,12 @@ export function ConsoleShell({children}: {children: ReactNode}) {
                     <div className="submenu-list">
                       {section.items.map((item) => {
                         const itemActive = item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                        const showBadge = item.href === '/nodes/approvals' && pendingCount > 0;
 
                         return (
                           <Link className={`submenu-link${itemActive ? ' is-active' : ''}`} href={item.href} key={item.href}>
                             <span>{item.label}</span>
+                            {showBadge && <span className="badge is-warn">{pendingCount}</span>}
                           </Link>
                         );
                       })}

@@ -8,7 +8,8 @@ import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {TopologyPreview} from '@/components/topology-preview';
-import {getNodeAccessPaths, getNodeOnboardingTasks, getNodes, getOverview} from '@/lib/control-plane-api';
+import {Link} from '@/i18n/navigation';
+import {getNodeAccessPaths, getNodeEnrollmentApprovals, getNodeOnboardingTasks, getNodes, getOverview} from '@/lib/control-plane-api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 export default function OverviewPage() {
@@ -36,16 +37,35 @@ export default function OverviewPage() {
     queryFn: () => getNodeAccessPaths(accessToken),
     enabled: !!accessToken
   });
+  const approvalsQuery = useQuery({
+    queryKey: ['node-approvals', accessToken],
+    queryFn: () => getNodeEnrollmentApprovals(accessToken),
+    enabled: !!accessToken,
+    refetchInterval: 30000
+  });
 
   const overview = overviewQuery.data;
   const nodes = nodesQuery.data || [];
   const tasks = tasksQuery.data || [];
   const paths = pathsQuery.data || [];
+  const approvals = approvalsQuery.data || [];
   const pendingTasks = tasks.slice(0, 3);
+  const pendingApprovals = approvals.filter((approval) => approval.status === 'pending');
 
   return (
     <AuthGate>
       <div className="page-stack">
+        {pendingApprovals.length > 0 && (
+          <div className="alert-banner">
+            <div className="alert-content">
+              <strong>Pending enrollments</strong>
+              <span>
+                {pendingApprovals.length} node enrollment(s) require approval.{' '}
+                <Link href="/nodes/approvals">Review now</Link>
+              </span>
+            </div>
+          </div>
+        )}
         <PageHero
           aside={
             <div className="metrics-grid">

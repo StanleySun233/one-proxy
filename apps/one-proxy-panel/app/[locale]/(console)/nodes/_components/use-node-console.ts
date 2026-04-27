@@ -7,15 +7,18 @@ import {toast} from 'sonner';
 import {useAuth} from '@/components/auth-provider';
 import {BootstrapToken} from '@/lib/control-plane-types';
 import {
+  approveEnrollment,
   approveNode,
   connectNode,
   createBootstrapToken,
   createNode,
   deleteNode,
+  getNodeEnrollmentApprovals,
   getNodeHealth,
   getNodeLinks,
   getNodes,
   getNodeTransports,
+  rejectEnrollment,
   updateNode
 } from '@/lib/control-plane-api';
 import {formatControlPlaneError} from '@/lib/presentation';
@@ -83,6 +86,13 @@ export function useNodeConsole() {
     queryFn: () => getNodeTransports(accessToken),
     enabled: !!accessToken,
     refetchInterval: 5000
+  });
+
+  const approvalsQuery = useQuery({
+    queryKey: ['node-approvals', accessToken],
+    queryFn: () => getNodeEnrollmentApprovals(accessToken),
+    enabled: !!accessToken,
+    refetchInterval: 30000
   });
 
   const createNodeMutation = useMutation({
@@ -206,6 +216,31 @@ export function useNodeConsole() {
     }
   });
 
+  const approveEnrollmentMutation = useMutation({
+    mutationFn: ({approvalId, operatorNote}: {approvalId: string; operatorNote?: string}) =>
+      approveEnrollment(accessToken, approvalId, operatorNote),
+    onSuccess: () => {
+      toast.success('enrollment approved');
+      queryClient.invalidateQueries({queryKey: ['node-approvals']});
+      queryClient.invalidateQueries({queryKey: ['nodes']});
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
+  const rejectEnrollmentMutation = useMutation({
+    mutationFn: ({approvalId, operatorNote}: {approvalId: string; operatorNote?: string}) =>
+      rejectEnrollment(accessToken, approvalId, operatorNote),
+    onSuccess: () => {
+      toast.success('enrollment rejected');
+      queryClient.invalidateQueries({queryKey: ['node-approvals']});
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
   return {
     accessToken,
     nodeForm,
@@ -215,11 +250,14 @@ export function useNodeConsole() {
     linksQuery,
     healthQuery,
     transportsQuery,
+    approvalsQuery,
     latestToken: (queryClient.getQueryData(['latest-bootstrap-token']) as BootstrapToken | undefined) || null,
     createNode: createNodeMutation,
     quickConnect: quickConnectMutation,
     bootstrap: bootstrapMutation,
     approve: approveMutation,
+    approveEnrollment: approveEnrollmentMutation,
+    rejectEnrollment: rejectEnrollmentMutation,
     updateNode: updateNodeMutation,
     deleteNode: deleteNodeMutation
   };

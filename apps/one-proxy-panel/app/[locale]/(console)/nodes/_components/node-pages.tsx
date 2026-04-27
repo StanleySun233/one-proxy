@@ -113,29 +113,8 @@ export function NodeBootstrapPageContent() {
 
 export function NodeApprovalsPageContent() {
   const nodeConsole = useNodeConsole();
-  const nodes = nodeConsole.nodesQuery.data || [];
-  const healthRows = nodeConsole.healthQuery.data || [];
-  const healthByNodeID = useMemo(() => new Map(healthRows.map((item) => [item.nodeId, item])), [healthRows]);
-  const inFlightNodes = useMemo(
-    () =>
-      nodes
-        .map((node) => {
-          const health = healthByNodeID.get(node.id);
-          const derivedHealth = deriveNodeHealthState(health);
-          const requiresApproval = node.status === 'pending';
-          const waitingForHeartbeat = !requiresApproval && derivedHealth.status === 'unreported';
-          return {
-            ...node,
-            derivedHealthStatus: derivedHealth.status,
-            derivedHealthLabel: derivedHealth.label,
-            heartbeatAt: health?.heartbeatAt || '',
-            requiresApproval,
-            waitingForHeartbeat
-          };
-        })
-        .filter((node) => node.requiresApproval || node.waitingForHeartbeat),
-    [healthByNodeID, nodes]
-  );
+  const approvals = nodeConsole.approvalsQuery.data || [];
+  const pendingApprovals = useMemo(() => approvals.filter((approval) => approval.status === 'pending'), [approvals]);
 
   return (
     <AuthGate>
@@ -144,73 +123,81 @@ export function NodeApprovalsPageContent() {
           <div className="panel-toolbar">
             <div>
               <p className="section-kicker">Approvals</p>
-              <h3>In-flight node enrollments</h3>
-              <p className="section-copy">Review nodes waiting for approval or still not reporting any heartbeat after record creation.</p>
+              <h3>Pending node enrollments</h3>
+              <p className="section-copy">Review and approve pending node enrollment requests created via bootstrap tokens.</p>
             </div>
-            <span className="badge">{inFlightNodes.length}</span>
+            <span className="badge">{pendingApprovals.length}</span>
           </div>
-          {nodeConsole.nodesQuery.isPending || nodeConsole.healthQuery.isPending ? (
-            <AsyncState detail="Loading" title="Loading in-flight enrollments" />
-          ) : nodeConsole.nodesQuery.error ? (
+          {nodeConsole.approvalsQuery.isPending ? (
+            <AsyncState detail="Loading" title="Loading pending enrollments" />
+          ) : nodeConsole.approvalsQuery.error ? (
             <AsyncState
               actionLabel="Retry"
-              detail={formatControlPlaneError(nodeConsole.nodesQuery.error)}
-              onAction={() => void nodeConsole.nodesQuery.refetch()}
-              title="Failed to load in-flight enrollments"
+              detail={formatControlPlaneError(nodeConsole.approvalsQuery.error)}
+              onAction={() => void nodeConsole.approvalsQuery.refetch()}
+              title="Failed to load pending enrollments"
             />
-          ) : nodeConsole.healthQuery.error ? (
-            <AsyncState
-              actionLabel="Retry"
-              detail={formatControlPlaneError(nodeConsole.healthQuery.error)}
-              onAction={() => void nodeConsole.healthQuery.refetch()}
-              title="Failed to load node health"
-            />
-          ) : inFlightNodes.length === 0 ? (
-            <AsyncState detail="No nodes are waiting for approval or initial heartbeat." title="Empty" />
+          ) : pendingApprovals.length === 0 ? (
+            <AsyncState detail="No pending enrollment requests. Create a bootstrap token to start." title="Empty" />
           ) : (
-            <div className="nodes-list-grid">
-              {inFlightNodes.map((node) => (
-                <NodeCard
-                  action={
-                    <div className="node-card-actions">
-                      {node.requiresApproval ? (
-                        <button
-                          className="secondary-button"
-                          disabled={nodeConsole.approve.isPending}
-                          onClick={() => nodeConsole.approve.mutate(node.id)}
-                          type="button"
-                        >
-                          Approve
-                        </button>
-                      ) : null}
-                      <button
-                        className="danger-button"
-                        disabled={nodeConsole.deleteNode.isPending}
-                        onClick={() => {
-                          if (!window.confirm(`Delete node ${node.name} (${node.id})?`)) {
-                            return;
-                          }
-                          nodeConsole.deleteNode.mutate(node.id);
-                        }}
-                        type="button"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  }
-                  detail={
-                    <div className="node-approval-meta">
-                      <span className={node.requiresApproval ? 'badge is-warn' : 'badge is-neutral'}>
-                        {node.requiresApproval ? 'awaiting approval' : 'awaiting first heartbeat'}
-                      </span>
-                      <span className={healthBadgeClassName(node.derivedHealthStatus)}>{node.derivedHealthLabel}</span>
-                      <span className="muted-text">{node.heartbeatAt ? formatISODateTime(node.heartbeatAt) : 'heartbeat: never'}</span>
-                    </div>
-                  }
-                  key={node.id}
-                  node={node}
-                />
-              ))}
+            <div className="table-card">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Token ID</th>
+                    <th>Node Name</th>
+                    <th>Node Type</th>
+                    <th>Created At</th>
+                    <th>Expires At</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingApprovals.map((approval) => {
+                    const isExpired = new Date(approval.expiresAt) < new Date();
+                    return (
+                      <tr key={approval.id}>
+                        <td className="mono">{approval.tokenId.substring(0, 8)}</td>
+                        <td>{approval.targetNodeName || <span className="muted-text">not specified</span>}</td>
+                        <td>{approval.targetNodeType}</td>
+                        <td className="mono">{formatISODateTime(approval.createdAt)}</td>
+                        <td className="mono">
+                          <span className={isExpired ? 'badge is-danger' : ''}>{formatISODateTime(approval.expiresAt)}</span>
+                        </td>
+                        <td>
+                          <span className={statusBadgeClassName(approval.status)}>{approval.status}</span>
+                        </td>
+                        <td>
+                          <div className="registry-actions">
+                            <button
+                              className="secondary-button"
+                              disabled={nodeConsole.approveEnrollment.isPending || isExpired}
+                              onClick={() => nodeConsole.approveEnrollment.mutate({approvalId: approval.id})}
+                              type="button"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className="danger-button"
+                              disabled={nodeConsole.rejectEnrollment.isPending}
+                              onClick={() => {
+                                if (!window.confirm(`Reject enrollment for ${approval.targetNodeName || 'this node'}?`)) {
+                                  return;
+                                }
+                                nodeConsole.rejectEnrollment.mutate({approvalId: approval.id});
+                              }}
+                              type="button"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </section>

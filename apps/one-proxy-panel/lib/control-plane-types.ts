@@ -168,6 +168,22 @@ export type BootstrapToken = {
   expiresAt: string;
 };
 
+export type NodeEnrollmentApproval = {
+  id: string;
+  tokenId: string;
+  targetNodeName: string;
+  targetNodeType: string;
+  parentNodeId: number | null;
+  status: string;
+  operatorNote?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
 export type ConnectedNodeResult = {
   node: Node;
   connectionStatus: string;

@@ -9,6 +9,7 @@ import {
   LoginResult,
   Node,
   NodeAccessPath,
+  NodeEnrollmentApproval,
   NodeHealth,
   NodeLink,
   NodeTransport,
@@ -228,6 +229,26 @@ export function approveNode(accessToken: string, nodeID: string) {
   return request<{node: Node; accessToken: string; trustMaterial: string; expiresAt: string}>(`/nodes/approve/${nodeID}`, {
     method: 'POST',
     accessToken
+  });
+}
+
+export function getNodeEnrollmentApprovals(accessToken: string) {
+  return request<NodeEnrollmentApproval[]>('/nodes/approvals', {accessToken});
+}
+
+export function approveEnrollment(accessToken: string, approvalId: string, operatorNote?: string) {
+  return request<NodeEnrollmentApproval>(`/nodes/approvals/${approvalId}/approve`, {
+    method: 'POST',
+    accessToken,
+    body: {operatorNote}
+  });
+}
+
+export function rejectEnrollment(accessToken: string, approvalId: string, operatorNote?: string) {
+  return request<NodeEnrollmentApproval>(`/nodes/approvals/${approvalId}/reject`, {
+    method: 'POST',
+    accessToken,
+    body: {operatorNote}
   });
 }
 
