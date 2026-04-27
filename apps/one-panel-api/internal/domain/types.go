@@ -557,4 +557,44 @@ type SetGroupScopesInput struct {
 	ScopeKeys []string `json:"scopeKeys"`
 }
 
+type ValidateRouteRuleInput struct {
+	Priority         int    `json:"priority"`
+	MatchType        string `json:"matchType"`
+	MatchValue       string `json:"matchValue"`
+	ActionType       string `json:"actionType"`
+	ChainID          string `json:"chainId"`
+	DestinationScope string `json:"destinationScope"`
+}
 
+type MatchValueValidation struct {
+	Valid   bool   `json:"valid"`
+	Format  string `json:"format"`
+	Message string `json:"message"`
+}
+
+type ChainValidation struct {
+	Valid        bool     `json:"valid"`
+	ChainEnabled bool     `json:"chainEnabled"`
+	ChainHops    []string `json:"chainHops"`
+}
+
+type ScopeValidation struct {
+	Valid               bool   `json:"valid"`
+	ScopeExists         bool   `json:"scopeExists"`
+	ScopeOwnerNodeID    string `json:"scopeOwnerNodeId"`
+	MatchesChainFinalHop bool  `json:"matchesChainFinalHop"`
+}
+
+type RouteRuleValidationResult struct {
+	Valid                bool                 `json:"valid"`
+	Errors               []string             `json:"errors"`
+	Warnings             []string             `json:"warnings"`
+	MatchValueValidation MatchValueValidation `json:"matchValueValidation"`
+	ChainValidation      ChainValidation      `json:"chainValidation"`
+	ScopeValidation      ScopeValidation      `json:"scopeValidation"`
+}
+
+type RouteRuleSuggestionResult struct {
+	MatchType   string   `json:"matchType"`
+	Suggestions []string `json:"suggestions"`
+}
