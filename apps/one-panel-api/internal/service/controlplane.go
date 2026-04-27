@@ -236,6 +236,13 @@ func (c *ControlPlane) UpdateAccount(accountID string, input domain.UpdateAccoun
 	return c.store.UpdateAccount(accountID, input)
 }
 
+func (c *ControlPlane) DeleteAccount(accountID string) error {
+	if accountID == "" {
+		return invalidInput("missing_account_id")
+	}
+	return c.store.DeleteAccount(accountID)
+}
+
 func (c *ControlPlane) Login(account string, password string) (domain.LoginResult, bool) {
 	return c.store.Authenticate(account, password)
 }

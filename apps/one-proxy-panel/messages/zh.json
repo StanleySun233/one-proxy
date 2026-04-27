@@ -23,7 +23,8 @@
     "chainStudio": "链路编辑器",
     "routeBoard": "规则看板",
     "healthBoard": "健康面板",
-    "accountBoard": "账号管理",
+    "accountCreate": "创建账号",
+    "accountList": "账号查询",
     "certificateBoard": "证书状态"
   },
   "auth": {

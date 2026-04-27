@@ -197,10 +197,6 @@ func (r *Router) handleAccountByID(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing_account_id")
 		return
 	}
-	if req.Method != http.MethodPatch {
-		writeMethodNotAllowed(w, "PATCH")
-		return
-	}
 	account, ok := accountFromContext(req.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "invalid_access_token")
@@ -210,17 +206,28 @@ func (r *Router) handleAccountByID(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusForbidden, "password_rotation_required")
 		return
 	}
-	var payload domain.UpdateAccountInput
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json")
-		return
+	switch req.Method {
+	case http.MethodPatch:
+		var payload domain.UpdateAccountInput
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		item, err := r.service.UpdateAccount(accountID, payload)
+		if err != nil {
+			writeServiceError(w, req, err, "update_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, item)
+	case http.MethodDelete:
+		if err := r.service.DeleteAccount(accountID); err != nil {
+			writeServiceError(w, req, err, "delete_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
+	default:
+		writeMethodNotAllowed(w, "PATCH, DELETE")
 	}
-	item, err := r.service.UpdateAccount(accountID, payload)
-	if err != nil {
-		writeServiceError(w, req, err, "update_failed")
-		return
-	}
-	writeSuccess(w, http.StatusOK, item)
 }
 
 func (r *Router) handleNodes(w http.ResponseWriter, req *http.Request) {

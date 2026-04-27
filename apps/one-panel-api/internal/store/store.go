@@ -11,6 +11,7 @@ type Store interface {
 	ListAccounts() []domain.Account
 	CreateAccount(input domain.CreateAccountInput) (domain.Account, error)
 	UpdateAccount(accountID string, input domain.UpdateAccountInput) (domain.Account, error)
+	DeleteAccount(accountID string) error
 	ListNodeLinks() []domain.NodeLink
 	CreateNodeLink(input domain.CreateNodeLinkInput) (domain.NodeLink, error)
 	ListNodeAccessPaths() []domain.NodeAccessPath

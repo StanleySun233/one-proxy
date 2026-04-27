@@ -23,7 +23,8 @@
     "chainStudio": "Chain studio",
     "routeBoard": "Route board",
     "healthBoard": "Health board",
-    "accountBoard": "Account board",
+    "accountCreate": "Create account",
+    "accountList": "Account list",
     "certificateBoard": "Certificate status"
   },
   "auth": {

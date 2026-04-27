@@ -142,6 +142,13 @@ func (s *SeedStore) ListCertificates() []domain.Certificate {
 	return []domain.Certificate{}
 }
 
+func (s *SeedStore) DeleteAccount(accountID string) error {
+	if accountID == "acct-admin" {
+		return fmt.Errorf("cannot_delete_admin")
+	}
+	return nil
+}
+
 func (s *SeedStore) UpdateAccount(accountID string, input domain.UpdateAccountInput) (domain.Account, error) {
 	role := input.Role
 	if role == "" {

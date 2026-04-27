@@ -670,6 +670,18 @@ func (s *MySQLStore) UpdateAccount(accountID string, input domain.UpdateAccountI
 	return item, nil
 }
 
+func (s *MySQLStore) DeleteAccount(accountID string) error {
+	account, ok := s.getAccountByID(accountID)
+	if !ok {
+		return sql.ErrNoRows
+	}
+	if account.Account == "admin" {
+		return fmt.Errorf("cannot_delete_admin")
+	}
+	_, err := s.db.Exec("DELETE FROM accounts WHERE id = ?", accountID)
+	return err
+}
+
 func roleIDForName(name string) string {
 	replacer := strings.NewReplacer("_", "-", " ", "-")
 	return "role-" + replacer.Replace(name)

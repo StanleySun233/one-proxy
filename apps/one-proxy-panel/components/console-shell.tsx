@@ -94,9 +94,12 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     {
       key: 'accounts',
       label: t('nav.accounts'),
-      href: '/accounts',
+      href: '/accounts/create',
       icon: Users,
-      items: [{label: t('shell.accountBoard'), href: '/accounts'}]
+      items: [
+        {label: t('shell.accountCreate'), href: '/accounts/create'},
+        {label: t('shell.accountList'), href: '/accounts/list'}
+      ]
     },
     {
       key: 'certificates',
