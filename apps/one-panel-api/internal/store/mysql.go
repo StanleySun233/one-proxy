@@ -83,18 +83,20 @@ func (s *MySQLStore) BootstrapAdminPassword() string {
 }
 
 func (s *MySQLStore) init(ctx context.Context) error {
-	schemaPath, err := resolveSchemaPath()
+	schemaFiles, err := resolveSchemaFiles()
 	if err != nil {
 		return err
 	}
-	schemaBytes, err := os.ReadFile(schemaPath)
-	if err != nil {
-		return err
-	}
-	statements := splitSQLStatements(string(schemaBytes))
-	for _, statement := range statements {
-		if _, err := s.db.ExecContext(ctx, statement); err != nil {
+	for _, schemaPath := range schemaFiles {
+		schemaBytes, err := os.ReadFile(schemaPath)
+		if err != nil {
 			return err
+		}
+		statements := splitSQLStatements(string(schemaBytes))
+		for _, statement := range statements {
+			if _, err := s.db.ExecContext(ctx, statement); err != nil {
+				return err
+			}
 		}
 	}
 	if err := s.gormDB.WithContext(ctx).Exec("SELECT 1").Error; err != nil {
@@ -110,6 +112,50 @@ func (s *MySQLStore) init(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func resolveSchemaFiles() ([]string, error) {
+	schemaDir, err := resolveSchemaDir()
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(schemaDir)
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(entry.Name(), ".sql") {
+			files = append(files, filepath.Join(schemaDir, entry.Name()))
+		}
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no schema files found")
+	}
+	return files, nil
+}
+
+func resolveSchemaDir() (string, error) {
+	candidates := []string{
+		filepath.Join("apps", "one-panel-api", "schema"),
+		"schema",
+	}
+	if _, file, _, ok := runtime.Caller(0); ok {
+		base := filepath.Dir(file)
+		candidates = append(candidates,
+			filepath.Join(base, "..", "..", "schema"),
+		)
+	}
+	for _, candidate := range candidates {
+		cleaned := filepath.Clean(candidate)
+		if stat, err := os.Stat(cleaned); err == nil && stat.IsDir() {
+			return cleaned, nil
+		}
+	}
+	return "", fmt.Errorf("schema directory not found")
 }
 
 func resolveSchemaPath() (string, error) {
@@ -882,8 +928,12 @@ func (s *MySQLStore) UpsertNodeTransport(input domain.UpsertNodeTransportInput) 
 }
 
 func (s *MySQLStore) CreateNode(input domain.CreateNodeInput) (domain.Node, error) {
+	nodeID, err := s.nextNodeID()
+	if err != nil {
+		return domain.Node{}, err
+	}
 	item := domain.Node{
-		ID:           newID("node"),
+		ID:           nodeID,
 		Name:         input.Name,
 		Mode:         input.Mode,
 		ScopeKey:     input.ScopeKey,
@@ -894,7 +944,7 @@ func (s *MySQLStore) CreateNode(input domain.CreateNodeInput) (domain.Node, erro
 		PublicPort:   input.PublicPort,
 	}
 	now := nowRFC3339()
-	_, err := s.db.Exec(
+	_, err = s.db.Exec(
 		`INSERT INTO nodes (id, name, mode, public_host, public_port, scope_key, parent_node_id, enabled, status, created_at, updated_at)
 		 VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, ?, ?, ?)`,
 		item.ID, item.Name, item.Mode, item.PublicHost, item.PublicPort, item.ScopeKey, item.ParentNodeID, 1, item.Status, now, now,
@@ -1376,8 +1426,12 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 		node.Enabled = true
 		node.Status = "pending"
 	} else {
+		nodeID, err := s.nextNodeID()
+		if err != nil {
+			return domain.EnrollNodeResult{}, err
+		}
 		node = domain.Node{
-			ID:           newID("node"),
+			ID:           nodeID,
 			Name:         input.Name,
 			Mode:         input.Mode,
 			ScopeKey:     input.ScopeKey,
@@ -1883,4 +1937,35 @@ func boolToInt(value bool) int {
 
 func nowRFC3339() string {
 	return time.Now().UTC().Format(time.RFC3339)
+}
+
+func (s *MySQLStore) nextNodeID() (string, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	now := nowRFC3339()
+	_, err = tx.Exec(
+		`INSERT INTO id_sequences (name, current_value, updated_at)
+		 VALUES ('node_id', 1, ?)
+		 ON DUPLICATE KEY UPDATE current_value = current_value + 1, updated_at = ?`,
+		now, now,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	var nextID int64
+	err = tx.QueryRow(`SELECT current_value FROM id_sequences WHERE name = 'node_id'`).Scan(&nextID)
+	if err != nil {
+		return "", err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%d", nextID), nil
 }
