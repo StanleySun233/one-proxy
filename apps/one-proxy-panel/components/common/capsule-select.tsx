@@ -1,6 +1,7 @@
 'use client';
 
-import {ReactNode, useCallback, useEffect, useRef, useState} from 'react';
+import {Children, useCallback, useEffect, useRef, useState} from 'react';
+import type {ReactNode} from 'react';
 import {ChevronDown} from 'lucide-react';
 
 type CapsuleSelectProps = {
@@ -69,8 +70,6 @@ export function CapsuleSelect({icon, value, onChange, options, ...props}: Capsul
     </div>
   );
 }
-
-import {Children, ReactNode} from 'react';
 
 export function CapsuleSelectGroup({children}: {children: ReactNode}) {
   const items = Children.toArray(children).filter(Boolean);

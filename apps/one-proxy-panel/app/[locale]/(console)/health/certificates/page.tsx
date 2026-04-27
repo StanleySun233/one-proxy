@@ -5,7 +5,7 @@ import {useQuery} from '@tanstack/react-query';
 import {useTranslations} from 'next-intl';
 
 import {AsyncState} from '@/components/async-state';
-import {AuthGate} from '@/components/auth-provider';
+import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {getCertificates, getNodes} from '@/lib/control-plane-api';

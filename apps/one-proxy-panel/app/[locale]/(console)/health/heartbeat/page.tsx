@@ -7,10 +7,11 @@ import {ChevronDown, ChevronRight} from 'lucide-react';
 import ReactECharts from 'echarts-for-react';
 
 import {AsyncState} from '@/components/async-state';
-import {AuthGate, useAuth} from '@/components/auth-provider';
+import {AuthGate} from '@/components/auth-gate';
+import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/control-plane-api';
-import {NodeHealth} from '@/lib/control-plane-types';
+import {NodeHealth, NodeHealthHistory} from '@/lib/control-plane-types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 const staleThresholdMs = 2 * 60 * 1000;
@@ -357,7 +358,7 @@ function deriveHealthState(item: NodeHealth) {
   return {status: 'healthy', label: 'healthy'};
 }
 
-function deriveTrendState(item: NodeHealth): string {
+function deriveTrendState(item: NodeHealthHistory): string {
   const listenerValues = Object.values(item.listenerStatus || {});
   const certValues = Object.values(item.certStatus || {});
   const hasDegradedSignal = [...listenerValues, ...certValues].some((value) => value !== 'up' && value !== 'healthy' && value !== 'renewed');

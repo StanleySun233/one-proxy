@@ -179,9 +179,7 @@ export default function HealthOverviewPage() {
     const history = historyQuery.data || [];
     return history.map((item: NodeHealthHistory) => {
       const derived = deriveHealthState({
-        nodeId: selectedNodeId,
         heartbeatAt: item.heartbeatAt,
-        policyRevisionId: '',
         listenerStatus: item.listenerStatus,
         certStatus: item.certStatus
       });
