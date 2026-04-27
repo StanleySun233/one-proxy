@@ -236,7 +236,7 @@ export function getNodeTransports(accessToken: string) {
   return request<NodeTransport[]>('/node-transports', {accessToken});
 }
 
-export function createBootstrapToken(accessToken: string, payload: {targetType: string; targetId: string}) {
+export function createBootstrapToken(accessToken: string, payload: {targetType: string; targetId: string; nodeName: string}) {
   return request<BootstrapToken>('/nodes/bootstrap-token', {
     method: 'POST',
     accessToken,

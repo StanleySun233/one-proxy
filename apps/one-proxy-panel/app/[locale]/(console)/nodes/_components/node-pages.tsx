@@ -100,9 +100,10 @@ export function NodeBootstrapPageContent() {
             form={nodeConsole.bootstrapForm}
             latestToken={nodeConsole.latestToken}
             submitting={nodeConsole.bootstrap.isPending}
+            nodes={nodeConsole.nodesQuery.data || []}
             onSubmit={() => {
               const values = nodeConsole.bootstrapForm.getValues();
-              nodeConsole.bootstrap.mutate(values.targetId.trim());
+              nodeConsole.bootstrap.mutate({targetId: values.targetId.trim(), nodeName: values.nodeName.trim()});
             }}
           />
         </section>

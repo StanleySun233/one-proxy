@@ -11,6 +11,7 @@ import {
   connectNode,
   createBootstrapToken,
   createNode,
+  createNodeLink,
   deleteNode,
   getNodeHealth,
   getNodeLinks,
@@ -57,7 +58,8 @@ export function useNodeConsole() {
 
   const bootstrapForm = useForm<BootstrapFormValues>({
     defaultValues: {
-      targetId: ''
+      targetId: '',
+      nodeName: ''
     }
   });
 
@@ -150,7 +152,7 @@ export function useNodeConsole() {
   });
 
   const bootstrapMutation = useMutation({
-    mutationFn: (targetId: string) => createBootstrapToken(accessToken, {targetType: 'node', targetId}),
+    mutationFn: ({targetId, nodeName}: {targetId: string; nodeName: string}) => createBootstrapToken(accessToken, {targetType: 'node', targetId, nodeName}),
     onSuccess: (result) => {
       toast.success('bootstrap token created');
       bootstrapForm.reset();
@@ -216,6 +218,18 @@ export function useNodeConsole() {
     }
   });
 
+  const createNodeLinkMutation = useMutation({
+    mutationFn: (payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) =>
+      createNodeLink(accessToken, payload),
+    onSuccess: () => {
+      toast.success('link created');
+      queryClient.invalidateQueries({queryKey: ['node-links']});
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
   const rejectNodeMutation = useMutation({
     mutationFn: ({nodeId, reason}: {nodeId: string; reason?: string}) =>
       rejectNode(accessToken, nodeId, reason),
@@ -246,6 +260,7 @@ export function useNodeConsole() {
     approve: approveMutation,
     rejectNode: rejectNodeMutation,
     updateNode: updateNodeMutation,
-    deleteNode: deleteNodeMutation
+    deleteNode: deleteNodeMutation,
+    createNodeLink: createNodeLinkMutation
   };
 }

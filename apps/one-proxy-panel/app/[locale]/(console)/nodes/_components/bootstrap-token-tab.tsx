@@ -4,18 +4,20 @@ import {useMemo, useState} from 'react';
 import {UseFormReturn} from 'react-hook-form';
 import {toast} from 'sonner';
 
-import {BootstrapToken} from '@/lib/control-plane-types';
+import {BootstrapToken, Node} from '@/lib/control-plane-types';
 import {BootstrapFormValues} from './types';
 
 export function BootstrapTokenTab({
   form,
   submitting,
   latestToken,
+  nodes,
   onSubmit
 }: {
   form: UseFormReturn<BootstrapFormValues>;
   submitting: boolean;
   latestToken: BootstrapToken | null;
+  nodes: Node[];
   onSubmit: () => void;
 }) {
   const [copied, setCopied] = useState('');
@@ -29,7 +31,7 @@ export function BootstrapTokenTab({
     if (!latestToken) {
       return '';
     }
-    return `docker rm -f one-proxy-node >/dev/null 2>&1 || true && docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true && docker run -d --name one-proxy-node --restart unless-stopped -p 2988:2988 -p 2989:2989 -v one-proxy-node-runtime:/app/runtime -e CONTROL_PLANE_URL='${controlPlaneURL}' -e NODE_BOOTSTRAP_TOKEN='${latestToken.token}' -e NODE_NAME='node-name' -e NODE_SCOPE_KEY='scope-key' -e NODE_MODE='relay' -e NODE_JOIN_PASSWORD='password' -e TZ='Asia/Shanghai' ghcr.io/stanleysun233/one-proxy-node:latest`;
+    return `docker rm -f one-proxy-node >/dev/null 2>&1 || true && docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true && docker run -d --name one-proxy-node --restart unless-stopped -p 2988:2988 -p 2989:2989 -v one-proxy-node-runtime:/app/runtime -e CONTROL_PLANE_URL='${controlPlaneURL}' -e NODE_BOOTSTRAP_TOKEN='${latestToken.token}' -e NODE_SCOPE_KEY='scope-key' -e NODE_MODE='relay' -e NODE_JOIN_PASSWORD='password' -e TZ='Asia/Shanghai' ghcr.io/stanleysun233/one-proxy-node:latest`;
   }, [controlPlaneURL, latestToken]);
 
   async function copy(value: string, key: string) {
@@ -42,8 +44,28 @@ export function BootstrapTokenTab({
     }
   }
 
+  const watchedNodeName = form.watch('nodeName');
+
   return (
     <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
+      <div className="field-stack nodes-form-full">
+        <span>Node name <span className="muted-text">(required)</span></span>
+        <input
+          className="field-input"
+          placeholder="e.g. hk-gateway"
+          {...form.register('nodeName', {
+            required: 'Node name is required',
+            validate: (value) => {
+              if (!value) return true;
+              const exists = nodes.some((n) => n.name.toLowerCase() === value.trim().toLowerCase());
+              return exists ? 'A node with this name already exists' : true;
+            }
+          })}
+        />
+        {form.formState.errors.nodeName ? (
+          <p className="field-error">{form.formState.errors.nodeName.message}</p>
+        ) : null}
+      </div>
       <div className="field-stack nodes-form-full">
         <span>Target node id</span>
         <input className="field-input" placeholder="optional existing node id" {...form.register('targetId')} />
@@ -75,7 +97,7 @@ export function BootstrapTokenTab({
               </button>
             </div>
             <code className="mono command-block">{dockerCommand}</code>
-            <span className="field-hint">Replace `NODE_NAME` and `NODE_SCOPE_KEY` before running on the target machine. The control-plane domain is taken from the current panel URL.</span>
+            <span className="field-hint">Replace `NODE_SCOPE_KEY` before running on the target machine. The control-plane domain is taken from the current panel URL.</span>
           </div>
         </div>
       ) : (

@@ -24,4 +24,5 @@ export type QuickConnectFormValues = {
 
 export type BootstrapFormValues = {
   targetId: string;
+  nodeName: string;
 };
