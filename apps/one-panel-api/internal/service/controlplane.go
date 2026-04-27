@@ -880,7 +880,7 @@ func (c *ControlPlane) MatchTypes() []domain.MatchType {
 }
 
 func (c *ControlPlane) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
-	if err := validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
+	if err := c.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return domain.RouteRule{}, err
 	}
 	return c.store.CreateRouteRule(input)
@@ -890,7 +890,7 @@ func (c *ControlPlane) UpdateRouteRule(ruleID string, input domain.UpdateRouteRu
 	if ruleID == "" {
 		return domain.RouteRule{}, invalidInput("missing_rule_id")
 	}
-	if err := validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
+	if err := c.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return domain.RouteRule{}, err
 	}
 	return c.store.UpdateRouteRule(ruleID, input)
@@ -1383,8 +1383,11 @@ func validateNodeInput(name string, mode string, scopeKey string) error {
 	return nil
 }
 
-func validateRouteRule(actionType string, chainID string, destinationScope string, matchType string, matchValue string) error {
+func (c *ControlPlane) validateRouteRule(actionType string, chainID string, destinationScope string, matchType string, matchValue string) error {
 	if matchType == "" || matchValue == "" || actionType == "" {
+		return invalidInput("invalid_route_rule_payload")
+	}
+	if !c.isValidEnum("action_type", actionType) {
 		return invalidInput("invalid_route_rule_payload")
 	}
 	switch actionType {
@@ -1396,8 +1399,6 @@ func validateRouteRule(actionType string, chainID string, destinationScope strin
 		if destinationScope == "" {
 			return invalidInput("invalid_route_rule_payload")
 		}
-	default:
-		return invalidInput("invalid_route_rule_payload")
 	}
 	return nil
 }

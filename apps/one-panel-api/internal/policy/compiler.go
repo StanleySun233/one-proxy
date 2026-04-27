@@ -64,6 +64,9 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain
 		if !rule.Enabled {
 			continue
 		}
+		if rule.ActionType != "chain" && rule.ActionType != "direct" {
+			return "", fmt.Errorf("rule %s has invalid_action_type", rule.ID)
+		}
 		switch rule.ActionType {
 		case "chain":
 			if _, ok := chainSet[rule.ChainID]; !ok {
@@ -73,8 +76,6 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain
 			if rule.DestinationScope == "" {
 				return "", fmt.Errorf("rule %s missing_destination_scope", rule.ID)
 			}
-		default:
-			return "", fmt.Errorf("rule %s has invalid_action_type", rule.ID)
 		}
 		compiledRules = append(compiledRules, rule)
 	}
