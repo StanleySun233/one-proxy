@@ -5,9 +5,10 @@ import {SortableContext, verticalListSortingStrategy, arrayMove} from '@dnd-kit/
 import {useSortable} from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
 import {GripVertical, Plus, X} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
-import {Node} from '@/lib/control-plane-types';
+import {validateChain} from '@/lib/control-plane-api';
+import {ChainValidationResult, Node} from '@/lib/control-plane-types';
 
 type HopItem = {
   id: string;
@@ -17,6 +18,7 @@ type HopItem = {
 };
 
 type ChainEditorProps = {
+  accessToken: string;
   chainName: string;
   destinationScope: string;
   hops: number[];
@@ -32,6 +34,7 @@ type ChainEditorProps = {
 };
 
 export function ChainEditor({
+  accessToken,
   chainName,
   destinationScope,
   hops,
@@ -47,6 +50,9 @@ export function ChainEditor({
 }: ChainEditorProps) {
   const [hopItems, setHopItems] = useState<HopItem[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string>('');
+  const [validationResult, setValidationResult] = useState<ChainValidationResult | null>(null);
+  const [validationPending, setValidationPending] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -68,6 +74,36 @@ export function ChainEditor({
     });
     setHopItems(items);
   }, [hops, nodes]);
+
+  const runValidation = useCallback(async (name: string, scope: string, hopList: number[]) => {
+    if (!name.trim() || !scope.trim()) {
+      setValidationResult(null);
+      return;
+    }
+    setValidationPending(true);
+    try {
+      const result = await validateChain(accessToken, {name, destinationScope: scope, hops: hopList});
+      setValidationResult(result);
+    } catch {
+      setValidationResult(null);
+    } finally {
+      setValidationPending(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      runValidation(chainName, destinationScope, hops);
+    }, 500);
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [chainName, destinationScope, hops, runValidation]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const {active, over} = event;
@@ -108,7 +144,15 @@ export function ChainEditor({
       <div className="panel-toolbar">
         <div>
           <p className="section-kicker">Chain Editor</p>
-          <h3>{chainName || 'New Chain'}</h3>
+          <div className="inline-cluster" style={{gap: 8}}>
+            <h3>{chainName || 'New Chain'}</h3>
+            {validationPending && <span className="badge is-neutral">validating...</span>}
+            {!validationPending && validationResult && (
+              <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
+                {validationResult.valid ? 'valid' : 'invalid'}
+              </span>
+            )}
+          </div>
           <p className="section-copy">Configure chain hops and destination scope</p>
         </div>
       </div>
@@ -178,6 +222,23 @@ export function ChainEditor({
           </label>
         </div>
       </div>
+
+      {validationResult && (validationResult.errors.length > 0 || validationResult.warnings.length > 0) && (
+        <div className="probe-results-section">
+          {validationResult.errors.map((err, i) => (
+            <div className="token-box" key={`err-${i}`} style={{borderColor: 'var(--danger)'}}>
+              <strong style={{color: 'var(--danger)'}}>{err.field}</strong>
+              <span className="field-hint" style={{color: 'var(--danger)'}}>{err.message}</span>
+            </div>
+          ))}
+          {validationResult.warnings.map((warn, i) => (
+            <div className="token-box" key={`warn-${i}`} style={{borderColor: 'var(--accent)'}}>
+              <strong style={{color: 'var(--accent)'}}>{warn.field}</strong>
+              <span className="field-hint" style={{color: 'var(--accent)'}}>{warn.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="submit-row">
         <button className="primary-button" disabled={saving || !chainName || !destinationScope || hopItems.length === 0} onClick={onSave} type="button">

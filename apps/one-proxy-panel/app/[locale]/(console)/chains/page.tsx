@@ -129,6 +129,7 @@ export default function ChainsPage() {
         {editorOpen ? (
           <section className="panel-card">
             <ChainEditor
+              accessToken={accessToken}
               chainName={chainName}
               destinationScope={destinationScope}
               hops={hops}
