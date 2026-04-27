@@ -48,6 +48,9 @@ type Store interface {
 	EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error)
 	ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnrollmentResult, error)
 	ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentInput) (domain.ApproveNodeEnrollmentResult, error)
+	ListNodeEnrollmentApprovals() []domain.NodeEnrollmentApproval
+	ApproveNodeEnrollmentApproval(approvalID string, accountID string, input domain.ApproveEnrollmentInput) (domain.NodeEnrollmentApproval, error)
+	RejectNodeEnrollmentApproval(approvalID string, accountID string, input domain.RejectEnrollmentInput) (domain.NodeEnrollmentApproval, error)
 	ListPolicyRevisions() []domain.PolicyRevision
 	PublishPolicy(accountID string) (domain.PolicyRevision, error)
 	AuthenticateNodeToken(accessToken string) (string, bool)

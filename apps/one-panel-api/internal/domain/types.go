@@ -409,3 +409,30 @@ type ExtensionGroup struct {
 	DirectHosts   []string `json:"directHosts"`
 	DirectCIDRs   []string `json:"directCidrs"`
 }
+
+type NodeEnrollmentApproval struct {
+	ID               string `json:"id"`
+	BootstrapTokenID string `json:"bootstrapTokenId"`
+	NodeName         string `json:"nodeName"`
+	NodeMode         string `json:"nodeMode"`
+	ScopeKey         string `json:"scopeKey"`
+	ParentNodeID     string `json:"parentNodeId"`
+	PublicHost       string `json:"publicHost"`
+	PublicPort       int    `json:"publicPort"`
+	Status           string `json:"status"`
+	ReviewedBy       string `json:"reviewedBy"`
+	ReviewedAt       string `json:"reviewedAt"`
+	RejectReason     string `json:"rejectReason"`
+	CreatedAt        string `json:"createdAt"`
+	UpdatedAt        string `json:"updatedAt"`
+}
+
+type ApproveEnrollmentInput struct {
+	ReviewedBy string `json:"reviewedBy"`
+}
+
+type RejectEnrollmentInput struct {
+	ReviewedBy   string `json:"reviewedBy"`
+	RejectReason string `json:"rejectReason"`
+}
+

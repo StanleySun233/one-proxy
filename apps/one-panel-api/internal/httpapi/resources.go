@@ -371,6 +371,76 @@ func (r *Router) handleNodeExchange(w http.ResponseWriter, req *http.Request) {
 	writeSuccess(w, http.StatusOK, item)
 }
 
+func (r *Router) handleNodeEnrollmentApprovals(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.NodeEnrollmentApprovals())
+}
+
+func (r *Router) handleNodeEnrollmentApprovalByID(w http.ResponseWriter, req *http.Request) {
+	if strings.HasSuffix(req.URL.Path, "/approve") {
+		r.handleNodeEnrollmentApprovalApprove(w, req)
+		return
+	}
+	if strings.HasSuffix(req.URL.Path, "/reject") {
+		r.handleNodeEnrollmentApprovalReject(w, req)
+		return
+	}
+	writeError(w, http.StatusNotFound, "not_found")
+}
+
+func (r *Router) handleNodeEnrollmentApprovalApprove(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeMethodNotAllowed(w, "POST")
+		return
+	}
+	approvalID := resourceID(req.URL.Path, "/api/v1/nodes/approvals/")
+	approvalID = strings.TrimSuffix(approvalID, "/approve")
+	if approvalID == "" {
+		writeError(w, http.StatusBadRequest, "missing_approval_id")
+		return
+	}
+	account := accountFromContext(req.Context())
+	var payload domain.ApproveEnrollmentInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	item, err := r.service.ApproveNodeEnrollmentApproval(approvalID, account.ID, payload)
+	if err != nil {
+		writeServiceError(w, req, err, "approve_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, item)
+}
+
+func (r *Router) handleNodeEnrollmentApprovalReject(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeMethodNotAllowed(w, "POST")
+		return
+	}
+	approvalID := resourceID(req.URL.Path, "/api/v1/nodes/approvals/")
+	approvalID = strings.TrimSuffix(approvalID, "/reject")
+	if approvalID == "" {
+		writeError(w, http.StatusBadRequest, "missing_approval_id")
+		return
+	}
+	account := accountFromContext(req.Context())
+	var payload domain.RejectEnrollmentInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	item, err := r.service.RejectNodeEnrollmentApproval(approvalID, account.ID, payload)
+	if err != nil {
+		writeServiceError(w, req, err, "reject_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, item)
+}
+
 func (r *Router) handleChains(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:

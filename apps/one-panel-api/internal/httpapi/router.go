@@ -56,6 +56,8 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/nodes/bootstrap-token", r.requireAccount(r.handleNodeBootstrapToken))
 	r.mux.HandleFunc("/api/v1/nodes/enroll", r.handleNodeEnroll)
 	r.mux.HandleFunc("/api/v1/nodes/exchange", r.handleNodeExchange)
+	r.mux.HandleFunc("/api/v1/nodes/approvals", r.requireAccount(r.handleNodeEnrollmentApprovals))
+	r.mux.HandleFunc("/api/v1/nodes/approvals/", r.requireAccount(r.handleNodeEnrollmentApprovalByID))
 	r.mux.HandleFunc("/api/v1/chains", r.requireAccount(r.handleChains))
 	r.mux.HandleFunc("/api/v1/chains/", r.requireAccount(r.handleChainByID))
 	r.mux.HandleFunc("/api/v1/route-rules", r.requireAccount(r.handleRouteRules))

@@ -491,6 +491,30 @@ func (c *ControlPlane) NodeHealth() []domain.NodeHealth {
 	return c.store.ListNodeHealth()
 }
 
+func (c *ControlPlane) NodeEnrollmentApprovals() []domain.NodeEnrollmentApproval {
+	return c.store.ListNodeEnrollmentApprovals()
+}
+
+func (c *ControlPlane) ApproveNodeEnrollmentApproval(approvalID string, accountID string, input domain.ApproveEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
+	if approvalID == "" {
+		return domain.NodeEnrollmentApproval{}, invalidInput("missing_approval_id")
+	}
+	if accountID == "" {
+		return domain.NodeEnrollmentApproval{}, unauthorized("invalid_access_token")
+	}
+	return c.store.ApproveNodeEnrollmentApproval(approvalID, accountID, input)
+}
+
+func (c *ControlPlane) RejectNodeEnrollmentApproval(approvalID string, accountID string, input domain.RejectEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
+	if approvalID == "" {
+		return domain.NodeEnrollmentApproval{}, invalidInput("missing_approval_id")
+	}
+	if accountID == "" {
+		return domain.NodeEnrollmentApproval{}, unauthorized("invalid_access_token")
+	}
+	return c.store.RejectNodeEnrollmentApproval(approvalID, accountID, input)
+}
+
 func toChainProbeInput(result domain.ChainProbeResult) domain.SaveChainProbeResultInput {
 	return domain.SaveChainProbeResultInput{
 		ChainID:        result.ChainID,
