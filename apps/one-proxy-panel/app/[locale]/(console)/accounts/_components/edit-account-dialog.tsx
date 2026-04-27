@@ -1,10 +1,10 @@
 'use client';
 
-import {useMutation} from '@tanstack/react-query';
+import {useMutation, useQuery} from '@tanstack/react-query';
 import {useState} from 'react';
 import {toast} from 'sonner';
 
-import {updateAccount} from '@/lib/control-plane-api';
+import {fetchEnums, updateAccount} from '@/lib/control-plane-api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 type Props = {
@@ -19,6 +19,8 @@ export default function EditAccountDialog({open, onClose, account, onSaved, acce
   const [password, setPassword] = useState('');
   const [role, setRole] = useState(account.role);
   const [status, setStatus] = useState(account.status);
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const accountStatusOptions = enums?.account_status ? Object.entries(enums.account_status).map(([value, name]) => ({value, label: name})) : [];
 
   const updateMutation = useMutation({
     mutationFn: (payload: {password?: string; role?: string; status?: string}) =>
@@ -69,8 +71,9 @@ export default function EditAccountDialog({open, onClose, account, onSaved, acce
           <div className="field-stack">
             <span>Status</span>
             <select className="field-input" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="active">active</option>
-              <option value="disabled">disabled</option>
+              {accountStatusOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </div>
           <div className="submit-row">

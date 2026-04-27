@@ -1,7 +1,9 @@
 'use client';
 
 import {UseFormReturn} from 'react-hook-form';
+import {useQuery} from '@tanstack/react-query';
 
+import {fetchEnums} from '@/lib/control-plane-api';
 import {NodeFormValues} from './types';
 
 export function ManualNodeTab({
@@ -13,6 +15,8 @@ export function ManualNodeTab({
   submitting: boolean;
   onSubmit: () => void;
 }) {
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const modeOptions = enums?.node_mode ? Object.entries(enums.node_mode).map(([value, name]) => ({value, label: name})) : [];
   return (
     <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="field-stack">
@@ -23,8 +27,9 @@ export function ManualNodeTab({
       <div className="field-stack">
         <span>Mode</span>
         <select className="field-select" {...form.register('mode', {required: true})}>
-          <option value="relay">relay</option>
-          <option value="edge">edge</option>
+          {modeOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
       </div>
       <div className="field-stack">

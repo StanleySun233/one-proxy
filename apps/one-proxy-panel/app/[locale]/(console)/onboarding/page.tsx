@@ -14,6 +14,7 @@ import {
   createNodeAccessPath,
   createNodeOnboardingTask,
   deleteNodeAccessPath,
+  fetchEnums,
   getNodeAccessPaths,
   getNodeOnboardingTasks,
   getNodes,
@@ -57,13 +58,13 @@ type TaskEditorState = {
   statusMessage: string;
 };
 
-const pathModeOptions = ['upstream_pull', 'relay_chain', 'direct'];
-const taskStatusOptions = ['planned', 'pending', 'connected', 'failed', 'cancelled'];
-
 export default function OnboardingPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
   const {session} = useAuth();
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const pathModeOptions = enums?.path_mode ? Object.keys(enums.path_mode) : [];
+  const taskStatusOptions = enums?.task_status ? Object.keys(enums.task_status) : [];
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
 

@@ -510,8 +510,9 @@ export function validateRouteRule(accessToken: string, payload: {
   });
 }
 
-export function fetchEnums() {
-  return request<FieldEnumMap>('/enums');
+export function fetchEnums(field?: string) {
+  const path = field ? `/enums?field=${encodeURIComponent(field)}` : '/enums';
+  return request<FieldEnumMap>(path);
 }
 
 export function getSetupStatus() {

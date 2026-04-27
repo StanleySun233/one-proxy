@@ -10,7 +10,7 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createRouteRule, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy, validateRouteRule} from '@/lib/control-plane-api';
+import {createRouteRule, fetchEnums, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy, validateRouteRule} from '@/lib/control-plane-api';
 import {RouteRuleValidationResult} from '@/lib/control-plane-types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
@@ -24,16 +24,6 @@ type RouteRuleFormValues = {
   chainId: string;
   destinationScope: string;
 };
-
-const matchTypeOptions = [
-  {value: 'domain', label: 'Domain', placeholder: 'example.com'},
-  {value: 'domain_suffix', label: 'Domain Suffix', placeholder: '.example.com'},
-  {value: 'ip_cidr', label: 'IP CIDR', placeholder: '10.0.0.0/24'},
-  {value: 'ip_range', label: 'IP Range', placeholder: '10.0.0.1-10.0.0.255'},
-  {value: 'port', label: 'Port', placeholder: '8080'},
-  {value: 'url_regex', label: 'URL Regex', placeholder: '^https://.*\\.example\\.com/.*'},
-  {value: 'default', label: 'Default (Catch-all)', placeholder: '*'}
-];
 
 function validateMatchValue(matchType: string, value: string): string | true {
   const trimmed = value.trim();
@@ -95,6 +85,9 @@ export default function RoutesPage() {
   });
   const actionType = form.watch('actionType');
   const matchType = form.watch('matchType');
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const matchTypeOptions = enums?.match_type ? Object.entries(enums.match_type).map(([value, name]) => ({value, label: name})) : [];
+  const actionTypeOptions = enums?.action_type ? Object.entries(enums.action_type).map(([value, name]) => ({value, label: name})) : [];
   const selectedChainId = form.watch('chainId');
   const [regexTesterOpen, setRegexTesterOpen] = useState(false);
   const [validationResult, setValidationResult] = useState<RouteRuleValidationResult | null>(null);
@@ -205,8 +198,7 @@ export default function RoutesPage() {
 
   const selectedChain = chains.find((c) => c.id === selectedChainId);
   const availableScopes = Array.from(new Set([...nodes.map((n) => n.scopeKey).filter(Boolean), ...chains.map((c) => c.destinationScope)]));
-  const matchTypeOption = matchTypeOptions.find((opt) => opt.value === matchType);
-  const matchValuePlaceholder = matchTypeOption?.placeholder || '';
+  const matchValuePlaceholder = matchType === 'default' ? '*' : `Enter ${matchType || 'value'}`;
 
   return (
     <AuthGate>
@@ -289,8 +281,9 @@ export default function RoutesPage() {
               <div className="field-stack">
                 <span>Action type</span>
                 <select className="field-select" {...form.register('actionType', {required: true})}>
-                  <option value="chain">chain</option>
-                  <option value="direct">direct</option>
+                  {actionTypeOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
               </div>
               <div className="field-stack">

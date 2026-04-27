@@ -1,10 +1,12 @@
 'use client';
 
 import {ReactNode, useEffect, useMemo, useState} from 'react';
+import {useQuery} from '@tanstack/react-query';
 
 import {AuthGate} from '@/components/auth-gate';
 import {AsyncState} from '@/components/async-state';
 import {Node, NodeHealth, NodeLink, NodeTransport, UnconsumedBootstrapToken} from '@/lib/control-plane-types';
+import {fetchEnums} from '@/lib/control-plane-api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {BootstrapTokenTab} from './bootstrap-token-tab';
@@ -237,6 +239,9 @@ export function NodeRegistryPageContent() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [modeFilter, setModeFilter] = useState('all');
   const [editingNodeID, setEditingNodeID] = useState('');
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const nodeModeOptions = enums?.node_mode ? Object.entries(enums.node_mode).map(([value, name]) => ({value, label: name})) : [];
+  const nodeStatusOptions = enums?.node_status ? Object.entries(enums.node_status).map(([value, name]) => ({value, label: name})) : [];
   const [formState, setFormState] = useState({
     name: '',
     mode: 'relay',
@@ -502,9 +507,9 @@ export function NodeRegistryPageContent() {
                     <label className="field-stack">
                       <span>Mode</span>
                       <select className="field-select" onChange={(event) => setFormState((current) => ({...current, mode: event.target.value}))} value={formState.mode}>
-                        {['edge', 'relay'].map((mode) => (
-                          <option key={mode} value={mode}>
-                            {mode}
+                        {nodeModeOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
                           </option>
                         ))}
                       </select>
@@ -535,10 +540,9 @@ export function NodeRegistryPageContent() {
                     <label className="field-stack">
                       <span>Status</span>
                       <select className="field-select" onChange={(event) => setFormState((current) => ({...current, status: event.target.value}))} value={formState.status}>
-                        <option value="healthy">healthy</option>
-                        <option value="degraded">degraded</option>
-                        <option value="pending">pending</option>
-                        <option value="inactive">inactive</option>
+                        {nodeStatusOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
                       </select>
                     </label>
                     <label className="field-stack">
