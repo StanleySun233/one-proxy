@@ -1453,6 +1453,7 @@ func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput
 		TargetID:   input.TargetID,
 		NodeName:   input.NodeName,
 		ExpiresAt:  time.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339),
+		CreatedAt:  nowRFC3339(),
 	}
 	_, err = s.db.Exec(
 		`INSERT INTO bootstrap_tokens (id, token_hash, target_type, target_id, node_name, expires_at, consumed_at, created_at)
@@ -1464,7 +1465,7 @@ func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput
 
 func (s *MySQLStore) ListUnconsumedBootstrapTokens() []domain.BootstrapToken {
 	rows, err := s.db.Query(
-		`SELECT id, target_type, COALESCE(target_id, ''), COALESCE(node_name, ''), expires_at
+		`SELECT id, target_type, COALESCE(target_id, ''), COALESCE(node_name, ''), expires_at, created_at
 		 FROM bootstrap_tokens
 		 WHERE consumed_at IS NULL AND expires_at > ?
 		 ORDER BY created_at DESC`,
@@ -1477,7 +1478,7 @@ func (s *MySQLStore) ListUnconsumedBootstrapTokens() []domain.BootstrapToken {
 	items := make([]domain.BootstrapToken, 0)
 	for rows.Next() {
 		var item domain.BootstrapToken
-		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.NodeName, &item.ExpiresAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.NodeName, &item.ExpiresAt, &item.CreatedAt); err != nil {
 			continue
 		}
 		items = append(items, item)

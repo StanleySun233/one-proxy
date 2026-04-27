@@ -209,6 +209,7 @@ type BootstrapToken struct {
 	TargetID   string `json:"targetId"`
 	NodeName   string `json:"nodeName"`
 	ExpiresAt  string `json:"expiresAt"`
+	CreatedAt  string `json:"createdAt"`
 }
 
 type EnrollNodeInput struct {
