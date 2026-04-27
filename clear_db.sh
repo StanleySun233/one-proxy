@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-RUNTIME_DIR="$ROOT_DIR/apps/control-plane-api/runtime"
+RUNTIME_DIR="$ROOT_DIR/apps/one-panel-api/runtime"
 
 mkdir -p "$RUNTIME_DIR"
 

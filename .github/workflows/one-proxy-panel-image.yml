@@ -1,0 +1,51 @@
+name: one-proxy-panel-image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/one-panel-api/**'
+      - 'apps/one-proxy-panel/**'
+      - 'docker/one-proxy-panel.Dockerfile'
+      - 'docker/one-proxy-panel-start.sh'
+      - '.github/workflows/one-proxy-panel-image.yml'
+  pull_request:
+    paths:
+      - 'apps/one-panel-api/**'
+      - 'apps/one-proxy-panel/**'
+      - 'docker/one-proxy-panel.Dockerfile'
+      - 'docker/one-proxy-panel-start.sh'
+      - '.github/workflows/one-proxy-panel-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build control-plane image
+        run: docker build -f docker/one-proxy-panel.Dockerfile -t one-proxy-panel:ci .
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build control-plane image
+        run: docker build -f docker/one-proxy-panel.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/one-proxy-panel:latest .
+
+      - name: Push control-plane image
+        run: docker push ghcr.io/${{ env.OWNER_LC }}/one-proxy-panel:latest

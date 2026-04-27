@@ -218,15 +218,15 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-apps/control-plane-api/tmp/
-apps/control-plane-api/runtime/*.db
-apps/proxy-node/tmp/
-apps/proxy-node/runtime/*.json
-apps/control-plane-web/.next/
-apps/control-plane-web/node_modules/
-apps/control-plane-web/package-lock.json
-!apps/control-plane-web/lib/
-!apps/control-plane-web/lib/*.ts
+apps/one-panel-api/tmp/
+apps/one-panel-api/runtime/*.db
+apps/one-proxy-node/tmp/
+apps/one-proxy-node/runtime/*.json
+apps/one-proxy-panel/.next/
+apps/one-proxy-panel/node_modules/
+apps/one-proxy-panel/package-lock.json
+!apps/one-proxy-panel/lib/
+!apps/one-proxy-panel/lib/*.ts
 
 runtime/*.log
 runtime/*.out

@@ -3,8 +3,8 @@
 ## Structure
 
 - `apps/chrome-extension`: user-side Chrome extension
-- `apps/control-plane-api`: planned Go backend
-- `apps/control-plane-web`: planned Next.js admin console
+- `apps/one-panel-api`: planned Go backend
+- `apps/one-proxy-panel`: planned Next.js admin console
 - `prototypes/proxy-node-demo`: archived Python demo
 - `docs/`: numbered design and development documents
 - `todolist.md`: progress tracker
@@ -14,7 +14,7 @@
 - Chrome extension stays plain JavaScript for now
 - backend moves to Go
 - admin web moves to Next.js
-- control-plane backend uses MySQL 8.0, while proxy-node keeps local SQLite state
+- one-panel-api uses MySQL 8.0, while one-proxy-node keeps local SQLite state
 
 ## Docker Run
 
@@ -33,7 +33,7 @@ docker run -d --name one-proxy-mysql8 \
 2. Prepare env file:
 
 ```bash
-cp docker/control-plane.env.example .env.control-plane
+cp docker/one-proxy-panel.env.example .env.control-plane
 ```
 
 Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.control-plane` if needed.
@@ -41,7 +41,7 @@ Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.control-plane` if ne
 3. Build and run the single control-plane container:
 
 ```bash
-docker build -f docker/control-plane.Dockerfile -t one-proxy-panel .
+docker build -f docker/one-proxy-panel.Dockerfile -t one-proxy-panel .
 docker run --rm --name one-proxy-panel \
   --add-host host.docker.internal:host-gateway \
   --env-file .env.control-plane \
@@ -56,7 +56,7 @@ Open `http://127.0.0.1:2886`. The frontend is the only exposed port. `/api/v1/*`
 1. Prepare env file:
 
 ```bash
-cp docker/proxy-node.env.example .env.proxy-node
+cp docker/one-proxy-node.env.example .env.proxy-node
 ```
 
 Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.proxy-node` if needed.
@@ -64,7 +64,7 @@ Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.proxy-node` if neede
 2. Build and run:
 
 ```bash
-docker build -f docker/proxy-node.Dockerfile -t one-proxy-node .
+docker build -f docker/one-proxy-node.Dockerfile -t one-proxy-node .
 docker run --rm --name one-proxy-node \
   --env-file .env.proxy-node \
   -p 2888:2888 \

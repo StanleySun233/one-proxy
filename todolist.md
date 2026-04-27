@@ -23,7 +23,7 @@
 - [x] control-plane Bearer auth added
 - [x] node-agent Bearer auth added
 - [x] Go node-agent skeleton added
-- [x] standalone `apps/proxy-node` extracted from control plane
+- [x] standalone `apps/one-proxy-node` extracted from control plane
 - [x] scheduler skeleton added
 - [x] node onboarding requirement doc added
 - [x] node onboarding implementation doc added
@@ -40,7 +40,7 @@
 
 ## Phase 2
 
-- [x] initialize Go module under `apps/control-plane-api`
+- [x] initialize Go module under `apps/one-panel-api`
 - [x] scaffold Go control-plane code layout
 - [x] define API directory structure
 - [x] replace seed store with SQLite-backed store
@@ -73,7 +73,7 @@
 
 ## Phase 4
 
- - [x] initialize Next.js app under `apps/control-plane-web`
+ - [x] initialize Next.js app under `apps/one-proxy-panel`
 - [x] build design-system-based dashboard skeleton
 - [x] define frontend tech stack
 - [x] define frontend information architecture
