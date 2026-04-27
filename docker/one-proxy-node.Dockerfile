@@ -12,7 +12,7 @@ COPY --chown=nonroot:nonroot --from=builder /out/runtime /app/runtime
 COPY --chown=nonroot:nonroot --from=builder /out/zoneinfo /usr/share/zoneinfo
 ENV TZ=Asia/Shanghai
 ENV ZONEINFO=/usr/share/zoneinfo
-ENV NODE_LISTEN_ADDR=:2888
-ENV NODE_HTTPS_LISTEN_ADDR=:2889
-EXPOSE 2888 2889
+ENV NODE_LISTEN_ADDR=:2988
+ENV NODE_HTTPS_LISTEN_ADDR=:2989
+EXPOSE 2988 2989
 CMD ["/app/one-proxy-node"]

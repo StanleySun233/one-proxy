@@ -1732,7 +1732,8 @@ func (s *MySQLStore) ListNodeEnrollmentApprovals() []domain.NodeEnrollmentApprov
 
 func (s *MySQLStore) ApproveNodeEnrollmentApproval(approvalID string, accountID string, input domain.ApproveEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
 	var approval domain.NodeEnrollmentApproval
-	var reviewedBy, reviewedAt, rejectReason sql.NullString
+	var parentNodeID, publicHost, reviewedBy, reviewedAt, rejectReason sql.NullString
+	var publicPort sql.NullInt64
 	err := s.db.QueryRow(
 		`SELECT id, bootstrap_token_id, node_name, node_mode, scope_key, parent_node_id,
 		        public_host, public_port, status, reviewed_by, reviewed_at, reject_reason,
@@ -1741,11 +1742,20 @@ func (s *MySQLStore) ApproveNodeEnrollmentApproval(approvalID string, accountID 
 		approvalID,
 	).Scan(
 		&approval.ID, &approval.BootstrapTokenID, &approval.NodeName, &approval.NodeMode,
-		&approval.ScopeKey, &approval.ParentNodeID, &approval.PublicHost, &approval.PublicPort,
+		&approval.ScopeKey, &parentNodeID, &publicHost, &publicPort,
 		&approval.Status, &reviewedBy, &reviewedAt, &rejectReason, &approval.CreatedAt, &approval.UpdatedAt,
 	)
 	if err != nil {
 		return domain.NodeEnrollmentApproval{}, err
+	}
+	if parentNodeID.Valid {
+		approval.ParentNodeID = parentNodeID.String
+	}
+	if publicHost.Valid {
+		approval.PublicHost = publicHost.String
+	}
+	if publicPort.Valid {
+		approval.PublicPort = int(publicPort.Int64)
 	}
 
 	if approval.Status != "pending" {
@@ -1773,7 +1783,8 @@ func (s *MySQLStore) ApproveNodeEnrollmentApproval(approvalID string, accountID 
 
 func (s *MySQLStore) RejectNodeEnrollmentApproval(approvalID string, accountID string, input domain.RejectEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
 	var approval domain.NodeEnrollmentApproval
-	var reviewedBy, reviewedAt, rejectReason sql.NullString
+	var parentNodeID, publicHost, reviewedBy, reviewedAt, rejectReason sql.NullString
+	var publicPort sql.NullInt64
 	err := s.db.QueryRow(
 		`SELECT id, bootstrap_token_id, node_name, node_mode, scope_key, parent_node_id,
 		        public_host, public_port, status, reviewed_by, reviewed_at, reject_reason,
@@ -1782,11 +1793,20 @@ func (s *MySQLStore) RejectNodeEnrollmentApproval(approvalID string, accountID s
 		approvalID,
 	).Scan(
 		&approval.ID, &approval.BootstrapTokenID, &approval.NodeName, &approval.NodeMode,
-		&approval.ScopeKey, &approval.ParentNodeID, &approval.PublicHost, &approval.PublicPort,
+		&approval.ScopeKey, &parentNodeID, &publicHost, &publicPort,
 		&approval.Status, &reviewedBy, &reviewedAt, &rejectReason, &approval.CreatedAt, &approval.UpdatedAt,
 	)
 	if err != nil {
 		return domain.NodeEnrollmentApproval{}, err
+	}
+	if parentNodeID.Valid {
+		approval.ParentNodeID = parentNodeID.String
+	}
+	if publicHost.Valid {
+		approval.PublicHost = publicHost.String
+	}
+	if publicPort.Valid {
+		approval.PublicPort = int(publicPort.Int64)
 	}
 
 	if approval.Status != "pending" {

@@ -44,7 +44,7 @@ export function ManualNodeTab({
         <span>Public port</span>
         <input
           className="field-input"
-          placeholder="2888"
+          placeholder="2988"
           type="number"
           {...form.register('publicPort', {
             validate: (value) => {

@@ -17,7 +17,7 @@ export function QuickConnectTab({
     <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="field-stack">
         <span>Node address</span>
-        <input className="field-input" placeholder="relay.example.com:2888" {...form.register('address', {required: 'node address is required'})} />
+        <input className="field-input" placeholder="relay.example.com:2988" {...form.register('address', {required: 'node address is required'})} />
         {form.formState.errors.address ? <p className="error-text">{form.formState.errors.address.message}</p> : null}
       </div>
       <div className="field-stack">
