@@ -499,6 +499,13 @@ type NodeScope struct {
 	Description   string `json:"description"`
 }
 
+type FieldEnum struct {
+	ID    string `json:"id"`
+	Field string `json:"field"`
+	Value string `json:"value"`
+	Name  string `json:"name"`
+}
+
 type Group struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
