@@ -2090,6 +2090,60 @@ func (s *MySQLStore) GetGroupScopes(groupID string) ([]string, error) {
 	return scopes, nil
 }
 
+func (s *MySQLStore) AddAccountToGroup(accountID, groupID string) error {
+	_, err := s.db.Exec("INSERT INTO account_groups (account_id, group_id) VALUES (?, ?)", accountID, groupID)
+	return err
+}
+
+func (s *MySQLStore) RemoveAccountFromGroup(accountID, groupID string) error {
+	_, err := s.db.Exec("DELETE FROM account_groups WHERE account_id = ? AND group_id = ?", accountID, groupID)
+	return err
+}
+
+func (s *MySQLStore) ListGroupAccounts(groupID string) ([]domain.Account, error) {
+	rows, err := s.db.Query(
+		`SELECT a.id, a.account, r.name, a.status, a.must_rotate_password
+		 FROM accounts a
+		 JOIN account_groups ag ON ag.account_id = a.id
+		 JOIN roles r ON r.id = a.role_id
+		 WHERE ag.group_id = ?
+		 ORDER BY a.account`,
+		groupID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	accounts := make([]domain.Account, 0)
+	for rows.Next() {
+		var item domain.Account
+		var mustRotate int
+		if err := rows.Scan(&item.ID, &item.Account, &item.Role, &item.Status, &mustRotate); err != nil {
+			continue
+		}
+		item.MustRotatePassword = mustRotate == 1
+		accounts = append(accounts, item)
+	}
+	return accounts, nil
+}
+
+func (s *MySQLStore) SetGroupAccounts(groupID string, accountIDs []string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("DELETE FROM account_groups WHERE group_id = ?", groupID); err != nil {
+		return err
+	}
+	for _, accountID := range accountIDs {
+		if _, err := tx.Exec("INSERT INTO account_groups (account_id, group_id) VALUES (?, ?)", accountID, groupID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (s *MySQLStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
 	var (
 		policyID string

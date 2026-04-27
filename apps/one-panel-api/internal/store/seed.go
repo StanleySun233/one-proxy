@@ -576,3 +576,19 @@ func (s *SeedStore) ListAccountGroups(accountID string) ([]domain.Group, error) 
 func (s *SeedStore) GetGroupScopes(groupID string) ([]string, error) {
 	return []string{}, nil
 }
+
+func (s *SeedStore) AddAccountToGroup(accountID, groupID string) error {
+	return nil
+}
+
+func (s *SeedStore) RemoveAccountFromGroup(accountID, groupID string) error {
+	return nil
+}
+
+func (s *SeedStore) ListGroupAccounts(groupID string) ([]domain.Account, error) {
+	return []domain.Account{}, nil
+}
+
+func (s *SeedStore) SetGroupAccounts(groupID string, accountIDs []string) error {
+	return nil
+}

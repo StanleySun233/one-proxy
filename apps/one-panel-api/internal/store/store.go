@@ -70,5 +70,9 @@ type Store interface {
 	GetGroup(id string) (domain.Group, error)
 	ListGroups() ([]domain.Group, error)
 	ListAccountGroups(accountID string) ([]domain.Group, error)
+	AddAccountToGroup(accountID, groupID string) error
+	RemoveAccountFromGroup(accountID, groupID string) error
+	ListGroupAccounts(groupID string) ([]domain.Account, error)
+	SetGroupAccounts(groupID string, accountIDs []string) error
 	GetGroupScopes(groupID string) ([]string, error)
 }
