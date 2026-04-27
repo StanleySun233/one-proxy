@@ -285,7 +285,7 @@ func (c *ControlPlane) NodeAccessPaths() []domain.NodeAccessPath {
 }
 
 func (c *ControlPlane) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error) {
-	if err := validateNodeAccessPath(input.Name, input.Mode, input.TargetHost, input.TargetPort); err != nil {
+	if err := c.validateNodeAccessPath(input.Name, input.Mode, input.TargetHost, input.TargetPort); err != nil {
 		return domain.NodeAccessPath{}, err
 	}
 	return c.store.CreateNodeAccessPath(input)
@@ -295,7 +295,7 @@ func (c *ControlPlane) UpdateNodeAccessPath(pathID string, input domain.UpdateNo
 	if pathID == "" {
 		return domain.NodeAccessPath{}, invalidInput("missing_path_id")
 	}
-	if err := validateNodeAccessPath(input.Name, input.Mode, input.TargetHost, input.TargetPort); err != nil {
+	if err := c.validateNodeAccessPath(input.Name, input.Mode, input.TargetHost, input.TargetPort); err != nil {
 		return domain.NodeAccessPath{}, err
 	}
 	return c.store.UpdateNodeAccessPath(pathID, input)
@@ -316,7 +316,7 @@ func (c *ControlPlane) CreateNodeOnboardingTask(accountID string, input domain.C
 	if accountID == "" {
 		return domain.NodeOnboardingTask{}, unauthorized("invalid_access_token")
 	}
-	if err := validateNodeOnboardingTask(input.Mode, input.PathID, input.TargetHost, input.TargetPort); err != nil {
+	if err := c.validateNodeOnboardingTask(input.Mode, input.PathID, input.TargetHost, input.TargetPort); err != nil {
 		return domain.NodeOnboardingTask{}, err
 	}
 	if input.Mode != "direct" && !hasNodeAccessPath(c.store.ListNodeAccessPaths(), input.PathID) {
@@ -1400,8 +1400,11 @@ func validateRouteRule(actionType string, chainID string, destinationScope strin
 	return nil
 }
 
-func validateNodeAccessPath(name string, mode string, targetHost string, targetPort int) error {
+func (c *ControlPlane) validateNodeAccessPath(name string, mode string, targetHost string, targetPort int) error {
 	if name == "" || mode == "" {
+		return invalidInput("invalid_node_access_path_payload")
+	}
+	if !c.isValidEnum("path_mode", mode) {
 		return invalidInput("invalid_node_access_path_payload")
 	}
 	switch mode {
@@ -1409,14 +1412,14 @@ func validateNodeAccessPath(name string, mode string, targetHost string, targetP
 		if targetHost == "" || targetPort <= 0 {
 			return invalidInput("invalid_node_access_path_payload")
 		}
-	case "upstream_pull":
-	default:
-		return invalidInput("invalid_node_access_path_payload")
 	}
 	return nil
 }
 
-func validateNodeOnboardingTask(mode string, pathID string, targetHost string, targetPort int) error {
+func (c *ControlPlane) validateNodeOnboardingTask(mode string, pathID string, targetHost string, targetPort int) error {
+	if !c.isValidEnum("path_mode", mode) {
+		return invalidInput("invalid_node_onboarding_task_payload")
+	}
 	switch mode {
 	case "direct":
 		if targetHost == "" || targetPort <= 0 {
@@ -1426,8 +1429,6 @@ func validateNodeOnboardingTask(mode string, pathID string, targetHost string, t
 		if pathID == "" {
 			return invalidInput("invalid_node_onboarding_task_payload")
 		}
-	default:
-		return invalidInput("invalid_node_onboarding_task_payload")
 	}
 	return nil
 }
