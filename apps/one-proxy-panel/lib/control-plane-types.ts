@@ -267,3 +267,39 @@ export type RouteRuleValidationResult = {
   chainValidation: ChainValidation;
   scopeValidation: ScopeValidation;
 };
+
+export type SetupStatus = {
+  configured: boolean;
+};
+
+export type TestConnectionResult = {
+  success: boolean;
+  message: string;
+};
+
+export type GenerateKeyResult = {
+  key: string;
+};
+
+export type InitResult = {
+  success: boolean;
+  message: string;
+};
+
+export type TestConnectionRequest = {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+};
+
+export type InitRequest = {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+  jwtSigningKey: string;
+  needInitialize: boolean;
+};

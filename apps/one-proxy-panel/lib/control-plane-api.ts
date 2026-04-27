@@ -8,8 +8,11 @@ import {
   ChainProbeResult,
   ChainValidationResult,
   ConnectedNodeResult,
+  GenerateKeyResult,
   Group,
   GroupDetail,
+  InitRequest,
+  InitResult,
   LoginResult,
   Node,
   NodeAccessPath,
@@ -22,7 +25,10 @@ import {
   Overview,
   PolicyRevision,
   RouteRule,
-  RouteRuleValidationResult
+  RouteRuleValidationResult,
+  SetupStatus,
+  TestConnectionRequest,
+  TestConnectionResult
 } from '@/lib/control-plane-types';
 
 const CONTROL_PLANE_PROXY_BASE = '/api/v1';
@@ -500,6 +506,28 @@ export function validateRouteRule(accessToken: string, payload: {
     method: 'POST',
     accessToken,
     body: payload
+  });
+}
+
+export function getSetupStatus() {
+  return request<SetupStatus>('/setup/status');
+}
+
+export function testSetupConnection(payload: TestConnectionRequest) {
+  return request<TestConnectionResult>('/setup/test-connection', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function generateSetupKey() {
+  return request<GenerateKeyResult>('/setup/generate-key');
+}
+
+export function submitSetupInit(payload: InitRequest) {
+  return request<InitResult>('/setup/init', {
+    method: 'POST',
+    body: payload,
   });
 }
 
