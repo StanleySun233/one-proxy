@@ -21,7 +21,7 @@ type PathQueryState = {
 
 type Props = {
   t: (key: string) => string;
-  pathsQuery: { isPending: boolean; isError: boolean; error: Error; refetch: () => void; data?: NodeAccessPath[] };
+  pathsQuery: { isPending: boolean; isError: boolean; error: Error | null; refetch: () => void; data?: NodeAccessPath[] };
   paths: NodeAccessPath[];
   totalPaths: number;
   nodesByID: Map<string, Node>;
@@ -111,7 +111,7 @@ export function OnboardingPathTable({
             </select>
           </label>
         </div>
-        {filteredPaths.length === 0 ? (
+        {paths.length === 0 ? (
           <AsyncState detail="Adjust the current query or filters to see matching paths." title="No matching access paths" />
         ) : (
           <div className="table-card">
@@ -130,7 +130,7 @@ export function OnboardingPathTable({
                 </tr>
               </thead>
               <tbody>
-                {filteredPaths.map((path) => {
+                {paths.map((path) => {
                   const isActive = path.id === pathState.editingPathID;
                   return (
                     <tr className={isActive ? 'is-active-row' : ''} key={path.id}>

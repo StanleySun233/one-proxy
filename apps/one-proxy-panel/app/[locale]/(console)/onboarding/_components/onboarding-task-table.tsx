@@ -21,7 +21,7 @@ type TaskQueryState = {
 
 type Props = {
   t: (key: string) => string;
-  tasksQuery: { isPending: boolean; isError: boolean; error: Error; refetch: () => void; data?: NodeOnboardingTask[] };
+  tasksQuery: { isPending: boolean; isError: boolean; error: Error | null; refetch: () => void; data?: NodeOnboardingTask[] };
   tasks: NodeOnboardingTask[];
   totalTasks: number;
   nodesByID: Map<string, Node>;
