@@ -128,7 +128,7 @@ export function SetupForm() {
       <div className="panel-card">
         <p className="section-kicker">{t('shell.product')}</p>
         <h3>{t('setup.title')}</h3>
-        <p className="section-copy">{t('setup.description')}</p>
+
 
         <label className="field-stack">
           <span>{t('setup.mysqlHost')}</span>
@@ -155,18 +155,20 @@ export function SetupForm() {
           <input className="field-input" value={database} onChange={(e) => setDatabase(e.target.value)} />
         </label>
 
-        <span>{t('setup.needInitialize')}</span>
-        <div className="toggle-switch" onClick={() => setNeedInitialize(!needInitialize)}>
-          <span className={`toggle-switch-label${needInitialize ? ' is-active' : ''}`}>
-            {t('setup.needInitialize')}
-          </span>
-          <span className={`toggle-switch-track${needInitialize ? ' is-active' : ''}`}>
-            <span className="toggle-switch-thumb" />
-          </span>
-          <span className={`toggle-switch-label${!needInitialize ? ' is-active' : ''}`}>
-            {t('setup.skipInitialize')}
-          </span>
-        </div>
+        <label className="field-stack">
+          <span>{t('setup.needInitialize')}</span>
+          <div className="toggle-switch" style={{marginLeft: 'auto'}} onClick={() => setNeedInitialize(!needInitialize)}>
+            <span className={`toggle-switch-label${needInitialize ? ' is-active' : ''}`}>
+              {t('setup.needInitialize')}
+            </span>
+            <span className={`toggle-switch-track${needInitialize ? ' is-active' : ''}`}>
+              <span className="toggle-switch-thumb" />
+            </span>
+            <span className={`toggle-switch-label${!needInitialize ? ' is-active' : ''}`}>
+              {t('setup.skipInitialize')}
+            </span>
+          </div>
+        </label>
 
         <label className="field-stack">
           <span>{t('setup.adminPassword')}</span>
@@ -180,13 +182,15 @@ export function SetupForm() {
           />
         </label>
 
-        <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
-          <button type="button" className="secondary-button" disabled={testPending} onClick={handleTestConnection}>
-            {testPending ? t('setup.testing') : t('setup.testConnection')}
-          </button>
-          <button type="button" className="secondary-button" disabled={keyPending} onClick={handleGenerateKey}>
-            {keyPending ? t('setup.generating') : t('setup.generateJwt')}
-          </button>
+        <div style={{display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between'}}>
+          <div style={{display: 'flex', gap: '8px'}}>
+            <button type="button" className="secondary-button" disabled={testPending} onClick={handleTestConnection}>
+              {testPending ? t('setup.testing') : t('setup.testConnection')}
+            </button>
+            <button type="button" className="secondary-button" disabled={keyPending} onClick={handleGenerateKey}>
+              {keyPending ? t('setup.generating') : t('setup.generateJwt')}
+            </button>
+          </div>
           <span className={`conn-status is-${connStatus}`}>
             <span className="conn-status-dot" />
             {connStatus === 'untested' && t('setup.connectionUntested')}
