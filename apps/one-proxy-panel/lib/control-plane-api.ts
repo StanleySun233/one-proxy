@@ -406,4 +406,10 @@ export function getNodeHealth(accessToken: string) {
   return request<NodeHealth[]>('/nodes/health', {accessToken});
 }
 
+export function getNodeHealthHistory(accessToken: string, nodeId: string, window?: string) {
+  const params = new URLSearchParams({nodeId});
+  if (window) params.set('window', window);
+  return request<NodeHealth[]>(`/nodes/health/history?${params.toString()}`, {accessToken});
+}
+
 export {AUTH_INVALID_EVENT, SESSION_STORAGE_KEY};
