@@ -1,24 +1,20 @@
 'use client';
 
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {useForm} from 'react-hook-form';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
 import {useState} from 'react';
+import {Edit, Trash2} from 'lucide-react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createChain, getChains, probeChain} from '@/lib/control-plane-api';
-import {ChainProbeResult} from '@/lib/control-plane-types';
-import {formatControlPlaneError, splitList} from '@/lib/presentation';
+import {createChain, getChains, getNodes, probeChain} from '@/lib/control-plane-api';
+import {Chain, ChainProbeResult} from '@/lib/control-plane-types';
+import {formatControlPlaneError} from '@/lib/presentation';
 
-type ChainFormValues = {
-  name: string;
-  destinationScope: string;
-  hops: string;
-};
+import {ChainEditor} from './_components/chain-editor';
 
 export default function ChainsPage() {
   const t = useTranslations();
@@ -26,30 +22,38 @@ export default function ChainsPage() {
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
-  const form = useForm<ChainFormValues>({
-    defaultValues: {
-      name: '',
-      destinationScope: '',
-      hops: ''
-    }
-  });
+
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingChain, setEditingChain] = useState<Chain | null>(null);
+  const [chainName, setChainName] = useState('');
+  const [destinationScope, setDestinationScope] = useState('');
+  const [hops, setHops] = useState<number[]>([]);
   const [probeResults, setProbeResults] = useState<Record<string, ChainProbeResult>>({});
+
   const chainsQuery = useQuery({
     queryKey: ['chains', accessToken],
     queryFn: () => getChains(accessToken),
     enabled: !!accessToken
   });
+
+  const nodesQuery = useQuery({
+    queryKey: ['nodes', accessToken],
+    queryFn: () => getNodes(accessToken),
+    enabled: !!accessToken
+  });
+
   const createChainMutation = useMutation({
-    mutationFn: (payload: {name: string; destinationScope: string; hops: string[]}) => createChain(accessToken, payload),
+    mutationFn: (payload: {name: string; destinationScope: string; hops: number[]}) => createChain(accessToken, payload),
     onSuccess: () => {
       toast.success('chain created');
       queryClient.invalidateQueries({queryKey: ['chains']});
-      form.reset();
+      handleCloseEditor();
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
     }
   });
+
   const probeChainMutation = useMutation({
     mutationFn: (chainID: string) => probeChain(accessToken, chainID),
     onSuccess: (result) => {
@@ -61,67 +65,73 @@ export default function ChainsPage() {
     }
   });
 
+  const handleOpenEditor = (chain?: Chain) => {
+    if (chain) {
+      setEditingChain(chain);
+      setChainName(chain.name);
+      setDestinationScope(chain.destinationScope);
+      setHops(chain.hops.map((h) => (typeof h === 'string' ? parseInt(h, 10) : h)));
+    } else {
+      setEditingChain(null);
+      setChainName('');
+      setDestinationScope('');
+      setHops([]);
+    }
+    setEditorOpen(true);
+  };
+
+  const handleCloseEditor = () => {
+    setEditorOpen(false);
+    setEditingChain(null);
+    setChainName('');
+    setDestinationScope('');
+    setHops([]);
+  };
+
+  const handleSaveChain = () => {
+    createChainMutation.mutate({
+      name: chainName,
+      destinationScope,
+      hops
+    });
+  };
+
   const chains = chainsQuery.data || [];
+  const nodes = nodesQuery.data || [];
 
   return (
     <AuthGate>
       <div className="page-stack">
         <PageHero eyebrow="Chains" title={pageT('chainsTitle')} description={pageT('chainsDesc')} />
-        <section className="forms-grid">
-          <article className="panel-card">
-            <h3>Create chain</h3>
-            <form
-              className="sub-grid"
-              onSubmit={form.handleSubmit((values) => {
-                createChainMutation.mutate({
-                  name: values.name.trim(),
-                  destinationScope: values.destinationScope.trim(),
-                  hops: splitList(values.hops)
-                });
-              })}
-            >
-              <div className="field-stack">
-                <span>Name</span>
-                <input
-                  aria-invalid={form.formState.errors.name ? 'true' : 'false'}
-                  className="field-input"
-                  placeholder="panel-to-node2"
-                  {...form.register('name', {required: 'name is required'})}
-                />
-                {form.formState.errors.name ? <p className="error-text">{form.formState.errors.name.message}</p> : null}
-              </div>
-              <div className="field-stack">
-                <span>Destination scope</span>
-                <input
-                  aria-invalid={form.formState.errors.destinationScope ? 'true' : 'false'}
-                  className="field-input"
-                  placeholder="target-scope"
-                  {...form.register('destinationScope', {required: 'destination scope is required'})}
-                />
-                {form.formState.errors.destinationScope ? <p className="error-text">{form.formState.errors.destinationScope.message}</p> : null}
-              </div>
-              <div className="field-stack">
-                <span>Hops</span>
-                <input
-                  aria-invalid={form.formState.errors.hops ? 'true' : 'false'}
-                  className="field-input"
-                  placeholder="node-a, node-b"
-                  {...form.register('hops', {
-                    validate: (value) => splitList(value).length > 0 || 'at least one hop is required'
-                  })}
-                />
-                {form.formState.errors.hops ? <p className="error-text">{form.formState.errors.hops.message}</p> : null}
-              </div>
-              <div className="submit-row">
-                <button className="primary-button" disabled={createChainMutation.isPending} type="submit">
-                  {createChainMutation.isPending ? t('common.submitting') : 'Create chain'}
-                </button>
-              </div>
-            </form>
-          </article>
 
-          <article className="panel-card soft-card">
-            <h3>Chain list</h3>
+        {editorOpen ? (
+          <section className="panel-card">
+            <ChainEditor
+              chainName={chainName}
+              destinationScope={destinationScope}
+              hops={hops}
+              nodes={nodes}
+              onCancel={handleCloseEditor}
+              onHopsChange={setHops}
+              onNameChange={setChainName}
+              onSave={handleSaveChain}
+              onScopeChange={setDestinationScope}
+              saving={createChainMutation.isPending}
+            />
+          </section>
+        ) : (
+          <section className="panel-card">
+            <div className="panel-toolbar">
+              <div>
+                <p className="section-kicker">Management</p>
+                <h3>Chain List</h3>
+                <p className="section-copy">Manage relay chains and configure hop sequences</p>
+              </div>
+              <button className="primary-button" onClick={() => handleOpenEditor()} type="button">
+                Create Chain
+              </button>
+            </div>
+
             {chainsQuery.isPending ? (
               <AsyncState detail={t('common.loading')} title="Loading chains" />
             ) : chainsQuery.isError ? (
@@ -134,47 +144,70 @@ export default function ChainsPage() {
             ) : chains.length === 0 ? (
               <AsyncState detail="Create relay chains before binding route rules to them." title={t('common.empty')} />
             ) : (
-              <div className="stack-list">
-                {chains.map((chain) => (
-                  <div className="stack-item" key={chain.id}>
-                    <div className="stack-head">
-                      <strong>{chain.name}</strong>
-                      <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? 'enabled' : 'disabled'}</span>
-                    </div>
-                    <span className="muted-text">{chain.destinationScope}</span>
-                    <span className="mono">{chain.hops.join(' -> ')}</span>
-                    <div className="submit-row">
-                      <button
-                        className="secondary-button"
-                        disabled={probeChainMutation.isPending}
-                        onClick={() => probeChainMutation.mutate(chain.id)}
-                        type="button"
-                      >
-                        {probeChainMutation.isPending ? t('common.submitting') : 'Probe chain'}
-                      </button>
-                    </div>
-                    {probeResults[chain.id] ? (
-                      <div className="token-box">
-                        <strong>{probeResults[chain.id].status === 'connected' ? 'Transport ready' : 'Transport blocked'}</strong>
-                        <span className="field-hint">
-                          {probeResults[chain.id].blockingReason || probeResults[chain.id].message}
-                        </span>
-                        {probeResults[chain.id].resolvedHops.length > 0 ? (
-                          <span className="mono">
-                            {probeResults[chain.id].resolvedHops.map((hop) => `${hop.nodeName}:${hop.transportType}`).join(' -> ')}
-                          </span>
-                        ) : null}
-                        {probeResults[chain.id].blockingNodeId ? (
-                          <span className="muted-text">blocking node: {probeResults[chain.id].blockingNodeId}</span>
-                        ) : null}
-                      </div>
-                    ) : null}
+              <div className="table-card">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Hops</th>
+                      <th>Destination Scope</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chains.map((chain) => (
+                      <tr key={chain.id}>
+                        <td className="mono">{chain.id}</td>
+                        <td>
+                          <strong>{chain.name}</strong>
+                        </td>
+                        <td className="mono">{chain.hops.join(' → ')}</td>
+                        <td>{chain.destinationScope}</td>
+                        <td>
+                          <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? 'enabled' : 'disabled'}</span>
+                        </td>
+                        <td>
+                          <div className="chain-list-actions">
+                            <button className="secondary-button" onClick={() => handleOpenEditor(chain)} type="button">
+                              <Edit size={14} />
+                              Edit
+                            </button>
+                            <button
+                              className="secondary-button"
+                              disabled={probeChainMutation.isPending}
+                              onClick={() => probeChainMutation.mutate(chain.id)}
+                              type="button"
+                            >
+                              Probe
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {Object.keys(probeResults).length > 0 && (
+              <div className="probe-results-section">
+                <h4>Probe Results</h4>
+                {Object.entries(probeResults).map(([chainId, result]) => (
+                  <div className="token-box" key={chainId}>
+                    <strong>{result.status === 'connected' ? 'Transport ready' : 'Transport blocked'}</strong>
+                    <span className="field-hint">{result.blockingReason || result.message}</span>
+                    {result.resolvedHops.length > 0 && (
+                      <span className="mono">{result.resolvedHops.map((hop) => `${hop.nodeName}:${hop.transportType}`).join(' → ')}</span>
+                    )}
+                    {result.blockingNodeId && <span className="muted-text">blocking node: {result.blockingNodeId}</span>}
                   </div>
                 ))}
               </div>
             )}
-          </article>
-        </section>
+          </section>
+        )}
       </div>
     </AuthGate>
   );

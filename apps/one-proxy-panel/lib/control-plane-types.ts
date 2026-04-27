@@ -99,7 +99,7 @@ export type Chain = {
   name: string;
   destinationScope: string;
   enabled: boolean;
-  hops: string[];
+  hops: (string | number)[];
 };
 
 export type ChainProbeHop = {

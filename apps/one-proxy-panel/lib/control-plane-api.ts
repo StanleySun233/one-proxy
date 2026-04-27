@@ -343,7 +343,7 @@ export function getChains(accessToken: string) {
   return request<Chain[]>('/chains', {accessToken});
 }
 
-export function createChain(accessToken: string, payload: {name: string; destinationScope: string; hops: string[]}) {
+export function createChain(accessToken: string, payload: {name: string; destinationScope: string; hops: number[]}) {
   return request<Chain>('/chains', {
     method: 'POST',
     accessToken,
