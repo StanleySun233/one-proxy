@@ -72,8 +72,12 @@ func ensureDatabaseExists(dsn string) error {
 		return err
 	}
 	quotedName := "`" + strings.ReplaceAll(databaseName, "`", "``") + "`"
+	_, err = rootDB.Exec("DROP DATABASE IF EXISTS " + quotedName)
+	if err != nil {
+		return err
+	}
 	_, err = rootDB.Exec(
-		"CREATE DATABASE IF NOT EXISTS " + quotedName + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+		"CREATE DATABASE " + quotedName + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 	)
 	return err
 }
