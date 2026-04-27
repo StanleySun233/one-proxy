@@ -52,8 +52,36 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 	rules := c.store.ListRouteRules()
 	overview := c.store.GetOverview()
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
+
+	filteredNodes := nodes
+	filteredRules := rules
+	if account.Role != "super_admin" {
+		accountGroups, err := c.store.ListAccountGroups(account.ID)
+		if err == nil && len(accountGroups) > 0 {
+			allowedScopes := make(map[string]bool)
+			for _, g := range accountGroups {
+				scopes, _ := c.store.GetGroupScopes(g.ID)
+				for _, scope := range scopes {
+					allowedScopes[scope] = true
+				}
+			}
+			filteredNodes = make([]domain.Node, 0)
+			for _, node := range nodes {
+				if allowedScopes[node.ScopeKey] {
+					filteredNodes = append(filteredNodes, node)
+				}
+			}
+			filteredRules = make([]domain.RouteRule, 0)
+			for _, rule := range rules {
+				if rule.DestinationScope == "" || allowedScopes[rule.DestinationScope] {
+					filteredRules = append(filteredRules, rule)
+				}
+			}
+		}
+	}
+
 	groups := make([]domain.ExtensionGroup, 0)
-	for _, node := range nodes {
+	for _, node := range filteredNodes {
 		if !node.Enabled || node.PublicHost == "" || node.PublicPort <= 0 {
 			continue
 		}
@@ -69,7 +97,7 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 			ProxyHost:     node.PublicHost,
 			ProxyPort:     node.PublicPort,
 		}
-		for _, rule := range rules {
+		for _, rule := range filteredRules {
 			if !rule.Enabled {
 				continue
 			}
