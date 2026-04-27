@@ -149,10 +149,23 @@ export function SetupForm() {
           <input className="field-input" value={database} onChange={(e) => setDatabase(e.target.value)} />
         </label>
 
-        <label className="field-stack" style={{flexDirection: 'row', alignItems: 'center', gap: '8px'}}>
-          <input type="checkbox" checked={needInitialize} onChange={(e) => setNeedInitialize(e.target.checked)} />
-          <span>{t('setup.needInitialize')}</span>
-        </label>
+        <span>{t('setup.needInitialize')}</span>
+        <div className="capsule-toggle-group">
+          <button
+            type="button"
+            className={`capsule-toggle-option${needInitialize ? ' is-active' : ''}`}
+            onClick={() => setNeedInitialize(true)}
+          >
+            {t('setup.needInitialize')}
+          </button>
+          <button
+            type="button"
+            className={`capsule-toggle-option${!needInitialize ? ' is-active' : ''}`}
+            onClick={() => setNeedInitialize(false)}
+          >
+            {t('setup.skipInitialize')}
+          </button>
+        </div>
 
         <div style={{display: 'flex', gap: '8px'}}>
           <button type="button" className="secondary-button" disabled={testPending} onClick={handleTestConnection}>

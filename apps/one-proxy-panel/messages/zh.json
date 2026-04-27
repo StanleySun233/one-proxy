@@ -67,6 +67,7 @@
     "mysqlPassword": "MySQL 密码",
     "mysqlDatabase": "数据库名称",
     "needInitialize": "初始化数据库结构",
+    "skipInitialize": "使用现有数据库",
     "testConnection": "测试连接",
     "testing": "测试中...",
     "connectionSuccess": "连接成功",

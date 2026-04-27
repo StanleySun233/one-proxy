@@ -67,6 +67,7 @@
     "mysqlPassword": "MySQL Password",
     "mysqlDatabase": "Database Name",
     "needInitialize": "Initialize database schema",
+    "skipInitialize": "Use existing database",
     "testConnection": "Test Connection",
     "testing": "Testing...",
     "connectionSuccess": "Connection successful",
