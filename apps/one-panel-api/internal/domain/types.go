@@ -199,6 +199,7 @@ type UpdateRouteRuleInput struct {
 type CreateBootstrapTokenInput struct {
 	TargetType string `json:"targetType"`
 	TargetID   string `json:"targetId"`
+	NodeName   string `json:"nodeName"`
 }
 
 type BootstrapToken struct {
@@ -206,6 +207,7 @@ type BootstrapToken struct {
 	Token      string `json:"token"`
 	TargetType string `json:"targetType"`
 	TargetID   string `json:"targetId"`
+	NodeName   string `json:"nodeName"`
 	ExpiresAt  string `json:"expiresAt"`
 }
 

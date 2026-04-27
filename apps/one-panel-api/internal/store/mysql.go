@@ -1451,12 +1451,13 @@ func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput
 		Token:      token,
 		TargetType: input.TargetType,
 		TargetID:   input.TargetID,
+		NodeName:   input.NodeName,
 		ExpiresAt:  time.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339),
 	}
 	_, err = s.db.Exec(
-		`INSERT INTO bootstrap_tokens (id, token_hash, target_type, target_id, expires_at, consumed_at, created_at)
-		 VALUES (?, ?, ?, NULLIF(?, ''), ?, NULL, ?)`,
-		item.ID, token, item.TargetType, item.TargetID, item.ExpiresAt, nowRFC3339(),
+		`INSERT INTO bootstrap_tokens (id, token_hash, target_type, target_id, node_name, expires_at, consumed_at, created_at)
+		 VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, NULL, ?)`,
+		item.ID, token, item.TargetType, item.TargetID, item.NodeName, item.ExpiresAt, nowRFC3339(),
 	)
 	return item, err
 }

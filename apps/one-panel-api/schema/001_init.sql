@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS bootstrap_tokens (
   token_hash VARCHAR(255) NOT NULL UNIQUE,
   target_type VARCHAR(64) NOT NULL,
   target_id VARCHAR(191),
+  node_name VARCHAR(255),
   expires_at VARCHAR(64) NOT NULL,
   consumed_at VARCHAR(64),
   created_at VARCHAR(64) NOT NULL

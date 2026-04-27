@@ -404,6 +404,7 @@ func (s *SeedStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput)
 		Token:      token,
 		TargetType: input.TargetType,
 		TargetID:   input.TargetID,
+		NodeName:   input.NodeName,
 		ExpiresAt:  time.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339),
 	}, nil
 }
