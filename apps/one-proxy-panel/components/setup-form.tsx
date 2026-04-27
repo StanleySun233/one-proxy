@@ -157,17 +157,9 @@ export function SetupForm() {
 
         <label className="field-stack">
           <span>{t('setup.needInitialize')}</span>
-          <div className="toggle-switch" style={{marginLeft: 'auto'}} onClick={() => setNeedInitialize(!needInitialize)}>
-            <span className={`toggle-switch-label${needInitialize ? ' is-active' : ''}`}>
-              {t('setup.needInitialize')}
-            </span>
-            <span className={`toggle-switch-track${needInitialize ? ' is-active' : ''}`}>
-              <span className="toggle-switch-thumb" />
-            </span>
-            <span className={`toggle-switch-label${!needInitialize ? ' is-active' : ''}`}>
-              {t('setup.skipInitialize')}
-            </span>
-          </div>
+          <span className={`toggle-switch-track${needInitialize ? ' is-active' : ''}`} style={{marginLeft: 'auto'}} onClick={() => setNeedInitialize(!needInitialize)}>
+            <span className="toggle-switch-thumb" />
+          </span>
         </label>
 
         <label className="field-stack">
