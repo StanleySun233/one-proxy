@@ -403,7 +403,11 @@ func (r *Router) handleNodeEnrollmentApprovalApprove(w http.ResponseWriter, req 
 		writeError(w, http.StatusBadRequest, "missing_approval_id")
 		return
 	}
-	account := accountFromContext(req.Context())
+	account, ok := accountFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	var payload domain.ApproveEnrollmentInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
@@ -428,7 +432,11 @@ func (r *Router) handleNodeEnrollmentApprovalReject(w http.ResponseWriter, req *
 		writeError(w, http.StatusBadRequest, "missing_approval_id")
 		return
 	}
-	account := accountFromContext(req.Context())
+	account, ok := accountFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	var payload domain.RejectEnrollmentInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")

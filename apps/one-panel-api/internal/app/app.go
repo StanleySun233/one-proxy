@@ -22,18 +22,18 @@ type App struct {
 }
 
 type dynamicHandler struct {
-	handler atomic.Pointer[http.Handler]
+	handler atomic.Value // stores http.Handler
 }
 
 func (dh *dynamicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h := dh.handler.Load()
+	h, _ := dh.handler.Load().(http.Handler)
 	if h == nil {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_ = json.NewEncoder(w).Encode(map[string]any{"code": 503, "message": "not_ready"})
 		return
 	}
-	(*h).ServeHTTP(w, r)
+	h.ServeHTTP(w, r)
 }
 
 func New() *App {
@@ -72,7 +72,7 @@ func (a *App) runSetupMode() error {
 			HTTPAddr:  cfg.HTTPAddr,
 			DBBackend: "mysql",
 		}, controlPlane)
-		dh.handler.Store(&fullHandler)
+		dh.handler.Store(fullHandler)
 		log.Printf("control-plane transitioned to full mode")
 		return nil
 	}
@@ -81,7 +81,7 @@ func (a *App) runSetupMode() error {
 	mux := http.NewServeMux()
 	setupHandler.Register(mux)
 	wrappedMux := recoveryMiddleware(mux)
-	dh.handler.Store(&wrappedMux)
+	dh.handler.Store(wrappedMux)
 
 	server := &http.Server{
 		Addr:    a.config.HTTPAddr,

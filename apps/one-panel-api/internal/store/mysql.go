@@ -1707,9 +1707,6 @@ func (s *MySQLStore) ListNodeEnrollmentApprovals() []domain.NodeEnrollmentApprov
 }
 
 func (s *MySQLStore) ApproveNodeEnrollmentApproval(approvalID string, accountID string, input domain.ApproveEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	var approval domain.NodeEnrollmentApproval
 	var reviewedBy, reviewedAt, rejectReason sql.NullString
 	err := s.db.QueryRow(
@@ -1751,9 +1748,6 @@ func (s *MySQLStore) ApproveNodeEnrollmentApproval(approvalID string, accountID 
 }
 
 func (s *MySQLStore) RejectNodeEnrollmentApproval(approvalID string, accountID string, input domain.RejectEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	var approval domain.NodeEnrollmentApproval
 	var reviewedBy, reviewedAt, rejectReason sql.NullString
 	err := s.db.QueryRow(
