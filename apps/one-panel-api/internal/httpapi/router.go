@@ -167,6 +167,7 @@ func (r *Router) routes(cfg HTTPConfig) {
 		})
 	})
 
+	r.mux.HandleFunc("/api/v1/enums", r.handleEnums)
 	r.mux.HandleFunc("/api/v1/auth/login", r.handleLogin)
 	r.mux.HandleFunc("/api/v1/auth/refresh", r.handleRefresh)
 	r.mux.HandleFunc("/api/v1/auth/logout", r.requireAccount(r.handleLogout))

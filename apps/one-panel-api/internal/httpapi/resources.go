@@ -621,6 +621,26 @@ func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (r *Router) handleEnums(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	items, err := r.service.ListFieldEnums()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list_enums_failed")
+		return
+	}
+	grouped := make(map[string]map[string]string)
+	for _, item := range items {
+		if _, ok := grouped[item.Field]; !ok {
+			grouped[item.Field] = make(map[string]string)
+		}
+		grouped[item.Field][item.Value] = item.Name
+	}
+	writeSuccess(w, http.StatusOK, grouped)
+}
+
 func (r *Router) handleMatchTypes(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		writeMethodNotAllowed(w, "GET")
