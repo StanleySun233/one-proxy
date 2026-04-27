@@ -5,7 +5,7 @@ import {useQuery} from '@tanstack/react-query';
 
 import {AuthGate} from '@/components/auth-gate';
 import {AsyncState} from '@/components/async-state';
-import {Node, NodeHealth, NodeLink, NodeTransport, UnconsumedBootstrapToken} from '@/lib/control-plane-types';
+import {FieldEnumMap, Node, NodeHealth, NodeLink, NodeTransport, UnconsumedBootstrapToken} from '@/lib/control-plane-types';
 import {fetchEnums} from '@/lib/control-plane-api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
@@ -258,7 +258,7 @@ export function NodeRegistryPageContent() {
     () =>
       nodes.map((node) => {
         const health = healthByNodeID.get(node.id);
-        const derivedHealth = deriveNodeHealthState(health);
+        const derivedHealth = deriveNodeHealthState(health, enums);
         return {
           ...node,
           derivedHealthStatus: derivedHealth.status,
@@ -267,7 +267,7 @@ export function NodeRegistryPageContent() {
           policyRevisionId: health?.policyRevisionId || ''
         };
       }),
-    [healthByNodeID, nodes]
+    [healthByNodeID, nodes, enums]
   );
   const normalizedQuery = query.trim().toLowerCase();
   const filteredNodes = nodeRows.filter((node) => {
@@ -444,8 +444,8 @@ export function NodeRegistryPageContent() {
                             </td>
                             <td>
                               <div className="registry-name-cell">
-                                <span className={healthBadgeClassName(node.derivedHealthStatus)}>{node.derivedHealthLabel}</span>
-                                <span className={statusBadgeClassName(node.status)}>{node.status}</span>
+                                <span className={healthBadgeClassName(node.derivedHealthStatus, enums)}>{node.derivedHealthLabel}</span>
+                                <span className={statusBadgeClassName(node.status, enums)}>{node.status}</span>
                               </div>
                             </td>
                             <td>{node.mode}</td>
@@ -604,6 +604,7 @@ export function NodeTopologyPageContent() {
   const nodes = nodeConsole.nodesQuery.data || [];
   const links = nodeConsole.linksQuery.data || [];
   const transports = nodeConsole.transportsQuery.data || [];
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const transportSummary = useMemo(
     () => ({
@@ -709,7 +710,7 @@ export function NodeTopologyPageContent() {
                           <td className="mono">{transport.transportType}</td>
                           <td>{transport.direction}</td>
                           <td>
-                            <span className={transportBadgeClassName(transport.status)}>{transport.status}</span>
+                            <span className={transportBadgeClassName(transport.status, enums)}>{transport.status}</span>
                           </td>
                           <td className="mono">{transport.address}</td>
                           <td>{describeNodeName(transport.parentNodeId, nodesByID) || <span className="muted-text">root</span>}</td>
@@ -755,7 +756,7 @@ function describeNodeName(nodeID: string, nodesByID: Map<string, Node>) {
   return nodesByID.get(nodeID)?.name || nodeID;
 }
 
-function deriveNodeHealthState(item?: NodeHealth) {
+function deriveNodeHealthState(item?: NodeHealth, enums?: FieldEnumMap) {
   if (!item) {
     return {status: 'unreported', label: 'unreported'};
   }
@@ -763,7 +764,13 @@ function deriveNodeHealthState(item?: NodeHealth) {
   const isStale = Number.isFinite(heartbeatTime) ? Date.now() - heartbeatTime > staleThresholdMs : true;
   const listenerValues = Object.values(item.listenerStatus || {});
   const certValues = Object.values(item.certStatus || {});
-  const hasDegradedSignal = [...listenerValues, ...certValues].some((value) => value !== 'up' && value !== 'healthy' && value !== 'renewed');
+  const allValues = [...listenerValues, ...certValues];
+  const isGoodValue = (value: string) =>
+    enums?.listener_status?.[value]?.meta?.className === 'is-good' ||
+    enums?.cert_status?.[value]?.meta?.className === 'is-good';
+  const hasDegradedSignal = enums
+    ? allValues.some(v => !isGoodValue(v))
+    : allValues.some((value) => value !== 'up' && value !== 'healthy' && value !== 'renewed');
   if (isStale) {
     return {status: 'stale', label: 'stale'};
   }
@@ -773,43 +780,40 @@ function deriveNodeHealthState(item?: NodeHealth) {
   return {status: 'healthy', label: 'healthy'};
 }
 
-function healthBadgeClassName(status: string) {
-  if (status === 'healthy') {
-    return 'badge is-good';
+function healthBadgeClassName(status: string, enums?: FieldEnumMap) {
+  if (!enums) {
+    if (status === 'healthy') return 'badge is-good';
+    if (status === 'stale') return 'badge is-warn';
+    if (status === 'unreported') return 'badge is-neutral';
+    return 'badge is-danger';
   }
-  if (status === 'stale') {
-    return 'badge is-warn';
-  }
-  if (status === 'unreported') {
-    return 'badge is-neutral';
-  }
+  const cls = enums.node_status?.[status]?.meta?.className;
+  if (cls) return `badge ${cls}`;
+  if (status === 'stale') return 'badge is-warn';
+  if (status === 'unreported') return 'badge is-neutral';
   return 'badge is-danger';
 }
 
-function statusBadgeClassName(status: string) {
-  if (status === 'healthy') {
-    return 'badge is-good';
+function statusBadgeClassName(status: string, enums?: FieldEnumMap) {
+  if (!enums) {
+    if (status === 'healthy') return 'badge is-good';
+    if (status === 'degraded') return 'badge is-danger';
+    if (status === 'pending') return 'badge is-warn';
+    return 'badge is-neutral';
   }
-  if (status === 'degraded') {
-    return 'badge is-danger';
-  }
-  if (status === 'pending') {
-    return 'badge is-warn';
-  }
-  return 'badge is-neutral';
+  const cls = enums.node_status?.[status]?.meta?.className;
+  return `badge ${cls || 'is-neutral'}`;
 }
 
-function transportBadgeClassName(status: string) {
-  if (status === 'connected' || status === 'ready') {
-    return 'badge is-good';
+function transportBadgeClassName(status: string, enums?: FieldEnumMap) {
+  if (!enums) {
+    if (status === 'connected' || status === 'ready') return 'badge is-good';
+    if (status === 'degraded' || status === 'failed') return 'badge is-danger';
+    if (status === 'pending') return 'badge is-warn';
+    return 'badge is-neutral';
   }
-  if (status === 'degraded' || status === 'failed') {
-    return 'badge is-danger';
-  }
-  if (status === 'pending') {
-    return 'badge is-warn';
-  }
-  return 'badge is-neutral';
+  const cls = enums.transport_status?.[status]?.meta?.className;
+  return `badge ${cls || 'is-neutral'}`;
 }
 
 function NodeLinkCard({
