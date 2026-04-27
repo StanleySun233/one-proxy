@@ -522,6 +522,53 @@ button:disabled {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.charts-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.charts-row .chart-col {
+  min-width: 0;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--emphasis);
+  margin-bottom: 8px;
+}
+
+.trend-summary {
+  padding: 24px 16px;
+}
+
+.trend-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.trend-summary-item {
+  text-align: center;
+  padding: 16px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-2) 76%, white 24%);
+  border: 1px solid var(--line);
+}
+
+.trend-summary-item strong {
+  display: block;
+  font-size: 28px;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.trend-summary-item span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .panel-card {
   display: grid;
   gap: 14px;
