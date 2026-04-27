@@ -7,14 +7,21 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
+type GroupScopeEntry struct {
+	GroupName string   `json:"groupName"`
+	ScopeKeys []string `json:"scopeKeys"`
+	AccountIDs []string `json:"accountIds"`
+}
+
 type Snapshot struct {
 	Nodes      []domain.Node      `json:"nodes"`
 	Links      []domain.NodeLink  `json:"links"`
 	Chains     []domain.Chain     `json:"chains"`
 	RouteRules []domain.RouteRule `json:"routeRules"`
+	Groups     []GroupScopeEntry  `json:"groups"`
 }
 
-func Compile(nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain, rules []domain.RouteRule) (string, error) {
+func Compile(nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain, rules []domain.RouteRule, groups []GroupScopeEntry) (string, error) {
 	activeNodes := make([]domain.Node, 0, len(nodes))
 	nodeSet := make(map[string]domain.Node, len(nodes))
 	for _, node := range nodes {
@@ -86,6 +93,7 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain
 		Links:      compiledLinks,
 		Chains:     chains,
 		RouteRules: compiledRules,
+		Groups:     groups,
 	})
 	if err != nil {
 		return "", err
@@ -93,8 +101,8 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain
 	return string(payload), nil
 }
 
-func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain, rules []domain.RouteRule) (string, error) {
-	raw, err := Compile(nodes, links, chains, rules)
+func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink, chains []domain.Chain, rules []domain.RouteRule, groups []GroupScopeEntry) (string, error) {
+	raw, err := Compile(nodes, links, chains, rules, groups)
 	if err != nil {
 		return "", err
 	}
@@ -149,6 +157,7 @@ func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink,
 		Links:      filteredLinks,
 		Chains:     filteredChains,
 		RouteRules: filteredRules,
+		Groups:     snapshot.Groups,
 	})
 	if err != nil {
 		return "", err

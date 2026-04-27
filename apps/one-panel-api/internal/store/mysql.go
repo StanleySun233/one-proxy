@@ -1099,7 +1099,7 @@ func (s *MySQLStore) assignLatestPolicyTx(tx *sql.Tx, nodeID string, assignedAt 
 	if err != nil {
 		return err
 	}
-	snapshotJSON, err := policy.CompileForNode(nodeID, s.policyNodes(), s.ListNodeLinks(), s.ListChains(), s.ListRouteRules())
+	snapshotJSON, err := policy.CompileForNode(nodeID, s.policyNodes(), s.ListNodeLinks(), s.ListChains(), s.ListRouteRules(), s.buildGroupEntries())
 	if err != nil {
 		return err
 	}
@@ -2308,7 +2308,7 @@ func (s *MySQLStore) compileLatestPolicyForNode(nodeID string) (string, string, 
 	if err != nil {
 		return "", "", false
 	}
-	snapshotJSON, err := policy.CompileForNode(nodeID, s.policyNodes(), s.ListNodeLinks(), s.ListChains(), s.ListRouteRules())
+	snapshotJSON, err := policy.CompileForNode(nodeID, s.policyNodes(), s.ListNodeLinks(), s.ListChains(), s.ListRouteRules(), s.buildGroupEntries())
 	if err != nil {
 		return "", "", false
 	}
