@@ -62,6 +62,14 @@ func (r *Router) handleNodeLinks(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (r *Router) handleNodeTransports(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.NodeTransports())
+}
+
 func (r *Router) handleNodeAccessPaths(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -365,6 +373,10 @@ func (r *Router) handleChains(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
+	if strings.HasSuffix(req.URL.Path, "/probe") {
+		r.handleChainProbe(w, req)
+		return
+	}
 	chainID := resourceID(req.URL.Path, "/api/v1/chains/")
 	if chainID == "" {
 		writeError(w, http.StatusBadRequest, "missing_chain_id")
@@ -391,6 +403,33 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
 		writeMethodNotAllowed(w, "PATCH, DELETE")
+	}
+}
+
+func (r *Router) handleChainProbe(w http.ResponseWriter, req *http.Request) {
+	chainID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/chains/"), "/probe")
+	chainID = strings.TrimSuffix(chainID, "/")
+	if chainID == "" {
+		writeError(w, http.StatusBadRequest, "missing_chain_id")
+		return
+	}
+	switch req.Method {
+	case http.MethodGet:
+		item, ok := r.service.LatestChainProbe(chainID)
+		if !ok {
+			writeError(w, http.StatusNotFound, "chain_probe_not_found")
+			return
+		}
+		writeSuccess(w, http.StatusOK, item)
+	case http.MethodPost:
+		item, err := r.service.ProbeChain(chainID)
+		if err != nil {
+			writeServiceError(w, req, err, "probe_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, item)
+	default:
+		writeMethodNotAllowed(w, "GET, POST")
 	}
 }
 

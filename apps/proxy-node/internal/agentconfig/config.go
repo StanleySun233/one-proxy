@@ -15,6 +15,9 @@ type Config struct {
 	NodePublicHost           string
 	NodeJoinPassword         string
 	NodeJoinPasswordProvided bool
+	NodeParentTunnelURL      string
+	NodeTunnelPath           string
+	NodeTunnelHeartbeat      string
 	ListenAddr               string
 	HTTPSListenAddr          string
 	HeartbeatInterval        string
@@ -40,6 +43,9 @@ func Load() Config {
 		NodePublicHost:           envOrDefault("NODE_PUBLIC_HOST", ""),
 		NodeJoinPassword:         joinPassword,
 		NodeJoinPasswordProvided: joinPasswordProvided,
+		NodeParentTunnelURL:      envOrDefault("NODE_PARENT_TUNNEL_URL", ""),
+		NodeTunnelPath:           envOrDefault("NODE_TUNNEL_PATH", "/api/v1/node-tunnel/connect"),
+		NodeTunnelHeartbeat:      envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),
 		ListenAddr:               envOrDefault("NODE_LISTEN_ADDR", ":2888"),
 		HTTPSListenAddr:          envOrDefault("NODE_HTTPS_LISTEN_ADDR", ":2889"),
 		HeartbeatInterval:        envOrDefault("NODE_HEARTBEAT_INTERVAL", "30s"),

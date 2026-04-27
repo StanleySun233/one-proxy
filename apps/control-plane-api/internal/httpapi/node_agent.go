@@ -72,3 +72,26 @@ func (r *Router) handleNodeAgentCertRenew(w http.ResponseWriter, req *http.Reque
 	}
 	writeSuccess(w, http.StatusOK, item)
 }
+
+func (r *Router) handleNodeAgentTransport(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeMethodNotAllowed(w, "POST")
+		return
+	}
+	var payload domain.UpsertNodeTransportInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	nodeID, ok := nodeIDFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_node_token")
+		return
+	}
+	item, err := r.service.UpsertNodeAgentTransport(nodeID, payload)
+	if err != nil {
+		writeServiceError(w, req, err, "transport_upsert_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, item)
+}

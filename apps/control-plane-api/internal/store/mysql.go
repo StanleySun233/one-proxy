@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -769,6 +770,117 @@ func (s *MySQLStore) ListNodes() []domain.Node {
 	return items
 }
 
+func (s *MySQLStore) ListNodeTransports() []domain.NodeTransport {
+	rows, err := s.db.Query(
+		`SELECT id, node_id, transport_type, direction, address, status, COALESCE(parent_node_id, ''), COALESCE(connected_at, ''), COALESCE(last_heartbeat_at, ''), latency_ms, details_json
+		 FROM node_transports ORDER BY node_id, transport_type, address`,
+	)
+	if err != nil {
+		return s.syntheticPublicTransports(nil)
+	}
+	defer rows.Close()
+	items := make([]domain.NodeTransport, 0)
+	for rows.Next() {
+		var item domain.NodeTransport
+		var detailsJSON string
+		if err := rows.Scan(&item.ID, &item.NodeID, &item.TransportType, &item.Direction, &item.Address, &item.Status, &item.ParentNodeID, &item.ConnectedAt, &item.LastHeartbeatAt, &item.LatencyMs, &detailsJSON); err != nil {
+			continue
+		}
+		item.Details = decodeJSONMap(detailsJSON)
+		items = append(items, item)
+	}
+	return s.syntheticPublicTransports(items)
+}
+
+func (s *MySQLStore) syntheticPublicTransports(items []domain.NodeTransport) []domain.NodeTransport {
+	nodes := s.ListNodes()
+	healthByNodeID := make(map[string]domain.NodeHealth)
+	for _, health := range s.ListNodeHealth() {
+		healthByNodeID[health.NodeID] = health
+	}
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		seen[item.NodeID+"|"+item.TransportType+"|"+item.Address] = struct{}{}
+	}
+	for _, node := range nodes {
+		if node.PublicHost == "" || node.PublicPort <= 0 {
+			continue
+		}
+		address := fmt.Sprintf("http://%s:%d", node.PublicHost, node.PublicPort)
+		key := node.ID + "|public_http|" + address
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		status := "available"
+		lastHeartbeat := ""
+		if health, ok := healthByNodeID[node.ID]; ok {
+			lastHeartbeat = health.HeartbeatAt
+			if node.Status == "healthy" {
+				status = "connected"
+			} else {
+				status = node.Status
+			}
+		}
+		items = append(items, domain.NodeTransport{
+			ID:              "derived-public-" + node.ID,
+			NodeID:          node.ID,
+			TransportType:   "public_http",
+			Direction:       "inbound",
+			Address:         address,
+			Status:          status,
+			ConnectedAt:     lastHeartbeat,
+			LastHeartbeatAt: lastHeartbeat,
+			LatencyMs:       0,
+			Details:         map[string]string{"source": "derived_public_endpoint"},
+		})
+	}
+	return items
+}
+
+func (s *MySQLStore) UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error) {
+	id := newID("transport")
+	now := nowRFC3339()
+	detailsJSON := encodeJSONMap(input.Details)
+	existingID := ""
+	_ = s.db.QueryRow(
+		`SELECT id FROM node_transports WHERE node_id = ? AND transport_type = ? AND address = ? LIMIT 1`,
+		input.NodeID, input.TransportType, input.Address,
+	).Scan(&existingID)
+	if existingID != "" {
+		id = existingID
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO node_transports (id, node_id, transport_type, direction, address, status, parent_node_id, connected_at, last_heartbeat_at, latency_ms, details_json, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE
+		   direction = VALUES(direction),
+		   status = VALUES(status),
+		   parent_node_id = VALUES(parent_node_id),
+		   connected_at = VALUES(connected_at),
+		   last_heartbeat_at = VALUES(last_heartbeat_at),
+		   latency_ms = VALUES(latency_ms),
+		   details_json = VALUES(details_json),
+		   updated_at = VALUES(updated_at)`,
+		id, input.NodeID, input.TransportType, input.Direction, input.Address, input.Status, input.ParentNodeID, input.ConnectedAt, input.LastHeartbeatAt, input.LatencyMs, detailsJSON, now, now,
+	)
+	if err != nil {
+		return domain.NodeTransport{}, err
+	}
+	return domain.NodeTransport{
+		ID:              id,
+		NodeID:          input.NodeID,
+		TransportType:   input.TransportType,
+		Direction:       input.Direction,
+		Address:         input.Address,
+		Status:          input.Status,
+		ParentNodeID:    input.ParentNodeID,
+		ConnectedAt:     input.ConnectedAt,
+		LastHeartbeatAt: input.LastHeartbeatAt,
+		LatencyMs:       input.LatencyMs,
+		Details:         input.Details,
+	}, nil
+}
+
 func (s *MySQLStore) CreateNode(input domain.CreateNodeInput) (domain.Node, error) {
 	item := domain.Node{
 		ID:           newID("node"),
@@ -957,6 +1069,56 @@ func (s *MySQLStore) ListChains() []domain.Chain {
 		items = append(items, item)
 	}
 	return items
+}
+
+func (s *MySQLStore) GetChainProbeResult(chainID string) (domain.ChainProbeResult, bool) {
+	var item domain.ChainProbeResult
+	var hopsJSON string
+	err := s.db.QueryRow(
+		`SELECT chain_id, status, message, resolved_hops_json, COALESCE(blocking_node_id, ''), COALESCE(blocking_reason, ''), COALESCE(target_host, ''), target_port, probed_at
+		 FROM chain_probe_results WHERE chain_id = ?`,
+		chainID,
+	).Scan(&item.ChainID, &item.Status, &item.Message, &hopsJSON, &item.BlockingNodeID, &item.BlockingReason, &item.TargetHost, &item.TargetPort, &item.ProbedAt)
+	if err != nil {
+		return domain.ChainProbeResult{}, false
+	}
+	_ = json.Unmarshal([]byte(hopsJSON), &item.ResolvedHops)
+	return item, true
+}
+
+func (s *MySQLStore) SaveChainProbeResult(input domain.SaveChainProbeResultInput) (domain.ChainProbeResult, error) {
+	hopsJSON, err := json.Marshal(input.ResolvedHops)
+	if err != nil {
+		return domain.ChainProbeResult{}, err
+	}
+	_, err = s.db.Exec(
+		`INSERT INTO chain_probe_results (chain_id, status, message, resolved_hops_json, blocking_node_id, blocking_reason, target_host, target_port, probed_at)
+		 VALUES (?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?)
+		 ON DUPLICATE KEY UPDATE
+		   status = VALUES(status),
+		   message = VALUES(message),
+		   resolved_hops_json = VALUES(resolved_hops_json),
+		   blocking_node_id = VALUES(blocking_node_id),
+		   blocking_reason = VALUES(blocking_reason),
+		   target_host = VALUES(target_host),
+		   target_port = VALUES(target_port),
+		   probed_at = VALUES(probed_at)`,
+		input.ChainID, input.Status, input.Message, string(hopsJSON), input.BlockingNodeID, input.BlockingReason, input.TargetHost, input.TargetPort, input.ProbedAt,
+	)
+	if err != nil {
+		return domain.ChainProbeResult{}, err
+	}
+	return domain.ChainProbeResult{
+		ChainID:        input.ChainID,
+		Status:         input.Status,
+		Message:        input.Message,
+		ResolvedHops:   input.ResolvedHops,
+		BlockingNodeID: input.BlockingNodeID,
+		BlockingReason: input.BlockingReason,
+		TargetHost:     input.TargetHost,
+		TargetPort:     input.TargetPort,
+		ProbedAt:       input.ProbedAt,
+	}, nil
 }
 
 func (s *MySQLStore) loadChainHops(chainID string) []string {

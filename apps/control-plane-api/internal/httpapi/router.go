@@ -49,6 +49,7 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/node-onboarding-tasks/", r.requireAccount(r.handleNodeOnboardingTaskByID))
 	r.mux.HandleFunc("/api/v1/nodes", r.requireAccount(r.handleNodes))
 	r.mux.HandleFunc("/api/v1/nodes/", r.requireAccount(r.handleNodeByID))
+	r.mux.HandleFunc("/api/v1/node-transports", r.requireAccount(r.handleNodeTransports))
 	r.mux.HandleFunc("/api/v1/nodes/connect", r.requireAccount(r.handleNodeConnect))
 	r.mux.HandleFunc("/api/v1/nodes/approve/", r.requireAccount(r.handleNodeApprove))
 	r.mux.HandleFunc("/api/v1/nodes/bootstrap-token", r.requireAccount(r.handleNodeBootstrapToken))
@@ -65,4 +66,5 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/node-agent/policy", r.requireNode(r.handleNodeAgentPolicy))
 	r.mux.HandleFunc("/api/v1/node-agent/heartbeat", r.requireNode(r.handleNodeAgentHeartbeat))
 	r.mux.HandleFunc("/api/v1/node-agent/cert/renew", r.requireNode(r.handleNodeAgentCertRenew))
+	r.mux.HandleFunc("/api/v1/node-agent/transports", r.requireNode(r.handleNodeAgentTransport))
 }

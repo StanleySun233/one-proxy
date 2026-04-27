@@ -193,3 +193,36 @@ CREATE TABLE IF NOT EXISTS node_onboarding_tasks (
   CONSTRAINT fk_node_onboarding_tasks_target_node_id FOREIGN KEY (target_node_id) REFERENCES nodes(id),
   CONSTRAINT fk_node_onboarding_tasks_requested_by_account_id FOREIGN KEY (requested_by_account_id) REFERENCES accounts(id)
 );
+
+CREATE TABLE IF NOT EXISTS node_transports (
+  id VARCHAR(191) PRIMARY KEY,
+  node_id VARCHAR(191) NOT NULL,
+  transport_type VARCHAR(64) NOT NULL,
+  direction VARCHAR(32) NOT NULL,
+  address VARCHAR(255) NOT NULL,
+  status VARCHAR(64) NOT NULL,
+  parent_node_id VARCHAR(191),
+  connected_at VARCHAR(64),
+  last_heartbeat_at VARCHAR(64),
+  latency_ms INT NOT NULL DEFAULT 0,
+  details_json LONGTEXT NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  UNIQUE KEY uniq_node_transports_node_type_address (node_id, transport_type, address),
+  CONSTRAINT fk_node_transports_node_id FOREIGN KEY (node_id) REFERENCES nodes(id),
+  CONSTRAINT fk_node_transports_parent_node_id FOREIGN KEY (parent_node_id) REFERENCES nodes(id)
+);
+
+CREATE TABLE IF NOT EXISTS chain_probe_results (
+  chain_id VARCHAR(191) PRIMARY KEY,
+  status VARCHAR(64) NOT NULL,
+  message VARCHAR(255) NOT NULL,
+  resolved_hops_json LONGTEXT NOT NULL,
+  blocking_node_id VARCHAR(191),
+  blocking_reason VARCHAR(255),
+  target_host VARCHAR(255),
+  target_port INT NOT NULL DEFAULT 0,
+  probed_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_chain_probe_results_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id),
+  CONSTRAINT fk_chain_probe_results_blocking_node_id FOREIGN KEY (blocking_node_id) REFERENCES nodes(id)
+);

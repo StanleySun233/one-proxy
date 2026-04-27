@@ -26,11 +26,15 @@ type Store interface {
 	RefreshSession(refreshToken string) (domain.LoginResult, bool)
 	Logout(accessToken string) bool
 	ListNodes() []domain.Node
+	ListNodeTransports() []domain.NodeTransport
+	UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error)
 	CreateNode(input domain.CreateNodeInput) (domain.Node, error)
 	ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrollmentResult, error)
 	UpdateNode(nodeID string, input domain.UpdateNodeInput) (domain.Node, error)
 	DeleteNode(nodeID string) error
 	ListChains() []domain.Chain
+	GetChainProbeResult(chainID string) (domain.ChainProbeResult, bool)
+	SaveChainProbeResult(input domain.SaveChainProbeResultInput) (domain.ChainProbeResult, error)
 	CreateChain(input domain.CreateChainInput) (domain.Chain, error)
 	UpdateChain(chainID string, input domain.UpdateChainInput) (domain.Chain, error)
 	DeleteChain(chainID string) error

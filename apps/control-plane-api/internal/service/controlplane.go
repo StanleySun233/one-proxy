@@ -61,6 +61,17 @@ func (c *ControlPlane) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.
 	return c.store.CreateNodeLink(input)
 }
 
+func (c *ControlPlane) NodeTransports() []domain.NodeTransport {
+	return c.store.ListNodeTransports()
+}
+
+func (c *ControlPlane) UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error) {
+	if input.NodeID == "" || input.TransportType == "" || input.Direction == "" || input.Address == "" || input.Status == "" {
+		return domain.NodeTransport{}, invalidInput("invalid_node_transport_payload")
+	}
+	return c.store.UpsertNodeTransport(input)
+}
+
 func (c *ControlPlane) NodeAccessPaths() []domain.NodeAccessPath {
 	return c.store.ListNodeAccessPaths()
 }
@@ -284,6 +295,82 @@ func (c *ControlPlane) Chains() []domain.Chain {
 	return c.store.ListChains()
 }
 
+func (c *ControlPlane) LatestChainProbe(chainID string) (domain.ChainProbeResult, bool) {
+	if chainID == "" {
+		return domain.ChainProbeResult{}, false
+	}
+	return c.store.GetChainProbeResult(chainID)
+}
+
+func (c *ControlPlane) ProbeChain(chainID string) (domain.ChainProbeResult, error) {
+	if chainID == "" {
+		return domain.ChainProbeResult{}, invalidInput("missing_chain_id")
+	}
+	chain, ok := chainByID(c.store.ListChains(), chainID)
+	if !ok {
+		return domain.ChainProbeResult{}, invalidInput("invalid_chain_id")
+	}
+	nodes := c.store.ListNodes()
+	transports := c.store.ListNodeTransports()
+	result := domain.ChainProbeResult{
+		ChainID:      chainID,
+		Status:       "connected",
+		Message:      "chain_transport_ready",
+		ResolvedHops: make([]domain.ChainProbeHop, 0, len(chain.Hops)),
+		ProbedAt:     time.Now().UTC().Format(time.RFC3339),
+	}
+	prevHopID := ""
+	for _, hopID := range chain.Hops {
+		node, ok := nodeByID(nodes, hopID)
+		if !ok || !node.Enabled {
+			result.Status = "failed"
+			result.Message = "chain_blocked"
+			result.BlockingNodeID = hopID
+			result.BlockingReason = "unknown_or_disabled_node"
+			return c.store.SaveChainProbeResult(toChainProbeInput(result))
+		}
+		transport, ok := resolveProbeTransport(node, prevHopID, transports)
+		if !ok {
+			result.Status = "failed"
+			result.Message = "chain_blocked"
+			result.BlockingNodeID = node.ID
+			if prevHopID == "" {
+				result.BlockingReason = "missing_entry_transport"
+			} else {
+				result.BlockingReason = "missing_parent_transport"
+			}
+			return c.store.SaveChainProbeResult(toChainProbeInput(result))
+		}
+		result.ResolvedHops = append(result.ResolvedHops, domain.ChainProbeHop{
+			NodeID:        node.ID,
+			NodeName:      node.Name,
+			TransportType: transport.TransportType,
+			Address:       transport.Address,
+			Status:        transport.Status,
+		})
+		prevHopID = node.ID
+	}
+	if len(result.ResolvedHops) > 0 && (result.ResolvedHops[0].TransportType == "public_http" || result.ResolvedHops[0].TransportType == "public_https") {
+		probeResult, err := controlrelay.Execute(result.ResolvedHops[0].Address, controlrelay.ProbeRequest{
+			RemainingHopNodeIDs: chain.Hops[1:],
+		})
+		if err != nil {
+			result.Status = "failed"
+			result.Message = "chain_probe_failed"
+			result.BlockingNodeID = chain.Hops[0]
+			result.BlockingReason = "probe_dispatch_failed"
+			return c.store.SaveChainProbeResult(toChainProbeInput(result))
+		}
+		result.Status = probeResult.Status
+		result.Message = probeResult.Message
+		if probeResult.Status != "connected" && result.BlockingReason == "" && len(chain.Hops) > 0 {
+			result.BlockingNodeID = chain.Hops[len(chain.Hops)-1]
+			result.BlockingReason = probeResult.Message
+		}
+	}
+	return c.store.SaveChainProbeResult(toChainProbeInput(result))
+}
+
 func (c *ControlPlane) CreateChain(input domain.CreateChainInput) (domain.Chain, error) {
 	if input.Name == "" || input.DestinationScope == "" || len(input.Hops) == 0 {
 		return domain.Chain{}, invalidInput("invalid_chain_payload")
@@ -329,6 +416,45 @@ func (c *ControlPlane) DeleteRouteRule(ruleID string) error {
 
 func (c *ControlPlane) NodeHealth() []domain.NodeHealth {
 	return c.store.ListNodeHealth()
+}
+
+func toChainProbeInput(result domain.ChainProbeResult) domain.SaveChainProbeResultInput {
+	return domain.SaveChainProbeResultInput{
+		ChainID:        result.ChainID,
+		Status:         result.Status,
+		Message:        result.Message,
+		ResolvedHops:   result.ResolvedHops,
+		BlockingNodeID: result.BlockingNodeID,
+		BlockingReason: result.BlockingReason,
+		TargetHost:     result.TargetHost,
+		TargetPort:     result.TargetPort,
+		ProbedAt:       result.ProbedAt,
+	}
+}
+
+func resolveProbeTransport(node domain.Node, prevHopID string, transports []domain.NodeTransport) (domain.NodeTransport, bool) {
+	if prevHopID != "" {
+		for _, transport := range transports {
+			if transport.NodeID != node.ID || transport.ParentNodeID != prevHopID {
+				continue
+			}
+			if transport.Status != "connected" {
+				continue
+			}
+			if strings.HasPrefix(transport.TransportType, "reverse_ws") || strings.HasPrefix(transport.TransportType, "child_ws") {
+				return transport, true
+			}
+		}
+	}
+	for _, transport := range transports {
+		if transport.NodeID != node.ID {
+			continue
+		}
+		if transport.TransportType == "public_https" || transport.TransportType == "public_http" {
+			return transport, true
+		}
+	}
+	return domain.NodeTransport{}, false
 }
 
 func (c *ControlPlane) CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error) {
@@ -406,6 +532,11 @@ func (c *ControlPlane) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (dom
 		return domain.NodeHealth{}, invalidInput("missing_node_id")
 	}
 	return c.store.UpsertNodeHeartbeat(input)
+}
+
+func (c *ControlPlane) UpsertNodeAgentTransport(nodeID string, input domain.UpsertNodeTransportInput) (domain.NodeTransport, error) {
+	input.NodeID = nodeID
+	return c.UpsertNodeTransport(input)
 }
 
 func (c *ControlPlane) RenewNodeCertificate(input domain.NodeCertRenewInput) (domain.NodeCertRenewResult, error) {
@@ -689,4 +820,13 @@ func nodeByID(items []domain.Node, nodeID string) (domain.Node, bool) {
 		}
 	}
 	return domain.Node{}, false
+}
+
+func chainByID(items []domain.Chain, chainID string) (domain.Chain, bool) {
+	for _, item := range items {
+		if item.ID == chainID {
+			return item, true
+		}
+	}
+	return domain.Chain{}, false
 }

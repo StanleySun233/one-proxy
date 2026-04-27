@@ -109,6 +109,24 @@ func (c *Client) RenewCertificate(certType string) (domain.NodeCertRenewResult, 
 	return envelope.Data, nil
 }
 
+func (c *Client) UpsertTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error) {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return domain.NodeTransport{}, err
+	}
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/v1/node-agent/transports", bytes.NewReader(body))
+	if err != nil {
+		return domain.NodeTransport{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+	var envelope responseEnvelope[domain.NodeTransport]
+	if err := c.do(req, &envelope); err != nil {
+		return domain.NodeTransport{}, err
+	}
+	return envelope.Data, nil
+}
+
 func (c *Client) ExchangeEnrollment(nodeID string, enrollmentSecret string) (domain.ApproveNodeEnrollmentResult, error) {
 	body, err := json.Marshal(domain.ExchangeNodeEnrollmentInput{
 		NodeID:           nodeID,

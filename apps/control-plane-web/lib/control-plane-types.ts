@@ -54,6 +54,20 @@ export type NodeLink = {
   trustState: string;
 };
 
+export type NodeTransport = {
+  id: string;
+  nodeId: string;
+  transportType: string;
+  direction: string;
+  address: string;
+  status: string;
+  parentNodeId: string;
+  connectedAt: string;
+  lastHeartbeatAt: string;
+  latencyMs: number;
+  details: Record<string, string>;
+};
+
 export type NodeAccessPath = {
   id: string;
   name: string;
@@ -86,6 +100,26 @@ export type Chain = {
   destinationScope: string;
   enabled: boolean;
   hops: string[];
+};
+
+export type ChainProbeHop = {
+  nodeId: string;
+  nodeName: string;
+  transportType: string;
+  address: string;
+  status: string;
+};
+
+export type ChainProbeResult = {
+  chainId: string;
+  status: string;
+  message: string;
+  resolvedHops: ChainProbeHop[];
+  blockingNodeId: string;
+  blockingReason: string;
+  targetHost: string;
+  targetPort: number;
+  probedAt: string;
 };
 
 export type RouteRule = {

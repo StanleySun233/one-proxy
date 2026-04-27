@@ -60,6 +60,33 @@ type NodeHealth struct {
 	CertStatus       map[string]string `json:"certStatus"`
 }
 
+type NodeTransport struct {
+	ID              string            `json:"id"`
+	NodeID          string            `json:"nodeId"`
+	TransportType   string            `json:"transportType"`
+	Direction       string            `json:"direction"`
+	Address         string            `json:"address"`
+	Status          string            `json:"status"`
+	ParentNodeID    string            `json:"parentNodeId"`
+	ConnectedAt     string            `json:"connectedAt"`
+	LastHeartbeatAt string            `json:"lastHeartbeatAt"`
+	LatencyMs       int               `json:"latencyMs"`
+	Details         map[string]string `json:"details"`
+}
+
+type UpsertNodeTransportInput struct {
+	NodeID          string            `json:"nodeId"`
+	TransportType   string            `json:"transportType"`
+	Direction       string            `json:"direction"`
+	Address         string            `json:"address"`
+	Status          string            `json:"status"`
+	ParentNodeID    string            `json:"parentNodeId"`
+	ConnectedAt     string            `json:"connectedAt"`
+	LastHeartbeatAt string            `json:"lastHeartbeatAt"`
+	LatencyMs       int               `json:"latencyMs"`
+	Details         map[string]string `json:"details"`
+}
+
 type NodeCertRenewInput struct {
 	NodeID   string `json:"nodeId"`
 	CertType string `json:"certType"`

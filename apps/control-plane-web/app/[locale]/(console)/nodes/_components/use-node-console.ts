@@ -5,7 +5,19 @@ import {useForm} from 'react-hook-form';
 import {toast} from 'sonner';
 
 import {useAuth} from '@/components/auth-provider';
-import {approveNode, connectNode, createBootstrapToken, createNode, deleteNode, getNodeHealth, getNodeLinks, getNodes, updateNode} from '@/lib/control-plane-api';
+import {BootstrapToken} from '@/lib/control-plane-types';
+import {
+  approveNode,
+  connectNode,
+  createBootstrapToken,
+  createNode,
+  deleteNode,
+  getNodeHealth,
+  getNodeLinks,
+  getNodes,
+  getNodeTransports,
+  updateNode
+} from '@/lib/control-plane-api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 import {BootstrapFormValues, NodeFormValues, QuickConnectFormValues} from './types';
@@ -37,7 +49,7 @@ export function useNodeConsole() {
       parentNodeId: '',
       publicHost: '',
       publicPort: '',
-      controlPlaneUrl: typeof window === 'undefined' ? 'http://127.0.0.1:2887' : `${window.location.protocol}//${window.location.hostname}:2887`
+      controlPlaneUrl: ''
     }
   });
 
@@ -62,6 +74,13 @@ export function useNodeConsole() {
   const healthQuery = useQuery({
     queryKey: ['node-health', accessToken],
     queryFn: () => getNodeHealth(accessToken),
+    enabled: !!accessToken,
+    refetchInterval: 5000
+  });
+
+  const transportsQuery = useQuery({
+    queryKey: ['node-transports', accessToken],
+    queryFn: () => getNodeTransports(accessToken),
     enabled: !!accessToken,
     refetchInterval: 5000
   });
@@ -102,6 +121,7 @@ export function useNodeConsole() {
       toast.success(`node connected ${result.node.id}`);
       queryClient.invalidateQueries({queryKey: ['nodes']});
       queryClient.invalidateQueries({queryKey: ['node-links']});
+      queryClient.invalidateQueries({queryKey: ['node-transports']});
       quickConnectForm.reset({
         address: '',
         password: '',
@@ -126,7 +146,7 @@ export function useNodeConsole() {
       toast.success('bootstrap token created');
       bootstrapForm.reset();
       bootstrapForm.setValue('targetId', '');
-      queryClient.setQueryData(['latest-bootstrap-token'], result.token);
+      queryClient.setQueryData(['latest-bootstrap-token'], result);
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -139,6 +159,7 @@ export function useNodeConsole() {
       toast.success('node approved');
       queryClient.invalidateQueries({queryKey: ['nodes']});
       queryClient.invalidateQueries({queryKey: ['node-links']});
+      queryClient.invalidateQueries({queryKey: ['node-transports']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -165,6 +186,7 @@ export function useNodeConsole() {
       toast.success('node updated');
       queryClient.invalidateQueries({queryKey: ['nodes']});
       queryClient.invalidateQueries({queryKey: ['node-links']});
+      queryClient.invalidateQueries({queryKey: ['node-transports']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -177,6 +199,7 @@ export function useNodeConsole() {
       toast.success('node deleted');
       queryClient.invalidateQueries({queryKey: ['nodes']});
       queryClient.invalidateQueries({queryKey: ['node-links']});
+      queryClient.invalidateQueries({queryKey: ['node-transports']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -191,7 +214,8 @@ export function useNodeConsole() {
     nodesQuery,
     linksQuery,
     healthQuery,
-    latestToken: (queryClient.getQueryData(['latest-bootstrap-token']) as string | undefined) || '',
+    transportsQuery,
+    latestToken: (queryClient.getQueryData(['latest-bootstrap-token']) as BootstrapToken | undefined) || null,
     createNode: createNodeMutation,
     quickConnect: quickConnectMutation,
     bootstrap: bootstrapMutation,

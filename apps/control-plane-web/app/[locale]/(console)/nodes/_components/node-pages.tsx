@@ -4,7 +4,7 @@ import {ReactNode, useEffect, useMemo, useState} from 'react';
 
 import {AuthGate} from '@/components/auth-gate';
 import {AsyncState} from '@/components/async-state';
-import {Node, NodeHealth, NodeLink} from '@/lib/control-plane-types';
+import {Node, NodeHealth, NodeLink, NodeTransport} from '@/lib/control-plane-types';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 import {BootstrapTokenTab} from './bootstrap-token-tab';
@@ -114,7 +114,28 @@ export function NodeBootstrapPageContent() {
 export function NodeApprovalsPageContent() {
   const nodeConsole = useNodeConsole();
   const nodes = nodeConsole.nodesQuery.data || [];
-  const pendingNodes = nodes.filter((node) => node.status === 'pending');
+  const healthRows = nodeConsole.healthQuery.data || [];
+  const healthByNodeID = useMemo(() => new Map(healthRows.map((item) => [item.nodeId, item])), [healthRows]);
+  const inFlightNodes = useMemo(
+    () =>
+      nodes
+        .map((node) => {
+          const health = healthByNodeID.get(node.id);
+          const derivedHealth = deriveNodeHealthState(health);
+          const requiresApproval = node.status === 'pending';
+          const waitingForHeartbeat = !requiresApproval && derivedHealth.status === 'unreported';
+          return {
+            ...node,
+            derivedHealthStatus: derivedHealth.status,
+            derivedHealthLabel: derivedHealth.label,
+            heartbeatAt: health?.heartbeatAt || '',
+            requiresApproval,
+            waitingForHeartbeat
+          };
+        })
+        .filter((node) => node.requiresApproval || node.waitingForHeartbeat),
+    [healthByNodeID, nodes]
+  );
 
   return (
     <AuthGate>
@@ -123,35 +144,72 @@ export function NodeApprovalsPageContent() {
           <div className="panel-toolbar">
             <div>
               <p className="section-kicker">Approvals</p>
-              <h3>Pending node approvals</h3>
-              <p className="section-copy">Review nodes waiting for trust material and control-plane binding.</p>
+              <h3>In-flight node enrollments</h3>
+              <p className="section-copy">Review nodes waiting for approval or still not reporting any heartbeat after record creation.</p>
             </div>
-            <span className="badge">{pendingNodes.length}</span>
+            <span className="badge">{inFlightNodes.length}</span>
           </div>
-          {nodeConsole.nodesQuery.isPending ? (
-            <AsyncState detail="Loading" title="Loading pending approvals" />
+          {nodeConsole.nodesQuery.isPending || nodeConsole.healthQuery.isPending ? (
+            <AsyncState detail="Loading" title="Loading in-flight enrollments" />
           ) : nodeConsole.nodesQuery.error ? (
             <AsyncState
               actionLabel="Retry"
               detail={formatControlPlaneError(nodeConsole.nodesQuery.error)}
               onAction={() => void nodeConsole.nodesQuery.refetch()}
-              title="Failed to load pending approvals"
+              title="Failed to load in-flight enrollments"
             />
-          ) : pendingNodes.length === 0 ? (
-            <AsyncState detail="No nodes are waiting for approval." title="Empty" />
+          ) : nodeConsole.healthQuery.error ? (
+            <AsyncState
+              actionLabel="Retry"
+              detail={formatControlPlaneError(nodeConsole.healthQuery.error)}
+              onAction={() => void nodeConsole.healthQuery.refetch()}
+              title="Failed to load node health"
+            />
+          ) : inFlightNodes.length === 0 ? (
+            <AsyncState detail="No nodes are waiting for approval or initial heartbeat." title="Empty" />
           ) : (
             <div className="nodes-list-grid">
-              {pendingNodes.map((node) => (
-                <NodeCard action={
-                  <button
-                    className="secondary-button"
-                    disabled={nodeConsole.approve.isPending}
-                    onClick={() => nodeConsole.approve.mutate(node.id)}
-                    type="button"
-                  >
-                    Approve
-                  </button>
-                } key={node.id} node={node} />
+              {inFlightNodes.map((node) => (
+                <NodeCard
+                  action={
+                    <div className="node-card-actions">
+                      {node.requiresApproval ? (
+                        <button
+                          className="secondary-button"
+                          disabled={nodeConsole.approve.isPending}
+                          onClick={() => nodeConsole.approve.mutate(node.id)}
+                          type="button"
+                        >
+                          Approve
+                        </button>
+                      ) : null}
+                      <button
+                        className="danger-button"
+                        disabled={nodeConsole.deleteNode.isPending}
+                        onClick={() => {
+                          if (!window.confirm(`Delete node ${node.name} (${node.id})?`)) {
+                            return;
+                          }
+                          nodeConsole.deleteNode.mutate(node.id);
+                        }}
+                        type="button"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  }
+                  detail={
+                    <div className="node-approval-meta">
+                      <span className={node.requiresApproval ? 'badge is-warn' : 'badge is-neutral'}>
+                        {node.requiresApproval ? 'awaiting approval' : 'awaiting first heartbeat'}
+                      </span>
+                      <span className={healthBadgeClassName(node.derivedHealthStatus)}>{node.derivedHealthLabel}</span>
+                      <span className="muted-text">{node.heartbeatAt || 'heartbeat: never'}</span>
+                    </div>
+                  }
+                  key={node.id}
+                  node={node}
+                />
               ))}
             </div>
           )}
@@ -524,21 +582,48 @@ export function NodeTopologyPageContent() {
   const nodeConsole = useNodeConsole();
   const nodes = nodeConsole.nodesQuery.data || [];
   const links = nodeConsole.linksQuery.data || [];
+  const transports = nodeConsole.transportsQuery.data || [];
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const transportSummary = useMemo(
+    () => ({
+      publicEndpoints: transports.filter((item) => item.transportType === 'public_http' || item.transportType === 'public_https').length,
+      reverseConnected: transports.filter((item) => item.transportType === 'reverse_ws_parent' && item.status === 'connected').length,
+      reverseBlocked: transports.filter((item) => item.transportType === 'reverse_ws_parent' && item.status !== 'connected').length
+    }),
+    [transports]
+  );
 
   return (
     <AuthGate>
       <div className="page-stack">
+        <section className="metrics-grid">
+          <article className="metric-card panel-card">
+            <span className="metric-label">Public transports</span>
+            <strong>{transportSummary.publicEndpoints}</strong>
+            <span className="metric-foot">Directly reachable node entrypoints synthesized from public endpoint records.</span>
+          </article>
+          <article className="metric-card panel-card soft-card">
+            <span className="metric-label">Reverse tunnels up</span>
+            <strong>{transportSummary.reverseConnected}</strong>
+            <span className="metric-foot">Parent-child `reverse_ws_parent` sessions currently reporting connected.</span>
+          </article>
+          <article className="metric-card panel-card warm-card">
+            <span className="metric-label">Reverse tunnels blocked</span>
+            <strong>{transportSummary.reverseBlocked}</strong>
+            <span className="metric-foot">Configured reverse tunnels that are not currently connected.</span>
+          </article>
+        </section>
+
         <section className="panel-card">
           <div className="panel-toolbar">
             <div>
               <p className="section-kicker">Topology</p>
               <h3>Relay relationships</h3>
-              <p className="section-copy">Inspect parent-child and trust links between edge and relay nodes.</p>
+              <p className="section-copy">Inspect parent-child links together with live transport state to verify a → b → c tunnel overlays.</p>
             </div>
             <span className="badge">{links.length}</span>
           </div>
-          {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending ? (
+          {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending || nodeConsole.transportsQuery.isPending ? (
             <AsyncState detail="Loading" title="Loading topology links" />
           ) : nodeConsole.nodesQuery.error ? (
             <AsyncState
@@ -554,13 +639,60 @@ export function NodeTopologyPageContent() {
               onAction={() => void nodeConsole.linksQuery.refetch()}
               title="Failed to load topology links"
             />
+          ) : nodeConsole.transportsQuery.error ? (
+            <AsyncState
+              actionLabel="Retry"
+              detail={formatControlPlaneError(nodeConsole.transportsQuery.error)}
+              onAction={() => void nodeConsole.transportsQuery.refetch()}
+              title="Failed to load transport registry"
+            />
           ) : links.length === 0 ? (
             <AsyncState detail="Links appear after parent-child registration or relay trust setup." title="Empty" />
           ) : (
-            <div className="nodes-link-grid">
-              {links.map((link) => (
-                <NodeLinkCard key={link.id} link={link} nodesByID={nodesByID} />
-              ))}
+            <div className="topology-stack">
+              <div className="nodes-link-grid">
+                {links.map((link) => (
+                  <NodeLinkCard key={link.id} link={link} nodesByID={nodesByID} transports={transports} />
+                ))}
+              </div>
+              <div className="table-card">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Node</th>
+                      <th>Type</th>
+                      <th>Direction</th>
+                      <th>Status</th>
+                      <th>Address</th>
+                      <th>Parent</th>
+                      <th>Heartbeat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transports.length === 0 ? (
+                      <tr>
+                        <td className="muted-text" colSpan={7}>
+                          No runtime transports have been reported yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      transports.map((transport) => (
+                        <tr key={transport.id}>
+                          <td>{describeNodeName(transport.nodeId, nodesByID) || transport.nodeId}</td>
+                          <td className="mono">{transport.transportType}</td>
+                          <td>{transport.direction}</td>
+                          <td>
+                            <span className={transportBadgeClassName(transport.status)}>{transport.status}</span>
+                          </td>
+                          <td className="mono">{transport.address}</td>
+                          <td>{describeNodeName(transport.parentNodeId, nodesByID) || <span className="muted-text">root</span>}</td>
+                          <td className="mono">{transport.lastHeartbeatAt || <span className="muted-text">never</span>}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
@@ -569,7 +701,7 @@ export function NodeTopologyPageContent() {
   );
 }
 
-function NodeCard({node, action}: {node: Node; action?: ReactNode}) {
+function NodeCard({node, action, detail}: {node: Node; action?: ReactNode; detail?: ReactNode}) {
   return (
     <article className="node-record-card">
       <div className="stack-head">
@@ -580,6 +712,7 @@ function NodeCard({node, action}: {node: Node; action?: ReactNode}) {
         <span>{node.mode}</span>
         <span>{node.scopeKey || 'no-scope'}</span>
       </div>
+      {detail}
       <span className="mono">{node.id}</span>
       <span className="muted-text">{node.publicHost ? `${node.publicHost}:${node.publicPort}` : 'No public endpoint'}</span>
       {node.parentNodeId ? <span className="muted-text">parent: {node.parentNodeId}</span> : null}
@@ -639,7 +772,35 @@ function statusBadgeClassName(status: string) {
   return 'badge is-neutral';
 }
 
-function NodeLinkCard({link, nodesByID}: {link: NodeLink; nodesByID: Map<string, Node>}) {
+function transportBadgeClassName(status: string) {
+  if (status === 'connected' || status === 'ready') {
+    return 'badge is-good';
+  }
+  if (status === 'degraded' || status === 'failed') {
+    return 'badge is-danger';
+  }
+  if (status === 'pending') {
+    return 'badge is-warn';
+  }
+  return 'badge is-neutral';
+}
+
+function NodeLinkCard({
+  link,
+  nodesByID,
+  transports
+}: {
+  link: NodeLink;
+  nodesByID: Map<string, Node>;
+  transports: NodeTransport[];
+}) {
+  const childTunnel = transports.find(
+    (transport) =>
+      transport.nodeId === link.targetNodeId &&
+      transport.parentNodeId === link.sourceNodeId &&
+      transport.transportType === 'reverse_ws_parent'
+  );
+
   return (
     <article className="node-record-card">
       <div className="stack-head">
@@ -651,6 +812,15 @@ function NodeLinkCard({link, nodesByID}: {link: NodeLink; nodesByID: Map<string,
       <div className="nodes-ledger-meta">
         <span>{link.linkType}</span>
       </div>
+      {childTunnel ? (
+        <div className="node-approval-meta">
+          <span className={transportBadgeClassName(childTunnel.status)}>{childTunnel.status}</span>
+          <span className="mono">{childTunnel.transportType}</span>
+          <span className="muted-text">{childTunnel.lastHeartbeatAt || 'heartbeat: never'}</span>
+        </div>
+      ) : (
+        <span className="badge is-neutral">no active child tunnel</span>
+      )}
       <span className="muted-text">source: {link.sourceNodeId}</span>
       <span className="muted-text">target: {link.targetNodeId}</span>
       <span className="mono">{link.id}</span>

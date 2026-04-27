@@ -19,6 +19,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/proxy-node/internal/policystore"
 	"github.com/StanleySun233/python-proxy/apps/proxy-node/internal/proxy"
 	"github.com/StanleySun233/python-proxy/apps/proxy-node/internal/runtime"
+	"github.com/StanleySun233/python-proxy/apps/proxy-node/internal/tunnel"
 )
 
 func main() {
@@ -32,6 +33,11 @@ func main() {
 	certStatus := map[string]string{"internal": "healthy"}
 	managePublicCert := cfg.PublicCertProvider == "lets_encrypt" && cfg.NodeMode == "edge" && cfg.NodePublicHost != "" && cfg.LetsEncryptEmail != ""
 	manager := runtime.New(cfg.RuntimeConfigPath, store, interval, listenerStatus, certStatus, managePublicCert, cfg.NodeJoinPassword, !cfg.NodeJoinPasswordProvided)
+	tunnelInterval, tunnelErr := time.ParseDuration(cfg.NodeTunnelHeartbeat)
+	if tunnelErr != nil || tunnelInterval <= 0 {
+		tunnelInterval = 15 * time.Second
+	}
+	tunnelRegistry := tunnel.NewRegistry()
 	if cfg.ControlPlaneURL != "" && cfg.NodeAccessToken != "" && cfg.NodeID != "" {
 		if err := manager.Attach(runtime.Binding{
 			ControlPlaneURL: cfg.ControlPlaneURL,
@@ -94,12 +100,13 @@ func main() {
 			}
 		}
 	}
-	proxyHandler := proxy.NewServer(store, manager.NodeID)
+	proxyHandler := proxy.NewServer(store, manager.NodeID, tunnelRegistry)
 	mux := http.NewServeMux()
 	mux.Handle("/", proxyHandler)
 	httpHandler := http.Handler(mux)
-	mux.Handle("/api/v1/control-relay/probe", controlrelay.NewProbeHandler())
+	mux.Handle("/api/v1/control-relay/probe", controlrelay.NewProbeHandler(tunnelRegistry))
 	mux.Handle("/api/v1/node/bootstrap/attach", bootstrap.New(cfg.ListenAddr, cfg.HTTPSListenAddr, manager))
+	mux.Handle(cfg.NodeTunnelPath, tunnel.NewServer(manager, tunnelRegistry))
 	if manager.Bound() {
 		current := manager.Current()
 		forwarder, err := controlproxy.New(current.ControlPlaneURL)
@@ -140,6 +147,8 @@ func main() {
 			log.Fatal(httpsServer.ListenAndServeTLS("", ""))
 		}()
 	}
+	tunnelController := tunnel.NewController(manager, tunnelRegistry, cfg.NodeParentTunnelURL, cfg.NodeTunnelPath, tunnelInterval)
+	go tunnelController.Run()
 	go manager.Run()
 	server := &http.Server{
 		Addr:    cfg.ListenAddr,

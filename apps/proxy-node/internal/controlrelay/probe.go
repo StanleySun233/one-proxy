@@ -11,6 +11,7 @@ import (
 
 type ProbeRequest struct {
 	RemainingRelayURLs []string `json:"remainingRelayUrls"`
+	RemainingHopNodeIDs []string `json:"remainingHopNodeIds"`
 	TargetHost         string   `json:"targetHost"`
 	TargetPort         int      `json:"targetPort"`
 }

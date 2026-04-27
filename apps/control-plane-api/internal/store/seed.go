@@ -221,6 +221,26 @@ func (s *SeedStore) ListNodes() []domain.Node {
 	return []domain.Node{}
 }
 
+func (s *SeedStore) ListNodeTransports() []domain.NodeTransport {
+	return []domain.NodeTransport{}
+}
+
+func (s *SeedStore) UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error) {
+	return domain.NodeTransport{
+		ID:              newID("transport"),
+		NodeID:          input.NodeID,
+		TransportType:   input.TransportType,
+		Direction:       input.Direction,
+		Address:         input.Address,
+		Status:          input.Status,
+		ParentNodeID:    input.ParentNodeID,
+		ConnectedAt:     input.ConnectedAt,
+		LastHeartbeatAt: input.LastHeartbeatAt,
+		LatencyMs:       input.LatencyMs,
+		Details:         input.Details,
+	}, nil
+}
+
 func (s *SeedStore) CreateNode(input domain.CreateNodeInput) (domain.Node, error) {
 	return domain.Node{
 		ID:           fmt.Sprintf("node-%d", time.Now().UnixNano()),
@@ -272,6 +292,25 @@ func (s *SeedStore) DeleteNode(nodeID string) error {
 
 func (s *SeedStore) ListChains() []domain.Chain {
 	return []domain.Chain{}
+}
+
+func (s *SeedStore) GetChainProbeResult(chainID string) (domain.ChainProbeResult, bool) {
+	_ = chainID
+	return domain.ChainProbeResult{}, false
+}
+
+func (s *SeedStore) SaveChainProbeResult(input domain.SaveChainProbeResultInput) (domain.ChainProbeResult, error) {
+	return domain.ChainProbeResult{
+		ChainID:        input.ChainID,
+		Status:         input.Status,
+		Message:        input.Message,
+		ResolvedHops:   input.ResolvedHops,
+		BlockingNodeID: input.BlockingNodeID,
+		BlockingReason: input.BlockingReason,
+		TargetHost:     input.TargetHost,
+		TargetPort:     input.TargetPort,
+		ProbedAt:       input.ProbedAt,
+	}, nil
 }
 
 func (s *SeedStore) CreateChain(input domain.CreateChainInput) (domain.Chain, error) {

@@ -21,6 +21,8 @@ type RouteRuleFormValues = {
   destinationScope: string;
 };
 
+const matchTypeOptions = ['domain', 'domain_suffix', 'cidr'];
+
 export default function RoutesPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
@@ -38,6 +40,7 @@ export default function RoutesPage() {
     }
   });
   const actionType = form.watch('actionType');
+  const matchType = form.watch('matchType');
 
   const routeRulesQuery = useQuery({
     queryKey: ['route-rules', accessToken],
@@ -93,6 +96,8 @@ export default function RoutesPage() {
   const routeRules = routeRulesQuery.data || [];
   const policies = policiesQuery.data || [];
   const chains = chainsQuery.data || [];
+  const matchValuePlaceholder =
+    matchType === 'cidr' ? '198.51.100.0/24' : matchType === 'domain_suffix' ? '.internal.example.com' : 'service.internal.example.com';
 
   return (
     <AuthGate>
@@ -130,12 +135,17 @@ export default function RoutesPage() {
               </div>
               <div className="field-stack">
                 <span>Match type</span>
-                <input
+                <select
                   aria-invalid={form.formState.errors.matchType ? 'true' : 'false'}
-                  className="field-input"
-                  placeholder="domain"
+                  className="field-select"
                   {...form.register('matchType', {required: 'match type is required'})}
-                />
+                >
+                  {matchTypeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
                 {form.formState.errors.matchType ? <p className="error-text">{form.formState.errors.matchType.message}</p> : null}
               </div>
               <div className="field-stack">
@@ -143,7 +153,7 @@ export default function RoutesPage() {
                 <input
                   aria-invalid={form.formState.errors.matchValue ? 'true' : 'false'}
                   className="field-input"
-                  placeholder="internal.example.com"
+                  placeholder={matchValuePlaceholder}
                   {...form.register('matchValue', {required: 'match value is required'})}
                 />
                 {form.formState.errors.matchValue ? <p className="error-text">{form.formState.errors.matchValue.message}</p> : null}
@@ -178,7 +188,7 @@ export default function RoutesPage() {
                 <input
                   aria-invalid={form.formState.errors.destinationScope ? 'true' : 'false'}
                   className="field-input"
-                  placeholder="cn-hz-b"
+                  placeholder="target-scope"
                   {...form.register('destinationScope', {
                     validate: (value) => (actionType !== 'direct' || value.trim() !== '' ? true : 'destination scope is required for direct action')
                   })}

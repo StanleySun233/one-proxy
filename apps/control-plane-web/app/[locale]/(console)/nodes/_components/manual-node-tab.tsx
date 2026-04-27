@@ -29,7 +29,7 @@ export function ManualNodeTab({
       </div>
       <div className="field-stack">
         <span>Scope key</span>
-        <input className="field-input" placeholder="cn-hz-a" {...form.register('scopeKey', {required: 'scope key is required'})} />
+        <input className="field-input" placeholder="target-scope" {...form.register('scopeKey', {required: 'scope key is required'})} />
         {form.formState.errors.scopeKey ? <p className="error-text">{form.formState.errors.scopeKey.message}</p> : null}
       </div>
       <div className="field-stack">
@@ -38,7 +38,7 @@ export function ManualNodeTab({
       </div>
       <div className="field-stack">
         <span>Public host</span>
-        <input className="field-input" placeholder="127.0.0.1" {...form.register('publicHost')} />
+        <input className="field-input" placeholder="relay.example.com" {...form.register('publicHost')} />
       </div>
       <div className="field-stack">
         <span>Public port</span>

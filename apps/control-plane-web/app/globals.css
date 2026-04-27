@@ -712,6 +712,28 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.bootstrap-result-stack,
+.node-approval-meta,
+.node-card-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.command-block {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 78%, var(--panel-2) 22%);
+}
+
+.node-card-actions {
+  grid-template-columns: repeat(auto-fit, minmax(140px, max-content));
+}
+
 .chart-card {
   height: 320px;
   padding: 10px 4px 0;
@@ -724,7 +746,8 @@ button:disabled {
 .registry-stack,
 .registry-name-cell,
 .registry-actions,
-.node-editor-card {
+.node-editor-card,
+.topology-stack {
   display: grid;
   gap: 14px;
 }

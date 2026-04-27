@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/StanleySun233/python-proxy/apps/proxy-node/internal/tunnel"
 )
 
-func NewProbeHandler() http.HandlerFunc {
+func NewProbeHandler(registry *tunnel.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -18,16 +20,24 @@ func NewProbeHandler() http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		result, statusCode := runProbe(payload)
+		result, statusCode := runProbe(payload, registry)
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(statusCode)
 		_ = json.NewEncoder(w).Encode(result)
 	}
 }
 
-func runProbe(payload ProbeRequest) (ProbeResponse, int) {
+func runProbe(payload ProbeRequest, registry *tunnel.Registry) (ProbeResponse, int) {
+	if len(payload.RemainingHopNodeIDs) > 0 {
+		next := payload.RemainingHopNodeIDs[0]
+		response, err := registry.ForwardProbe(next, time.Now().UTC().Format(time.RFC3339Nano), payload.RemainingHopNodeIDs[1:], payload.TargetHost, payload.TargetPort)
+		if err != nil {
+			return ProbeResponse{Status: "failed", Message: "relay_unreachable"}, http.StatusBadGateway
+		}
+		return ProbeResponse{Status: response.Status, Message: response.Message}, http.StatusOK
+	}
 	if payload.TargetHost == "" || payload.TargetPort <= 0 {
-		return ProbeResponse{Status: "failed", Message: "invalid_target"}, http.StatusBadRequest
+		return ProbeResponse{Status: "connected", Message: "chain_reachable"}, http.StatusOK
 	}
 	if len(payload.RemainingRelayURLs) > 0 {
 		next := payload.RemainingRelayURLs[0]

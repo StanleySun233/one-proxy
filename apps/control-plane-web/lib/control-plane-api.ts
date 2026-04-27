@@ -4,12 +4,14 @@ import {
   BootstrapToken,
   Certificate,
   Chain,
+  ChainProbeResult,
   ConnectedNodeResult,
   LoginResult,
   Node,
   NodeAccessPath,
   NodeHealth,
   NodeLink,
+  NodeTransport,
   NodeOnboardingTask,
   Overview,
   PolicyRevision,
@@ -210,6 +212,10 @@ export function getNodeLinks(accessToken: string) {
   return request<NodeLink[]>('/node-links', {accessToken});
 }
 
+export function getNodeTransports(accessToken: string) {
+  return request<NodeTransport[]>('/node-transports', {accessToken});
+}
+
 export function createBootstrapToken(accessToken: string, payload: {targetType: string; targetId: string}) {
   return request<BootstrapToken>('/nodes/bootstrap-token', {
     method: 'POST',
@@ -321,6 +327,13 @@ export function createChain(accessToken: string, payload: {name: string; destina
     method: 'POST',
     accessToken,
     body: payload
+  });
+}
+
+export function probeChain(accessToken: string, chainID: string) {
+  return request<ChainProbeResult>(`/chains/${chainID}/probe`, {
+    method: 'POST',
+    accessToken
   });
 }
 

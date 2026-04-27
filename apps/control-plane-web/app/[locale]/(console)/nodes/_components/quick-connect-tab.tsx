@@ -17,7 +17,7 @@ export function QuickConnectTab({
     <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="field-stack">
         <span>Node address</span>
-        <input className="field-input" placeholder="127.0.0.1:2888" {...form.register('address', {required: 'node address is required'})} />
+        <input className="field-input" placeholder="relay.example.com:2888" {...form.register('address', {required: 'node address is required'})} />
         {form.formState.errors.address ? <p className="error-text">{form.formState.errors.address.message}</p> : null}
       </div>
       <div className="field-stack">
@@ -37,7 +37,7 @@ export function QuickConnectTab({
       </div>
       <div className="field-stack">
         <span>Scope key</span>
-        <input className="field-input" placeholder="scope-b" {...form.register('scopeKey', {required: 'scope key is required'})} />
+        <input className="field-input" placeholder="target-scope" {...form.register('scopeKey', {required: 'scope key is required'})} />
         {form.formState.errors.scopeKey ? <p className="error-text">{form.formState.errors.scopeKey.message}</p> : null}
       </div>
       <div className="field-stack">
@@ -61,7 +61,7 @@ export function QuickConnectTab({
       </div>
       <div className="field-stack nodes-form-full">
         <span>Control plane URL</span>
-        <input className="field-input" placeholder="http://127.0.0.1:2887" {...form.register('controlPlaneUrl', {required: 'control plane url is required'})} />
+        <input className="field-input" placeholder="https://panel.example.com" {...form.register('controlPlaneUrl', {required: 'control plane url is required'})} />
         {form.formState.errors.controlPlaneUrl ? <p className="error-text">{form.formState.errors.controlPlaneUrl.message}</p> : null}
       </div>
       <div className="submit-row nodes-form-full">

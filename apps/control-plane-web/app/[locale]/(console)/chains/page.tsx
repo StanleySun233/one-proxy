@@ -4,12 +4,14 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useForm} from 'react-hook-form';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
+import {useState} from 'react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createChain, getChains} from '@/lib/control-plane-api';
+import {createChain, getChains, probeChain} from '@/lib/control-plane-api';
+import {ChainProbeResult} from '@/lib/control-plane-types';
 import {formatControlPlaneError, splitList} from '@/lib/presentation';
 
 type ChainFormValues = {
@@ -31,6 +33,7 @@ export default function ChainsPage() {
       hops: ''
     }
   });
+  const [probeResults, setProbeResults] = useState<Record<string, ChainProbeResult>>({});
   const chainsQuery = useQuery({
     queryKey: ['chains', accessToken],
     queryFn: () => getChains(accessToken),
@@ -42,6 +45,16 @@ export default function ChainsPage() {
       toast.success('chain created');
       queryClient.invalidateQueries({queryKey: ['chains']});
       form.reset();
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+  const probeChainMutation = useMutation({
+    mutationFn: (chainID: string) => probeChain(accessToken, chainID),
+    onSuccess: (result) => {
+      toast.success(result.status === 'connected' ? 'chain probe ready' : 'chain probe blocked');
+      setProbeResults((current) => ({...current, [result.chainId]: result}));
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -82,7 +95,7 @@ export default function ChainsPage() {
                 <input
                   aria-invalid={form.formState.errors.destinationScope ? 'true' : 'false'}
                   className="field-input"
-                  placeholder="cn-hz-b"
+                  placeholder="target-scope"
                   {...form.register('destinationScope', {required: 'destination scope is required'})}
                 />
                 {form.formState.errors.destinationScope ? <p className="error-text">{form.formState.errors.destinationScope.message}</p> : null}
@@ -130,6 +143,32 @@ export default function ChainsPage() {
                     </div>
                     <span className="muted-text">{chain.destinationScope}</span>
                     <span className="mono">{chain.hops.join(' -> ')}</span>
+                    <div className="submit-row">
+                      <button
+                        className="secondary-button"
+                        disabled={probeChainMutation.isPending}
+                        onClick={() => probeChainMutation.mutate(chain.id)}
+                        type="button"
+                      >
+                        {probeChainMutation.isPending ? t('common.submitting') : 'Probe chain'}
+                      </button>
+                    </div>
+                    {probeResults[chain.id] ? (
+                      <div className="token-box">
+                        <strong>{probeResults[chain.id].status === 'connected' ? 'Transport ready' : 'Transport blocked'}</strong>
+                        <span className="field-hint">
+                          {probeResults[chain.id].blockingReason || probeResults[chain.id].message}
+                        </span>
+                        {probeResults[chain.id].resolvedHops.length > 0 ? (
+                          <span className="mono">
+                            {probeResults[chain.id].resolvedHops.map((hop) => `${hop.nodeName}:${hop.transportType}`).join(' -> ')}
+                          </span>
+                        ) : null}
+                        {probeResults[chain.id].blockingNodeId ? (
+                          <span className="muted-text">blocking node: {probeResults[chain.id].blockingNodeId}</span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

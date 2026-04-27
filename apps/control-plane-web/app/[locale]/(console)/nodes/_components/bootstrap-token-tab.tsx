@@ -1,7 +1,10 @@
 'use client';
 
+import {useMemo, useState} from 'react';
 import {UseFormReturn} from 'react-hook-form';
+import {toast} from 'sonner';
 
+import {BootstrapToken} from '@/lib/control-plane-types';
 import {BootstrapFormValues} from './types';
 
 export function BootstrapTokenTab({
@@ -12,9 +15,33 @@ export function BootstrapTokenTab({
 }: {
   form: UseFormReturn<BootstrapFormValues>;
   submitting: boolean;
-  latestToken: string;
+  latestToken: BootstrapToken | null;
   onSubmit: () => void;
 }) {
+  const [copied, setCopied] = useState('');
+  const controlPlaneURL = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+    return window.location.origin;
+  }, []);
+  const dockerCommand = useMemo(() => {
+    if (!latestToken) {
+      return '';
+    }
+    return `docker rm -f one-proxy-proxy-node >/dev/null 2>&1 || true && docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true && docker run -d --name one-proxy-proxy-node --restart unless-stopped -p 2888:2888 -p 2889:2889 -v one-proxy-node-runtime:/app/runtime -e CONTROL_PLANE_URL='${controlPlaneURL}' -e NODE_BOOTSTRAP_TOKEN='${latestToken.token}' -e NODE_NAME='node-name' -e NODE_SCOPE_KEY='scope-key' -e NODE_MODE='relay' -e NODE_JOIN_PASSWORD='password' -e TZ='Asia/Shanghai' ghcr.io/stanleysun233/one-proxy-proxy-node:latest`;
+  }, [controlPlaneURL, latestToken]);
+
+  async function copy(value: string, key: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(key);
+      toast.success('copied');
+    } catch {
+      toast.error('copy_failed');
+    }
+  }
+
   return (
     <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="field-stack nodes-form-full">
@@ -29,10 +56,27 @@ export function BootstrapTokenTab({
         <p className="field-hint">Remote node self-enroll flow for machines not directly reachable from the panel.</p>
       </div>
       {latestToken ? (
-        <div className="token-box nodes-form-full">
-          <strong>Bootstrap token</strong>
-          <span className="mono">{latestToken}</span>
-          <span className="field-hint">Run on the target machine after setting `CONTROL_PLANE_URL`, `NODE_BOOTSTRAP_TOKEN`, `NODE_NAME`, and `NODE_SCOPE_KEY`.</span>
+        <div className="bootstrap-result-stack nodes-form-full">
+          <div className="token-box">
+            <div className="stack-head">
+              <strong>Bootstrap token</strong>
+              <button className="secondary-button" onClick={() => void copy(latestToken.token, 'token')} type="button">
+                {copied === 'token' ? 'Copied' : 'Copy token'}
+              </button>
+            </div>
+            <span className="mono">{latestToken.token}</span>
+            <span className="field-hint">Token is shown once in this page state. Generate a new one if the machine was not enrolled.</span>
+          </div>
+          <div className="token-box">
+            <div className="stack-head">
+              <strong>Docker one-liner</strong>
+              <button className="secondary-button" onClick={() => void copy(dockerCommand, 'docker')} type="button">
+                {copied === 'docker' ? 'Copied' : 'Copy command'}
+              </button>
+            </div>
+            <code className="mono command-block">{dockerCommand}</code>
+            <span className="field-hint">Replace `NODE_NAME` and `NODE_SCOPE_KEY` before running on the target machine. The control-plane domain is taken from the current panel URL.</span>
+          </div>
         </div>
       ) : (
         <p className="field-hint nodes-form-full">Generate on demand. Token content is only kept in current page state.</p>

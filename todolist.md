@@ -95,3 +95,14 @@
 - [ ] implement node selection
 - [ ] implement profile sync
 - [ ] implement status display
+
+## Phase 6
+
+- [x] define reverse tunnel requirements
+- [x] define reverse tunnel architecture
+- [x] add transport-aware node runtime model
+- [x] add transport list API
+- [x] add chain probe API with blocking-hop diagnostics
+- [x] add parent-child reverse ws tunnel in proxy node
+- [x] add tunnel-backed multi-hop probe execution
+- [x] add tunnel-backed data stream forwarding

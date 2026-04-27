@@ -291,6 +291,65 @@ type Chain struct {
 	Hops             []string `json:"hops"`
 }
 
+type NodeTransport struct {
+	ID              string            `json:"id"`
+	NodeID          string            `json:"nodeId"`
+	TransportType   string            `json:"transportType"`
+	Direction       string            `json:"direction"`
+	Address         string            `json:"address"`
+	Status          string            `json:"status"`
+	ParentNodeID    string            `json:"parentNodeId"`
+	ConnectedAt     string            `json:"connectedAt"`
+	LastHeartbeatAt string            `json:"lastHeartbeatAt"`
+	LatencyMs       int               `json:"latencyMs"`
+	Details         map[string]string `json:"details"`
+}
+
+type UpsertNodeTransportInput struct {
+	NodeID          string            `json:"nodeId"`
+	TransportType   string            `json:"transportType"`
+	Direction       string            `json:"direction"`
+	Address         string            `json:"address"`
+	Status          string            `json:"status"`
+	ParentNodeID    string            `json:"parentNodeId"`
+	ConnectedAt     string            `json:"connectedAt"`
+	LastHeartbeatAt string            `json:"lastHeartbeatAt"`
+	LatencyMs       int               `json:"latencyMs"`
+	Details         map[string]string `json:"details"`
+}
+
+type ChainProbeHop struct {
+	NodeID        string `json:"nodeId"`
+	NodeName      string `json:"nodeName"`
+	TransportType string `json:"transportType"`
+	Address       string `json:"address"`
+	Status        string `json:"status"`
+}
+
+type ChainProbeResult struct {
+	ChainID         string          `json:"chainId"`
+	Status          string          `json:"status"`
+	Message         string          `json:"message"`
+	ResolvedHops    []ChainProbeHop `json:"resolvedHops"`
+	BlockingNodeID  string          `json:"blockingNodeId"`
+	BlockingReason  string          `json:"blockingReason"`
+	TargetHost      string          `json:"targetHost"`
+	TargetPort      int             `json:"targetPort"`
+	ProbedAt        string          `json:"probedAt"`
+}
+
+type SaveChainProbeResultInput struct {
+	ChainID         string          `json:"chainId"`
+	Status          string          `json:"status"`
+	Message         string          `json:"message"`
+	ResolvedHops    []ChainProbeHop `json:"resolvedHops"`
+	BlockingNodeID  string          `json:"blockingNodeId"`
+	BlockingReason  string          `json:"blockingReason"`
+	TargetHost      string          `json:"targetHost"`
+	TargetPort      int             `json:"targetPort"`
+	ProbedAt        string          `json:"probedAt"`
+}
+
 type RouteRule struct {
 	ID               string `json:"id"`
 	Priority         int    `json:"priority"`

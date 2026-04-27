@@ -399,7 +399,7 @@ export default function OnboardingPage() {
                 <input
                   aria-invalid={pathForm.formState.errors.name ? 'true' : 'false'}
                   className="field-input"
-                  placeholder="hk-entry-to-db"
+                  placeholder="gateway-to-db"
                   {...pathForm.register('name', {required: 'name is required'})}
                 />
                 {pathForm.formState.errors.name ? <p className="error-text">{pathForm.formState.errors.name.message}</p> : null}
@@ -445,7 +445,7 @@ export default function OnboardingPage() {
                 <input
                   aria-invalid={pathForm.formState.errors.targetHost ? 'true' : 'false'}
                   className="field-input"
-                  placeholder="10.10.0.12"
+                  placeholder="db.internal.example.com"
                   {...pathForm.register('targetHost', {
                     validate: (value) =>
                       pathMode === 'upstream_pull' || value.trim() !== '' ? true : 'target host is required for direct or relay_chain'
@@ -539,7 +539,7 @@ export default function OnboardingPage() {
                 <input
                   aria-invalid={taskForm.formState.errors.targetHost ? 'true' : 'false'}
                   className="field-input"
-                  placeholder="10.10.0.12"
+                  placeholder="db.internal.example.com"
                   {...taskForm.register('targetHost', {
                     validate: (value) => (taskMode !== 'direct' || value.trim() !== '' ? true : 'target host is required for direct mode')
                   })}
