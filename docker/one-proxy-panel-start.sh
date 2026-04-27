@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-ENV_FILE="${ENV_FILE_PATH:-./.env}"
+ENV_FILE="${ENV_FILE_PATH:-./data/.env}"
 if [ -f "$ENV_FILE" ]; then
     export $(grep -v '^\s*#' "$ENV_FILE" | grep -v '^\s*$' | xargs)
 fi

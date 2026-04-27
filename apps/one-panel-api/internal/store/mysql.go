@@ -1989,7 +1989,7 @@ func (s *MySQLStore) CreateGroup(input domain.CreateGroupInput) (domain.Group, e
 		UpdatedAt:   now,
 	}
 	_, err := s.db.Exec(
-		`INSERT INTO groups (id, name, description, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"INSERT INTO `groups` (id, name, description, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
 		item.ID, item.Name, item.Description, enabled, now, now,
 	)
 	return item, err
@@ -2012,7 +2012,7 @@ func (s *MySQLStore) UpdateGroup(id string, input domain.UpdateGroupInput) (doma
 	now := nowRFC3339()
 	group.UpdatedAt = now
 	_, err = s.db.Exec(
-		`UPDATE groups SET name = ?, description = ?, enabled = ?, updated_at = ? WHERE id = ?`,
+		"UPDATE `groups` SET name = ?, description = ?, enabled = ?, updated_at = ? WHERE id = ?",
 		group.Name, group.Description, boolToInt(group.Enabled), now, id,
 	)
 	if err != nil {
@@ -2026,7 +2026,7 @@ func (s *MySQLStore) DeleteGroup(id string) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.db.Exec("DELETE FROM groups WHERE id = ?", id)
+	_, err = s.db.Exec("DELETE FROM `groups` WHERE id = ?", id)
 	return err
 }
 
@@ -2034,7 +2034,7 @@ func (s *MySQLStore) GetGroup(id string) (domain.Group, error) {
 	var item domain.Group
 	var enabled int
 	err := s.db.QueryRow(
-		`SELECT id, name, COALESCE(description, ''), enabled, created_at, updated_at FROM groups WHERE id = ?`,
+		"SELECT id, name, COALESCE(description, ''), enabled, created_at, updated_at FROM `groups` WHERE id = ?",
 		id,
 	).Scan(&item.ID, &item.Name, &item.Description, &enabled, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
@@ -2046,7 +2046,7 @@ func (s *MySQLStore) GetGroup(id string) (domain.Group, error) {
 
 func (s *MySQLStore) ListGroups() ([]domain.Group, error) {
 	rows, err := s.db.Query(
-		`SELECT id, name, COALESCE(description, ''), enabled, created_at, updated_at FROM groups ORDER BY name`,
+		"SELECT id, name, COALESCE(description, ''), enabled, created_at, updated_at FROM `groups` ORDER BY name",
 	)
 	if err != nil {
 		return nil, err
@@ -2066,14 +2066,14 @@ func (s *MySQLStore) ListGroups() ([]domain.Group, error) {
 }
 
 func (s *MySQLStore) ListAccountGroups(accountID string) ([]domain.Group, error) {
-	rows, err := s.db.Query(
-		`SELECT g.id, g.name, COALESCE(g.description, ''), g.enabled, g.created_at, g.updated_at
-		 FROM groups g
-		 JOIN account_groups ag ON ag.group_id = g.id
-		 WHERE ag.account_id = ? AND g.enabled = 1
-		 ORDER BY g.name`,
-		accountID,
-	)
+		rows, err := s.db.Query(
+			"SELECT g.id, g.name, COALESCE(g.description, ''), g.enabled, g.created_at, g.updated_at"+
+			" FROM `groups` g"+
+			" JOIN account_groups ag ON ag.group_id = g.id"+
+			" WHERE ag.account_id = ? AND g.enabled = 1"+
+			" ORDER BY g.name",
+			accountID,
+		)
 	if err != nil {
 		return nil, err
 	}

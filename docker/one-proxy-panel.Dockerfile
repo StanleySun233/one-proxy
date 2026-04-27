@@ -29,7 +29,7 @@ COPY --from=web-builder /workspace/apps/one-proxy-panel/.next/static /app/.next/
 COPY --from=web-builder /workspace/apps/one-proxy-panel/public /app/public
 COPY docker/one-proxy-panel-start.sh /app/one-proxy-panel-start.sh
 
-RUN chmod +x /app/one-proxy-panel-start.sh
+RUN mkdir -p /app/data && chmod +x /app/one-proxy-panel-start.sh
 
 EXPOSE 2886
 

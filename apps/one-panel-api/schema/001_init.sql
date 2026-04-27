@@ -274,7 +274,7 @@ CREATE TABLE node_health_history (
   INDEX idx_history_time (heartbeat_at)
 );
 
-CREATE TABLE groups (
+CREATE TABLE `groups` (
   id VARCHAR(191) NOT NULL PRIMARY KEY,
   name VARCHAR(191) NOT NULL,
   description TEXT,
@@ -288,14 +288,14 @@ CREATE TABLE account_groups (
   group_id VARCHAR(191) NOT NULL,
   PRIMARY KEY (account_id, group_id),
   FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
-  FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+  FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE
 );
 
 CREATE TABLE group_scopes (
   group_id VARCHAR(191) NOT NULL,
   scope_key VARCHAR(191) NOT NULL,
   PRIMARY KEY (group_id, scope_key),
-  FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+  FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE
 );
 
 CREATE TABLE config (

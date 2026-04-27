@@ -28,7 +28,7 @@ func envOrDefault(key string, fallback string) string {
 	return value
 }
 
-const defaultEnvFilePath = "./.env"
+const defaultEnvFilePath = "./data/.env"
 
 func EnvFilePath() string {
 	path := os.Getenv("ENV_FILE_PATH")
