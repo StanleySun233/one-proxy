@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo, useState} from 'react';
+import {useCallback, useMemo, useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useForm} from 'react-hook-form';
 import {useTranslations} from 'next-intl';
@@ -21,7 +21,7 @@ import {
   updateNodeAccessPath,
   updateNodeOnboardingTaskStatus
 } from '@/lib/control-plane-api';
-import {Node, NodeAccessPath, NodeOnboardingTask} from '@/lib/control-plane-types';
+import {FieldEnumMap, Node, NodeAccessPath, NodeOnboardingTask} from '@/lib/control-plane-types';
 import {formatControlPlaneError, formatISODateTime, joinList, splitList} from '@/lib/presentation';
 
 type AccessPathFormValues = {
@@ -251,6 +251,7 @@ export default function OnboardingPage() {
     });
     return counts;
   }, [tasks]);
+  const taskStatusClassName = useCallback((status: string) => enums?.task_status?.[status]?.meta?.className, [enums]);
   const taskSummaryByPathID = useMemo(() => {
     const summaries = new Map<string, {pending: number; failed: number; connected: number}>();
     tasks.forEach((task) => {
@@ -258,24 +259,25 @@ export default function OnboardingPage() {
         return;
       }
       const current = summaries.get(task.pathId) || {pending: 0, failed: 0, connected: 0};
-      if (task.status === 'planned' || task.status === 'pending') {
+      const className = taskStatusClassName(task.status);
+      if (className === 'is-warn') {
         current.pending += 1;
-      } else if (task.status === 'failed') {
+      } else if (className === 'is-danger') {
         current.failed += 1;
-      } else if (task.status === 'connected') {
+      } else if (className === 'is-good') {
         current.connected += 1;
       }
       summaries.set(task.pathId, current);
     });
     return summaries;
-  }, [tasks]);
+  }, [tasks, taskStatusClassName]);
   const onboardingSummary = useMemo(() => {
     const enabledPaths = paths.filter((path) => path.enabled).length;
     const relayPaths = paths.filter((path) => path.mode === 'relay_chain').length;
-    const pendingTasks = tasks.filter((task) => task.status === 'planned' || task.status === 'pending').length;
-    const failedTasks = tasks.filter((task) => task.status === 'failed').length;
+    const pendingTasks = tasks.filter((task) => taskStatusClassName(task.status) === 'is-warn').length;
+    const failedTasks = tasks.filter((task) => taskStatusClassName(task.status) === 'is-danger').length;
     return {enabledPaths, relayPaths, pendingTasks, failedTasks};
-  }, [paths, tasks]);
+  }, [paths, tasks, taskStatusClassName]);
   const availableTaskStatuses = useMemo(
     () => Array.from(new Set(tasks.map((task) => task.status))).sort(),
     [tasks]
@@ -898,7 +900,7 @@ export default function OnboardingPage() {
                               </div>
                             </td>
                             <td>
-                              <span className={taskBadgeClassName(task.status)}>{task.status}</span>
+                              <span className={taskBadgeClassName(task.status, enums)}>{task.status}</span>
                             </td>
                             <td>{task.mode}</td>
                             <td>{describeTaskPath(task.pathId, pathsByID)}</td>
@@ -1041,18 +1043,10 @@ function describePathTaskSummary(summary?: {pending: number; failed: number; con
   return parts.length > 0 ? parts.join(' · ') : 'no tasks';
 }
 
-function taskBadgeClassName(status: string) {
-  if (status === 'connected') {
-    return 'badge is-good';
-  }
-  if (status === 'failed') {
-    return 'badge is-danger';
-  }
-  if (status === 'pending' || status === 'planned') {
-    return 'badge is-warn';
-  }
-  if (status === 'cancelled') {
-    return 'badge is-neutral';
+function taskBadgeClassName(status: string, enums: FieldEnumMap | undefined): string {
+  const entry = enums?.task_status?.[status];
+  if (entry?.meta?.className) {
+    return `badge ${entry.meta.className}`;
   }
   return 'badge is-neutral';
 }
