@@ -10,8 +10,8 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createRouteRule, fetchEnums, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy, validateRouteRule} from '@/lib/control-plane-api';
-import {RouteRuleValidationResult} from '@/lib/control-plane-types';
+import {createRouteRule, fetchEnums, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy, validateRouteRule} from '@/lib/api';
+import {RouteRuleValidationResult} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {RegexTesterModal} from './_components/regex-tester-modal';

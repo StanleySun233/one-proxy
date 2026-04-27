@@ -3,7 +3,7 @@
 import {Copy, X} from 'lucide-react';
 import {toast} from 'sonner';
 
-import {CompiledChainConfig} from '@/lib/control-plane-types';
+import {CompiledChainConfig} from '@/lib/types';
 
 type CompilationPreviewModalProps = {
   config: CompiledChainConfig;

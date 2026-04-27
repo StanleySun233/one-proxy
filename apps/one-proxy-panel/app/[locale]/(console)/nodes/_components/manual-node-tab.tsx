@@ -3,7 +3,7 @@
 import {UseFormReturn} from 'react-hook-form';
 import {useQuery} from '@tanstack/react-query';
 
-import {fetchEnums} from '@/lib/control-plane-api';
+import {fetchEnums} from '@/lib/api';
 import {NodeFormValues} from './types';
 
 export function ManualNodeTab({

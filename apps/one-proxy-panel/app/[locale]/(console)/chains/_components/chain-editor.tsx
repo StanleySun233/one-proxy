@@ -7,8 +7,8 @@ import {CSS} from '@dnd-kit/utilities';
 import {GripVertical, Plus, X} from 'lucide-react';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
-import {validateChain} from '@/lib/control-plane-api';
-import {ChainValidationResult, Node} from '@/lib/control-plane-types';
+import {validateChain} from '@/lib/api';
+import {ChainValidationResult, Node} from '@/lib/types';
 
 type HopItem = {
   id: string;

@@ -2,7 +2,7 @@
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
-import {Node, UnconsumedBootstrapToken} from '@/lib/control-plane-types';
+import {Node, UnconsumedBootstrapToken} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {useNodeConsole} from './use-node-console';

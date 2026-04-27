@@ -8,7 +8,7 @@ import {toast} from 'sonner';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createAccount, fetchEnums} from '@/lib/control-plane-api';
+import {createAccount, fetchEnums} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 type AccountFormValues = {

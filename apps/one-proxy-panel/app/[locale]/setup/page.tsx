@@ -4,7 +4,7 @@ import {useEffect, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 
 import {SetupForm} from '@/components/setup-form';
-import {getSetupStatus} from '@/lib/control-plane-api';
+import {getSetupStatus} from '@/lib/api';
 import {useRouter} from '@/i18n/navigation';
 
 type PageStatus = 'loading' | 'unconfigured' | 'configured';

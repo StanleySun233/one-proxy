@@ -9,9 +9,9 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {deleteGroup, getGroup, listGroups} from '@/lib/control-plane-api';
+import {deleteGroup, getGroup, listGroups} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
-import type {Group} from '@/lib/control-plane-types';
+import type {Group} from '@/lib/types';
 
 import GroupDialog from '../_components/group-dialog';
 

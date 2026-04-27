@@ -2,7 +2,7 @@
 
 import {ReactNode, useEffect, useState} from 'react';
 import {useTranslations} from 'next-intl';
-import {getSetupStatus} from '@/lib/control-plane-api';
+import {getSetupStatus} from '@/lib/api';
 import {usePathname, useRouter} from '@/i18n/navigation';
 import {useLocale} from 'next-intl';
 

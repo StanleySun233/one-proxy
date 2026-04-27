@@ -5,7 +5,7 @@ import {useQuery} from '@tanstack/react-query';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
-import {fetchEnums} from '@/lib/control-plane-api';
+import {fetchEnums} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {useNodeConsole} from './use-node-console';

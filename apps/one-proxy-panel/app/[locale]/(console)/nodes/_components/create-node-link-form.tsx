@@ -2,7 +2,7 @@
 
 import {useState} from 'react';
 
-import {Node} from '@/lib/control-plane-types';
+import {Node} from '@/lib/types';
 
 export function CreateNodeLinkForm({
   nodes,

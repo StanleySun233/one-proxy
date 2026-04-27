@@ -9,7 +9,7 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {deleteAccount, getAccounts} from '@/lib/control-plane-api';
+import {deleteAccount, getAccounts} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 import EditAccountDialog from '../_components/edit-account-dialog';

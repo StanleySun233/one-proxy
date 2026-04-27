@@ -21,7 +21,7 @@ import {useQuery} from '@tanstack/react-query';
 import {useAuth} from '@/components/auth-provider';
 import {CapsuleSelect, CapsuleSelectGroup} from '@/components/common/capsule-select';
 import {Link, usePathname, useRouter} from '@/i18n/navigation';
-import {getPendingNodes} from '@/lib/control-plane-api';
+import {getPendingNodes} from '@/lib/api';
 
 export function ConsoleShell({children}: {children: ReactNode}) {
   const t = useTranslations();

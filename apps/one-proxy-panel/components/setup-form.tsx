@@ -5,7 +5,7 @@ import {useTranslations} from 'next-intl';
 import {useLocale} from 'next-intl';
 import {useRouter} from '@/i18n/navigation';
 import {toast} from 'sonner';
-import {testSetupConnection, generateSetupKey, submitSetupInit, getSetupStatus} from '@/lib/control-plane-api';
+import {testSetupConnection, generateSetupKey, submitSetupInit, getSetupStatus} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 export function SetupForm() {

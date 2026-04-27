@@ -6,7 +6,7 @@ import {ReactNode, useState} from 'react';
 import {Toaster} from 'sonner';
 
 import {AuthProvider} from '@/components/auth-provider';
-import {ControlPlaneAPIError} from '@/lib/control-plane-api';
+import {ControlPlaneAPIError} from '@/lib/api';
 
 export function Providers({children}: {children: ReactNode}) {
   const [queryClient] = useState(

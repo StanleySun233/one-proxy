@@ -2,7 +2,7 @@
 
 import {createContext, ReactNode, useContext, useEffect, useMemo, useState} from 'react';
 
-import {AUTH_INVALID_EVENT, login as loginRequest, logout as logoutRequest, Session, SESSION_STORAGE_KEY, updateAccount} from '@/lib/control-plane-api';
+import {AUTH_INVALID_EVENT, login as loginRequest, logout as logoutRequest, Session, SESSION_STORAGE_KEY, updateAccount} from '@/lib/api';
 
 type AuthContextValue = {
   session: Session | null;

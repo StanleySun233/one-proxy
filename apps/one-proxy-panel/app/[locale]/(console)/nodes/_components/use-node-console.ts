@@ -5,7 +5,7 @@ import {useForm} from 'react-hook-form';
 import {toast} from 'sonner';
 
 import {useAuth} from '@/components/auth-provider';
-import {BootstrapToken} from '@/lib/control-plane-types';
+import {BootstrapToken} from '@/lib/types';
 import {
   approveNode,
   connectNode,
@@ -22,7 +22,7 @@ import {
   getUnconsumedBootstrapTokens,
   rejectNode,
   updateNode
-} from '@/lib/control-plane-api';
+} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 import {BootstrapFormValues, NodeFormValues, QuickConnectFormValues} from './types';

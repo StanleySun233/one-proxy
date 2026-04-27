@@ -6,7 +6,7 @@ import {useLocale} from 'next-intl';
 import {useAuth} from '@/components/auth-provider';
 import {LoginForm} from '@/components/login-form';
 import {PasswordRotationForm} from '@/components/password-rotation-form';
-import {getSetupStatus} from '@/lib/control-plane-api';
+import {getSetupStatus} from '@/lib/api';
 import {useRouter} from '@/i18n/navigation';
 
 export default function LoginPage() {

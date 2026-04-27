@@ -10,8 +10,8 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createChain, getChains, getNodes, previewChain, probeChain} from '@/lib/control-plane-api';
-import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/control-plane-types';
+import {createChain, getChains, getNodes, previewChain, probeChain} from '@/lib/api';
+import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 import {ChainEditor} from './_components/chain-editor';

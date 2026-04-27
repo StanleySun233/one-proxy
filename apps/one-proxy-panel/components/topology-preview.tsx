@@ -4,7 +4,7 @@ import 'reactflow/dist/style.css';
 
 import {Background, Controls, MarkerType, MiniMap, ReactFlow} from 'reactflow';
 
-import {Node as ControlNode, NodeAccessPath} from '@/lib/control-plane-types';
+import {Node as ControlNode, NodeAccessPath} from '@/lib/types';
 
 export function TopologyPreview({nodes, paths}: {nodes?: ControlNode[]; paths?: NodeAccessPath[]}) {
   const visibleNodes = nodes && nodes.length > 0 ? nodes.slice(0, 6) : [];

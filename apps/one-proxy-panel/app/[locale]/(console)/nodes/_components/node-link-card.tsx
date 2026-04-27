@@ -1,6 +1,6 @@
 'use client';
 
-import {Node, NodeLink, NodeTransport} from '@/lib/control-plane-types';
+import {Node, NodeLink, NodeTransport} from '@/lib/types';
 import {formatISODateTime} from '@/lib/presentation';
 
 import {describeNodeName, transportBadgeClassName} from './node-utils';

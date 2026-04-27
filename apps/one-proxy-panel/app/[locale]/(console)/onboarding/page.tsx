@@ -20,8 +20,8 @@ import {
   getNodes,
   updateNodeAccessPath,
   updateNodeOnboardingTaskStatus
-} from '@/lib/control-plane-api';
-import {FieldEnumMap, Node, NodeAccessPath, NodeOnboardingTask} from '@/lib/control-plane-types';
+} from '@/lib/api';
+import {FieldEnumMap, Node, NodeAccessPath, NodeOnboardingTask} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime, joinList, splitList} from '@/lib/presentation';
 
 type AccessPathFormValues = {

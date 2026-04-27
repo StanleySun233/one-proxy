@@ -1,4 +1,4 @@
-import {FieldEnumMap, Node, NodeHealth} from '@/lib/control-plane-types';
+import {FieldEnumMap, Node, NodeHealth} from '@/lib/types';
 
 export const staleThresholdMs = 2 * 60 * 1000;
 

@@ -8,7 +8,7 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {fetchEnums, getCertificates, getNodes} from '@/lib/control-plane-api';
+import {fetchEnums, getCertificates, getNodes} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 export default function CertificatesPage() {

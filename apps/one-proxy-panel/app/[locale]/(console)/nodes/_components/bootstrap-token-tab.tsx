@@ -4,7 +4,7 @@ import {useMemo, useState} from 'react';
 import {UseFormReturn} from 'react-hook-form';
 import {toast} from 'sonner';
 
-import {BootstrapToken, Node} from '@/lib/control-plane-types';
+import {BootstrapToken, Node} from '@/lib/types';
 import {BootstrapFormValues} from './types';
 
 export function BootstrapTokenTab({

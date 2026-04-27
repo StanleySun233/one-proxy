@@ -13,7 +13,7 @@ import {
   setGroupAccounts,
   setGroupScopes,
   updateGroup
-} from '@/lib/control-plane-api';
+} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 type GroupFields = {

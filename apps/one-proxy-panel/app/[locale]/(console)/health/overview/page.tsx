@@ -9,8 +9,8 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {fetchEnums, getCertificates, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/control-plane-api';
-import {FieldEnumMap, NodeHealthHistory} from '@/lib/control-plane-types';
+import {fetchEnums, getCertificates, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/api';
+import {FieldEnumMap, NodeHealthHistory} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 const staleThresholdMs = 2 * 60 * 1000;

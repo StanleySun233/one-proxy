@@ -9,7 +9,7 @@ import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {TopologyPreview} from '@/components/topology-preview';
 import {Link} from '@/i18n/navigation';
-import {getNodeAccessPaths, getNodeOnboardingTasks, getNodes, getOverview, getPendingNodes} from '@/lib/control-plane-api';
+import {getNodeAccessPaths, getNodeOnboardingTasks, getNodes, getOverview, getPendingNodes} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 export default function OverviewPage() {

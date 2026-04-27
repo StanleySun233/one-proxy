@@ -4,7 +4,7 @@ import {useMutation, useQuery} from '@tanstack/react-query';
 import {useState} from 'react';
 import {toast} from 'sonner';
 
-import {fetchEnums, updateAccount} from '@/lib/control-plane-api';
+import {fetchEnums, updateAccount} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 type Props = {
