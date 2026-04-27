@@ -1,9 +1,22 @@
-name: docker-images
+name: control-plane-image
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'apps/control-plane-api/**'
+      - 'apps/control-plane-web/**'
+      - 'docker/control-plane.Dockerfile'
+      - 'docker/control-plane-start.sh'
+      - '.github/workflows/control-plane-image.yml'
   pull_request:
+    paths:
+      - 'apps/control-plane-api/**'
+      - 'apps/control-plane-web/**'
+      - 'docker/control-plane.Dockerfile'
+      - 'docker/control-plane-start.sh'
+      - '.github/workflows/control-plane-image.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,9 +30,6 @@ jobs:
 
       - name: Build control-plane image
         run: docker build -f docker/control-plane.Dockerfile -t one-proxy-control-plane:ci .
-
-      - name: Build proxy-node image
-        run: docker build -f docker/proxy-node.Dockerfile -t one-proxy-proxy-node:ci .
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -37,11 +47,5 @@ jobs:
       - name: Build control-plane image
         run: docker build -f docker/control-plane.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/one-proxy-control-plane:latest .
 
-      - name: Build proxy-node image
-        run: docker build -f docker/proxy-node.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/one-proxy-proxy-node:latest .
-
       - name: Push control-plane image
         run: docker push ghcr.io/${{ env.OWNER_LC }}/one-proxy-control-plane:latest
-
-      - name: Push proxy-node image
-        run: docker push ghcr.io/${{ env.OWNER_LC }}/one-proxy-proxy-node:latest
