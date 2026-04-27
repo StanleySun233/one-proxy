@@ -22,7 +22,9 @@
     "taskConsole": "Task console",
     "chainStudio": "Chain studio",
     "routeBoard": "Route board",
-    "healthBoard": "Health board",
+    "healthOverview": "Health overview",
+    "healthHeartbeat": "Heartbeat monitor",
+    "healthCertificates": "Certificate monitor",
     "accountCreate": "Create account",
     "accountList": "Account list",
     "certificateBoard": "Certificate status"

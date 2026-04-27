@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import {useTheme} from 'next-themes';
-import {ChangeEvent, ReactNode} from 'react';
+import {MouseEvent, ReactNode, useEffect, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 
 import {useAuth} from '@/components/auth-provider';
@@ -87,9 +87,13 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     {
       key: 'health',
       label: t('nav.health'),
-      href: '/health',
+      href: '/health/overview',
       icon: ShieldCheck,
-      items: [{label: t('shell.healthBoard'), href: '/health'}]
+      items: [
+        {label: t('shell.healthOverview'), href: '/health/overview'},
+        {label: t('shell.healthHeartbeat'), href: '/health/heartbeat'},
+        {label: t('shell.healthCertificates'), href: '/health/certificates'}
+      ]
     },
     {
       key: 'accounts',
@@ -113,15 +117,33 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     navSections.find((section) =>
       section.items.some((item) => (item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`)))
     ) || navSections[0];
+
+  const [collapsedSection, setCollapsedSection] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCollapsedSection(null);
+  }, [pathname]);
+
+  const expandedKey = collapsedSection === activeSection.key ? null : activeSection.key;
+
+  const handleSectionClick = (e: MouseEvent, sectionKey: string) => {
+    if (collapsedSection === sectionKey) {
+      setCollapsedSection(null);
+    } else if (expandedKey === sectionKey) {
+      e.preventDefault();
+      setCollapsedSection(sectionKey);
+    }
+  };
+
   const accountInitial = session?.account.account?.slice(0, 1).toUpperCase() || 'U';
   const themeValue = resolvedTheme === 'light' ? 'light' : 'dark';
 
-  const handleThemeChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    setTheme(event.target.value);
+  const handleThemeChange = (value: string) => {
+    setTheme(value);
   };
 
-  const handleLocaleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    router.replace(pathname, {locale: event.target.value});
+  const handleLocaleChange = (value: string) => {
+    router.replace(pathname, {locale: value});
   };
 
   return (
@@ -138,15 +160,27 @@ export function ConsoleShell({children}: {children: ReactNode}) {
 
         <div className="console-topbar-actions">
           <CapsuleSelectGroup>
-            <CapsuleSelect aria-label="Theme" icon={<Shirt size={16} />} onChange={handleThemeChange} value={themeValue}>
-              <option value="dark">{t('shell.themeDark')}</option>
-              <option value="light">{t('shell.themeLight')}</option>
-            </CapsuleSelect>
+            <CapsuleSelect
+              aria-label="Theme"
+              icon={<Shirt size={16} />}
+              onChange={handleThemeChange}
+              options={[
+                {value: 'dark', label: t('shell.themeDark')},
+                {value: 'light', label: t('shell.themeLight')}
+              ]}
+              value={themeValue}
+            />
 
-            <CapsuleSelect aria-label="Language" icon={<Languages size={16} />} onChange={handleLocaleChange} value={locale}>
-              <option value="zh">{t('shell.localeZh')}</option>
-              <option value="en">{t('shell.localeEn')}</option>
-            </CapsuleSelect>
+            <CapsuleSelect
+              aria-label="Language"
+              icon={<Languages size={16} />}
+              onChange={handleLocaleChange}
+              options={[
+                {value: 'zh', label: t('shell.localeZh')},
+                {value: 'en', label: t('shell.localeEn')}
+              ]}
+              value={locale}
+            />
           </CapsuleSelectGroup>
 
           <div className="console-user-card">
@@ -179,12 +213,16 @@ export function ConsoleShell({children}: {children: ReactNode}) {
 
           <nav className="nav-panel">
             {navSections.map((section) => {
-              const sectionActive = section.key === activeSection.key;
+              const sectionActive = section.key === expandedKey;
               const SectionIcon = section.icon;
 
               return (
                 <div className={`menu-group${sectionActive ? ' is-active' : ''}`} key={section.key}>
-                  <Link className={`menu-link${sectionActive ? ' is-active' : ''}`} href={section.href}>
+                  <Link
+                    className={`menu-link${sectionActive ? ' is-active' : ''}`}
+                    href={section.href}
+                    onClick={(e) => handleSectionClick(e, section.key)}
+                  >
                     <span className="menu-link-main">
                       <SectionIcon size={16} />
                       <span>{section.label}</span>

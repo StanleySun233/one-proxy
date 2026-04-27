@@ -22,7 +22,9 @@
     "taskConsole": "任务控制台",
     "chainStudio": "链路编辑器",
     "routeBoard": "规则看板",
-    "healthBoard": "健康面板",
+    "healthOverview": "健康总览",
+    "healthHeartbeat": "心跳监控",
+    "healthCertificates": "证书监控",
     "accountCreate": "创建账号",
     "accountList": "账号查询",
     "certificateBoard": "证书状态"
