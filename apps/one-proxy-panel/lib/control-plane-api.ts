@@ -144,6 +144,13 @@ export function updateAccount(
   });
 }
 
+export function deleteAccount(accessToken: string, accountID: string) {
+  return request<{status: string}>(`/accounts/${accountID}`, {
+    method: 'DELETE',
+    accessToken
+  });
+}
+
 export function getNodes(accessToken: string) {
   return request<Node[]>('/nodes', {accessToken});
 }
