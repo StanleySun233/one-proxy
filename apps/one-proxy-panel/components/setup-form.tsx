@@ -25,6 +25,7 @@ export function SetupForm() {
   const [testPending, setTestPending] = useState(false);
   const [keyPending, setKeyPending] = useState(false);
   const [initPending, setInitPending] = useState(false);
+  const [connStatus, setConnStatus] = useState<'untested' | 'success' | 'failed' | 'exists'>('untested');
   const [phase, setPhase] = useState<'form' | 'transitioning'>('form');
 
   useEffect(() => {
@@ -40,11 +41,14 @@ export function SetupForm() {
     try {
       const result = await testSetupConnection({host, port, user, password, database});
       if (result.success) {
+        setConnStatus(result.exists ? 'exists' : 'success');
         toast.success(t('setup.connectionSuccess'));
       } else {
+        setConnStatus('failed');
         toast.error(result.message || t('setup.connectionFailed'));
       }
     } catch (err) {
+      setConnStatus('failed');
       toast.error(formatControlPlaneError(err));
     } finally {
       setTestPending(false);
@@ -181,13 +185,20 @@ export function SetupForm() {
           />
         </label>
 
-        <div style={{display: 'flex', gap: '8px'}}>
+        <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
           <button type="button" className="secondary-button" disabled={testPending} onClick={handleTestConnection}>
             {testPending ? t('setup.testing') : t('setup.testConnection')}
           </button>
           <button type="button" className="secondary-button" disabled={keyPending} onClick={handleGenerateKey}>
             {keyPending ? t('setup.generating') : t('setup.generateJwt')}
           </button>
+          <span className={`conn-status is-${connStatus}`}>
+            <span className="conn-status-dot" />
+            {connStatus === 'untested' && t('setup.connectionUntested')}
+            {connStatus === 'success' && t('setup.connectionSuccess')}
+            {connStatus === 'failed' && t('setup.connectionFailed')}
+            {connStatus === 'exists' && t('setup.connectionExists')}
+          </span>
         </div>
 
         <label className="field-stack">

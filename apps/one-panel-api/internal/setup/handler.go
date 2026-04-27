@@ -141,9 +141,13 @@ func (h *SetupHandler) handleTestConnection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	var tableCount int
+	_ = db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?", req.Database).Scan(&tableCount)
+
 	writeSuccess(w, http.StatusOK, map[string]any{
 		"success": true,
 		"message": "connection_ok",
+		"exists":  tableCount > 0,
 	})
 }
 

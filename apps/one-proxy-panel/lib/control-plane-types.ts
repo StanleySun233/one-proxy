@@ -275,6 +275,7 @@ export type SetupStatus = {
 export type TestConnectionResult = {
   success: boolean;
   message: string;
+  exists?: boolean;
 };
 
 export type GenerateKeyResult = {
