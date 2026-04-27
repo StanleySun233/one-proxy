@@ -370,6 +370,26 @@ type RouteRule struct {
 	Enabled          bool   `json:"enabled"`
 }
 
+type RouteRuleWithDetails struct {
+	ID               string               `json:"id"`
+	Priority         int                  `json:"priority"`
+	MatchType        string               `json:"matchType"`
+	MatchValue       string               `json:"matchValue"`
+	ActionType       string               `json:"actionType"`
+	ChainID          string               `json:"chainId,omitempty"`
+	Chain            *ChainWithDetails    `json:"chain,omitempty"`
+	DestinationScope string               `json:"destinationScope,omitempty"`
+	Enabled          bool                 `json:"enabled"`
+}
+
+type MatchType struct {
+	Type            string  `json:"type"`
+	Label           string  `json:"label"`
+	Description     string  `json:"description"`
+	Placeholder     string  `json:"placeholder"`
+	ValidationRegex *string `json:"validationRegex"`
+}
+
 type NodeHealth struct {
 	NodeID           string            `json:"nodeId"`
 	HeartbeatAt      string            `json:"heartbeatAt"`

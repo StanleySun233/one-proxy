@@ -64,6 +64,7 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/chains/preview", r.requireAccount(r.handleChainPreview))
 	r.mux.HandleFunc("/api/v1/chains/", r.requireAccount(r.handleChainByID))
 	r.mux.HandleFunc("/api/v1/route-rules", r.requireAccount(r.handleRouteRules))
+	r.mux.HandleFunc("/api/v1/route-rules/match-types", r.requireAccount(r.handleMatchTypes))
 	r.mux.HandleFunc("/api/v1/route-rules/", r.requireAccount(r.handleRouteRuleByID))
 	r.mux.HandleFunc("/api/v1/policies/revisions", r.requireAccount(r.handlePolicyRevisions))
 	r.mux.HandleFunc("/api/v1/policies/publish", r.requireAccount(r.handlePolicyPublish))

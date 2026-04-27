@@ -583,7 +583,12 @@ func (r *Router) handleNodeScopes(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
-		writeSuccess(w, http.StatusOK, r.service.RouteRules())
+		includeDetails := req.URL.Query().Get("details") == "true"
+		if includeDetails {
+			writeSuccess(w, http.StatusOK, r.service.RouteRulesWithDetails())
+		} else {
+			writeSuccess(w, http.StatusOK, r.service.RouteRules())
+		}
 	case http.MethodPost:
 		var payload domain.CreateRouteRuleInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
@@ -608,6 +613,13 @@ func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	switch req.Method {
+	case http.MethodGet:
+		item, err := r.service.GetRouteRule(ruleID)
+		if err != nil {
+			writeServiceError(w, req, err, "get_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, item)
 	case http.MethodPatch:
 		var payload domain.UpdateRouteRuleInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
@@ -627,8 +639,16 @@ func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
 		}
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
-		writeMethodNotAllowed(w, "PATCH, DELETE")
+		writeMethodNotAllowed(w, "GET, PATCH, DELETE")
 	}
+}
+
+func (r *Router) handleMatchTypes(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.MatchTypes())
 }
 
 func (r *Router) handleNodeHealth(w http.ResponseWriter, req *http.Request) {

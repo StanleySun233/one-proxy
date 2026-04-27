@@ -667,6 +667,110 @@ func (c *ControlPlane) RouteRules() []domain.RouteRule {
 	return c.store.ListRouteRules()
 }
 
+func (c *ControlPlane) RouteRulesWithDetails() []domain.RouteRuleWithDetails {
+	rules := c.store.ListRouteRules()
+	chains := c.ChainsWithDetails()
+	chainMap := make(map[string]domain.ChainWithDetails)
+	for _, chain := range chains {
+		chainMap[chain.ID] = chain
+	}
+
+	result := make([]domain.RouteRuleWithDetails, 0, len(rules))
+	for _, rule := range rules {
+		item := domain.RouteRuleWithDetails{
+			ID:               rule.ID,
+			Priority:         rule.Priority,
+			MatchType:        rule.MatchType,
+			MatchValue:       rule.MatchValue,
+			ActionType:       rule.ActionType,
+			ChainID:          rule.ChainID,
+			DestinationScope: rule.DestinationScope,
+			Enabled:          rule.Enabled,
+		}
+		if rule.ChainID != "" {
+			if chain, ok := chainMap[rule.ChainID]; ok {
+				item.Chain = &chain
+			}
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
+func (c *ControlPlane) GetRouteRule(ruleID string) (domain.RouteRuleWithDetails, error) {
+	if ruleID == "" {
+		return domain.RouteRuleWithDetails{}, invalidInput("missing_rule_id")
+	}
+
+	rules := c.RouteRulesWithDetails()
+	for _, rule := range rules {
+		if rule.ID == ruleID {
+			return rule, nil
+		}
+	}
+	return domain.RouteRuleWithDetails{}, invalidInput("route_rule_not_found")
+}
+
+func (c *ControlPlane) MatchTypes() []domain.MatchType {
+	domainRegex := "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
+	domainSuffixRegex := "^\\*\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
+	ipCIDRRegex := "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+	ipRangeRegex := "^([0-9]{1,3}\\.){3}[0-9]{1,3}-([0-9]{1,3}\\.){3}[0-9]{1,3}$"
+	portRegex := "^[0-9]{1,5}$"
+
+	return []domain.MatchType{
+		{
+			Type:            "domain",
+			Label:           "Domain",
+			Description:     "Match exact domain name",
+			Placeholder:     "example.com",
+			ValidationRegex: &domainRegex,
+		},
+		{
+			Type:            "domain_suffix",
+			Label:           "Domain Suffix",
+			Description:     "Match domain suffix (e.g., *.example.com)",
+			Placeholder:     "*.example.com",
+			ValidationRegex: &domainSuffixRegex,
+		},
+		{
+			Type:            "ip_cidr",
+			Label:           "IP CIDR",
+			Description:     "Match IP address range in CIDR notation",
+			Placeholder:     "10.0.0.0/24",
+			ValidationRegex: &ipCIDRRegex,
+		},
+		{
+			Type:            "ip_range",
+			Label:           "IP Range",
+			Description:     "Match IP address range",
+			Placeholder:     "10.0.0.1-10.0.0.255",
+			ValidationRegex: &ipRangeRegex,
+		},
+		{
+			Type:            "port",
+			Label:           "Port",
+			Description:     "Match port number",
+			Placeholder:     "8080",
+			ValidationRegex: &portRegex,
+		},
+		{
+			Type:            "url_regex",
+			Label:           "URL Regex",
+			Description:     "Match URL using regular expression",
+			Placeholder:     "^https://api\\..*",
+			ValidationRegex: nil,
+		},
+		{
+			Type:            "default",
+			Label:           "Default",
+			Description:     "Catch-all rule (lowest priority)",
+			Placeholder:     "*",
+			ValidationRegex: nil,
+		},
+	}
+}
+
 func (c *ControlPlane) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
 	if err := validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return domain.RouteRule{}, err
