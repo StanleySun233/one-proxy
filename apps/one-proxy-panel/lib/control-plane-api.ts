@@ -353,7 +353,7 @@ export function getChains(accessToken: string) {
   return request<Chain[]>('/chains', {accessToken});
 }
 
-export function createChain(accessToken: string, payload: {name: string; destinationScope: string; hops: number[]}) {
+export function createChain(accessToken: string, payload: {name: string; destinationScope: string; hops: string[]}) {
   return request<Chain>('/chains', {
     method: 'POST',
     accessToken,
@@ -469,7 +469,7 @@ export function setGroupScopes(accessToken: string, groupID: string, scopeKeys: 
   });
 }
 
-export function validateChain(accessToken: string, payload: {name: string; destinationScope: string; hops: number[]}) {
+export function validateChain(accessToken: string, payload: {name: string; destinationScope: string; hops: string[]}) {
   return request<ChainValidationResult>('/chains/validate', {
     method: 'POST',
     accessToken,
@@ -477,7 +477,7 @@ export function validateChain(accessToken: string, payload: {name: string; desti
   });
 }
 
-export function previewChain(accessToken: string, payload: {name: string; destinationScope: string; hops: number[]}) {
+export function previewChain(accessToken: string, payload: {name: string; destinationScope: string; hops: string[]}) {
   return request<ChainPreviewResult>('/chains/preview', {
     method: 'POST',
     accessToken,

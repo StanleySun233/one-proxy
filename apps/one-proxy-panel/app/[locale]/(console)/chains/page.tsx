@@ -28,7 +28,7 @@ export default function ChainsPage() {
   const [editingChain, setEditingChain] = useState<Chain | null>(null);
   const [chainName, setChainName] = useState('');
   const [destinationScope, setDestinationScope] = useState('');
-  const [hops, setHops] = useState<number[]>([]);
+  const [hops, setHops] = useState<string[]>([]);
   const [probeResults, setProbeResults] = useState<Record<string, ChainProbeResult>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<CompiledChainConfig | null>(null);
@@ -46,7 +46,7 @@ export default function ChainsPage() {
   });
 
   const createChainMutation = useMutation({
-    mutationFn: (payload: {name: string; destinationScope: string; hops: number[]}) => createChain(accessToken, payload),
+    mutationFn: (payload: {name: string; destinationScope: string; hops: string[]}) => createChain(accessToken, payload),
     onSuccess: () => {
       toast.success('chain created');
       queryClient.invalidateQueries({queryKey: ['chains']});
@@ -69,7 +69,7 @@ export default function ChainsPage() {
   });
 
   const previewMutation = useMutation({
-    mutationFn: (payload: {name: string; destinationScope: string; hops: number[]}) => previewChain(accessToken, payload),
+    mutationFn: (payload: {name: string; destinationScope: string; hops: string[]}) => previewChain(accessToken, payload),
     onSuccess: (result: ChainPreviewResult) => {
       setPreviewConfig(result.compiledConfig);
       setPreviewOpen(true);
@@ -84,7 +84,7 @@ export default function ChainsPage() {
       setEditingChain(chain);
       setChainName(chain.name);
       setDestinationScope(chain.destinationScope);
-      setHops(chain.hops.map((h) => (typeof h === 'string' ? parseInt(h, 10) : h)));
+      setHops(chain.hops);
     } else {
       setEditingChain(null);
       setChainName('');

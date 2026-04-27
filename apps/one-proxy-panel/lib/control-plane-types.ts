@@ -102,7 +102,7 @@ export type Chain = {
   name: string;
   destinationScope: string;
   enabled: boolean;
-  hops: (string | number)[];
+  hops: string[];
 };
 
 export type ChainProbeHop = {

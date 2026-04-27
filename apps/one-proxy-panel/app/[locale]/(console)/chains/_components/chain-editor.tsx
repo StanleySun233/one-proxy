@@ -12,7 +12,7 @@ import {ChainValidationResult, Node} from '@/lib/control-plane-types';
 
 type HopItem = {
   id: string;
-  nodeId: number;
+  nodeId: string;
   nodeName: string;
   nodeMode: string;
 };
@@ -21,11 +21,11 @@ type ChainEditorProps = {
   accessToken: string;
   chainName: string;
   destinationScope: string;
-  hops: number[];
+  hops: string[];
   nodes: Node[];
   onNameChange: (name: string) => void;
   onScopeChange: (scope: string) => void;
-  onHopsChange: (hops: number[]) => void;
+  onHopsChange: (hops: string[]) => void;
   onSave: () => void;
   onCancel: () => void;
   onPreview: () => void;
@@ -64,7 +64,7 @@ export function ChainEditor({
 
   useEffect(() => {
     const items = hops.map((nodeId, index) => {
-      const node = nodes.find((n) => Number(n.id) === nodeId);
+      const node = nodes.find((n) => n.id === nodeId);
       return {
         id: `hop-${index}`,
         nodeId,
@@ -75,7 +75,7 @@ export function ChainEditor({
     setHopItems(items);
   }, [hops, nodes]);
 
-  const runValidation = useCallback(async (name: string, scope: string, hopList: number[]) => {
+  const runValidation = useCallback(async (name: string, scope: string, hopList: string[]) => {
     if (!name.trim() || !scope.trim()) {
       setValidationResult(null);
       return;
@@ -123,11 +123,10 @@ export function ChainEditor({
     if (!selectedNodeId) {
       return;
     }
-    const nodeId = Number(selectedNodeId);
-    if (hops.includes(nodeId)) {
+    if (hops.includes(selectedNodeId)) {
       return;
     }
-    onHopsChange([...hops, nodeId]);
+    onHopsChange([...hops, selectedNodeId]);
     setSelectedNodeId('');
   };
 
@@ -136,7 +135,7 @@ export function ChainEditor({
     onHopsChange(newHops);
   };
 
-  const availableNodes = nodes.filter((node) => !hops.includes(Number(node.id)));
+  const availableNodes = nodes.filter((node) => !hops.includes(node.id));
   const availableScopes = Array.from(new Set(nodes.map((node) => node.scopeKey).filter(Boolean)));
 
   return (

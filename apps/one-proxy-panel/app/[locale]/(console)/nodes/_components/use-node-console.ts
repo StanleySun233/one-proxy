@@ -166,6 +166,7 @@ export function useNodeConsole() {
     mutationFn: (nodeID: string) => approveNode(accessToken, nodeID),
     onSuccess: () => {
       toast.success('node approved');
+      queryClient.invalidateQueries({queryKey: ['pending-nodes']});
       queryClient.invalidateQueries({queryKey: ['nodes']});
       queryClient.invalidateQueries({queryKey: ['node-links']});
       queryClient.invalidateQueries({queryKey: ['node-transports']});
