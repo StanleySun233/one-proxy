@@ -9,7 +9,7 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createRouteRule, getChains, getPolicyRevisions, getRouteRules, publishPolicy} from '@/lib/control-plane-api';
+import {createRouteRule, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy} from '@/lib/control-plane-api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 type RouteRuleFormValues = {
@@ -21,7 +21,57 @@ type RouteRuleFormValues = {
   destinationScope: string;
 };
 
-const matchTypeOptions = ['domain', 'domain_suffix', 'cidr'];
+const matchTypeOptions = [
+  {value: 'domain', label: 'Domain', placeholder: 'example.com'},
+  {value: 'domain_suffix', label: 'Domain Suffix', placeholder: '.example.com'},
+  {value: 'ip_cidr', label: 'IP CIDR', placeholder: '10.0.0.0/24'},
+  {value: 'ip_range', label: 'IP Range', placeholder: '10.0.0.1-10.0.0.255'},
+  {value: 'port', label: 'Port', placeholder: '8080'},
+  {value: 'url_regex', label: 'URL Regex', placeholder: '^https://.*\\.example\\.com/.*'},
+  {value: 'default', label: 'Default (Catch-all)', placeholder: '*'}
+];
+
+function validateMatchValue(matchType: string, value: string): string | true {
+  const trimmed = value.trim();
+  if (!trimmed) return 'match value is required';
+
+  switch (matchType) {
+    case 'domain':
+      if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(trimmed)) {
+        return 'invalid domain format';
+      }
+      break;
+    case 'domain_suffix':
+      if (!/^\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(trimmed)) {
+        return 'invalid domain suffix format (must start with .)';
+      }
+      break;
+    case 'ip_cidr':
+      if (!/^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(trimmed)) {
+        return 'invalid CIDR format (e.g., 10.0.0.0/24)';
+      }
+      break;
+    case 'ip_range':
+      if (!/^(\d{1,3}\.){3}\d{1,3}-(\d{1,3}\.){3}\d{1,3}$/.test(trimmed)) {
+        return 'invalid IP range format (e.g., 10.0.0.1-10.0.0.255)';
+      }
+      break;
+    case 'port':
+      const port = Number(trimmed);
+      if (isNaN(port) || port < 1 || port > 65535) {
+        return 'port must be between 1 and 65535';
+      }
+      break;
+    case 'url_regex':
+      try {
+        new RegExp(trimmed);
+      } catch {
+        return 'invalid regex syntax';
+      }
+      break;
+  }
+  return true;
+}
 
 export default function RoutesPage() {
   const t = useTranslations();
@@ -41,6 +91,7 @@ export default function RoutesPage() {
   });
   const actionType = form.watch('actionType');
   const matchType = form.watch('matchType');
+  const selectedChainId = form.watch('chainId');
 
   const routeRulesQuery = useQuery({
     queryKey: ['route-rules', accessToken],
@@ -50,6 +101,11 @@ export default function RoutesPage() {
   const chainsQuery = useQuery({
     queryKey: ['chains', accessToken],
     queryFn: () => getChains(accessToken),
+    enabled: !!accessToken
+  });
+  const nodesQuery = useQuery({
+    queryKey: ['nodes', accessToken],
+    queryFn: () => getNodes(accessToken),
     enabled: !!accessToken
   });
   const policiesQuery = useQuery({
@@ -96,8 +152,12 @@ export default function RoutesPage() {
   const routeRules = routeRulesQuery.data || [];
   const policies = policiesQuery.data || [];
   const chains = chainsQuery.data || [];
-  const matchValuePlaceholder =
-    matchType === 'cidr' ? '198.51.100.0/24' : matchType === 'domain_suffix' ? '.internal.example.com' : 'service.internal.example.com';
+  const nodes = nodesQuery.data || [];
+
+  const selectedChain = chains.find((c) => c.id === selectedChainId);
+  const availableScopes = Array.from(new Set([...nodes.map((n) => n.scopeKey).filter(Boolean), ...chains.map((c) => c.destinationScope)]));
+  const matchTypeOption = matchTypeOptions.find((opt) => opt.value === matchType);
+  const matchValuePlaceholder = matchTypeOption?.placeholder || '';
 
   return (
     <AuthGate>
@@ -141,8 +201,8 @@ export default function RoutesPage() {
                   {...form.register('matchType', {required: 'match type is required'})}
                 >
                   {matchTypeOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
@@ -154,7 +214,10 @@ export default function RoutesPage() {
                   aria-invalid={form.formState.errors.matchValue ? 'true' : 'false'}
                   className="field-input"
                   placeholder={matchValuePlaceholder}
-                  {...form.register('matchValue', {required: 'match value is required'})}
+                  {...form.register('matchValue', {
+                    required: 'match value is required',
+                    validate: (value) => validateMatchValue(matchType, value)
+                  })}
                 />
                 {form.formState.errors.matchValue ? <p className="error-text">{form.formState.errors.matchValue.message}</p> : null}
               </div>
@@ -170,29 +233,49 @@ export default function RoutesPage() {
                 <select
                   aria-invalid={form.formState.errors.chainId ? 'true' : 'false'}
                   className="field-select"
+                  disabled={actionType !== 'chain'}
                   {...form.register('chainId', {
                     validate: (value) => (actionType !== 'chain' || value.trim() !== '' ? true : 'chain id is required for chain action')
                   })}
                 >
                   <option value="">Select chain</option>
-                  {chains.map((chain) => (
-                    <option key={chain.id} value={chain.id}>
-                      {chain.name}
-                    </option>
-                  ))}
+                  {chains.map((chain) => {
+                    const hopCount = Array.isArray(chain.hops) ? chain.hops.length : 0;
+                    const hopDisplay = hopCount > 0 ? ` (${Array.from({length: hopCount}, (_, i) => i + 1).join(' → ')})` : '';
+                    return (
+                      <option key={chain.id} value={chain.id}>
+                        {chain.name}
+                        {hopDisplay}
+                      </option>
+                    );
+                  })}
                 </select>
                 {form.formState.errors.chainId ? <p className="error-text">{form.formState.errors.chainId.message}</p> : null}
+                {selectedChain && actionType === 'chain' ? (
+                  <div className="field-hint">
+                    <span className="muted-text">
+                      Destination scope: <strong>{selectedChain.destinationScope}</strong>
+                    </span>
+                  </div>
+                ) : null}
               </div>
               <div className="field-stack">
                 <span>Destination scope</span>
                 <input
                   aria-invalid={form.formState.errors.destinationScope ? 'true' : 'false'}
                   className="field-input"
+                  disabled={actionType !== 'direct'}
+                  list="scope-options"
                   placeholder="target-scope"
                   {...form.register('destinationScope', {
                     validate: (value) => (actionType !== 'direct' || value.trim() !== '' ? true : 'destination scope is required for direct action')
                   })}
                 />
+                <datalist id="scope-options">
+                  {availableScopes.map((scope) => (
+                    <option key={scope} value={scope} />
+                  ))}
+                </datalist>
                 {form.formState.errors.destinationScope ? <p className="error-text">{form.formState.errors.destinationScope.message}</p> : null}
               </div>
               <div className="submit-row">
@@ -263,21 +346,31 @@ export default function RoutesPage() {
                     <th>Action</th>
                     <th>Chain</th>
                     <th>Scope</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {routeRules.map((rule) => (
-                    <tr key={rule.id}>
-                      <td>{rule.priority}</td>
-                      <td>
-                        <strong>{rule.matchType}</strong>
-                        <div className="muted-text mono">{rule.matchValue}</div>
-                      </td>
-                      <td>{rule.actionType}</td>
-                      <td>{rule.chainId || '-'}</td>
-                      <td>{rule.destinationScope || '-'}</td>
-                    </tr>
-                  ))}
+                  {routeRules.map((rule) => {
+                    const chain = chains.find((c) => c.id === rule.chainId);
+                    const chainName = chain?.name || rule.chainId;
+                    return (
+                      <tr key={rule.id}>
+                        <td>{rule.priority}</td>
+                        <td>
+                          <strong>{rule.matchType}</strong>
+                          <div className="muted-text mono">{rule.matchValue}</div>
+                        </td>
+                        <td>{rule.actionType}</td>
+                        <td>{chainName || '-'}</td>
+                        <td>{rule.destinationScope || '-'}</td>
+                        <td>
+                          <span className={rule.enabled ? 'badge is-good' : 'badge'}>
+                            {rule.enabled ? 'enabled' : 'disabled'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
