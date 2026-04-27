@@ -651,6 +651,39 @@ func (r *Router) handleMatchTypes(w http.ResponseWriter, req *http.Request) {
 	writeSuccess(w, http.StatusOK, r.service.MatchTypes())
 }
 
+func (r *Router) handleRouteRuleValidate(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeMethodNotAllowed(w, "POST")
+		return
+	}
+	var payload domain.ValidateRouteRuleInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	result, err := r.service.ValidateRouteRule(payload)
+	if err != nil {
+		writeServiceError(w, req, err, "validation_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, result)
+}
+
+func (r *Router) handleRouteRuleSuggestions(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	matchType := req.URL.Query().Get("match_type")
+	if matchType == "" {
+		writeError(w, http.StatusBadRequest, "missing_match_type")
+		return
+	}
+	query := req.URL.Query().Get("query")
+	result := r.service.RouteRuleSuggestions(matchType, query)
+	writeSuccess(w, http.StatusOK, result)
+}
+
 func (r *Router) handleNodeHealth(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		writeMethodNotAllowed(w, "GET")
@@ -708,4 +741,67 @@ func (r *Router) handlePolicyPublish(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	writeSuccess(w, http.StatusOK, item)
+}
+
+func (r *Router) handleGroups(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		groups, err := r.service.ListGroups()
+		if err != nil {
+			writeServiceError(w, req, err, "list_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, groups)
+	case http.MethodPost:
+		var payload domain.CreateGroupInput
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		item, err := r.service.CreateGroup(payload)
+		if err != nil {
+			writeServiceError(w, req, err, "create_failed")
+			return
+		}
+		writeSuccess(w, http.StatusCreated, item)
+	default:
+		writeMethodNotAllowed(w, "GET, POST")
+	}
+}
+
+func (r *Router) handleGroupByID(w http.ResponseWriter, req *http.Request) {
+	groupID := resourceID(req.URL.Path, "/api/v1/groups/")
+	if groupID == "" {
+		writeError(w, http.StatusBadRequest, "missing_group_id")
+		return
+	}
+	switch req.Method {
+	case http.MethodGet:
+		item, err := r.service.GetGroup(groupID)
+		if err != nil {
+			writeServiceError(w, req, err, "get_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, item)
+	case http.MethodPut:
+		var payload domain.UpdateGroupInput
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		item, err := r.service.UpdateGroup(groupID, payload)
+		if err != nil {
+			writeServiceError(w, req, err, "update_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, item)
+	case http.MethodDelete:
+		if err := r.service.DeleteGroup(groupID); err != nil {
+			writeServiceError(w, req, err, "delete_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
+	default:
+		writeMethodNotAllowed(w, "GET, PUT, DELETE")
+	}
 }
