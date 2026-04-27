@@ -172,6 +172,10 @@ func (h *SetupHandler) handleInit(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request_body")
 		return
 	}
+	if req.AdminPassword == "" {
+		writeError(w, http.StatusBadRequest, "admin_password_required")
+		return
+	}
 
 	h.mu.Lock()
 	defer h.mu.Unlock()

@@ -174,6 +174,7 @@ export function SetupForm() {
           <input
             className="field-input"
             type="password"
+            required
             value={adminPassword}
             onChange={(e) => setAdminPassword(e.target.value)}
             placeholder={t('setup.adminPasswordHint')}
@@ -194,7 +195,7 @@ export function SetupForm() {
           <input className="field-input" readOnly={!!jwtKey} value={jwtKey} onChange={(e) => setJwtKey(e.target.value)} />
         </label>
 
-        <button className="primary-button" disabled={initPending} type="submit">
+        <button className="primary-button" disabled={initPending || !adminPassword} type="submit">
           {initPending ? t('setup.initializing') : t('setup.initSubmit')}
         </button>
       </div>
