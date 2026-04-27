@@ -1,27 +1,21 @@
 import { applyLanguage, text } from '../shared/locale.js';
 import { applyThemeMode, bindThemeMode } from '../shared/theme.js';
 
-const routingModes = [
-  { value: 'smart', labelKey: 'routingSmart' },
-  { value: 'all', labelKey: 'routingAll' },
-  { value: 'internal', labelKey: 'routingInternalShort' },
-  { value: 'external', labelKey: 'routingExternalShort' }
-];
-
 const masterToggle = document.getElementById('masterToggle');
-const internalToggle = document.getElementById('internalToggle');
 const masterValue = document.getElementById('masterValue');
-const internalValue = document.getElementById('internalValue');
-const activeGroupName = document.getElementById('activeGroupName');
-const activeProfileName = document.getElementById('activeProfileName');
+const accountName = document.getElementById('accountName');
+const syncMeta = document.getElementById('syncMeta');
+const statusMessage = document.getElementById('statusMessage');
 const groupSelect = document.getElementById('groupSelect');
-const profileSelect = document.getElementById('profileSelect');
-const routingMode = document.getElementById('routingMode');
 const currentSite = document.getElementById('currentSite');
-const addBypass = document.getElementById('addBypass');
+const entryNodeName = document.getElementById('entryNodeName');
+const entryNodeAddress = document.getElementById('entryNodeAddress');
+const policyRevision = document.getElementById('policyRevision');
+const ruleCounts = document.getElementById('ruleCounts');
+const addDirect = document.getElementById('addDirect');
 const addProxy = document.getElementById('addProxy');
-const addInternal = document.getElementById('addInternal');
 const openOptions = document.getElementById('openOptions');
+const syncButton = document.getElementById('syncButton');
 const themeMode = document.getElementById('themeMode');
 
 let viewState = null;
@@ -35,116 +29,112 @@ function setToggleState(element, enabled) {
   element.classList.toggle('is-off', !enabled);
 }
 
-function getActiveGroup(state) {
-  return state.groups.find((group) => group.id === state.activeGroupId) || state.groups[0];
+function setStatus(kind, message) {
+  statusMessage.className = `status-strip is-${kind}`;
+  statusMessage.textContent = message;
 }
 
-function getProfileMap(state) {
-  return new Map(state.profiles.map((profile) => [profile.id, profile]));
-}
-
-function renderRouting(group) {
-  routingMode.innerHTML = '';
-  for (const mode of routingModes) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = text(mode.labelKey);
-    button.classList.toggle('is-active', group.routingMode === mode.value);
-    button.addEventListener('click', async () => {
-      const next = structuredClone(viewState.state);
-      const target = next.groups.find((item) => item.id === group.id);
-      target.routingMode = mode.value;
-      await sendMessage({ type: 'set-state', payload: next });
-    });
-    routingMode.appendChild(button);
+function countLabel(group) {
+  if (!group) {
+    return text('noRules');
   }
+  return text('ruleSummary', [String((group.proxyHosts || []).length + (group.proxyCidrs || []).length), String((group.directHosts || []).length + (group.directCidrs || []).length)]);
 }
 
-function render(stateBundle) {
-  viewState = stateBundle;
-  const { state, activeGroup, activeProfile, currentTab } = stateBundle;
-  activeGroupName.textContent = (activeGroup && activeGroup.name) || text('noGroup');
-  activeProfileName.textContent = activeProfile ? `${activeProfile.name} · ${activeProfile.host}:${activeProfile.port}` : text('noNode');
-  masterValue.textContent = state.enabled ? text('on') : text('off');
-  internalValue.textContent = state.internalProxyEnabled ? text('proxy') : text('direct');
-  setToggleState(masterToggle, state.enabled);
-  setToggleState(internalToggle, state.internalProxyEnabled);
-  currentSite.textContent = (currentTab && currentTab.host) || text('noSite');
+function render(bundle) {
+  viewState = bundle;
+  const { state, session, remote, activeGroup, currentTab } = bundle;
   applyThemeMode(state.themeMode);
+  accountName.textContent = session.account || text('notSignedIn');
+  syncMeta.textContent = remote.fetchedAt ? `${text('syncedAt')} ${new Date(remote.fetchedAt).toLocaleTimeString()}` : text('notSynced');
+  currentSite.textContent = (currentTab && currentTab.host) || text('noSite');
+  masterValue.textContent = state.enabled ? text('on') : text('off');
+  setToggleState(masterToggle, state.enabled);
+  policyRevision.textContent = remote.policyRevision || '-';
+  ruleCounts.textContent = countLabel(activeGroup);
+  entryNodeName.textContent = activeGroup ? activeGroup.entryNodeName : text('noGroup');
+  entryNodeAddress.textContent = activeGroup ? `${activeGroup.proxyScheme} ${activeGroup.proxyHost}:${activeGroup.proxyPort}` : '-';
 
   groupSelect.innerHTML = '';
-  for (const group of state.groups) {
+  for (const group of remote.groups || []) {
     const option = document.createElement('option');
     option.value = group.id;
     option.textContent = group.name;
-    option.selected = group.id === state.activeGroupId;
+    option.selected = activeGroup && group.id === activeGroup.id;
     groupSelect.appendChild(option);
   }
+  groupSelect.disabled = !(remote.groups || []).length;
+  masterToggle.disabled = !activeGroup;
+  addDirect.disabled = !(currentTab && currentTab.host);
+  addProxy.disabled = !(currentTab && currentTab.host);
 
-  const profileMap = getProfileMap(state);
-  profileSelect.innerHTML = '';
-  for (const profileId of ((activeGroup && activeGroup.profileIds) || [])) {
-    const profile = profileMap.get(profileId);
-    if (!profile) {
-      continue;
-    }
-    const option = document.createElement('option');
-    option.value = profile.id;
-    option.textContent = `${profile.name} · ${profile.host}:${profile.port}`;
-    option.selected = profile.id === activeGroup.activeProfileId;
-    profileSelect.appendChild(option);
+  if (!session.accessToken) {
+    setStatus('warning', text('statusLoginRequired'));
+  } else if (!activeGroup) {
+    setStatus('warning', text('statusNoGroups'));
+  } else if (!state.enabled) {
+    setStatus('idle', text('statusReadyOff'));
+  } else {
+    setStatus('ok', text('statusReadyOn'));
   }
-
-  renderRouting(activeGroup);
 }
 
 masterToggle.addEventListener('click', async () => {
-  const next = structuredClone(viewState.state);
-  next.enabled = !next.enabled;
-  await sendMessage({ type: 'set-state', payload: next });
-});
-
-internalToggle.addEventListener('click', async () => {
-  const next = structuredClone(viewState.state);
-  next.internalProxyEnabled = !next.internalProxyEnabled;
-  await sendMessage({ type: 'set-state', payload: next });
+  if (!viewState || !viewState.activeGroup) {
+    return;
+  }
+  const result = await sendMessage({ type: 'set-enabled', enabled: !viewState.state.enabled });
+  if (result && result.error) {
+    setStatus('error', result.error);
+    return;
+  }
+  render(result);
 });
 
 groupSelect.addEventListener('change', async (event) => {
-  const next = structuredClone(viewState.state);
-  next.activeGroupId = event.target.value;
-  await sendMessage({ type: 'set-state', payload: next });
+  const result = await sendMessage({ type: 'select-group', groupId: event.target.value });
+  if (result && result.error) {
+    setStatus('error', result.error);
+    return;
+  }
+  render(result);
 });
 
-profileSelect.addEventListener('change', async (event) => {
-  const next = structuredClone(viewState.state);
-  const group = getActiveGroup(next);
-  group.activeProfileId = event.target.value;
-  await sendMessage({ type: 'set-state', payload: next });
-});
-
-addBypass.addEventListener('click', async () => {
-  const result = await sendMessage({ type: 'add-current-host-to-bypass' });
+addDirect.addEventListener('click', async () => {
+  const result = await sendMessage({ type: 'add-current-host-to-direct' });
+  if (result && result.error) {
+    setStatus('error', result.error);
+    return;
+  }
   render(result);
 });
 
 addProxy.addEventListener('click', async () => {
   const result = await sendMessage({ type: 'add-current-host-to-proxy' });
+  if (result && result.error) {
+    setStatus('error', result.error);
+    return;
+  }
   render(result);
 });
 
-addInternal.addEventListener('click', async () => {
-  const result = await sendMessage({ type: 'add-current-host-to-internal' });
+syncButton.addEventListener('click', async () => {
+  const result = await sendMessage({ type: 'sync-remote-config' });
+  if (result && result.error) {
+    setStatus('error', result.error);
+    return;
+  }
   render(result);
+  setStatus('ok', text('statusSynced'));
 });
 
 bindThemeMode(themeMode, async (mode) => {
-  if (!viewState || viewState.state.themeMode === mode) {
+  const result = await sendMessage({ type: 'set-theme-mode', themeMode: mode });
+  if (result && result.error) {
+    setStatus('error', result.error);
     return;
   }
-  const next = structuredClone(viewState.state);
-  next.themeMode = mode;
-  await sendMessage({ type: 'set-state', payload: next });
+  render(result);
 });
 
 openOptions.addEventListener('click', () => chrome.runtime.openOptionsPage());

@@ -1,33 +1,39 @@
 {
   "appDescription": {
-    "message": "Browser-only proxy groups with smart internal and external routing."
+    "message": "Remote-managed browser proxy groups backed by the control plane."
   },
   "popupEyebrow": {
-    "message": "Browser proxy control"
+    "message": "Remote proxy control"
   },
-  "groups": {
-    "message": "Groups"
+  "settings": {
+    "message": "Settings"
+  },
+  "syncNow": {
+    "message": "Sync"
+  },
+  "account": {
+    "message": "Account"
   },
   "activeGroup": {
     "message": "Active group"
   },
-  "master": {
-    "message": "Master"
+  "proxySwitch": {
+    "message": "Proxy"
   },
-  "internal": {
-    "message": "Internal"
+  "entryNode": {
+    "message": "Entry node"
   },
-  "routing": {
-    "message": "Routing"
+  "policyRevision": {
+    "message": "Policy"
   },
-  "group": {
-    "message": "Group"
+  "policyShort": {
+    "message": "Policy"
   },
-  "node": {
-    "message": "Node"
+  "groups": {
+    "message": "Groups"
   },
-  "nodes": {
-    "message": "Nodes"
+  "groupDetail": {
+    "message": "Group detail"
   },
   "thisSiteDirect": {
     "message": "This site direct"
@@ -35,80 +41,95 @@
   "thisSiteProxy": {
     "message": "This site proxy"
   },
-  "thisSiteInternal": {
-    "message": "This site internal"
-  },
   "optionsTitle": {
     "message": "One Proxy Settings"
   },
   "optionsHeading": {
-    "message": "Groups, nodes, and routing"
+    "message": "Remote groups and browser routing"
   },
-  "save": {
-    "message": "Save"
+  "connection": {
+    "message": "Connection"
   },
-  "addGroup": {
-    "message": "Add group"
+  "controlPlaneUrl": {
+    "message": "Control plane URL"
   },
-  "remove": {
-    "message": "Remove"
+  "password": {
+    "message": "Password"
   },
-  "name": {
-    "message": "Name"
+  "login": {
+    "message": "Login"
   },
-  "mode": {
-    "message": "Mode"
+  "logout": {
+    "message": "Logout"
   },
-  "bypassHosts": {
-    "message": "Bypass hosts"
+  "remoteRules": {
+    "message": "Remote rules"
   },
-  "proxyHosts": {
-    "message": "Proxy hosts"
+  "localDirectHosts": {
+    "message": "Local direct hosts"
   },
-  "internalDomains": {
-    "message": "Internal domains"
+  "localProxyHosts": {
+    "message": "Local proxy hosts"
   },
-  "internalCidrs": {
-    "message": "Internal CIDRs"
+  "saveOverrides": {
+    "message": "Save overrides"
   },
-  "addNode": {
-    "message": "Add node"
+  "ruleSummary": {
+    "message": "$PROXY$ proxy / $DIRECT$ direct",
+    "placeholders": {
+      "proxy": {
+        "content": "$1"
+      },
+      "direct": {
+        "content": "$2"
+      }
+    }
   },
-  "quickRules": {
-    "message": "Quick rules"
+  "ruleSummaryLong": {
+    "message": "$PROXYHOSTS$ proxy host rules, $PROXYCIDRS$ proxy CIDRs, $DIRECTHOSTS$ direct host rules, $DIRECTCIDRS$ direct CIDRs",
+    "placeholders": {
+      "proxyhosts": {
+        "content": "$1"
+      },
+      "proxycidrs": {
+        "content": "$2"
+      },
+      "directhosts": {
+        "content": "$3"
+      },
+      "directcidrs": {
+        "content": "$4"
+      }
+    }
   },
-  "globalDirectHosts": {
-    "message": "Global direct hosts"
+  "sessionSummary": {
+    "message": "$ACCOUNT$ · expires $EXPIRES$",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      },
+      "expires": {
+        "content": "$2"
+      }
+    }
   },
-  "globalProxyHosts": {
-    "message": "Global proxy hosts"
+  "syncedAt": {
+    "message": "Synced"
   },
-  "globalInternalDomains": {
-    "message": "Global internal domains"
+  "notSignedIn": {
+    "message": "Not signed in"
   },
-  "routingSmart": {
-    "message": "Smart"
+  "notSynced": {
+    "message": "Not synced"
   },
-  "routingAll": {
-    "message": "All"
+  "noGroup": {
+    "message": "No group"
   },
-  "routingInternalShort": {
-    "message": "Intra"
+  "noRules": {
+    "message": "No rules"
   },
-  "routingExternalShort": {
-    "message": "Extra"
-  },
-  "routingMode_smart": {
-    "message": "Smart"
-  },
-  "routingMode_all": {
-    "message": "All"
-  },
-  "routingMode_internal": {
-    "message": "Internal"
-  },
-  "routingMode_external": {
-    "message": "External"
+  "noSite": {
+    "message": "No site"
   },
   "on": {
     "message": "On"
@@ -116,63 +137,32 @@
   "off": {
     "message": "Off"
   },
-  "proxy": {
-    "message": "Proxy"
+  "statusLoginRequired": {
+    "message": "Sign in from Settings before enabling remote groups."
   },
-  "direct": {
-    "message": "Direct"
+  "statusNoGroups": {
+    "message": "No remote groups available for this account."
   },
-  "noGroup": {
-    "message": "No group"
+  "statusReadyOff": {
+    "message": "Remote config is loaded. Proxy is currently off."
   },
-  "noNode": {
-    "message": "No node"
+  "statusReadyOn": {
+    "message": "Remote group is active and browser proxy is on."
   },
-  "noSite": {
-    "message": "No site"
+  "statusSynced": {
+    "message": "Remote config synced."
   },
-  "nodeCount": {
-    "message": "$COUNT$ node(s)",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
+  "statusLoggedIn": {
+    "message": "Login succeeded and remote groups were loaded."
   },
-  "active": {
-    "message": "Active"
+  "statusLoggedOut": {
+    "message": "Session cleared."
   },
-  "scheme": {
-    "message": "Scheme"
+  "statusOverridesSaved": {
+    "message": "Local overrides saved."
   },
-  "host": {
-    "message": "Host"
-  },
-  "port": {
-    "message": "Port"
-  },
-  "duplicate": {
-    "message": "Duplicate"
-  },
-  "delete": {
-    "message": "Delete"
-  },
-  "copyName": {
-    "message": "$NAME$ Copy",
-    "placeholders": {
-      "name": {
-        "content": "$1"
-      }
-    }
-  },
-  "untitledGroup": {
-    "message": "Untitled group"
-  },
-  "newNode": {
-    "message": "New Node"
-  },
-  "newGroup": {
-    "message": "New Group"
+  "statusIdle": {
+    "message": "Remote groups are ready when you sign in."
   },
   "themeVivid": {
     "message": "Vivid"

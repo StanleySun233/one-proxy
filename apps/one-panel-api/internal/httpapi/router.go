@@ -39,6 +39,7 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/auth/login", r.handleLogin)
 	r.mux.HandleFunc("/api/v1/auth/refresh", r.handleRefresh)
 	r.mux.HandleFunc("/api/v1/auth/logout", r.requireAccount(r.handleLogout))
+	r.mux.HandleFunc("/api/v1/extension/bootstrap", r.requireAccount(r.handleExtensionBootstrap))
 	r.mux.HandleFunc("/api/v1/overview", r.requireAccount(r.handleOverview))
 	r.mux.HandleFunc("/api/v1/accounts", r.requireAccount(r.handleAccounts))
 	r.mux.HandleFunc("/api/v1/accounts/", r.requireAccount(r.handleAccountByID))

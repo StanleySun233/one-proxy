@@ -388,3 +388,24 @@ type OverviewPolicies struct {
 type OverviewCertificates struct {
 	RenewSoon int `json:"renewSoon"`
 }
+
+type ExtensionBootstrap struct {
+	Account        Account          `json:"account"`
+	PolicyRevision string           `json:"policyRevision"`
+	FetchedAt      string           `json:"fetchedAt"`
+	Groups         []ExtensionGroup `json:"groups"`
+}
+
+type ExtensionGroup struct {
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	EntryNodeID   string   `json:"entryNodeId"`
+	EntryNodeName string   `json:"entryNodeName"`
+	ProxyScheme   string   `json:"proxyScheme"`
+	ProxyHost     string   `json:"proxyHost"`
+	ProxyPort     int      `json:"proxyPort"`
+	ProxyHosts    []string `json:"proxyHosts"`
+	ProxyCIDRs    []string `json:"proxyCidrs"`
+	DirectHosts   []string `json:"directHosts"`
+	DirectCIDRs   []string `json:"directCidrs"`
+}

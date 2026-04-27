@@ -20,6 +20,19 @@ func (r *Router) handleOverview(w http.ResponseWriter, req *http.Request) {
 	writeSuccess(w, http.StatusOK, r.service.Overview())
 }
 
+func (r *Router) handleExtensionBootstrap(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	account, ok := accountFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_access_token")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.ExtensionBootstrap(account))
+}
+
 func (r *Router) handleAccounts(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:

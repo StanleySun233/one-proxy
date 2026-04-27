@@ -1,27 +1,24 @@
-export const defaultSessionState = {
-  auth: {
+export const defaultExtensionState = {
+  enabled: false,
+  themeMode: 'vivid',
+  controlPlaneUrl: '',
+  session: {
     account: '',
     accessToken: '',
     refreshToken: '',
     expiresAt: '',
     mustRotatePassword: false
   },
-  selection: {
-    nodeId: '',
-    profileId: '',
-    routingMode: 'smart'
-  },
-  policy: {
-    revision: '',
+  remote: {
+    policyRevision: '',
     fetchedAt: '',
-    certificateState: 'unknown'
+    groups: []
+  },
+  selection: {
+    activeGroupId: ''
   },
   localOverrides: {
     directHosts: [],
-    proxyHosts: [],
-    internalHosts: []
-  },
-  ui: {
-    themeMode: 'vivid'
+    proxyHosts: []
   }
 };

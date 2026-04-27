@@ -43,6 +43,72 @@ func (c *ControlPlane) Accounts() []domain.Account {
 	return c.store.ListAccounts()
 }
 
+func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.ExtensionBootstrap {
+	nodes := c.store.ListNodes()
+	rules := c.store.ListRouteRules()
+	overview := c.store.GetOverview()
+	fetchedAt := time.Now().UTC().Format(time.RFC3339)
+	groups := make([]domain.ExtensionGroup, 0)
+	for _, node := range nodes {
+		if !node.Enabled || node.PublicHost == "" || node.PublicPort <= 0 {
+			continue
+		}
+		if node.Mode != "edge" && node.ParentNodeID != "" {
+			continue
+		}
+		group := domain.ExtensionGroup{
+			ID:            node.ID,
+			Name:          node.Name,
+			EntryNodeID:   node.ID,
+			EntryNodeName: node.Name,
+			ProxyScheme:   "PROXY",
+			ProxyHost:     node.PublicHost,
+			ProxyPort:     node.PublicPort,
+		}
+		for _, rule := range rules {
+			if !rule.Enabled {
+				continue
+			}
+			value := strings.TrimSpace(rule.MatchValue)
+			if value == "" {
+				continue
+			}
+			switch rule.MatchType {
+			case "domain":
+				if rule.ActionType == "direct" {
+					group.DirectHosts = append(group.DirectHosts, value)
+				} else if rule.ActionType == "chain" {
+					group.ProxyHosts = append(group.ProxyHosts, value)
+				}
+			case "domain_suffix":
+				pattern := "*" + value
+				if rule.ActionType == "direct" {
+					group.DirectHosts = append(group.DirectHosts, pattern)
+				} else if rule.ActionType == "chain" {
+					group.ProxyHosts = append(group.ProxyHosts, pattern)
+				}
+			case "cidr":
+				if rule.ActionType == "direct" {
+					group.DirectCIDRs = append(group.DirectCIDRs, value)
+				} else if rule.ActionType == "chain" {
+					group.ProxyCIDRs = append(group.ProxyCIDRs, value)
+				}
+			}
+		}
+		group.ProxyHosts = uniqueStrings(group.ProxyHosts)
+		group.ProxyCIDRs = uniqueStrings(group.ProxyCIDRs)
+		group.DirectHosts = uniqueStrings(group.DirectHosts)
+		group.DirectCIDRs = uniqueStrings(group.DirectCIDRs)
+		groups = append(groups, group)
+	}
+	return domain.ExtensionBootstrap{
+		Account:        account,
+		PolicyRevision: overview.Policies.ActiveRevision,
+		FetchedAt:      fetchedAt,
+		Groups:         groups,
+	}
+}
+
 func (c *ControlPlane) CreateAccount(input domain.CreateAccountInput) (domain.Account, error) {
 	if input.Account == "" || input.Password == "" || input.Role == "" {
 		return domain.Account{}, invalidInput("invalid_account_payload")
@@ -585,6 +651,25 @@ func parseDuration(raw string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return value
+}
+
+func uniqueStrings(items []string) []string {
+	if len(items) == 0 {
+		return []string{}
+	}
+	seen := make(map[string]struct{}, len(items))
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+	return result
 }
 
 type remoteNodeAttachInput struct {

@@ -2,39 +2,85 @@ const STORAGE_KEY = 'oneProxyState';
 
 const DEFAULT_STATE = {
   enabled: false,
-  internalProxyEnabled: false,
   themeMode: 'vivid',
-  activeGroupId: 'group-default',
-  groups: [
-    {
-      id: 'group-default',
-      name: 'Primary',
-      routingMode: 'smart',
-      profileIds: ['profile-default'],
-      activeProfileId: 'profile-default',
-      bypassHosts: ['localhost', '*.local', '*.lan'],
-      proxyHosts: [],
-      internalDomains: ['*.corp', '*.internal'],
-      internalCidrs: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
-    }
-  ],
-  profiles: [
-    {
-      id: 'profile-default',
-      name: 'Local Proxy',
-      scheme: 'PROXY',
-      host: '127.0.0.1',
-      port: 2388
-    }
-  ],
-  quickRules: {
-    bypassHosts: [],
-    proxyHosts: [],
-    internalDomains: []
+  controlPlaneUrl: '',
+  session: {
+    account: '',
+    accessToken: '',
+    refreshToken: '',
+    expiresAt: '',
+    mustRotatePassword: false
+  },
+  remote: {
+    policyRevision: '',
+    fetchedAt: '',
+    groups: []
+  },
+  selection: {
+    activeGroupId: ''
+  },
+  localOverrides: {
+    directHosts: [],
+    proxyHosts: []
   }
 };
 
 let stateCache = null;
+
+function uniqueStrings(items) {
+  return [...new Set((items || []).map((item) => String(item || '').trim()).filter(Boolean))];
+}
+
+function normalizeGroup(group) {
+  return {
+    id: '',
+    name: '',
+    entryNodeId: '',
+    entryNodeName: '',
+    proxyScheme: 'PROXY',
+    proxyHost: '',
+    proxyPort: 0,
+    proxyHosts: [],
+    proxyCidrs: [],
+    directHosts: [],
+    directCidrs: [],
+    ...group,
+    proxyHosts: uniqueStrings(group.proxyHosts),
+    proxyCidrs: uniqueStrings(group.proxyCidrs),
+    directHosts: uniqueStrings(group.directHosts),
+    directCidrs: uniqueStrings(group.directCidrs)
+  };
+}
+
+function mergeState(raw) {
+  const state = {
+    ...DEFAULT_STATE,
+    ...raw,
+    session: {
+      ...DEFAULT_STATE.session,
+      ...(raw.session || {})
+    },
+    remote: {
+      ...DEFAULT_STATE.remote,
+      ...(raw.remote || {})
+    },
+    selection: {
+      ...DEFAULT_STATE.selection,
+      ...(raw.selection || {})
+    },
+    localOverrides: {
+      ...DEFAULT_STATE.localOverrides,
+      ...(raw.localOverrides || {})
+    }
+  };
+  state.remote.groups = Array.isArray(state.remote.groups) ? state.remote.groups.map(normalizeGroup) : [];
+  state.localOverrides.directHosts = uniqueStrings(state.localOverrides.directHosts);
+  state.localOverrides.proxyHosts = uniqueStrings(state.localOverrides.proxyHosts);
+  if (!state.remote.groups.find((group) => group.id === state.selection.activeGroupId)) {
+    state.selection.activeGroupId = (state.remote.groups[0] && state.remote.groups[0].id) || '';
+  }
+  return state;
+}
 
 async function getState() {
   if (stateCache) {
@@ -45,55 +91,12 @@ async function getState() {
   return structuredClone(stateCache);
 }
 
-function mergeState(raw) {
-  const state = {
-    ...DEFAULT_STATE,
-    ...raw,
-    quickRules: {
-      ...DEFAULT_STATE.quickRules,
-      ...(raw.quickRules || {})
-    }
-  };
-  state.groups = Array.isArray(raw.groups) && raw.groups.length ? raw.groups.map(normalizeGroup) : DEFAULT_STATE.groups.map(normalizeGroup);
-  state.profiles = Array.isArray(raw.profiles) && raw.profiles.length ? raw.profiles : DEFAULT_STATE.profiles;
-  if (!state.groups.find((group) => group.id === state.activeGroupId)) {
-    state.activeGroupId = (state.groups[0] && state.groups[0].id) || DEFAULT_STATE.activeGroupId;
-  }
-  return state;
-}
-
-function normalizeGroup(group) {
-  return {
-    bypassHosts: [],
-    proxyHosts: [],
-    internalDomains: [],
-    internalCidrs: [],
-    ...group
-  };
-}
-
-async function saveState(nextState) {
-  stateCache = mergeState(nextState);
-  await chrome.storage.local.set({ [STORAGE_KEY]: stateCache });
-  await applyProxy(stateCache);
-  await broadcastState();
-  return structuredClone(stateCache);
-}
-
-function getActiveGroup(state) {
-  return state.groups.find((group) => group.id === state.activeGroupId) || state.groups[0];
-}
-
-function getActiveProfile(state) {
-  const group = getActiveGroup(state);
-  if (!group) {
-    return null;
-  }
-  return state.profiles.find((profile) => profile.id === group.activeProfileId) || state.profiles.find((profile) => group.profileIds.includes(profile.id)) || null;
+function activeGroupFrom(state) {
+  return state.remote.groups.find((group) => group.id === state.selection.activeGroupId) || state.remote.groups[0] || null;
 }
 
 function escapePacString(value) {
-  return String(value).replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+  return String(value || '').replaceAll('\\', '\\\\').replaceAll("'", "\\'");
 }
 
 function cidrToMask(prefix) {
@@ -111,33 +114,42 @@ function cidrToMask(prefix) {
   return octets.join('.');
 }
 
-function buildPacScript(state) {
-  const group = getActiveGroup(state);
-  const profile = getActiveProfile(state);
-  const proxyTarget = profile ? `${profile.scheme} ${profile.host}:${profile.port}` : 'DIRECT';
-  const bypassHosts = [...new Set([...(group ? group.bypassHosts || [] : []), ...(state.quickRules.bypassHosts || [])])];
-  const proxyHosts = [...new Set([...(group ? group.proxyHosts || [] : []), ...(state.quickRules.proxyHosts || [])])];
-  const internalDomains = [...new Set([...(group ? group.internalDomains || [] : []), ...(state.quickRules.internalDomains || [])])];
-  const internalCidrs = [...new Set(group ? group.internalCidrs || [] : [])]
-    .map((item) => item.trim())
-    .filter(Boolean)
+function cidrEntries(items) {
+  return uniqueStrings(items)
     .map((item) => {
       const [network, prefix] = item.split('/');
       const mask = cidrToMask(prefix);
-      return mask ? { network, mask } : null;
+      if (!network || !mask) {
+        return null;
+      }
+      return { network, mask };
     })
     .filter(Boolean);
-  const mode = (group && group.routingMode) || 'smart';
+}
 
+function buildPacScript(state) {
+  const group = activeGroupFrom(state);
+  const proxyTarget = group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT';
+  const directHosts = uniqueStrings([
+    'localhost',
+    '*.local',
+    '*.lan',
+    ...(group ? group.directHosts : []),
+    ...(state.localOverrides.directHosts || [])
+  ]);
+  const proxyHosts = uniqueStrings([
+    ...(group ? group.proxyHosts : []),
+    ...(state.localOverrides.proxyHosts || [])
+  ]);
+  const directCidrs = cidrEntries(group ? group.directCidrs : []);
+  const proxyCidrs = cidrEntries(group ? group.proxyCidrs : []);
   return `
 const enabled = ${state.enabled ? 'true' : 'false'};
-const internalProxyEnabled = ${state.internalProxyEnabled ? 'true' : 'false'};
 const proxyTarget = '${escapePacString(proxyTarget)}';
-const mode = '${escapePacString(mode)}';
-const bypassHosts = ${JSON.stringify(bypassHosts)};
+const directHosts = ${JSON.stringify(directHosts)};
 const proxyHosts = ${JSON.stringify(proxyHosts)};
-const internalDomains = ${JSON.stringify(internalDomains)};
-const internalCidrs = ${JSON.stringify(internalCidrs)};
+const directCidrs = ${JSON.stringify(directCidrs)};
+const proxyCidrs = ${JSON.stringify(proxyCidrs)};
 
 function hostMatches(patterns, host) {
   for (const pattern of patterns) {
@@ -148,84 +160,64 @@ function hostMatches(patterns, host) {
   return false;
 }
 
-function isReservedIp(ip) {
-  return isInNet(ip, '127.0.0.0', '255.0.0.0') ||
-    isInNet(ip, '10.0.0.0', '255.0.0.0') ||
-    isInNet(ip, '172.16.0.0', '255.240.0.0') ||
-    isInNet(ip, '192.168.0.0', '255.255.0.0') ||
-    isInNet(ip, '169.254.0.0', '255.255.0.0') ||
-    isInNet(ip, '100.64.0.0', '255.192.0.0');
-}
-
-function isInternalHost(host) {
-  if (isPlainHostName(host) || dnsDomainIs(host, '.local')) {
-    return true;
-  }
-  if (hostMatches(internalDomains, host)) {
-    return true;
-  }
-  const resolved = dnsResolve(host);
-  if (!resolved) {
+function inCidrs(cidrs, ip) {
+  if (!ip) {
     return false;
   }
-  if (isReservedIp(resolved)) {
-    return true;
-  }
-  for (const item of internalCidrs) {
-    if (isInNet(resolved, item.network, item.mask)) {
+  for (const item of cidrs) {
+    if (isInNet(ip, item.network, item.mask)) {
       return true;
     }
   }
   return false;
 }
 
+function isLocalOnly(host, ip) {
+  if (isPlainHostName(host) || dnsDomainIs(host, '.local')) {
+    return true;
+  }
+  if (!ip) {
+    return false;
+  }
+  return isInNet(ip, '127.0.0.0', '255.0.0.0') ||
+    isInNet(ip, '169.254.0.0', '255.255.0.0');
+}
+
 function FindProxyForURL(url, host) {
-  if (!enabled) {
+  if (!enabled || proxyTarget === 'DIRECT') {
     return 'DIRECT';
   }
-  if (hostMatches(bypassHosts, host)) {
+  const resolved = dnsResolve(host);
+  if (hostMatches(directHosts, host)) {
     return 'DIRECT';
   }
-  if (!hostMatches(proxyHosts, host)) {
+  if (inCidrs(directCidrs, resolved)) {
     return 'DIRECT';
   }
-  const internal = isInternalHost(host);
-  if (mode === 'all') {
-    return internal && !internalProxyEnabled ? 'DIRECT' : proxyTarget;
+  if (hostMatches(proxyHosts, host)) {
+    return proxyTarget;
   }
-  if (mode === 'internal') {
-    return internal && internalProxyEnabled ? proxyTarget : 'DIRECT';
+  if (inCidrs(proxyCidrs, resolved)) {
+    return proxyTarget;
   }
-  if (mode === 'external') {
-    return internal ? 'DIRECT' : proxyTarget;
+  if (isLocalOnly(host, resolved)) {
+    return 'DIRECT';
   }
-  if (internal) {
-    return internalProxyEnabled ? proxyTarget : 'DIRECT';
-  }
-  return proxyTarget;
+  return 'DIRECT';
 }
 `;
 }
 
 async function applyProxy(state) {
-  const pacScript = buildPacScript(state);
   await chrome.proxy.settings.set({
     value: {
       mode: 'pac_script',
       pacScript: {
-        data: pacScript
+        data: buildPacScript(state)
       }
     },
     scope: 'regular'
   });
-}
-
-async function broadcastState() {
-  const payload = await getComputedState();
-  try {
-    await chrome.runtime.sendMessage({ type: 'state-updated', payload });
-  } catch (_error) {
-  }
 }
 
 async function getCurrentTabInfo() {
@@ -247,15 +239,159 @@ async function getCurrentTabInfo() {
 
 async function getComputedState() {
   const state = await getState();
-  const activeGroup = getActiveGroup(state);
-  const activeProfile = getActiveProfile(state);
-  const currentTab = await getCurrentTabInfo();
   return {
     state,
-    activeGroup,
-    activeProfile,
-    currentTab
+    session: state.session,
+    remote: state.remote,
+    activeGroup: activeGroupFrom(state),
+    currentTab: await getCurrentTabInfo()
   };
+}
+
+async function persistState(nextState) {
+  stateCache = mergeState(nextState);
+  await chrome.storage.local.set({ [STORAGE_KEY]: stateCache });
+  await applyProxy(stateCache);
+  await broadcastState();
+  return structuredClone(stateCache);
+}
+
+async function broadcastState() {
+  try {
+    await chrome.runtime.sendMessage({ type: 'state-updated', payload: await getComputedState() });
+  } catch (_error) {
+  }
+}
+
+function authHeaders(token) {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function apiRequest(state, path, options = {}) {
+  const controlPlaneUrl = String(state.controlPlaneUrl || '').trim().replace(/\/$/, '');
+  if (!controlPlaneUrl) {
+    throw new Error('missing_control_plane_url');
+  }
+  const headers = {
+    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(options.headers || {})
+  };
+  if (options.auth !== false && state.session.accessToken) {
+    Object.assign(headers, authHeaders(state.session.accessToken));
+  }
+  const response = await fetch(`${controlPlaneUrl}${path}`, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+  if (response.status === 401 && options.allowRefresh !== false && state.session.refreshToken) {
+    const refreshed = await refreshSession(state);
+    return apiRequest(refreshed, path, { ...options, allowRefresh: false });
+  }
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_error) {
+  }
+  if (!response.ok) {
+    throw new Error((payload && payload.message) || 'request_failed');
+  }
+  return payload ? payload.data : null;
+}
+
+async function login(controlPlaneUrl, account, password) {
+  const response = await fetch(`${String(controlPlaneUrl || '').trim().replace(/\/$/, '')}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ account, password })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error((payload && payload.message) || 'login_failed');
+  }
+  const nextState = mergeState({
+    ...(await getState()),
+    controlPlaneUrl: String(controlPlaneUrl || '').trim(),
+    session: {
+      account: payload.data.account.account,
+      accessToken: payload.data.accessToken,
+      refreshToken: payload.data.refreshToken,
+      expiresAt: payload.data.expiresAt,
+      mustRotatePassword: Boolean(payload.data.mustRotatePassword)
+    }
+  });
+  await persistState(nextState);
+  return syncRemoteConfig(nextState);
+}
+
+async function refreshSession(sourceState) {
+  const state = mergeState(sourceState || (await getState()));
+  if (!state.controlPlaneUrl || !state.session.refreshToken) {
+    throw new Error('missing_refresh_token');
+  }
+  const response = await fetch(`${state.controlPlaneUrl.replace(/\/$/, '')}/api/v1/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken: state.session.refreshToken })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error((payload && payload.message) || 'refresh_failed');
+  }
+  const nextState = mergeState({
+    ...state,
+    session: {
+      account: payload.data.account.account,
+      accessToken: payload.data.accessToken,
+      refreshToken: payload.data.refreshToken,
+      expiresAt: payload.data.expiresAt,
+      mustRotatePassword: Boolean(payload.data.mustRotatePassword)
+    }
+  });
+  await persistState(nextState);
+  return nextState;
+}
+
+async function syncRemoteConfig(sourceState) {
+  const state = mergeState(sourceState || (await getState()));
+  const data = await apiRequest(state, '/api/v1/extension/bootstrap');
+  const nextState = mergeState({
+    ...state,
+    remote: {
+      policyRevision: data.policyRevision || '',
+      fetchedAt: data.fetchedAt || '',
+      groups: Array.isArray(data.groups) ? data.groups : []
+    },
+    session: {
+      ...state.session,
+      account: data.account ? data.account.account : state.session.account,
+      mustRotatePassword: Boolean(data.account && data.account.mustRotatePassword)
+    }
+  });
+  await persistState(nextState);
+  return getComputedState();
+}
+
+async function logout() {
+  const state = await getState();
+  if (state.controlPlaneUrl && state.session.accessToken) {
+    try {
+      await fetch(`${state.controlPlaneUrl.replace(/\/$/, '')}/api/v1/auth/logout`, {
+        method: 'POST',
+        headers: authHeaders(state.session.accessToken)
+      });
+    } catch (_error) {
+    }
+  }
+  const nextState = mergeState({
+    ...state,
+    enabled: false,
+    session: DEFAULT_STATE.session,
+    remote: DEFAULT_STATE.remote,
+    selection: DEFAULT_STATE.selection
+  });
+  await persistState(nextState);
+  return getComputedState();
 }
 
 function sanitizeHost(value) {
@@ -268,17 +404,23 @@ async function addHostToRule(kind, host) {
     return getComputedState();
   }
   const state = await getState();
-  const bucket = Array.isArray(state.quickRules[kind]) ? state.quickRules[kind] : [];
-  if (!bucket.includes(clean)) {
-    bucket.push(clean);
-  }
-  state.quickRules[kind] = bucket;
-  await saveState(state);
+  const overrides = {
+    ...state.localOverrides,
+    [kind]: uniqueStrings([...(state.localOverrides[kind] || []), clean])
+  };
+  await persistState({ ...state, localOverrides: overrides });
+  return getComputedState();
+}
+
+async function setPartialState(mutator) {
+  const current = await getState();
+  const next = await mutator(structuredClone(current));
+  await persistState(next);
   return getComputedState();
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
-  await saveState(await getState());
+  await persistState(await getState());
 });
 
 chrome.runtime.onStartup.addListener(async () => {
@@ -296,30 +438,65 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
-    if (message && message.type === 'get-state') {
-      sendResponse(await getComputedState());
+    if (!message || !message.type) {
+      sendResponse(null);
       return;
     }
-    if (message && message.type === 'set-state') {
-      sendResponse(await saveState(message.payload));
-      return;
+    switch (message.type) {
+      case 'get-state':
+        sendResponse(await getComputedState());
+        return;
+      case 'set-enabled':
+        sendResponse(await setPartialState((state) => ({ ...state, enabled: Boolean(message.enabled) })));
+        return;
+      case 'set-theme-mode':
+        sendResponse(await setPartialState((state) => ({ ...state, themeMode: message.themeMode || 'vivid' })));
+        return;
+      case 'set-control-plane-url':
+        sendResponse(await setPartialState((state) => ({ ...state, controlPlaneUrl: String(message.controlPlaneUrl || '').trim() })));
+        return;
+      case 'login':
+        sendResponse(await login(message.controlPlaneUrl, message.account, message.password));
+        return;
+      case 'logout':
+        sendResponse(await logout());
+        return;
+      case 'sync-remote-config':
+        sendResponse(await syncRemoteConfig());
+        return;
+      case 'select-group':
+        sendResponse(await setPartialState((state) => ({
+          ...state,
+          selection: {
+            ...state.selection,
+            activeGroupId: message.groupId || ''
+          }
+        })));
+        return;
+      case 'set-local-overrides':
+        sendResponse(await setPartialState((state) => ({
+          ...state,
+          localOverrides: {
+            directHosts: uniqueStrings(message.directHosts),
+            proxyHosts: uniqueStrings(message.proxyHosts)
+          }
+        })));
+        return;
+      case 'add-current-host-to-direct': {
+        const info = await getCurrentTabInfo();
+        sendResponse(await addHostToRule('directHosts', (info && info.host) || ''));
+        return;
+      }
+      case 'add-current-host-to-proxy': {
+        const info = await getCurrentTabInfo();
+        sendResponse(await addHostToRule('proxyHosts', (info && info.host) || ''));
+        return;
+      }
+      default:
+        sendResponse(null);
     }
-    if (message && message.type === 'add-current-host-to-bypass') {
-      const info = await getCurrentTabInfo();
-      sendResponse(await addHostToRule('bypassHosts', (info && info.host) || ''));
-      return;
-    }
-    if (message && message.type === 'add-current-host-to-proxy') {
-      const info = await getCurrentTabInfo();
-      sendResponse(await addHostToRule('proxyHosts', (info && info.host) || ''));
-      return;
-    }
-    if (message && message.type === 'add-current-host-to-internal') {
-      const info = await getCurrentTabInfo();
-      sendResponse(await addHostToRule('internalDomains', (info && info.host) || ''));
-      return;
-    }
-    sendResponse(null);
-  })();
+  })().catch((error) => {
+    sendResponse({ error: error.message || 'unexpected_error' });
+  });
   return true;
 });

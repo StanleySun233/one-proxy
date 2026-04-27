@@ -1,33 +1,39 @@
 {
   "appDescription": {
-    "message": "浏览器内代理分组，支持智能内外网路由。"
+    "message": "由控制面远程管理的浏览器代理分组。"
   },
   "popupEyebrow": {
-    "message": "浏览器代理控制"
+    "message": "远程代理控制"
   },
-  "groups": {
-    "message": "分组"
+  "settings": {
+    "message": "设置"
+  },
+  "syncNow": {
+    "message": "同步"
+  },
+  "account": {
+    "message": "账号"
   },
   "activeGroup": {
     "message": "当前分组"
   },
-  "master": {
-    "message": "总开关"
+  "proxySwitch": {
+    "message": "代理"
   },
-  "internal": {
-    "message": "内网"
+  "entryNode": {
+    "message": "入口节点"
   },
-  "routing": {
-    "message": "路由"
+  "policyRevision": {
+    "message": "策略"
   },
-  "group": {
+  "policyShort": {
+    "message": "策略"
+  },
+  "groups": {
     "message": "分组"
   },
-  "node": {
-    "message": "节点"
-  },
-  "nodes": {
-    "message": "节点"
+  "groupDetail": {
+    "message": "分组详情"
   },
   "thisSiteDirect": {
     "message": "本站直连"
@@ -35,80 +41,95 @@
   "thisSiteProxy": {
     "message": "本站代理"
   },
-  "thisSiteInternal": {
-    "message": "本站内网"
-  },
   "optionsTitle": {
     "message": "One Proxy 设置"
   },
   "optionsHeading": {
-    "message": "分组、节点和路由"
+    "message": "远程分组与浏览器路由"
   },
-  "save": {
-    "message": "保存"
+  "connection": {
+    "message": "连接"
   },
-  "addGroup": {
-    "message": "新增分组"
+  "controlPlaneUrl": {
+    "message": "控制面 URL"
   },
-  "remove": {
-    "message": "移除"
+  "password": {
+    "message": "密码"
   },
-  "name": {
-    "message": "名称"
+  "login": {
+    "message": "登录"
   },
-  "mode": {
-    "message": "模式"
+  "logout": {
+    "message": "退出"
   },
-  "bypassHosts": {
-    "message": "直连主机"
+  "remoteRules": {
+    "message": "远程规则"
   },
-  "proxyHosts": {
-    "message": "代理主机"
+  "localDirectHosts": {
+    "message": "本地直连主机"
   },
-  "internalDomains": {
-    "message": "内网域名"
+  "localProxyHosts": {
+    "message": "本地代理主机"
   },
-  "internalCidrs": {
-    "message": "内网 CIDR"
+  "saveOverrides": {
+    "message": "保存覆盖"
   },
-  "addNode": {
-    "message": "新增节点"
+  "ruleSummary": {
+    "message": "$PROXY$ 条代理 / $DIRECT$ 条直连",
+    "placeholders": {
+      "proxy": {
+        "content": "$1"
+      },
+      "direct": {
+        "content": "$2"
+      }
+    }
   },
-  "quickRules": {
-    "message": "快捷规则"
+  "ruleSummaryLong": {
+    "message": "$PROXYHOSTS$ 条代理主机规则，$PROXYCIDRS$ 条代理 CIDR，$DIRECTHOSTS$ 条直连主机规则，$DIRECTCIDRS$ 条直连 CIDR",
+    "placeholders": {
+      "proxyhosts": {
+        "content": "$1"
+      },
+      "proxycidrs": {
+        "content": "$2"
+      },
+      "directhosts": {
+        "content": "$3"
+      },
+      "directcidrs": {
+        "content": "$4"
+      }
+    }
   },
-  "globalDirectHosts": {
-    "message": "全局直连主机"
+  "sessionSummary": {
+    "message": "$ACCOUNT$ · 过期时间 $EXPIRES$",
+    "placeholders": {
+      "account": {
+        "content": "$1"
+      },
+      "expires": {
+        "content": "$2"
+      }
+    }
   },
-  "globalProxyHosts": {
-    "message": "全局代理主机"
+  "syncedAt": {
+    "message": "已同步"
   },
-  "globalInternalDomains": {
-    "message": "全局内网域名"
+  "notSignedIn": {
+    "message": "未登录"
   },
-  "routingSmart": {
-    "message": "智能"
+  "notSynced": {
+    "message": "未同步"
   },
-  "routingAll": {
-    "message": "全部"
+  "noGroup": {
+    "message": "无分组"
   },
-  "routingInternalShort": {
-    "message": "内网"
+  "noRules": {
+    "message": "无规则"
   },
-  "routingExternalShort": {
-    "message": "外网"
-  },
-  "routingMode_smart": {
-    "message": "智能"
-  },
-  "routingMode_all": {
-    "message": "全部"
-  },
-  "routingMode_internal": {
-    "message": "内网"
-  },
-  "routingMode_external": {
-    "message": "外网"
+  "noSite": {
+    "message": "无站点"
   },
   "on": {
     "message": "开"
@@ -116,63 +137,32 @@
   "off": {
     "message": "关"
   },
-  "proxy": {
-    "message": "代理"
+  "statusLoginRequired": {
+    "message": "请先到设置页登录，然后再启用远程分组。"
   },
-  "direct": {
-    "message": "直连"
+  "statusNoGroups": {
+    "message": "当前账号没有可用的远程分组。"
   },
-  "noGroup": {
-    "message": "无分组"
+  "statusReadyOff": {
+    "message": "远程配置已加载，代理当前关闭。"
   },
-  "noNode": {
-    "message": "无节点"
+  "statusReadyOn": {
+    "message": "远程分组已启用，浏览器代理已打开。"
   },
-  "noSite": {
-    "message": "无站点"
+  "statusSynced": {
+    "message": "远程配置已同步。"
   },
-  "nodeCount": {
-    "message": "$COUNT$ 个节点",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
+  "statusLoggedIn": {
+    "message": "登录成功，远程分组已加载。"
   },
-  "active": {
-    "message": "启用"
+  "statusLoggedOut": {
+    "message": "会话已清除。"
   },
-  "scheme": {
-    "message": "协议"
+  "statusOverridesSaved": {
+    "message": "本地覆盖已保存。"
   },
-  "host": {
-    "message": "主机"
-  },
-  "port": {
-    "message": "端口"
-  },
-  "duplicate": {
-    "message": "复制"
-  },
-  "delete": {
-    "message": "删除"
-  },
-  "copyName": {
-    "message": "$NAME$ 副本",
-    "placeholders": {
-      "name": {
-        "content": "$1"
-      }
-    }
-  },
-  "untitledGroup": {
-    "message": "未命名分组"
-  },
-  "newNode": {
-    "message": "新节点"
-  },
-  "newGroup": {
-    "message": "新分组"
+  "statusIdle": {
+    "message": "登录后即可使用远程分组。"
   },
   "themeVivid": {
     "message": "灵动"
