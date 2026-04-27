@@ -1466,19 +1466,24 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	var (
 		tokenID    string
 		targetID   sql.NullString
+		nodeName   sql.NullString
 		expiresAt  string
 		consumedAt sql.NullString
 	)
 	err := s.db.QueryRow(
-		`SELECT id, target_id, expires_at, consumed_at FROM bootstrap_tokens WHERE token_hash = ?`,
+		`SELECT id, target_id, node_name, expires_at, consumed_at FROM bootstrap_tokens WHERE token_hash = ?`,
 		input.Token,
-	).Scan(&tokenID, &targetID, &expiresAt, &consumedAt)
+	).Scan(&tokenID, &targetID, &nodeName, &expiresAt, &consumedAt)
 	if err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
 	expiry, err := time.Parse(time.RFC3339, expiresAt)
 	if err != nil || time.Now().UTC().After(expiry) || consumedAt.Valid {
 		return domain.EnrollNodeResult{}, fmt.Errorf("invalid bootstrap token")
+	}
+	effectiveName := input.Name
+	if nodeName.Valid && nodeName.String != "" {
+		effectiveName = nodeName.String
 	}
 	now := nowRFC3339()
 	enrollmentSecret, err := auth.RandomToken()
@@ -1505,11 +1510,11 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 			`UPDATE nodes
 			 SET name = ?, mode = ?, public_host = NULLIF(?, ''), public_port = ?, scope_key = ?, parent_node_id = NULLIF(?, ''), enabled = ?, status = ?, updated_at = ?
 			 WHERE id = ?`,
-			input.Name, input.Mode, input.PublicHost, input.PublicPort, input.ScopeKey, input.ParentNodeID, 1, "pending", now, node.ID,
+			effectiveName, input.Mode, input.PublicHost, input.PublicPort, input.ScopeKey, input.ParentNodeID, 1, "pending", now, node.ID,
 		); err != nil {
 			return domain.EnrollNodeResult{}, err
 		}
-		node.Name = input.Name
+		node.Name = effectiveName
 		node.Mode = input.Mode
 		node.ScopeKey = input.ScopeKey
 		node.ParentNodeID = input.ParentNodeID
@@ -1524,7 +1529,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 		}
 		node = domain.Node{
 			ID:           nodeID,
-			Name:         input.Name,
+			Name:         effectiveName,
 			Mode:         input.Mode,
 			ScopeKey:     input.ScopeKey,
 			ParentNodeID: input.ParentNodeID,
