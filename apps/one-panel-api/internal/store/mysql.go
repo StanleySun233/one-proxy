@@ -2359,14 +2359,17 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 	}, nil
 }
 
+var healthyListenerValues = map[string]bool{"up": true}
+var healthyCertValues = map[string]bool{"healthy": true, "renewed": true}
+
 func heartbeatNodeStatus(listenerStatus map[string]string, certStatus map[string]string) string {
 	for _, value := range listenerStatus {
-		if value != "up" && value != "healthy" && value != "renewed" {
+		if !healthyListenerValues[value] {
 			return "degraded"
 		}
 	}
 	for _, value := range certStatus {
-		if value != "up" && value != "healthy" && value != "renewed" {
+		if !healthyCertValues[value] {
 			return "degraded"
 		}
 	}
