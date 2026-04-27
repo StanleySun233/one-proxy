@@ -436,3 +436,61 @@ type RejectEnrollmentInput struct {
 	RejectReason string `json:"rejectReason"`
 }
 
+type ValidateChainInput struct {
+	Name             string   `json:"name"`
+	Hops             []string `json:"hops"`
+	DestinationScope string   `json:"destinationScope"`
+}
+
+type HopConnectivity struct {
+	From       string `json:"from"`
+	To         string `json:"to"`
+	Reachable  bool   `json:"reachable"`
+}
+
+type ScopeOwnership struct {
+	Scope       string `json:"scope"`
+	OwnerNodeID string `json:"ownerNodeId"`
+	Valid       bool   `json:"valid"`
+}
+
+type ChainValidationResult struct {
+	Valid           bool              `json:"valid"`
+	Errors          []string          `json:"errors"`
+	Warnings        []string          `json:"warnings"`
+	HopConnectivity []HopConnectivity `json:"hopConnectivity"`
+	ScopeOwnership  ScopeOwnership    `json:"scopeOwnership"`
+}
+
+type PreviewChainInput struct {
+	Name             string   `json:"name"`
+	Hops             []string `json:"hops"`
+	DestinationScope string   `json:"destinationScope"`
+}
+
+type ChainHopDetail struct {
+	NodeID   string `json:"nodeId"`
+	NodeName string `json:"nodeName"`
+	Mode     string `json:"mode"`
+}
+
+type CompiledChainConfig struct {
+	ChainID          string           `json:"chainId"`
+	Name             string           `json:"name"`
+	Hops             []ChainHopDetail `json:"hops"`
+	DestinationScope string           `json:"destinationScope"`
+	RoutingPath      string           `json:"routingPath"`
+}
+
+type ChainPreviewResult struct {
+	CompiledConfig CompiledChainConfig `json:"compiledConfig"`
+}
+
+type NodeScope struct {
+	ScopeKey      string `json:"scopeKey"`
+	OwnerNodeID   string `json:"ownerNodeId"`
+	OwnerNodeName string `json:"ownerNodeName"`
+	Description   string `json:"description"`
+}
+
+

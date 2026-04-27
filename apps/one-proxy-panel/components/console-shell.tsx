@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import {
   BadgeCheck,
   ChevronRight,
@@ -150,12 +149,6 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     <div className="console-shell">
       <header className="console-topbar">
         <div className="console-topbar-brand">
-          <div className="console-topbar-favicon">
-            <Image alt="One Proxy favicon" height={34} priority src="/favicon.svg" width={34} />
-          </div>
-          <div className="console-topbar-wordmark">
-            <h1>{t('shell.product')}</h1>
-          </div>
         </div>
 
         <div className="console-topbar-actions">
@@ -201,14 +194,6 @@ export function ConsoleShell({children}: {children: ReactNode}) {
       <div className="console-workspace">
         <aside className="console-rail">
           <div className="brand-panel">
-            <div className="brand-mark">
-              <Image alt="One Proxy favicon" height={56} priority src="/favicon.svg" width={56} />
-            </div>
-            <div className="brand-copy-block">
-              <p className="brand-kicker">{t('shell.product')}</p>
-              <h2>{t('shell.name')}</h2>
-              <p className="brand-copy">{t('shell.tagline')}</p>
-            </div>
           </div>
 
           <nav className="nav-panel">

@@ -462,6 +462,141 @@ func (c *ControlPlane) DeleteChain(chainID string) error {
 	return c.store.DeleteChain(chainID)
 }
 
+func (c *ControlPlane) ValidateChain(input domain.ValidateChainInput) (domain.ChainValidationResult, error) {
+	result := domain.ChainValidationResult{
+		Valid:           true,
+		Errors:          []string{},
+		Warnings:        []string{},
+		HopConnectivity: []domain.HopConnectivity{},
+	}
+
+	if len(input.Hops) == 0 {
+		result.Valid = false
+		result.Errors = append(result.Errors, "Chain must have at least one hop")
+		return result, nil
+	}
+
+	nodes := c.store.ListNodes()
+	links := c.store.ListNodeLinks()
+
+	firstHopNode, ok := nodeByID(nodes, input.Hops[0])
+	if !ok {
+		result.Valid = false
+		result.Errors = append(result.Errors, fmt.Sprintf("First hop node %s not found", input.Hops[0]))
+		return result, nil
+	}
+
+	if firstHopNode.Mode != "edge" {
+		result.Valid = false
+		result.Errors = append(result.Errors, "First hop must be an edge node")
+	}
+
+	for i := 0; i < len(input.Hops)-1; i++ {
+		fromNodeID := input.Hops[i]
+		toNodeID := input.Hops[i+1]
+		reachable := false
+
+		for _, link := range links {
+			if link.SourceNodeID == fromNodeID && link.TargetNodeID == toNodeID {
+				reachable = true
+				break
+			}
+		}
+
+		result.HopConnectivity = append(result.HopConnectivity, domain.HopConnectivity{
+			From:      fromNodeID,
+			To:        toNodeID,
+			Reachable: reachable,
+		})
+
+		if !reachable {
+			result.Valid = false
+			result.Errors = append(result.Errors, fmt.Sprintf("Node %s cannot reach node %s", fromNodeID, toNodeID))
+		}
+	}
+
+	if len(input.Hops) > 0 {
+		finalHopNodeID := input.Hops[len(input.Hops)-1]
+		finalHopNode, ok := nodeByID(nodes, finalHopNodeID)
+		if !ok {
+			result.Valid = false
+			result.Errors = append(result.Errors, fmt.Sprintf("Final hop node %s not found", finalHopNodeID))
+		} else {
+			scopeValid := finalHopNode.ScopeKey == input.DestinationScope
+			result.ScopeOwnership = domain.ScopeOwnership{
+				Scope:       input.DestinationScope,
+				OwnerNodeID: finalHopNodeID,
+				Valid:       scopeValid,
+			}
+
+			if !scopeValid {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("Scope %s is not owned by final hop node %s", input.DestinationScope, finalHopNodeID))
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func (c *ControlPlane) PreviewChain(input domain.PreviewChainInput) (domain.ChainPreviewResult, error) {
+	nodes := c.store.ListNodes()
+	hopDetails := make([]domain.ChainHopDetail, 0, len(input.Hops))
+	routingPath := "user"
+
+	for _, hopID := range input.Hops {
+		node, ok := nodeByID(nodes, hopID)
+		if !ok {
+			return domain.ChainPreviewResult{}, invalidInput(fmt.Sprintf("node %s not found", hopID))
+		}
+
+		hopDetails = append(hopDetails, domain.ChainHopDetail{
+			NodeID:   node.ID,
+			NodeName: node.Name,
+			Mode:     node.Mode,
+		})
+
+		routingPath += " → " + node.Name
+	}
+
+	routingPath += fmt.Sprintf(" → target(%s)", input.DestinationScope)
+
+	return domain.ChainPreviewResult{
+		CompiledConfig: domain.CompiledChainConfig{
+			ChainID:          "preview",
+			Name:             input.Name,
+			Hops:             hopDetails,
+			DestinationScope: input.DestinationScope,
+			RoutingPath:      routingPath,
+		},
+	}, nil
+}
+
+func (c *ControlPlane) NodeScopes() []domain.NodeScope {
+	nodes := c.store.ListNodes()
+	scopeMap := make(map[string]domain.NodeScope)
+
+	for _, node := range nodes {
+		if node.ScopeKey == "" {
+			continue
+		}
+		if _, exists := scopeMap[node.ScopeKey]; !exists {
+			scopeMap[node.ScopeKey] = domain.NodeScope{
+				ScopeKey:      node.ScopeKey,
+				OwnerNodeID:   node.ID,
+				OwnerNodeName: node.Name,
+				Description:   fmt.Sprintf("Scope managed by %s", node.Name),
+			}
+		}
+	}
+
+	scopes := make([]domain.NodeScope, 0, len(scopeMap))
+	for _, scope := range scopeMap {
+		scopes = append(scopes, scope)
+	}
+
+	return scopes
+}
+
 func (c *ControlPlane) RouteRules() []domain.RouteRule {
 	return c.store.ListRouteRules()
 }
@@ -489,6 +624,16 @@ func (c *ControlPlane) DeleteRouteRule(ruleID string) error {
 
 func (c *ControlPlane) NodeHealth() []domain.NodeHealth {
 	return c.store.ListNodeHealth()
+}
+
+func (c *ControlPlane) NodeHealthHistory(nodeID string, window time.Duration) ([]domain.NodeHealth, error) {
+	if nodeID == "" {
+		return nil, invalidInput("missing_node_id")
+	}
+	if window <= 0 || window > 7*24*time.Hour {
+		window = 24 * time.Hour
+	}
+	return c.store.ListNodeHealthHistory(nodeID, window)
 }
 
 func (c *ControlPlane) NodeEnrollmentApprovals() []domain.NodeEnrollmentApproval {

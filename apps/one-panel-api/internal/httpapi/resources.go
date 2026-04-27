@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
@@ -523,6 +524,50 @@ func (r *Router) handleChainProbe(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (r *Router) handleChainValidate(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeMethodNotAllowed(w, "POST")
+		return
+	}
+	var payload domain.ValidateChainInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	result, err := r.service.ValidateChain(payload)
+	if err != nil {
+		writeServiceError(w, req, err, "validation_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, result)
+}
+
+func (r *Router) handleChainPreview(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeMethodNotAllowed(w, "POST")
+		return
+	}
+	var payload domain.PreviewChainInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	result, err := r.service.PreviewChain(payload)
+	if err != nil {
+		writeServiceError(w, req, err, "preview_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, result)
+}
+
+func (r *Router) handleNodeScopes(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.NodeScopes())
+}
+
 func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -580,6 +625,31 @@ func (r *Router) handleNodeHealth(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	writeSuccess(w, http.StatusOK, r.service.NodeHealth())
+}
+
+func (r *Router) handleNodeHealthHistory(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	nodeID := req.URL.Query().Get("nodeId")
+	if nodeID == "" {
+		writeError(w, http.StatusBadRequest, "missing_node_id")
+		return
+	}
+	windowStr := req.URL.Query().Get("window")
+	window := 24 * time.Hour
+	if windowStr != "" {
+		if parsed, err := time.ParseDuration(windowStr); err == nil {
+			window = parsed
+		}
+	}
+	items, err := r.service.NodeHealthHistory(nodeID, window)
+	if err != nil {
+		writeServiceError(w, req, err, "history_fetch_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, items)
 }
 
 func (r *Router) handlePolicyRevisions(w http.ResponseWriter, req *http.Request) {

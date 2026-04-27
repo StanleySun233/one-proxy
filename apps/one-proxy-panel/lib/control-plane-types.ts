@@ -160,6 +160,12 @@ export type NodeHealth = {
   certStatus: Record<string, string>;
 };
 
+export type NodeHealthHistory = {
+  heartbeatAt: string;
+  listenerStatus: Record<string, string>;
+  certStatus: Record<string, string>;
+};
+
 export type BootstrapToken = {
   id: string;
   token: string;
