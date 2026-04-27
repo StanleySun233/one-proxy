@@ -907,7 +907,7 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 		Warnings: []string{},
 	}
 
-	result.MatchValueValidation = validateMatchValue(input.MatchType, input.MatchValue)
+	result.MatchValueValidation = c.validateMatchValue(input.MatchType, input.MatchValue)
 	if !result.MatchValueValidation.Valid {
 		result.Valid = false
 		result.Errors = append(result.Errors, result.MatchValueValidation.Message)
@@ -981,7 +981,10 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 	return result, nil
 }
 
-func validateMatchValue(matchType, matchValue string) domain.MatchValueValidation {
+func (c *ControlPlane) validateMatchValue(matchType, matchValue string) domain.MatchValueValidation {
+	if !c.isValidEnum("match_type", matchType) {
+		return domain.MatchValueValidation{Valid: false, Format: matchType, Message: "Unknown match type"}
+	}
 	switch matchType {
 	case "domain":
 		pattern := `^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`
@@ -1021,9 +1024,8 @@ func validateMatchValue(matchType, matchValue string) domain.MatchValueValidatio
 		return domain.MatchValueValidation{Valid: true, Format: "url_regex", Message: "Valid regex pattern"}
 	case "default":
 		return domain.MatchValueValidation{Valid: true, Format: "default", Message: "Default match type"}
-	default:
-		return domain.MatchValueValidation{Valid: false, Format: matchType, Message: "Unknown match type"}
 	}
+	return domain.MatchValueValidation{Valid: false, Format: matchType, Message: "Unknown match type"}
 }
 
 func (c *ControlPlane) RouteRuleSuggestions(matchType string, query string) domain.RouteRuleSuggestionResult {
