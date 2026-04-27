@@ -409,6 +409,10 @@ func (s *SeedStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput)
 	}, nil
 }
 
+func (s *SeedStore) ListUnconsumedBootstrapTokens() []domain.BootstrapToken {
+	return []domain.BootstrapToken{}
+}
+
 func (s *SeedStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
 	enrollmentSecret, _ := auth.RandomToken()
 	return domain.EnrollNodeResult{

@@ -345,6 +345,14 @@ func (r *Router) handleNodeBootstrapToken(w http.ResponseWriter, req *http.Reque
 	writeSuccess(w, http.StatusCreated, item)
 }
 
+func (r *Router) handleUnconsumedBootstrapTokens(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.UnconsumedBootstrapTokens())
+}
+
 func (r *Router) handleNodeEnroll(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		writeMethodNotAllowed(w, "POST")

@@ -48,6 +48,7 @@ type Store interface {
 	ListNodeHealth() []domain.NodeHealth
 	ListNodeHealthHistory(nodeID string, window time.Duration) ([]domain.NodeHealth, error)
 	CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error)
+	ListUnconsumedBootstrapTokens() []domain.BootstrapToken
 	EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error)
 	ApproveNodeEnrollment(nodeID string, reviewedBy string) (domain.ApproveNodeEnrollmentResult, error)
 	ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentInput) (domain.ApproveNodeEnrollmentResult, error)

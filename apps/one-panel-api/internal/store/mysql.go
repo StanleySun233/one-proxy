@@ -1462,6 +1462,29 @@ func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput
 	return item, err
 }
 
+func (s *MySQLStore) ListUnconsumedBootstrapTokens() []domain.BootstrapToken {
+	rows, err := s.db.Query(
+		`SELECT id, target_type, COALESCE(target_id, ''), COALESCE(node_name, ''), expires_at
+		 FROM bootstrap_tokens
+		 WHERE consumed_at IS NULL AND expires_at > ?
+		 ORDER BY created_at DESC`,
+		nowRFC3339(),
+	)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	items := make([]domain.BootstrapToken, 0)
+	for rows.Next() {
+		var item domain.BootstrapToken
+		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.NodeName, &item.ExpiresAt); err != nil {
+			continue
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
 func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
 	var (
 		tokenID    string
