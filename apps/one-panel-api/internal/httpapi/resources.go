@@ -646,18 +646,29 @@ func (r *Router) handleEnums(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusInternalServerError, "list_enums_failed")
 		return
 	}
-	grouped := make(map[string]map[string]string)
+	type enumEntry struct {
+		Name string      `json:"name"`
+		Meta interface{} `json:"meta,omitempty"`
+	}
+	grouped := make(map[string]map[string]enumEntry)
 	for _, item := range items {
 		if _, ok := grouped[item.Field]; !ok {
-			grouped[item.Field] = make(map[string]string)
+			grouped[item.Field] = make(map[string]enumEntry)
 		}
-		grouped[item.Field][item.Value] = item.Name
+		entry := enumEntry{Name: item.Name}
+		if item.Meta != nil && *item.Meta != "" && *item.Meta != "{}" {
+			var meta interface{}
+			if err := json.Unmarshal([]byte(*item.Meta), &meta); err == nil {
+				entry.Meta = meta
+			}
+		}
+		grouped[item.Field][item.Value] = entry
 	}
 	if field != "" {
 		if m, ok := grouped[field]; ok {
 			writeSuccess(w, http.StatusOK, m)
 		} else {
-			writeSuccess(w, http.StatusOK, map[string]string{})
+			writeSuccess(w, http.StatusOK, map[string]enumEntry{})
 		}
 		return
 	}

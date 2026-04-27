@@ -86,8 +86,8 @@ export default function RoutesPage() {
   const actionType = form.watch('actionType');
   const matchType = form.watch('matchType');
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
-  const matchTypeOptions = enums?.match_type ? Object.entries(enums.match_type).map(([value, name]) => ({value, label: name})) : [];
-  const actionTypeOptions = enums?.action_type ? Object.entries(enums.action_type).map(([value, name]) => ({value, label: name})) : [];
+  const matchTypeOptions = enums?.match_type ? Object.entries(enums.match_type).map(([value, item]) => ({value, label: item.name})) : [];
+  const actionTypeOptions = enums?.action_type ? Object.entries(enums.action_type).map(([value, item]) => ({value, label: item.name})) : [];
   const selectedChainId = form.watch('chainId');
   const [regexTesterOpen, setRegexTesterOpen] = useState(false);
   const [validationResult, setValidationResult] = useState<RouteRuleValidationResult | null>(null);

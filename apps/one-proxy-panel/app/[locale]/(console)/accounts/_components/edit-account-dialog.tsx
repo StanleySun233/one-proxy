@@ -20,7 +20,7 @@ export default function EditAccountDialog({open, onClose, account, onSaved, acce
   const [role, setRole] = useState(account.role);
   const [status, setStatus] = useState(account.status);
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
-  const accountStatusOptions = enums?.account_status ? Object.entries(enums.account_status).map(([value, name]) => ({value, label: name})) : [];
+  const accountStatusOptions = enums?.account_status ? Object.entries(enums.account_status).map(([value, item]) => ({value, label: item.name})) : [];
 
   const updateMutation = useMutation({
     mutationFn: (payload: {password?: string; role?: string; status?: string}) =>

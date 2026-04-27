@@ -16,7 +16,7 @@ export function ManualNodeTab({
   onSubmit: () => void;
 }) {
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
-  const modeOptions = enums?.node_mode ? Object.entries(enums.node_mode).map(([value, name]) => ({value, label: name})) : [];
+  const modeOptions = enums?.node_mode ? Object.entries(enums.node_mode).map(([value, item]) => ({value, label: item.name})) : [];
   return (
     <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="field-stack">

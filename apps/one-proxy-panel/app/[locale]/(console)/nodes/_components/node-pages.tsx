@@ -240,8 +240,8 @@ export function NodeRegistryPageContent() {
   const [modeFilter, setModeFilter] = useState('all');
   const [editingNodeID, setEditingNodeID] = useState('');
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
-  const nodeModeOptions = enums?.node_mode ? Object.entries(enums.node_mode).map(([value, name]) => ({value, label: name})) : [];
-  const nodeStatusOptions = enums?.node_status ? Object.entries(enums.node_status).map(([value, name]) => ({value, label: name})) : [];
+  const nodeModeOptions = enums?.node_mode ? Object.entries(enums.node_mode).map(([value, item]) => ({value, label: item.name})) : [];
+  const nodeStatusOptions = enums?.node_status ? Object.entries(enums.node_status).map(([value, item]) => ({value, label: item.name})) : [];
   const [formState, setFormState] = useState({
     name: '',
     mode: 'relay',

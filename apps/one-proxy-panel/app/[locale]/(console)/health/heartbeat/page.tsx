@@ -10,8 +10,8 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/control-plane-api';
-import {NodeHealth, NodeHealthHistory} from '@/lib/control-plane-types';
+import {fetchEnums, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/control-plane-api';
+import {FieldEnumMap, NodeHealth, NodeHealthHistory} from '@/lib/control-plane-types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 const staleThresholdMs = 2 * 60 * 1000;
@@ -37,6 +37,7 @@ export default function HeartbeatPage() {
     enabled: !!accessToken,
     refetchInterval: 5000
   });
+  const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
 
   const nodes = nodesQuery.data || [];
   const health = healthQuery.data || [];
@@ -64,7 +65,7 @@ export default function HeartbeatPage() {
           certSummary: ''
         };
       }
-      const derived = deriveHealthState(item);
+      const derived = deriveHealthState(item, enums);
       return {
         ...item,
         name: node.name,
@@ -77,7 +78,7 @@ export default function HeartbeatPage() {
         certSummary: joinMap(item.certStatus)
       };
     });
-  }, [health, nodes]);
+  }, [health, nodes, enums]);
 
   const parentNodeOptions = useMemo(() => {
     const parentIds = new Set<string>();
@@ -176,10 +177,9 @@ export default function HeartbeatPage() {
                   <span>Derived state</span>
                   <select className="field-select" onChange={(event) => setHealthFilter(event.target.value)} value={healthFilter}>
                     <option value="all">All states</option>
-                    <option value="healthy">healthy</option>
-                    <option value="degraded">degraded</option>
-                    <option value="stale">stale</option>
-                    <option value="unreported">unreported</option>
+                    {enums?.node_status && Object.entries(enums.node_status).map(([value, entry]) => (
+                      <option key={value} value={value}>{entry.name}</option>
+                    ))}
                   </select>
                 </label>
               </div>
@@ -207,6 +207,7 @@ export default function HeartbeatPage() {
                           item={item}
                           expanded={expandedNodeId === item.nodeId}
                           accessToken={accessToken}
+                          enums={enums}
                           onToggle={() => handleToggleExpand(item.nodeId)}
                         />
                       ))}
@@ -242,11 +243,13 @@ function ExpandableRow({
   item,
   expanded,
   accessToken,
+  enums,
   onToggle
 }: {
   item: HealthRow;
   expanded: boolean;
   accessToken: string;
+  enums: FieldEnumMap | undefined;
   onToggle: () => void;
 }) {
   const historyQuery = useQuery({
@@ -259,8 +262,8 @@ function ExpandableRow({
     if (!historyQuery.data) return [];
     return historyQuery.data
       .filter((h) => Date.parse(h.heartbeatAt))
-      .map((h) => [Date.parse(h.heartbeatAt), deriveTrendState(h)]);
-  }, [historyQuery.data]);
+      .map((h) => [Date.parse(h.heartbeatAt), deriveTrendState(h, enums)]);
+  }, [historyQuery.data, enums]);
 
   return (
     <>
@@ -277,7 +280,7 @@ function ExpandableRow({
           </div>
         </td>
         <td>
-          <span className={healthBadgeClassName(item.derivedStatus)}>{item.derivedLabel}</span>
+          <span className={healthBadgeClassName(item.derivedStatus, enums)}>{item.derivedLabel}</span>
         </td>
         <td>{item.mode || <span className="muted-text">unknown</span>}</td>
         <td className="mono">{item.heartbeatAt ? formatISODateTime(item.heartbeatAt) : <span className="muted-text">never</span>}</td>
@@ -294,7 +297,7 @@ function ExpandableRow({
                 <div className="detail-badge-grid">
                   {Object.entries(item.listenerStatus || {}).length > 0 ? (
                     Object.entries(item.listenerStatus).map(([key, value]) => (
-                      <span key={key} className={`badge ${value === 'up' ? 'is-good' : 'is-danger'}`}>{key}: {value}</span>
+                      <span key={key} className={`badge ${enums?.listener_status?.[value]?.meta?.className || 'is-danger'}`}>{key}: {value}</span>
                     ))
                   ) : (
                     <span className="muted-text">No listener data</span>
@@ -306,7 +309,7 @@ function ExpandableRow({
                 <div className="detail-badge-grid">
                   {Object.entries(item.certStatus || {}).length > 0 ? (
                     Object.entries(item.certStatus).map(([key, value]) => (
-                      <span key={key} className={`badge ${value === 'healthy' || value === 'renewed' ? 'is-good' : value === 'renew-soon' || value === 'rotate' ? 'is-warn' : 'is-danger'}`}>{key}: {value}</span>
+                      <span key={key} className={`badge ${enums?.cert_status?.[value]?.meta?.className || 'is-danger'}`}>{key}: {value}</span>
                     ))
                   ) : (
                     <span className="muted-text">No certificate data</span>
@@ -326,7 +329,7 @@ function ExpandableRow({
                     option={{
                       grid: {top: 8, right: 8, bottom: 8, left: 40},
                       xAxis: {type: 'time', axisLabel: {fontSize: 10}},
-                      yAxis: {type: 'category', data: ['healthy', 'degraded', 'stale'], axisLabel: {fontSize: 10}},
+                      yAxis: {type: 'category', data: ['healthy', 'degraded', 'stale'], axisLabel: {fontSize: 10, formatter: (v: string) => enums?.node_status?.[v]?.name || v}},
                       series: [{type: 'line', step: 'end', data: historyData, smooth: false, symbol: 'circle', symbolSize: 4}],
                       tooltip: {trigger: 'axis'},
                       backgroundColor: 'transparent'
@@ -343,25 +346,33 @@ function ExpandableRow({
   );
 }
 
-function deriveHealthState(item: NodeHealth) {
+function isGoodEnumValue(statusField: string, value: string, enums: FieldEnumMap | undefined): boolean {
+  return enums?.[statusField]?.[value]?.meta?.className === 'is-good';
+}
+
+function deriveHealthState(item: NodeHealth, enums: FieldEnumMap | undefined) {
   const heartbeatTime = Date.parse(item.heartbeatAt);
   const isStale = Number.isFinite(heartbeatTime) ? Date.now() - heartbeatTime > staleThresholdMs : true;
   const listenerValues = Object.values(item.listenerStatus || {});
   const certValues = Object.values(item.certStatus || {});
-  const hasDegradedSignal = [...listenerValues, ...certValues].some((value) => value !== 'up' && value !== 'healthy' && value !== 'renewed');
+  const hasDegradedSignal = [...listenerValues, ...certValues].some(
+    (value) => !isGoodEnumValue('listener_status', value, enums) && !isGoodEnumValue('cert_status', value, enums)
+  );
   if (isStale) {
-    return {status: 'stale', label: 'stale'};
+    return {status: 'stale', label: enums?.node_status?.stale?.name || 'stale'};
   }
   if (hasDegradedSignal) {
-    return {status: 'degraded', label: 'degraded'};
+    return {status: 'degraded', label: enums?.node_status?.degraded?.name || 'degraded'};
   }
-  return {status: 'healthy', label: 'healthy'};
+  return {status: 'healthy', label: enums?.node_status?.healthy?.name || 'healthy'};
 }
 
-function deriveTrendState(item: NodeHealthHistory): string {
+function deriveTrendState(item: NodeHealthHistory, enums: FieldEnumMap | undefined): string {
   const listenerValues = Object.values(item.listenerStatus || {});
   const certValues = Object.values(item.certStatus || {});
-  const hasDegradedSignal = [...listenerValues, ...certValues].some((value) => value !== 'up' && value !== 'healthy' && value !== 'renewed');
+  const hasDegradedSignal = [...listenerValues, ...certValues].some(
+    (value) => !isGoodEnumValue('listener_status', value, enums) && !isGoodEnumValue('cert_status', value, enums)
+  );
   return hasDegradedSignal ? 'degraded' : 'healthy';
 }
 
@@ -371,15 +382,10 @@ function joinMap(value: Record<string, string>) {
     .join(', ');
 }
 
-function healthBadgeClassName(status: string) {
-  if (status === 'healthy') {
-    return 'badge is-good';
+function healthBadgeClassName(status: string, enums: FieldEnumMap | undefined): string {
+  const entry = enums?.node_status?.[status];
+  if (entry?.meta?.className) {
+    return `badge ${entry.meta.className}`;
   }
-  if (status === 'stale') {
-    return 'badge is-warn';
-  }
-  if (status === 'unreported') {
-    return 'badge is-neutral';
-  }
-  return 'badge is-danger';
+  return 'badge is-neutral';
 }
