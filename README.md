@@ -41,12 +41,12 @@ Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.control-plane` if ne
 3. Build and run the single control-plane container:
 
 ```bash
-docker build -f docker/control-plane.Dockerfile -t one-proxy-control-plane .
-docker run --rm --name one-proxy-control-plane \
+docker build -f docker/control-plane.Dockerfile -t one-proxy-panel .
+docker run --rm --name one-proxy-panel \
   --add-host host.docker.internal:host-gateway \
   --env-file .env.control-plane \
   -p 2886:2886 \
-  one-proxy-control-plane
+  one-proxy-panel
 ```
 
 Open `http://127.0.0.1:2886`. The frontend is the only exposed port. `/api/v1/*` is proxied inside the same container to the backend on `127.0.0.1:2887`.
@@ -64,19 +64,19 @@ Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.proxy-node` if neede
 2. Build and run:
 
 ```bash
-docker build -f docker/proxy-node.Dockerfile -t one-proxy-proxy-node .
-docker run --rm --name one-proxy-proxy-node \
+docker build -f docker/proxy-node.Dockerfile -t one-proxy-node .
+docker run --rm --name one-proxy-node \
   --env-file .env.proxy-node \
   -p 2888:2888 \
   -p 2889:2889 \
-  one-proxy-proxy-node
+  one-proxy-node
 ```
 
 The node keeps its local runtime state in SQLite/JSON files inside the container. Mount `/app/runtime` if you want persistence.
 
 ## GHCR
 
-Pushes to `main` trigger `.github/workflows/docker-images.yml`. The workflow builds both images, runs local smoke tests with `docker run`, then publishes:
+Pushes to `main` trigger the split image workflows and publish:
 
-- `ghcr.io/stanleysun233/one-proxy-control-plane:latest`
-- `ghcr.io/stanleysun233/one-proxy-proxy-node:latest`
+- `ghcr.io/stanleysun233/one-proxy-panel:latest`
+- `ghcr.io/stanleysun233/one-proxy-node:latest`
