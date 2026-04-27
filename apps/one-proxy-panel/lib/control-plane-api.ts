@@ -16,7 +16,6 @@ import {
   LoginResult,
   Node,
   NodeAccessPath,
-  NodeEnrollmentApproval,
   NodeHealth,
   NodeHealthHistory,
   NodeLink,
@@ -251,23 +250,15 @@ export function approveNode(accessToken: string, nodeID: string) {
   });
 }
 
-export function getNodeEnrollmentApprovals(accessToken: string) {
-  return request<NodeEnrollmentApproval[]>('/nodes/approvals', {accessToken});
+export function getPendingNodes(accessToken: string) {
+  return request<Node[]>('/nodes/pending', {accessToken});
 }
 
-export function approveEnrollment(accessToken: string, approvalId: string, operatorNote?: string) {
-  return request<NodeEnrollmentApproval>(`/nodes/approvals/${approvalId}/approve`, {
+export function rejectNode(accessToken: string, nodeId: string, reason?: string) {
+  return request<{status: string}>(`/nodes/${nodeId}/reject`, {
     method: 'POST',
     accessToken,
-    body: {operatorNote}
-  });
-}
-
-export function rejectEnrollment(accessToken: string, approvalId: string, operatorNote?: string) {
-  return request<NodeEnrollmentApproval>(`/nodes/approvals/${approvalId}/reject`, {
-    method: 'POST',
-    accessToken,
-    body: {operatorNote}
+    body: {reason: reason || ''}
   });
 }
 

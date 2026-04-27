@@ -418,7 +418,7 @@ func (s *SeedStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeR
 	}, nil
 }
 
-func (s *SeedStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnrollmentResult, error) {
+func (s *SeedStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (domain.ApproveNodeEnrollmentResult, error) {
 	accessToken, _ := auth.RandomToken()
 	trustMaterial, _ := auth.RandomToken()
 	return domain.ApproveNodeEnrollmentResult{
@@ -437,7 +437,15 @@ func (s *SeedStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnro
 }
 
 func (s *SeedStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentInput) (domain.ApproveNodeEnrollmentResult, error) {
-	return s.ApproveNodeEnrollment(input.NodeID)
+	return s.ApproveNodeEnrollment(input.NodeID, "")
+}
+
+func (s *SeedStore) ListPendingNodes() []domain.Node {
+	return []domain.Node{}
+}
+
+func (s *SeedStore) RejectNodeEnrollment(nodeID string, reviewedBy string, reason string) error {
+	return nil
 }
 
 func (s *SeedStore) ListPolicyRevisions() []domain.PolicyRevision {

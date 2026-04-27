@@ -1029,7 +1029,7 @@ func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrol
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "healthy", now, nodeID); err != nil {
+		if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "healthy", now, nodeID); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
@@ -1532,13 +1532,6 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	); err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
-	if _, err := tx.Exec(
-		`INSERT INTO node_enrollment_approvals (id, bootstrap_token_id, node_name, node_mode, scope_key, parent_node_id, public_host, public_port, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?)`,
-		newID("approval"), tokenID, input.Name, input.Mode, input.ScopeKey, input.ParentNodeID, input.PublicHost, input.PublicPort, "pending", now, now,
-	); err != nil {
-		return domain.EnrollNodeResult{}, err
-	}
 	if err := tx.Commit(); err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
@@ -1549,7 +1542,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	}, nil
 }
 
-func (s *MySQLStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnrollmentResult, error) {
+func (s *MySQLStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (domain.ApproveNodeEnrollmentResult, error) {
 	var (
 		node    domain.Node
 		enabled int
@@ -1584,7 +1577,7 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnr
 	if _, err := tx.Exec("DELETE FROM node_api_tokens WHERE node_id = ?", nodeID); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", "healthy", now, nodeID); err != nil {
+	if _, err := tx.Exec("UPDATE nodes SET status = ?, reviewed_by = ?, reviewed_at = ?, updated_at = ? WHERE id = ?", "healthy", reviewedBy, now, now, nodeID); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
@@ -1682,12 +1675,12 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 	}, nil
 }
 
-func (s *MySQLStore) ListNodeEnrollmentApprovals() []domain.NodeEnrollmentApproval {
+func (s *MySQLStore) ListPendingNodes() []domain.Node {
 	rows, err := s.db.Query(
-		`SELECT id, bootstrap_token_id, node_name, node_mode, scope_key, parent_node_id,
-		        public_host, public_port, status, reviewed_by, reviewed_at, reject_reason,
-		        created_at, updated_at
-		 FROM node_enrollment_approvals
+		`SELECT id, name, mode, scope_key, COALESCE(parent_node_id, ''), enabled, status,
+		        COALESCE(public_host, ''), COALESCE(public_port, 0),
+		        COALESCE(reviewed_by, ''), COALESCE(reviewed_at, ''), COALESCE(reject_reason, '')
+		 FROM nodes
 		 WHERE status = 'pending'
 		 ORDER BY created_at DESC`,
 	)
@@ -1695,142 +1688,38 @@ func (s *MySQLStore) ListNodeEnrollmentApprovals() []domain.NodeEnrollmentApprov
 		return nil
 	}
 	defer rows.Close()
-	items := make([]domain.NodeEnrollmentApproval, 0)
+	nodes := make([]domain.Node, 0)
 	for rows.Next() {
-		var item domain.NodeEnrollmentApproval
-		var parentNodeID, publicHost, reviewedBy, reviewedAt, rejectReason sql.NullString
-		var publicPort sql.NullInt64
+		var node domain.Node
+		var enabled int
 		if err := rows.Scan(
-			&item.ID, &item.BootstrapTokenID, &item.NodeName, &item.NodeMode, &item.ScopeKey,
-			&parentNodeID, &publicHost, &publicPort, &item.Status,
-			&reviewedBy, &reviewedAt, &rejectReason, &item.CreatedAt, &item.UpdatedAt,
+			&node.ID, &node.Name, &node.Mode, &node.ScopeKey, &node.ParentNodeID,
+			&enabled, &node.Status, &node.PublicHost, &node.PublicPort,
+			&node.ReviewedBy, &node.ReviewedAt, &node.RejectReason,
 		); err != nil {
 			continue
 		}
-		if parentNodeID.Valid {
-			item.ParentNodeID = parentNodeID.String
-		}
-		if publicHost.Valid {
-			item.PublicHost = publicHost.String
-		}
-		if publicPort.Valid {
-			item.PublicPort = int(publicPort.Int64)
-		}
-		if reviewedBy.Valid {
-			item.ReviewedBy = reviewedBy.String
-		}
-		if reviewedAt.Valid {
-			item.ReviewedAt = reviewedAt.String
-		}
-		if rejectReason.Valid {
-			item.RejectReason = rejectReason.String
-		}
-		items = append(items, item)
+		node.Enabled = enabled == 1
+		nodes = append(nodes, node)
 	}
-	return items
+	return nodes
 }
 
-func (s *MySQLStore) ApproveNodeEnrollmentApproval(approvalID string, accountID string, input domain.ApproveEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
-	var approval domain.NodeEnrollmentApproval
-	var parentNodeID, publicHost, reviewedBy, reviewedAt, rejectReason sql.NullString
-	var publicPort sql.NullInt64
-	err := s.db.QueryRow(
-		`SELECT id, bootstrap_token_id, node_name, node_mode, scope_key, parent_node_id,
-		        public_host, public_port, status, reviewed_by, reviewed_at, reject_reason,
-		        created_at, updated_at
-		 FROM node_enrollment_approvals WHERE id = ?`,
-		approvalID,
-	).Scan(
-		&approval.ID, &approval.BootstrapTokenID, &approval.NodeName, &approval.NodeMode,
-		&approval.ScopeKey, &parentNodeID, &publicHost, &publicPort,
-		&approval.Status, &reviewedBy, &reviewedAt, &rejectReason, &approval.CreatedAt, &approval.UpdatedAt,
-	)
+func (s *MySQLStore) RejectNodeEnrollment(nodeID string, reviewedBy string, reason string) error {
+	var status string
+	err := s.db.QueryRow("SELECT status FROM nodes WHERE id = ?", nodeID).Scan(&status)
 	if err != nil {
-		return domain.NodeEnrollmentApproval{}, err
+		return err
 	}
-	if parentNodeID.Valid {
-		approval.ParentNodeID = parentNodeID.String
+	if status != "pending" {
+		return fmt.Errorf("node_not_pending")
 	}
-	if publicHost.Valid {
-		approval.PublicHost = publicHost.String
-	}
-	if publicPort.Valid {
-		approval.PublicPort = int(publicPort.Int64)
-	}
-
-	if approval.Status != "pending" {
-		return domain.NodeEnrollmentApproval{}, fmt.Errorf("approval already processed")
-	}
-
 	now := nowRFC3339()
 	_, err = s.db.Exec(
-		`UPDATE node_enrollment_approvals
-		 SET status = 'approved', reviewed_by = ?, reviewed_at = ?, updated_at = ?
-		 WHERE id = ?`,
-		accountID, now, now, approvalID,
+		"UPDATE nodes SET status = ?, reviewed_by = ?, reviewed_at = ?, reject_reason = ?, updated_at = ? WHERE id = ?",
+		"rejected", reviewedBy, now, reason, now, nodeID,
 	)
-	if err != nil {
-		return domain.NodeEnrollmentApproval{}, err
-	}
-
-	approval.Status = "approved"
-	approval.ReviewedBy = accountID
-	approval.ReviewedAt = now
-	approval.UpdatedAt = now
-
-	return approval, nil
-}
-
-func (s *MySQLStore) RejectNodeEnrollmentApproval(approvalID string, accountID string, input domain.RejectEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
-	var approval domain.NodeEnrollmentApproval
-	var parentNodeID, publicHost, reviewedBy, reviewedAt, rejectReason sql.NullString
-	var publicPort sql.NullInt64
-	err := s.db.QueryRow(
-		`SELECT id, bootstrap_token_id, node_name, node_mode, scope_key, parent_node_id,
-		        public_host, public_port, status, reviewed_by, reviewed_at, reject_reason,
-		        created_at, updated_at
-		 FROM node_enrollment_approvals WHERE id = ?`,
-		approvalID,
-	).Scan(
-		&approval.ID, &approval.BootstrapTokenID, &approval.NodeName, &approval.NodeMode,
-		&approval.ScopeKey, &parentNodeID, &publicHost, &publicPort,
-		&approval.Status, &reviewedBy, &reviewedAt, &rejectReason, &approval.CreatedAt, &approval.UpdatedAt,
-	)
-	if err != nil {
-		return domain.NodeEnrollmentApproval{}, err
-	}
-	if parentNodeID.Valid {
-		approval.ParentNodeID = parentNodeID.String
-	}
-	if publicHost.Valid {
-		approval.PublicHost = publicHost.String
-	}
-	if publicPort.Valid {
-		approval.PublicPort = int(publicPort.Int64)
-	}
-
-	if approval.Status != "pending" {
-		return domain.NodeEnrollmentApproval{}, fmt.Errorf("approval already processed")
-	}
-
-	now := nowRFC3339()
-	_, err = s.db.Exec(
-		`UPDATE node_enrollment_approvals
-		 SET status = 'rejected', reviewed_by = ?, reviewed_at = ?, reject_reason = ?, updated_at = ?
-		 WHERE id = ?`,
-		accountID, now, input.RejectReason, now, approvalID,
-	)
-	if err != nil {
-		return domain.NodeEnrollmentApproval{}, err
-	}
-
-	approval.Status = "rejected"
-	approval.ReviewedBy = accountID
-	approval.ReviewedAt = now
-	approval.RejectReason = input.RejectReason
-	approval.UpdatedAt = now
-
-	return approval, nil
+	return err
 }
 
 func (s *MySQLStore) ListPolicyRevisions() []domain.PolicyRevision {

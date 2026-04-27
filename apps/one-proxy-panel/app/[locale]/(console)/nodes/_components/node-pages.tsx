@@ -113,8 +113,7 @@ export function NodeBootstrapPageContent() {
 
 export function NodeApprovalsPageContent() {
   const nodeConsole = useNodeConsole();
-  const approvals = nodeConsole.approvalsQuery.data || [];
-  const pendingApprovals = useMemo(() => approvals.filter((approval) => approval.status === 'pending'), [approvals]);
+  const pendingNodes = nodeConsole.pendingNodesQuery.data || [];
 
   return (
     <AuthGate>
@@ -126,62 +125,60 @@ export function NodeApprovalsPageContent() {
               <h3>Pending node enrollments</h3>
               <p className="section-copy">Review and approve pending node enrollment requests created via bootstrap tokens.</p>
             </div>
-            <span className="badge">{pendingApprovals.length}</span>
+            <span className="badge">{pendingNodes.length}</span>
           </div>
-          {nodeConsole.approvalsQuery.isPending ? (
+          {nodeConsole.pendingNodesQuery.isPending ? (
             <AsyncState detail="Loading" title="Loading pending enrollments" />
-          ) : nodeConsole.approvalsQuery.error ? (
+          ) : nodeConsole.pendingNodesQuery.error ? (
             <AsyncState
               actionLabel="Retry"
-              detail={formatControlPlaneError(nodeConsole.approvalsQuery.error)}
-              onAction={() => void nodeConsole.approvalsQuery.refetch()}
+              detail={formatControlPlaneError(nodeConsole.pendingNodesQuery.error)}
+              onAction={() => void nodeConsole.pendingNodesQuery.refetch()}
               title="Failed to load pending enrollments"
             />
-          ) : pendingApprovals.length === 0 ? (
+          ) : pendingNodes.length === 0 ? (
             <AsyncState detail="No pending enrollment requests. Create a bootstrap token to start." title="Empty" />
           ) : (
             <div className="table-card">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Token ID</th>
-                    <th>Node Name</th>
-                    <th>Node Type</th>
-                    <th>Created At</th>
-                    <th>Updated At</th>
+                    <th>Node ID</th>
+                    <th>Name</th>
+                    <th>Mode</th>
+                    <th>Scope</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingApprovals.map((approval) => (
-                      <tr key={approval.id}>
-                        <td className="mono">{approval.bootstrapTokenId.substring(0, 8)}</td>
-                        <td>{approval.nodeName || <span className="muted-text">not specified</span>}</td>
-                        <td>{approval.nodeMode}</td>
-                        <td className="mono">{formatISODateTime(approval.createdAt)}</td>
-                        <td className="mono">{formatISODateTime(approval.updatedAt)}</td>
+                  {pendingNodes.map((node) => (
+                      <tr key={node.id}>
+                        <td className="mono">{node.id.substring(0, 12)}</td>
+                        <td>{node.name || <span className="muted-text">not specified</span>}</td>
+                        <td>{node.mode}</td>
+                        <td className="mono">{node.scopeKey}</td>
                         <td>
-                          <span className={statusBadgeClassName(approval.status)}>{approval.status}</span>
+                          <span className={statusBadgeClassName(node.status)}>{node.status}</span>
                         </td>
                         <td>
                           <div className="registry-actions">
                             <button
                               className="secondary-button"
-                              disabled={nodeConsole.approveEnrollment.isPending}
-                              onClick={() => nodeConsole.approveEnrollment.mutate({approvalId: approval.id})}
+                              disabled={nodeConsole.approve.isPending}
+                              onClick={() => nodeConsole.approve.mutate(node.id)}
                               type="button"
                             >
                               Approve
                             </button>
                             <button
                               className="danger-button"
-                              disabled={nodeConsole.rejectEnrollment.isPending}
+                              disabled={nodeConsole.rejectNode.isPending}
                               onClick={() => {
-                                if (!window.confirm(`Reject enrollment for ${approval.nodeName || 'this node'}?`)) {
+                                if (!window.confirm(`Reject enrollment for ${node.name || 'this node'}?`)) {
                                   return;
                                 }
-                                nodeConsole.rejectEnrollment.mutate({approvalId: approval.id});
+                                nodeConsole.rejectNode.mutate({nodeId: node.id});
                               }}
                               type="button"
                             >

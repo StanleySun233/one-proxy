@@ -1057,28 +1057,18 @@ func (c *ControlPlane) NodeHealthHistory(nodeID string, window time.Duration) ([
 	return c.store.ListNodeHealthHistory(nodeID, window)
 }
 
-func (c *ControlPlane) NodeEnrollmentApprovals() []domain.NodeEnrollmentApproval {
-	return c.store.ListNodeEnrollmentApprovals()
+func (c *ControlPlane) PendingNodeEnrollments() []domain.Node {
+	return c.store.ListPendingNodes()
 }
 
-func (c *ControlPlane) ApproveNodeEnrollmentApproval(approvalID string, accountID string, input domain.ApproveEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
-	if approvalID == "" {
-		return domain.NodeEnrollmentApproval{}, invalidInput("missing_approval_id")
+func (c *ControlPlane) RejectNodeEnrollment(nodeID string, accountID string, reason string) error {
+	if nodeID == "" {
+		return invalidInput("missing_node_id")
 	}
 	if accountID == "" {
-		return domain.NodeEnrollmentApproval{}, unauthorized("invalid_access_token")
+		return unauthorized("invalid_access_token")
 	}
-	return c.store.ApproveNodeEnrollmentApproval(approvalID, accountID, input)
-}
-
-func (c *ControlPlane) RejectNodeEnrollmentApproval(approvalID string, accountID string, input domain.RejectEnrollmentInput) (domain.NodeEnrollmentApproval, error) {
-	if approvalID == "" {
-		return domain.NodeEnrollmentApproval{}, invalidInput("missing_approval_id")
-	}
-	if accountID == "" {
-		return domain.NodeEnrollmentApproval{}, unauthorized("invalid_access_token")
-	}
-	return c.store.RejectNodeEnrollmentApproval(approvalID, accountID, input)
+	return c.store.RejectNodeEnrollment(nodeID, accountID, reason)
 }
 
 func toChainProbeInput(result domain.ChainProbeResult) domain.SaveChainProbeResultInput {
@@ -1137,11 +1127,11 @@ func (c *ControlPlane) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNo
 	return c.store.EnrollNode(input)
 }
 
-func (c *ControlPlane) ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnrollmentResult, error) {
+func (c *ControlPlane) ApproveNodeEnrollment(nodeID string, reviewedBy string) (domain.ApproveNodeEnrollmentResult, error) {
 	if nodeID == "" {
 		return domain.ApproveNodeEnrollmentResult{}, invalidInput("missing_node_id")
 	}
-	item, err := c.store.ApproveNodeEnrollment(nodeID)
+	item, err := c.store.ApproveNodeEnrollment(nodeID, reviewedBy)
 	if err != nil {
 		if strings.Contains(err.Error(), "node_not_pending") {
 			return domain.ApproveNodeEnrollmentResult{}, invalidInput("node_not_pending")

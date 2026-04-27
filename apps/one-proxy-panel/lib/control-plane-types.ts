@@ -44,6 +44,9 @@ export type Node = {
   status: string;
   publicHost?: string;
   publicPort?: number;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectReason?: string;
 };
 
 export type NodeLink = {
@@ -172,23 +175,6 @@ export type BootstrapToken = {
   targetType: string;
   targetId: string;
   expiresAt: string;
-};
-
-export type NodeEnrollmentApproval = {
-  id: string;
-  bootstrapTokenId: string;
-  nodeName: string;
-  nodeMode: string;
-  scopeKey: string;
-  parentNodeId: string;
-  publicHost: string;
-  publicPort: number;
-  status: string;
-  reviewedBy: string;
-  reviewedAt: string;
-  rejectReason: string;
-  createdAt: string;
-  updatedAt: string;
 };
 
 export type ConnectedNodeResult = {

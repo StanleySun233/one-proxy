@@ -47,11 +47,10 @@ type Store interface {
 	ListNodeHealthHistory(nodeID string, window time.Duration) ([]domain.NodeHealth, error)
 	CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error)
 	EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error)
-	ApproveNodeEnrollment(nodeID string) (domain.ApproveNodeEnrollmentResult, error)
+	ApproveNodeEnrollment(nodeID string, reviewedBy string) (domain.ApproveNodeEnrollmentResult, error)
 	ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentInput) (domain.ApproveNodeEnrollmentResult, error)
-	ListNodeEnrollmentApprovals() []domain.NodeEnrollmentApproval
-	ApproveNodeEnrollmentApproval(approvalID string, accountID string, input domain.ApproveEnrollmentInput) (domain.NodeEnrollmentApproval, error)
-	RejectNodeEnrollmentApproval(approvalID string, accountID string, input domain.RejectEnrollmentInput) (domain.NodeEnrollmentApproval, error)
+	ListPendingNodes() []domain.Node
+	RejectNodeEnrollment(nodeID string, reviewedBy string, reason string) error
 	ListPolicyRevisions() []domain.PolicyRevision
 	PublishPolicy(accountID string) (domain.PolicyRevision, error)
 	AuthenticateNodeToken(accessToken string) (string, bool)

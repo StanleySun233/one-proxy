@@ -21,7 +21,7 @@ import {useQuery} from '@tanstack/react-query';
 import {useAuth} from '@/components/auth-provider';
 import {CapsuleSelect, CapsuleSelectGroup} from '@/components/common/capsule-select';
 import {Link, usePathname, useRouter} from '@/i18n/navigation';
-import {getNodeEnrollmentApprovals} from '@/lib/control-plane-api';
+import {getPendingNodes} from '@/lib/control-plane-api';
 
 export function ConsoleShell({children}: {children: ReactNode}) {
   const t = useTranslations();
@@ -32,14 +32,14 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const {session, logout} = useAuth();
   const accessToken = session?.accessToken || '';
 
-  const approvalsQuery = useQuery({
-    queryKey: ['node-approvals', accessToken],
-    queryFn: () => getNodeEnrollmentApprovals(accessToken),
+  const pendingQuery = useQuery({
+    queryKey: ['pending-nodes', accessToken],
+    queryFn: () => getPendingNodes(accessToken),
     enabled: !!accessToken,
     refetchInterval: 30000
   });
 
-  const pendingCount = (approvalsQuery.data || []).filter((approval) => approval.status === 'pending').length;
+  const pendingCount = (pendingQuery.data || []).length;
   const navSections = [
     {
       key: 'overview',
