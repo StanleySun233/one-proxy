@@ -111,7 +111,27 @@ func (s *MySQLStore) init(ctx context.Context) error {
 	if err := s.repairLegacyUnreportedNodeStatus(ctx); err != nil {
 		return err
 	}
+	if err := s.bootstrapConfig(ctx); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (s *MySQLStore) bootstrapConfig(ctx context.Context) error {
+	exists, err := s.exists(ctx, "SELECT 1 FROM config WHERE name = ?", "jwt_signing_key")
+	if err != nil || exists {
+		return err
+	}
+	key := os.Getenv("JWT_SIGNING_KEY")
+	if key == "" || key == "change-me" {
+		return nil
+	}
+	now := nowRFC3339()
+	_, err = s.db.ExecContext(ctx,
+		"INSERT INTO config (name, value, updated_at) VALUES (?, ?, ?)",
+		"jwt_signing_key", key, now,
+	)
+	return err
 }
 
 func resolveSchemaFiles() ([]string, error) {
