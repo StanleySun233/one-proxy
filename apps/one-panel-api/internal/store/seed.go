@@ -496,6 +496,10 @@ func (s *SeedStore) CleanupExpiredNodeTokens() (int64, error) {
 	return 0, nil
 }
 
+func (s *SeedStore) CleanupNodeHealthHistory(retention time.Duration) (int64, error) {
+	return 0, nil
+}
+
 func (s *SeedStore) RefreshCertificateStatus(window time.Duration) error {
 	_ = window
 	return nil

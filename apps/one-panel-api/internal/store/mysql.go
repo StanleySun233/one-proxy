@@ -1944,6 +1944,15 @@ func (s *MySQLStore) RefreshNodeStatus(staleAfter time.Duration) error {
 	return err
 }
 
+func (s *MySQLStore) CleanupNodeHealthHistory(retention time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-retention).UTC().Format(time.RFC3339)
+	result, err := s.db.Exec("DELETE FROM node_health_history WHERE heartbeat_at < ?", cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 func (s *MySQLStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
 	var (
 		policyID string

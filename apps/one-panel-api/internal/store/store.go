@@ -63,4 +63,5 @@ type Store interface {
 	CleanupExpiredNodeTokens() (int64, error)
 	RefreshCertificateStatus(window time.Duration) error
 	RefreshNodeStatus(staleAfter time.Duration) error
+	CleanupNodeHealthHistory(retention time.Duration) (int64, error)
 }

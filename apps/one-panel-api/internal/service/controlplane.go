@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -817,6 +818,11 @@ func (c *ControlPlane) RunMaintenance() error {
 	}
 	if err := c.store.RefreshNodeStatus(c.nodeHeartbeatTTL); err != nil {
 		return err
+	}
+	if removed, err := c.store.CleanupNodeHealthHistory(7 * 24 * time.Hour); err != nil {
+		log.Printf("maintenance: failed to cleanup node health history: %v", err)
+	} else if removed > 0 {
+		log.Printf("maintenance: cleaned up %d stale health history rows", removed)
 	}
 	return nil
 }
