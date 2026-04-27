@@ -282,3 +282,11 @@ CREATE TABLE IF NOT EXISTS config (
   value TEXT NOT NULL,
   updated_at VARCHAR(64) NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS field_enum (
+  id VARCHAR(191) PRIMARY KEY,
+  field VARCHAR(191) NOT NULL,
+  value VARCHAR(191) NOT NULL,
+  name VARCHAR(191) NOT NULL,
+  UNIQUE KEY uniq_field_enum_field_value (field, value)
+);
