@@ -5,6 +5,7 @@ import {PageHero} from '@/components/page-hero';
 export function PlaceholderPage({titleKey, descriptionKey}: {titleKey: string; descriptionKey: string}) {
   const t = useTranslations('pages');
   const shell = useTranslations('shell');
+  const common = useTranslations('common');
 
   return (
     <div className="page-stack">
@@ -17,8 +18,8 @@ export function PlaceholderPage({titleKey, descriptionKey}: {titleKey: string; d
         </article>
         <article className="panel-card warm-card">
           <p className="section-kicker">{t('healthTitle')}</p>
-          <h3>Server-driven</h3>
-          <p className="section-copy">Query-driven data, task state, route editing and visual topology will converge here.</p>
+          <h3>{common('serverDrivenTitle')}</h3>
+          <p className="section-copy">{common('serverDrivenDesc')}</p>
         </article>
       </section>
     </div>
