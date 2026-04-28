@@ -135,6 +135,19 @@
     "certificatesTitle": "证书",
     "certificatesDesc": "Let’s Encrypt 与内部证书状态。"
   },
+  "certificates": {
+    "title": "证书",
+    "loading": "加载证书中",
+    "loadingDetail": "证书清单正在加载。",
+    "failedToLoad": "加载失败",
+    "emptyTitle": "暂无证书",
+    "emptyDetail": "注册节点或面板证书后，证书行将显示在此处。",
+    "owner": "所有者",
+    "type": "类型",
+    "provider": "提供方",
+    "status": "状态",
+    "notAfter": "过期时间"
+  },
   "accounts": {
     "createTitle": "创建账号",
     "listTitle": "账号列表",

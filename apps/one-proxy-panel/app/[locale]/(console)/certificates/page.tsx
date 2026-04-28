@@ -12,6 +12,8 @@ import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 export default function CertificatesPage() {
   const t = useTranslations('pages');
+  const certT = useTranslations('certificates');
+  const common = useTranslations('common');
   const {session} = useAuth();
   const accessToken = session?.accessToken || '';
   const certificatesQuery = useQuery({
@@ -26,24 +28,24 @@ export default function CertificatesPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow="Certificates" title={t('certificatesTitle')} description={t('certificatesDesc')} />
+        <PageHero eyebrow={certT('title')} title={t('certificatesTitle')} description={t('certificatesDesc')} />
         <article className="panel-card">
           {certificatesQuery.isPending ? (
-            <AsyncState detail="Certificate inventory is loading." title="Loading certificates" />
+            <AsyncState detail={certT('loadingDetail')} title={certT('loading')} />
           ) : certificatesQuery.isError ? (
-            <AsyncState actionLabel="Retry" detail={formatControlPlaneError(certificatesQuery.error)} onAction={() => void certificatesQuery.refetch()} title="Failed to load certificates" />
+            <AsyncState actionLabel={common('retry')} detail={formatControlPlaneError(certificatesQuery.error)} onAction={() => void certificatesQuery.refetch()} title={certT('failedToLoad')} />
           ) : certificates.length === 0 ? (
-            <AsyncState detail="Certificate rows will appear after node or panel certificates are registered." title="No certificates yet" />
+            <AsyncState detail={certT('emptyDetail')} title={certT('emptyTitle')} />
           ) : (
             <div className="table-card">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Owner</th>
-                    <th>Type</th>
-                    <th>Provider</th>
-                    <th>Status</th>
-                    <th>Not After</th>
+                    <th>{certT('owner')}</th>
+                    <th>{certT('type')}</th>
+                    <th>{certT('provider')}</th>
+                    <th>{certT('status')}</th>
+                    <th>{certT('notAfter')}</th>
                   </tr>
                 </thead>
                 <tbody>

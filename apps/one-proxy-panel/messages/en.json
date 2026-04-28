@@ -135,6 +135,19 @@
     "certificatesTitle": "Certificates",
     "certificatesDesc": "Let’s Encrypt and internal certificate status."
   },
+  "certificates": {
+    "title": "Certificates",
+    "loading": "Loading certificates",
+    "loadingDetail": "Certificate inventory is loading.",
+    "failedToLoad": "Failed to load certificates",
+    "emptyTitle": "No certificates yet",
+    "emptyDetail": "Certificate rows will appear after node or panel certificates are registered.",
+    "owner": "Owner",
+    "type": "Type",
+    "provider": "Provider",
+    "status": "Status",
+    "notAfter": "Not After"
+  },
   "accounts": {
     "createTitle": "Create account",
     "listTitle": "Accounts",
