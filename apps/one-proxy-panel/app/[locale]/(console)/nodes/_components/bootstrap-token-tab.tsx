@@ -1,6 +1,7 @@
 'use client';
 
 import {useMemo, useState} from 'react';
+import {useTranslations} from 'next-intl';
 import {UseFormReturn} from 'react-hook-form';
 import {toast} from 'sonner';
 
@@ -20,6 +21,7 @@ export function BootstrapTokenTab({
   nodes: Node[];
   onSubmit: () => void;
 }) {
+  const t = useTranslations();
   const [copied, setCopied] = useState('');
   const controlPlaneURL = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -38,27 +40,25 @@ export function BootstrapTokenTab({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(key);
-      toast.success('copied');
+      toast.success(t('common.copied'));
     } catch {
-      toast.error('copy_failed');
+      toast.error(t('common.copyFailed'));
     }
   }
-
-  const watchedNodeName = form.watch('nodeName');
 
   return (
     <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="field-stack nodes-form-full">
-        <span>Node name <span className="muted-text">(required)</span></span>
+        <span>{t('nodes.bootstrap.nodeName')} <span className="muted-text">({t('common.required')})</span></span>
         <input
           className="field-input"
           placeholder="e.g. hk-gateway"
           {...form.register('nodeName', {
-            required: 'Node name is required',
+            required: t('nodes.bootstrap.nodeNameRequired'),
             validate: (value) => {
               if (!value) return true;
               const exists = nodes.some((n) => n.name.toLowerCase() === value.trim().toLowerCase());
-              return exists ? 'A node with this name already exists' : true;
+              return exists ? t('nodes.bootstrap.nodeNameDuplicate') : true;
             }
           })}
         />
@@ -67,41 +67,41 @@ export function BootstrapTokenTab({
         ) : null}
       </div>
       <div className="field-stack nodes-form-full">
-        <span>Target node id</span>
-        <input className="field-input" placeholder="optional existing node id" {...form.register('targetId')} />
-        <p className="field-hint">Leave blank for a brand new node, or bind this token to a manually created record.</p>
+        <span>{t('nodes.bootstrap.targetNodeId')}</span>
+        <input className="field-input" placeholder={t('nodes.bootstrap.targetNodeIdHint')} {...form.register('targetId')} />
+        <p className="field-hint">{t('nodes.bootstrap.targetNodeIdHint')}</p>
       </div>
       <div className="submit-row nodes-form-full">
         <button className="primary-button" disabled={submitting} type="submit">
-          {submitting ? 'Submitting' : 'Generate bootstrap token'}
+          {submitting ? t('nodes.bootstrap.submitting') : t('nodes.bootstrap.generateToken')}
         </button>
-        <p className="field-hint">Remote node self-enroll flow for machines not directly reachable from the panel.</p>
+        <p className="field-hint">{t('nodes.bootstrap.bootstrapHint')}</p>
       </div>
       {latestToken ? (
         <div className="bootstrap-result-stack nodes-form-full">
           <div className="token-box">
             <div className="stack-head">
-              <strong>Bootstrap token</strong>
+              <strong>{t('nodes.bootstrap.bootstrapToken')}</strong>
               <button className="secondary-button" onClick={() => void copy(latestToken.token, 'token')} type="button">
-                {copied === 'token' ? 'Copied' : 'Copy token'}
+                {copied === 'token' ? t('nodes.bootstrap.copied') : t('nodes.bootstrap.copyToken')}
               </button>
             </div>
             <span className="mono">{latestToken.token}</span>
-            <span className="field-hint">Token is shown once in this page state. Generate a new one if the machine was not enrolled.</span>
+            <span className="field-hint">{t('nodes.bootstrap.tokenShownOnce')}</span>
           </div>
           <div className="token-box">
             <div className="stack-head">
-              <strong>Docker one-liner</strong>
+              <strong>{t('nodes.bootstrap.dockerOneLiner')}</strong>
               <button className="secondary-button" onClick={() => void copy(dockerCommand, 'docker')} type="button">
-                {copied === 'docker' ? 'Copied' : 'Copy command'}
+                {copied === 'docker' ? t('nodes.bootstrap.copied') : t('nodes.bootstrap.copyCommand')}
               </button>
             </div>
             <code className="mono command-block">{dockerCommand}</code>
-            <span className="field-hint">Replace `NODE_SCOPE_KEY` before running on the target machine. The control-plane domain is taken from the current panel URL.</span>
+            <span className="field-hint">{t('nodes.bootstrap.dockerScopeHint')}</span>
           </div>
         </div>
       ) : (
-        <p className="field-hint nodes-form-full">Generate on demand. Token content is only kept in current page state.</p>
+        <p className="field-hint nodes-form-full">{t('nodes.bootstrap.generateOnDemand')}</p>
       )}
     </form>
   );

@@ -180,5 +180,60 @@
     "submitting": "提交中",
     "serverDrivenTitle": "服务端驱动",
     "serverDrivenDesc": "查询驱动的数据、任务状态、规则编辑和可视化拓扑将汇聚于此。"
+  },
+  "nodes": {
+    "quickConnect": {
+      "nodeAddress": "节点地址",
+      "joinPassword": "接入密码",
+      "newJoinPassword": "新接入密码",
+      "newJoinPasswordHint": "节点仍使用默认密码时必填",
+      "name": "名称",
+      "scopeKey": "范围标识",
+      "mode": "模式",
+      "parentNodeId": "父节点 ID",
+      "publicHost": "公网主机",
+      "publicPort": "公网端口",
+      "controlPlaneUrl": "控制面 URL",
+      "connectNode": "接入节点",
+      "submitting": "提交中",
+      "addressRequired": "节点地址不能为空",
+      "passwordRequired": "接入密码不能为空",
+      "nameRequired": "名称不能为空",
+      "scopeRequired": "范围标识不能为空",
+      "controlPlaneUrlRequired": "控制面 URL 不能为空",
+      "nodeDefaultPasswordHint": "未设置 `NODE_JOIN_PASSWORD` 启动的节点默认密码为 `password`，首次连接面板时必须更换。"
+    },
+    "manual": {
+      "name": "名称",
+      "mode": "模式",
+      "scopeKey": "范围标识",
+      "parentNodeId": "父节点 ID",
+      "publicHost": "公网主机",
+      "publicPort": "公网端口",
+      "createNodeRecord": "创建节点记录",
+      "submitting": "提交中",
+      "nameRequired": "名称不能为空",
+      "scopeRequired": "范围标识不能为空",
+      "portValidation": "公网端口必须大于 0",
+      "manualHint": "在节点上线前，预先创建 ID 和拓扑记录时使用。"
+    },
+    "bootstrap": {
+      "nodeName": "节点名称",
+      "nodeNameRequired": "节点名称不能为空",
+      "targetNodeId": "目标节点 ID",
+      "targetNodeIdHint": "留空创建全新节点，或绑定到已有手动创建的记录。",
+      "generateToken": "生成引导令牌",
+      "submitting": "提交中",
+      "bootstrapToken": "引导令牌",
+      "dockerOneLiner": "Docker 一键命令",
+      "copyToken": "复制令牌",
+      "copyCommand": "复制命令",
+      "copied": "已复制",
+      "tokenShownOnce": "令牌在当前页面仅展示一次。如果机器尚未注册请重新生成。",
+      "dockerScopeHint": "在目标机器上运行前替换 `NODE_SCOPE_KEY`。控制面域名使用当前面板 URL。",
+      "generateOnDemand": "按需生成，令牌内容仅在当前页面中保留。",
+      "nodeNameDuplicate": "该名称的节点已存在",
+      "bootstrapHint": "用于面板无法直接访问的远程机器自助注册流程。"
+    }
   }
 }
