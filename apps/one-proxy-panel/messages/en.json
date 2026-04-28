@@ -217,5 +217,60 @@
     "submitting": "Submitting",
     "serverDrivenTitle": "Server-driven",
     "serverDrivenDesc": "Query-driven data, task state, route editing and visual topology will converge here."
+  },
+  "nodes": {
+    "quickConnect": {
+      "nodeAddress": "Node address",
+      "joinPassword": "Join password",
+      "newJoinPassword": "New join password",
+      "newJoinPasswordHint": "required when node still uses default password",
+      "name": "Name",
+      "scopeKey": "Scope key",
+      "mode": "Mode",
+      "parentNodeId": "Parent node id",
+      "publicHost": "Public host",
+      "publicPort": "Public port",
+      "controlPlaneUrl": "Control plane URL",
+      "connectNode": "Connect node",
+      "submitting": "Submitting",
+      "addressRequired": "Node address is required",
+      "passwordRequired": "Join password is required",
+      "nameRequired": "Name is required",
+      "scopeRequired": "Scope key is required",
+      "controlPlaneUrlRequired": "Control plane URL is required",
+      "nodeDefaultPasswordHint": "Nodes started without `NODE_JOIN_PASSWORD` now default to `password` and must rotate it during first panel connect."
+    },
+    "manual": {
+      "name": "Name",
+      "mode": "Mode",
+      "scopeKey": "Scope key",
+      "parentNodeId": "Parent node id",
+      "publicHost": "Public host",
+      "publicPort": "Public port",
+      "createNodeRecord": "Create node record",
+      "submitting": "Submitting",
+      "nameRequired": "Name is required",
+      "scopeRequired": "Scope key is required",
+      "portValidation": "Public port must be greater than 0",
+      "manualHint": "Use this when you want IDs and topology records ready before the node comes online."
+    },
+    "bootstrap": {
+      "nodeName": "Node name",
+      "nodeNameRequired": "Node name is required",
+      "targetNodeId": "Target node id",
+      "targetNodeIdHint": "Leave blank for a brand new node, or bind this token to a manually created record.",
+      "generateToken": "Generate bootstrap token",
+      "submitting": "Submitting",
+      "bootstrapToken": "Bootstrap token",
+      "dockerOneLiner": "Docker one-liner",
+      "copyToken": "Copy token",
+      "copyCommand": "Copy command",
+      "copied": "Copied",
+      "tokenShownOnce": "Token is shown once in this page state. Generate a new one if the machine was not enrolled.",
+      "dockerScopeHint": "Replace `NODE_SCOPE_KEY` before running on the target machine. The control-plane domain is taken from the current panel URL.",
+      "generateOnDemand": "Generate on demand. Token content is only kept in current page state.",
+      "nodeNameDuplicate": "A node with this name already exists",
+      "bootstrapHint": "Remote node self-enroll flow for machines not directly reachable from the panel."
+    }
   }
 }
