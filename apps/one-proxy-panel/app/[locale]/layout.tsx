@@ -21,7 +21,8 @@ const mono = IBM_Plex_Mono({
   weight: ['400', '500', '600']
 });
 
-export async function generateMetadata({params: {locale}}: {params: {locale: string}}): Promise<Metadata> {
+export async function generateMetadata({params}: {params: Promise<{locale: string}>}): Promise<Metadata> {
+  const {locale} = await params;
   const activeLocale = routing.locales.includes(locale as 'zh' | 'en') ? locale : routing.defaultLocale;
   const messages = (await import(`../../messages/${activeLocale}.json`)).default;
 
@@ -37,11 +38,12 @@ export function generateStaticParams() {
 
 export default async function LocaleLayout({
   children,
-  params: {locale}
+  params
 }: {
   children: ReactNode;
-  params: {locale: string};
+  params: Promise<{locale: string}>;
 }) {
+  const {locale} = await params;
   if (!routing.locales.includes(locale as 'zh' | 'en')) {
     notFound();
   }
