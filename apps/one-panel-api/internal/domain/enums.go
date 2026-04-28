@@ -1,5 +1,14 @@
 package domain
 
+// FieldEnum represents a configurable field enumeration value stored in the database.
+type FieldEnum struct {
+	ID    string  `json:"id"`
+	Field string  `json:"field"`
+	Value string  `json:"value"`
+	Name  string  `json:"name"`
+	Meta  *string `json:"meta,omitempty"`
+}
+
 // Node mode constants
 const (
 	NodeModeEdge  = "edge"
