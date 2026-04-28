@@ -3,8 +3,6 @@ package httpapi
 import (
 	"net/http"
 	"time"
-
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
 func (r *Router) handleNodeHealth(w http.ResponseWriter, req *http.Request) {

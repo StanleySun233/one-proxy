@@ -1,8 +1,6 @@
 module github.com/StanleySun233/python-proxy/apps/one-panel-api
 
-go 1.23.0
-
-toolchain go1.23.12
+go 1.23
 
 require (
 	github.com/go-sql-driver/mysql v1.8.1

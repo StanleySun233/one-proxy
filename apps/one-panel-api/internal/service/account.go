@@ -2,6 +2,10 @@ package service
 
 import "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 
+func (c *ControlPlane) Accounts() []domain.Account {
+	return c.store.ListAccounts()
+}
+
 func (c *ControlPlane) CreateAccount(input domain.CreateAccountInput) (domain.Account, error) {
 	if input.Account == "" || input.Password == "" || input.Role == "" {
 		return domain.Account{}, invalidInput("invalid_account_payload")
