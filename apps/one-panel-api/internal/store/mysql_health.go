@@ -1,7 +1,6 @@
 package store
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
