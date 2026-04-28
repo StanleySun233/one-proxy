@@ -17,6 +17,7 @@ import EditAccountDialog from '../_components/edit-account-dialog';
 export default function AccountListPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
+  const accountsT = useTranslations('accounts');
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
@@ -32,7 +33,7 @@ export default function AccountListPage() {
   const deleteAccountMutation = useMutation({
     mutationFn: (accountID: string) => deleteAccount(accessToken, accountID),
     onSuccess: () => {
-      toast.success('account deleted');
+      toast.success(accountsT('deleteSuccess'));
       queryClient.invalidateQueries({queryKey: ['accounts']});
     },
     onError: (error) => {
@@ -45,20 +46,20 @@ export default function AccountListPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow="Accounts" title={pageT('accountsTitle')} description={pageT('accountsDesc')} />
+        <PageHero eyebrow={accountsT('listTitle')} title={pageT('accountsTitle')} description={pageT('accountsDesc')} />
         <article className="panel-card soft-card">
-          <h3>Accounts</h3>
+          <h3>{accountsT('listTitle')}</h3>
           {accountsQuery.isPending ? (
-            <AsyncState detail={t('common.loading')} title="Loading accounts" />
+            <AsyncState detail={t('common.loading')} title={accountsT('loadingAccounts')} />
           ) : accountsQuery.isError ? (
             <AsyncState
               actionLabel={t('common.retry')}
               detail={formatControlPlaneError(accountsQuery.error)}
               onAction={() => void accountsQuery.refetch()}
-              title="Failed to load accounts"
+              title={accountsT('failedToLoadAccounts')}
             />
           ) : accounts.length === 0 ? (
-            <AsyncState detail="Create additional operators when you need delegated access." title={t('common.empty')} />
+            <AsyncState detail={accountsT('emptyAccountsList')} title={t('common.empty')} />
           ) : (
             <div className="stack-list">
               {accounts.map((account) => (
@@ -71,20 +72,20 @@ export default function AccountListPage() {
                   <span className="mono">{account.id}</span>
                   <div className="stack-actions">
                     <button className="secondary-button" onClick={() => setEditAccount(account)} type="button">
-                      Edit
+                      {t('common.edit')}
                     </button>
                     {account.account !== 'admin' ? (
                       <button
                         className="secondary-button"
                         disabled={deleteAccountMutation.isPending}
                         onClick={() => {
-                          if (window.confirm(`Delete account ${account.account}?`)) {
+                          if (window.confirm(accountsT('deleteConfirm', {name: account.account}))) {
                             deleteAccountMutation.mutate(account.id);
                           }
                         }}
                         type="button"
                       >
-                        Delete
+                        {t('common.delete')}
                       </button>
                     ) : null}
                   </div>

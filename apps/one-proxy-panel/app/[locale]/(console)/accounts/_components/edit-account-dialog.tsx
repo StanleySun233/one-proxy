@@ -2,6 +2,7 @@
 
 import {useMutation, useQuery} from '@tanstack/react-query';
 import {useState} from 'react';
+import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
 
 import {fetchEnums, updateAccount} from '@/lib/api';
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export default function EditAccountDialog({open, onClose, account, onSaved, accessToken}: Props) {
+  const t = useTranslations();
   const [password, setPassword] = useState('');
   const [role, setRole] = useState(account.role);
   const [status, setStatus] = useState(account.status);
@@ -26,7 +28,7 @@ export default function EditAccountDialog({open, onClose, account, onSaved, acce
     mutationFn: (payload: {password?: string; role?: string; status?: string}) =>
       updateAccount(accessToken, account.id, payload),
     onSuccess: () => {
-      toast.success('account updated');
+      toast.success(t('accounts.updateSuccess'));
       onSaved();
       onClose();
     },
@@ -48,20 +50,20 @@ export default function EditAccountDialog({open, onClose, account, onSaved, acce
   return (
     <div className="dialog-backdrop" onClick={onClose}>
       <div className="dialog-panel" onClick={(e) => e.stopPropagation()}>
-        <h3>Edit account: {account.account}</h3>
+        <h3>{t('accounts.editTitle', {name: account.account})}</h3>
         <div className="sub-grid">
           <div className="field-stack">
-            <span>Password</span>
+            <span>{t('accounts.fieldPassword')}</span>
             <input
               className="field-input"
               type="password"
-              placeholder="Leave blank to keep current password"
+              placeholder={t('accounts.placeholderPasswordKeep')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
           <div className="field-stack">
-            <span>Role</span>
+            <span>{t('accounts.fieldRole')}</span>
             <input
               className="field-input"
               value={role}
@@ -69,7 +71,7 @@ export default function EditAccountDialog({open, onClose, account, onSaved, acce
             />
           </div>
           <div className="field-stack">
-            <span>Status</span>
+            <span>{t('accounts.fieldStatus')}</span>
             <select className="field-input" value={status} onChange={(e) => setStatus(e.target.value)}>
               {accountStatusOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -77,9 +79,9 @@ export default function EditAccountDialog({open, onClose, account, onSaved, acce
             </select>
           </div>
           <div className="submit-row">
-            <button className="secondary-button" onClick={onClose} type="button">Cancel</button>
+            <button className="secondary-button" onClick={onClose} type="button">{t('common.cancel')}</button>
             <button className="primary-button" disabled={updateMutation.isPending} onClick={handleSave} type="button">
-              {updateMutation.isPending ? 'Saving…' : 'Save'}
+              {updateMutation.isPending ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </div>

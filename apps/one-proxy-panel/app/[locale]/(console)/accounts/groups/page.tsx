@@ -62,7 +62,7 @@ export default function GroupListPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow="Accounts" title={t('shell.groupList')} description={t('shell.groupList')} />
+        <PageHero eyebrow={t('accounts.listTitle')} title={t('shell.groupList')} description={t('shell.groupList')} />
         <article className="panel-card soft-card">
           <div className="stack-head">
             <h3>{t('shell.groupList')}</h3>
@@ -77,10 +77,10 @@ export default function GroupListPage() {
               actionLabel={t('common.retry')}
               detail={formatControlPlaneError(groupsQuery.error)}
               onAction={() => void groupsQuery.refetch()}
-              title="Failed to load groups"
+              title={t('accounts.failedToLoadGroups')}
             />
           ) : groups.length === 0 ? (
-            <AsyncState detail="Create a group to define access scopes for accounts." title={t('common.empty')} />
+            <AsyncState detail={t('accounts.emptyGroupsList')} title={t('common.empty')} />
           ) : (
             <div className="stack-list">
               {groups.map((group) => {
@@ -93,7 +93,7 @@ export default function GroupListPage() {
                     <div className="stack-head">
                       <strong>{group.name}</strong>
                       <span className={`badge${group.enabled ? ' is-good' : ' is-neutral'}`}>
-                        {group.enabled ? t('shell.groupEnabled') : 'Disabled'}
+                        {group.enabled ? t('shell.groupEnabled') : t('common.disabled')}
                       </span>
                     </div>
                     {group.description ? <span className="muted-text">{group.description}</span> : null}
@@ -107,7 +107,7 @@ export default function GroupListPage() {
                         onClick={() => setDialogGroup(group)}
                         type="button"
                       >
-                        Edit
+                        {t('common.edit')}
                       </button>
                       <button
                         className="secondary-button"
@@ -119,7 +119,7 @@ export default function GroupListPage() {
                         }}
                         type="button"
                       >
-                        Delete
+                        {t('common.delete')}
                       </button>
                     </div>
                   </div>

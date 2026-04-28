@@ -20,6 +20,7 @@ type AccountFormValues = {
 export default function CreateAccountPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
+  const accountsT = useTranslations('accounts');
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
@@ -38,7 +39,7 @@ export default function CreateAccountPage() {
   const createAccountMutation = useMutation({
     mutationFn: (payload: AccountFormValues) => createAccount(accessToken, payload),
     onSuccess: () => {
-      toast.success('account created');
+      toast.success(accountsT('createSuccess'));
       queryClient.invalidateQueries({queryKey: ['accounts']});
       form.reset({account: '', password: '', role: DEFAULT_ROLE});
     },
@@ -50,9 +51,9 @@ export default function CreateAccountPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow="Accounts" title={pageT('accountsTitle')} description={pageT('accountsDesc')} />
+        <PageHero eyebrow={accountsT('listTitle')} title={pageT('accountsTitle')} description={pageT('accountsDesc')} />
         <article className="panel-card">
-          <h3>Create account</h3>
+          <h3>{accountsT('createTitle')}</h3>
           <form
             className="sub-grid"
             onSubmit={form.handleSubmit((values) => {
@@ -64,33 +65,33 @@ export default function CreateAccountPage() {
             })}
           >
             <div className="field-stack">
-              <span>Account</span>
+              <span>{accountsT('fieldAccount')}</span>
               <input
                 aria-invalid={form.formState.errors.account ? 'true' : 'false'}
                 className="field-input"
-                placeholder="operator-a"
-                {...form.register('account', {required: 'account is required'})}
+                placeholder={accountsT('placeholderAccount')}
+                {...form.register('account', {required: accountsT('accountRequired')})}
               />
               {form.formState.errors.account ? <p className="error-text">{form.formState.errors.account.message}</p> : null}
             </div>
             <div className="field-stack">
-              <span>Password</span>
+              <span>{accountsT('fieldPassword')}</span>
               <input
                 aria-invalid={form.formState.errors.password ? 'true' : 'false'}
                 className="field-input"
                 type="password"
                 {...form.register('password', {
-                  required: 'password is required',
-                  minLength: {value: 8, message: 'password must be at least 8 characters'}
+                  required: accountsT('passwordRequired'),
+                  minLength: {value: 8, message: accountsT('passwordMinLength')}
                 })}
               />
               {form.formState.errors.password ? <p className="error-text">{form.formState.errors.password.message}</p> : null}
             </div>
             <div className="field-stack">
-              <span>Role</span>
+              <span>{accountsT('fieldRole')}</span>
               <select
                 className="field-select"
-                {...form.register('role', {required: 'role is required'})}
+                {...form.register('role', {required: accountsT('roleRequired')})}
               >
                 {accountRoleOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -100,7 +101,7 @@ export default function CreateAccountPage() {
             </div>
             <div className="submit-row">
               <button className="primary-button" disabled={createAccountMutation.isPending} type="submit">
-                {createAccountMutation.isPending ? t('common.submitting') : 'Create account'}
+                {createAccountMutation.isPending ? t('common.submitting') : accountsT('createTitle')}
               </button>
             </div>
           </form>
