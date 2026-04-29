@@ -1,12 +1,29 @@
 'use client';
 
+import {useCallback} from 'react';
+
 import {AuthGate} from '@/components/auth-gate';
 
 import {ManualNodeTab} from './manual-node-tab';
+import {NodeFormValues} from './types';
 import {useNodeConsole} from './use-node-console';
 
 export function NodeManualPageContent() {
   const nodeConsole = useNodeConsole();
+
+  const handleCreateNode = useCallback(
+    (values: NodeFormValues) => {
+      nodeConsole.createNode.mutate({
+        name: values.name.trim(),
+        mode: values.mode,
+        scopeKey: values.scopeKey.trim(),
+        parentNodeId: values.parentNodeId.trim(),
+        publicHost: values.publicHost.trim(),
+        publicPort: values.publicPort ? Number(values.publicPort) : 0
+      });
+    },
+    [nodeConsole.createNode]
+  );
 
   return (
     <AuthGate>
@@ -20,17 +37,7 @@ export function NodeManualPageContent() {
           <ManualNodeTab
             form={nodeConsole.nodeForm}
             submitting={nodeConsole.createNode.isPending}
-            onSubmit={() => {
-              const values = nodeConsole.nodeForm.getValues();
-              nodeConsole.createNode.mutate({
-                name: values.name.trim(),
-                mode: values.mode,
-                scopeKey: values.scopeKey.trim(),
-                parentNodeId: values.parentNodeId.trim(),
-                publicHost: values.publicHost.trim(),
-                publicPort: values.publicPort ? Number(values.publicPort) : 0
-              });
-            }}
+            onSubmit={handleCreateNode}
           />
         </section>
       </div>

@@ -19,7 +19,7 @@ export function BootstrapTokenTab({
   submitting: boolean;
   latestToken: BootstrapToken | null;
   nodes: Node[];
-  onSubmit: () => void;
+  onSubmit: (data: BootstrapFormValues) => void;
 }) {
   const t = useTranslations();
   const [copied, setCopied] = useState('');
@@ -47,7 +47,7 @@ export function BootstrapTokenTab({
   }
 
   return (
-    <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
+    <form className="nodes-form-grid" onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(onSubmit)(e); }}>
       <div className="field-stack nodes-form-full">
         <span>{t('nodes.bootstrap.nodeName')} <span className="muted-text">({t('common.required')})</span></span>
         <input

@@ -1,12 +1,22 @@
 'use client';
 
+import {useCallback} from 'react';
+
 import {AuthGate} from '@/components/auth-gate';
 
 import {BootstrapTokenTab} from './bootstrap-token-tab';
+import {BootstrapFormValues} from './types';
 import {useNodeConsole} from './use-node-console';
 
 export function NodeBootstrapPageContent() {
   const nodeConsole = useNodeConsole();
+
+  const handleBootstrap = useCallback(
+    (data: BootstrapFormValues) => {
+      nodeConsole.bootstrap.mutate({targetId: data.targetId.trim(), nodeName: data.nodeName.trim()});
+    },
+    [nodeConsole.bootstrap]
+  );
 
   return (
     <AuthGate>
@@ -22,10 +32,7 @@ export function NodeBootstrapPageContent() {
             latestToken={nodeConsole.latestToken}
             submitting={nodeConsole.bootstrap.isPending}
             nodes={nodeConsole.nodesQuery.data || []}
-            onSubmit={() => {
-              const values = nodeConsole.bootstrapForm.getValues();
-              nodeConsole.bootstrap.mutate({targetId: values.targetId.trim(), nodeName: values.nodeName.trim()});
-            }}
+            onSubmit={handleBootstrap}
           />
         </section>
       </div>

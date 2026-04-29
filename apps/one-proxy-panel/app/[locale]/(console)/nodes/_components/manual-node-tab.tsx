@@ -14,13 +14,13 @@ export function ManualNodeTab({
 }: {
   form: UseFormReturn<NodeFormValues>;
   submitting: boolean;
-  onSubmit: () => void;
+  onSubmit: (data: NodeFormValues) => void;
 }) {
   const t = useTranslations();
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const modeOptions = enums?.node_mode ? Object.entries(enums.node_mode).map(([value, item]) => ({value, label: item.name})) : [];
   return (
-    <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
+    <form className="nodes-form-grid" onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(onSubmit)(e); }}>
       <div className="field-stack">
         <span>{t('nodes.manual.name')}</span>
         <input className="field-input" placeholder="relay-a" {...form.register('name', {required: t('nodes.manual.nameRequired')})} />
