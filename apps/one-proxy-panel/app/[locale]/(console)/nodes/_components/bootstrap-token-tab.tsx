@@ -47,7 +47,7 @@ export function BootstrapTokenTab({
   }
 
   return (
-    <form className="nodes-form-grid" onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(onSubmit)(e); }}>
+    <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="field-stack nodes-form-full">
         <span>{t('nodes.bootstrap.nodeName')} <span className="muted-text">({t('common.required')})</span></span>
         <input

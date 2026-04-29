@@ -26,7 +26,7 @@ export function OnboardingTaskForm({ t, taskForm, taskMode, pathModeOptions, pat
       </div>
       <form
         className="sub-grid"
-        onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); taskForm.handleSubmit((values) => {
+        onSubmit={taskForm.handleSubmit((values) => {
           createTaskMutation.mutate({
             mode: values.mode,
             pathId: values.pathId.trim(),
@@ -34,7 +34,7 @@ export function OnboardingTaskForm({ t, taskForm, taskMode, pathModeOptions, pat
             targetHost: values.targetHost.trim(),
             targetPort: values.targetPort ? Number(values.targetPort) : 0
           });
-        })(e); }}
+        })}
       >
         <label className="field-stack">
           <span>Mode</span>

@@ -1,5 +1,6 @@
 'use client';
 
+import {useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useForm} from 'react-hook-form';
 import {toast} from 'sonner';
@@ -63,6 +64,8 @@ export function useNodeConsole() {
       controlPlaneUrl: ''
     }
   });
+
+  const [latestToken, setLatestToken] = useState<BootstrapToken | null>(null);
 
   const bootstrapForm = useForm<BootstrapFormValues>({
     defaultValues: {
@@ -172,7 +175,7 @@ export function useNodeConsole() {
       toast.success('bootstrap token created');
       bootstrapForm.reset();
       bootstrapForm.setValue('targetId', '');
-      queryClient.setQueryData(['latest-bootstrap-token'], result);
+      setLatestToken(result);
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -269,7 +272,7 @@ export function useNodeConsole() {
     transportsQuery,
     pendingNodesQuery,
     unconsumedTokensQuery,
-    latestToken: (queryClient.getQueryData(['latest-bootstrap-token']) as BootstrapToken | undefined) || null,
+    latestToken,
     createNode: createNodeMutation,
     quickConnect: quickConnectMutation,
     bootstrap: bootstrapMutation,

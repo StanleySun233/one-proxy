@@ -222,7 +222,7 @@ export default function RoutesPage() {
             </div>
             <form
               className="sub-grid"
-              onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit((values) => {
+              onSubmit={form.handleSubmit((values) => {
                 createRuleMutation.mutate({
                   priority: Number(values.priority),
                   matchType: values.matchType.trim(),
@@ -231,7 +231,7 @@ export default function RoutesPage() {
                   chainId: values.chainId.trim(),
                   destinationScope: values.destinationScope.trim()
                 });
-              })(e); }}
+              })}
             >
               <div className="field-stack">
                 <span>Priority</span>
