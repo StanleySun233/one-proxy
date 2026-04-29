@@ -20,7 +20,7 @@ export function QuickConnectTab({
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const modeOptions = enums?.node_mode ? Object.entries(enums.node_mode).map(([value, item]) => ({value, label: item.name})) : [];
   return (
-    <form className="nodes-form-grid" onSubmit={form.handleSubmit(onSubmit)}>
+    <form className="nodes-form-grid" onSubmit={(e) => { form.handleSubmit(onSubmit)(e); }}>
       <div className="field-stack">
         <span>{t('nodes.quickConnect.nodeAddress')}</span>
         <input className="field-input" placeholder="relay.example.com:2988" {...form.register('address', {required: t('nodes.quickConnect.addressRequired')})} />

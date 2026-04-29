@@ -56,13 +56,13 @@ export default function CreateAccountPage() {
           <h3>{accountsT('createTitle')}</h3>
           <form
             className="sub-grid"
-            onSubmit={form.handleSubmit((values) => {
+            onSubmit={(e) => { form.handleSubmit((values) => {
               createAccountMutation.mutate({
                 account: values.account.trim(),
                 password: values.password,
                 role: values.role.trim()
               });
-            })}
+            })(e); }}
           >
             <div className="field-stack">
               <span>{accountsT('fieldAccount')}</span>

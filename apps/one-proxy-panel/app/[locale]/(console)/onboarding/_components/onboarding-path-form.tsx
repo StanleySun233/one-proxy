@@ -26,7 +26,7 @@ export function OnboardingPathForm({ t, pathForm, pathMode, pathModeOptions, nod
       </div>
       <form
         className="sub-grid"
-        onSubmit={pathForm.handleSubmit((values) => {
+        onSubmit={(e) => { pathForm.handleSubmit((values) => {
           createPathMutation.mutate({
             name: values.name.trim(),
             mode: values.mode,
@@ -36,7 +36,7 @@ export function OnboardingPathForm({ t, pathForm, pathMode, pathModeOptions, nod
             targetHost: values.targetHost.trim(),
             targetPort: values.targetPort ? Number(values.targetPort) : 0
           });
-        })}
+        })(e); }}
       >
         <label className="field-stack">
           <span>Name</span>
