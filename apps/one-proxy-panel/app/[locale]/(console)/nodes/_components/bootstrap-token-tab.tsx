@@ -146,6 +146,7 @@ export function BootstrapTokenTab({
                 {...form.register('nodeMode', {required: t('nodes.bootstrap.nodeModeRequired')})}
               />
               <span className="node-mode-title">{t(`nodes.bootstrap.nodeModeOptions.${mode}.label`)}</span>
+              <span className="node-mode-copy">{t(`nodes.bootstrap.nodeModeOptions.${mode}.hint`)}</span>
             </label>
           ))}
         </div>

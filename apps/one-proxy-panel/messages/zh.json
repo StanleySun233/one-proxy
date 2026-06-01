@@ -102,7 +102,7 @@
   },
   "overview": {
     "eyebrow": "控制平面",
-    "title": "节点注册、链路编排与白名单转发控制台",
+    "title": "控制平面",
     "subtitle": "集中管理节点注册、路由策略、心跳健康与证书状态。",
     "healthyNodes": "健康节点",
     "degradedNodes": "异常节点",

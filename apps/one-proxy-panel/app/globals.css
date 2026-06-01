@@ -1191,6 +1191,12 @@ button:disabled {
   color: var(--text);
 }
 
+.node-mode-copy {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .command-block {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);

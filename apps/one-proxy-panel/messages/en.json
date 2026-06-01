@@ -102,7 +102,7 @@
   },
   "overview": {
     "eyebrow": "Control Surface",
-    "title": "Control console for node registration, chain orchestration and whitelist forwarding",
+    "title": "Control Plane",
     "subtitle": "Manage node enrollment, routing policy, heartbeat health and certificate state in one place.",
     "healthyNodes": "Healthy Nodes",
     "degradedNodes": "Degraded Nodes",
