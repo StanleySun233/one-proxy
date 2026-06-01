@@ -51,6 +51,7 @@ type ExtensionGroup struct {
 	ProxyScheme   string   `json:"proxyScheme"`
 	ProxyHost     string   `json:"proxyHost"`
 	ProxyPort     int      `json:"proxyPort"`
+	ProxyDefault  bool     `json:"proxyDefault"`
 	ProxyHosts    []string `json:"proxyHosts"`
 	ProxyCIDRs    []string `json:"proxyCidrs"`
 	DirectHosts   []string `json:"directHosts"`

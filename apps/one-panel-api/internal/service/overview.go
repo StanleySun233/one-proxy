@@ -75,10 +75,6 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 			if !rule.Enabled {
 				continue
 			}
-			value := strings.TrimSpace(rule.MatchValue)
-			if value == "" {
-				continue
-			}
 			if rule.ActionType == domain.ActionTypeChain {
 				chain, ok := chainsByID[rule.ChainID]
 				if !ok || !chain.Enabled || len(chain.Hops) == 0 || chain.Hops[0] != node.ID {
@@ -88,26 +84,38 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 			if rule.ActionType == domain.ActionTypeDirect && rule.DestinationScope != node.ScopeKey {
 				continue
 			}
+			value := strings.TrimSpace(rule.MatchValue)
 			switch rule.MatchType {
+			case domain.MatchTypeDefault:
+				group.ProxyDefault = true
 			case domain.MatchTypeDomain:
+				if value == "" {
+					continue
+				}
 				if rule.ActionType == domain.ActionTypeDirect {
-					group.DirectHosts = append(group.DirectHosts, value)
+					group.ProxyHosts = append(group.ProxyHosts, value)
 				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyHosts = append(group.ProxyHosts, value)
 				}
 			case domain.MatchTypeDomainSuffix:
+				if value == "" {
+					continue
+				}
 				pattern := value
 				if strings.HasPrefix(pattern, ".") {
 					pattern = "*" + pattern
 				}
 				if rule.ActionType == domain.ActionTypeDirect {
-					group.DirectHosts = append(group.DirectHosts, pattern)
+					group.ProxyHosts = append(group.ProxyHosts, pattern)
 				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyHosts = append(group.ProxyHosts, pattern)
 				}
 			case domain.MatchTypeIPCIDR:
+				if value == "" {
+					continue
+				}
 				if rule.ActionType == domain.ActionTypeDirect {
-					group.DirectCIDRs = append(group.DirectCIDRs, value)
+					group.ProxyCIDRs = append(group.ProxyCIDRs, value)
 				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyCIDRs = append(group.ProxyCIDRs, value)
 				}

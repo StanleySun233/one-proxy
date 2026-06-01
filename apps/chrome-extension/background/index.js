@@ -67,6 +67,7 @@ function normalizeGroup(group) {
     proxyScheme: 'PROXY',
     proxyHost: '',
     proxyPort: 0,
+    proxyDefault: false,
     proxyHosts: [],
     proxyCidrs: [],
     directHosts: [],
@@ -183,6 +184,7 @@ function buildPacScript(state) {
   return `
 const enabled = ${state.enabled ? 'true' : 'false'};
 const proxyTarget = '${escapePacString(proxyTarget)}';
+const proxyDefault = ${group && group.proxyDefault ? 'true' : 'false'};
 const directHosts = ${JSON.stringify(directHosts)};
 const proxyHosts = ${JSON.stringify(proxyHosts)};
 const directCidrs = ${JSON.stringify(directCidrs)};
@@ -240,6 +242,9 @@ function FindProxyForURL(url, host) {
   if (isLocalOnly(host, resolved)) {
     return 'DIRECT';
   }
+  if (proxyDefault) {
+    return proxyTarget;
+  }
   return 'DIRECT';
 }
 `;
@@ -252,6 +257,7 @@ function pacSummary(state) {
     activeGroupId: group ? group.id : '',
     activeGroupName: group ? group.name : '',
     proxyTarget: group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT',
+    proxyDefault: Boolean(group && group.proxyDefault),
     remoteProxyHosts: group ? uniqueStrings(group.proxyHosts).length : 0,
     remoteProxyCidrs: group ? uniqueStrings(group.proxyCidrs).length : 0,
     remoteDirectHosts: group ? uniqueStrings(group.directHosts).length : 0,
