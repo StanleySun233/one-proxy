@@ -602,7 +602,7 @@
       "parentNodeIdHint": "Relay nodes usually choose their edge parent. Edge nodes usually leave this empty.",
       "parentReachableUrl": "Parent reachable URL",
       "parentReachableUrlPlaceholder": "http://192.168.1.10:2988",
-      "parentReachableUrlRequired": "Parent reachable URL is required for relay nodes",
+      "parentReachableUrlRequired": "Selected upstream node has no reachable endpoint to auto match",
       "parentReachableUrlHint": "Address that the child node can use to reach its upstream parent.",
       "publicHost": "Public host",
       "publicHostPlaceholder": "103.214.172.211",

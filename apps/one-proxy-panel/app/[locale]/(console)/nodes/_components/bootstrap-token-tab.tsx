@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {UseFormReturn} from 'react-hook-form';
 import {toast} from 'sonner';
@@ -60,6 +60,15 @@ export function BootstrapTokenTab({
   const selectedParentNodeId = form.watch('parentNodeId');
   const parentReachableUrl = form.watch('parentReachableUrl');
   const publicPort = form.watch('publicPort');
+  const selectedParentNode = nodes.find((node) => node.id === selectedParentNodeId);
+  const autoParentReachableUrl = selectedParentNode?.publicHost
+    ? `http://${selectedParentNode.publicHost}:${selectedParentNode.publicPort || 2988}`
+    : '';
+
+  useEffect(() => {
+    form.setValue('parentReachableUrl', autoParentReachableUrl, {shouldDirty: false, shouldValidate: true});
+  }, [autoParentReachableUrl, form]);
+
   const dockerCommand = useMemo(() => {
     if (!latestToken) {
       return '';
@@ -178,7 +187,7 @@ export function BootstrapTokenTab({
       </div>
       {needsParentReachableUrl ? (
         <div className="field-stack nodes-form-full">
-          <span>{t('nodes.bootstrap.parentReachableUrl')} <span className="muted-text">({t('common.required')})</span></span>
+          <span>{t('nodes.bootstrap.parentReachableUrl')}</span>
           <input
             className="field-input"
             placeholder={t('nodes.bootstrap.parentReachableUrlPlaceholder')}

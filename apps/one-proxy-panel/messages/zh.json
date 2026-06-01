@@ -602,7 +602,7 @@
       "parentNodeIdHint": "Relay 节点通常选择所属 edge；Edge 节点通常留空。",
       "parentReachableUrl": "子节点可访问的上游 URL",
       "parentReachableUrlPlaceholder": "http://192.168.1.10:2988",
-      "parentReachableUrlRequired": "Relay 节点必须填写子节点可访问的上游 URL",
+      "parentReachableUrlRequired": "所选上游节点没有可自动匹配的入口",
       "parentReachableUrlHint": "子节点用于访问上游父节点的地址。",
       "publicHost": "公网地址",
       "publicHostPlaceholder": "103.214.172.211",
