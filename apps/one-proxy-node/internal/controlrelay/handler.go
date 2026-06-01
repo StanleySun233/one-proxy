@@ -2,14 +2,11 @@ package controlrelay
 
 import (
 	"encoding/json"
-	"net"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
+	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/probe"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/tunnel"
-	"github.com/gorilla/websocket"
 )
 
 func NewProbeHandler(registry *tunnel.Registry) http.HandlerFunc {
@@ -60,63 +57,10 @@ func runProbe(payload ProbeRequest, registry *tunnel.Registry) (ProbeResponse, i
 }
 
 func probeTarget(payload ProbeRequest) (ProbeResponse, int) {
-	protocol := strings.ToLower(strings.TrimSpace(payload.Protocol))
-	if protocol == "" {
-		protocol = "tcp"
+	result := probe.Run(payload.Protocol, payload.TargetHost, payload.TargetPort)
+	statusCode := http.StatusOK
+	if result.Status == "failed" {
+		statusCode = http.StatusBadGateway
 	}
-	switch protocol {
-	case "http", "https":
-		return probeHTTP(protocol, payload.TargetHost, payload.TargetPort)
-	case "ws", "wss":
-		return probeWebSocket(protocol, payload.TargetHost, payload.TargetPort)
-	case "udp":
-		return probeUDP(payload.TargetHost, payload.TargetPort)
-	default:
-		return probeTCP(payload.TargetHost, payload.TargetPort)
-	}
-}
-
-func probeHTTP(protocol string, host string, port int) (ProbeResponse, int) {
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(protocol + "://" + host + ":" + strconv.Itoa(port) + "/")
-	if err != nil {
-		return ProbeResponse{Status: "failed", Message: "target_unreachable"}, http.StatusBadGateway
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= http.StatusInternalServerError {
-		return ProbeResponse{Status: "failed", Message: "target_unhealthy"}, http.StatusBadGateway
-	}
-	return ProbeResponse{Status: "connected", Message: "target_reachable"}, http.StatusOK
-}
-
-func probeWebSocket(protocol string, host string, port int) (ProbeResponse, int) {
-	conn, resp, err := websocket.DefaultDialer.Dial(protocol+"://"+host+":"+strconv.Itoa(port)+"/", nil)
-	if err == nil {
-		_ = conn.Close()
-		return ProbeResponse{Status: "connected", Message: "target_reachable"}, http.StatusOK
-	}
-	if resp != nil && resp.StatusCode < http.StatusInternalServerError {
-		return ProbeResponse{Status: "connected", Message: "target_reachable"}, http.StatusOK
-	}
-	return ProbeResponse{Status: "failed", Message: "target_unreachable"}, http.StatusBadGateway
-}
-
-func probeTCP(host string, port int) (ProbeResponse, int) {
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), 3*time.Second)
-	if err != nil {
-		return ProbeResponse{Status: "failed", Message: "target_unreachable"}, http.StatusBadGateway
-	}
-	_ = conn.Close()
-	return ProbeResponse{Status: "connected", Message: "target_reachable"}, http.StatusOK
-}
-
-func probeUDP(host string, port int) (ProbeResponse, int) {
-	conn, err := net.DialTimeout("udp", net.JoinHostPort(host, strconv.Itoa(port)), 3*time.Second)
-	if err != nil {
-		return ProbeResponse{Status: "failed", Message: "target_unreachable"}, http.StatusBadGateway
-	}
-	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
-	_, _ = conn.Write([]byte{0})
-	_ = conn.Close()
-	return ProbeResponse{Status: "connected", Message: "target_packet_sent"}, http.StatusOK
+	return ProbeResponse{Status: result.Status, Message: result.Message}, statusCode
 }
