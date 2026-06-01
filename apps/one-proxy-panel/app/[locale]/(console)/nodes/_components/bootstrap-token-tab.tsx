@@ -12,6 +12,27 @@ function shellQuote(value: string) {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+function highlightedBash(line: string) {
+  const parts = line.split(/(docker|rm|run|true|ghcr\.io\/stanleysun233\/one-proxy-node:latest|--[a-z-]+|-e|-p|-v|\\|'[^']*'|\S+:[^\s]+)/g).filter(Boolean);
+
+  return parts.map((part, index) => {
+    let className = 'bash-plain';
+    if (/^(docker|rm|run|true)$/.test(part)) {
+      className = 'bash-command';
+    } else if (/^(--[a-z-]+|-e|-p|-v)$/.test(part)) {
+      className = 'bash-flag';
+    } else if (/^'/.test(part)) {
+      className = 'bash-string';
+    } else if (part.includes(':') || part.startsWith('ghcr.io/')) {
+      className = 'bash-target';
+    } else if (part === '\\') {
+      className = 'bash-continuation';
+    }
+
+    return <span className={className} key={`${part}-${index}`}>{part}</span>;
+  });
+}
+
 export function BootstrapTokenTab({
   form,
   submitting,
@@ -37,8 +58,24 @@ export function BootstrapTokenTab({
     if (!latestToken) {
       return '';
     }
-    return `docker rm -f one-proxy-node >/dev/null 2>&1 || true && docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true && docker run -d --name one-proxy-node --restart unless-stopped -p 2988:2988 -p 2989:2989 -v one-proxy-node-runtime:/app/runtime -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} -e NODE_NAME=${shellQuote(latestToken.nodeName)} -e NODE_SCOPE_KEY='scope-key' -e NODE_MODE='relay' -e NODE_JOIN_PASSWORD='password' -e TZ='Asia/Shanghai' ghcr.io/stanleysun233/one-proxy-node:latest`;
+    return [
+      'docker rm -f one-proxy-node >/dev/null 2>&1 || true',
+      'docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true',
+      'docker run -d --name one-proxy-node --restart unless-stopped \\',
+      '  -p 2988:2988 \\',
+      '  -p 2989:2989 \\',
+      '  -v one-proxy-node-runtime:/app/runtime \\',
+      `  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`,
+      `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
+      `  -e NODE_NAME=${shellQuote(latestToken.nodeName)} \\`,
+      "  -e NODE_SCOPE_KEY='scope-key' \\",
+      "  -e NODE_MODE='relay' \\",
+      "  -e NODE_JOIN_PASSWORD='password' \\",
+      "  -e TZ='Asia/Shanghai' \\",
+      '  ghcr.io/stanleysun233/one-proxy-node:latest'
+    ].join('\n');
   }, [controlPlaneURL, latestToken]);
+  const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);
 
   async function copy(value: string, key: string) {
     try {
@@ -118,7 +155,20 @@ export function BootstrapTokenTab({
                 {copied === 'docker' ? t('nodes.bootstrap.copied') : t('nodes.bootstrap.copyCommand')}
               </button>
             </div>
-            <code className="mono command-block">{dockerCommand}</code>
+            <div className="command-block" role="region" aria-label={t('nodes.bootstrap.dockerOneLiner')}>
+              <div className="command-gutter" aria-hidden="true">
+                {dockerCommandLines.map((_, index) => (
+                  <span key={index}>{index + 1}</span>
+                ))}
+              </div>
+              <code className="mono command-code">
+                {dockerCommandLines.map((line, index) => (
+                  <span className="command-line" key={`${line}-${index}`}>
+                    {highlightedBash(line)}
+                  </span>
+                ))}
+              </code>
+            </div>
             <span className="field-hint">{t('nodes.bootstrap.dockerScopeHint')}</span>
           </div>
         </div>

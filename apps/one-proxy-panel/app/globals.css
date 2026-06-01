@@ -1110,14 +1110,65 @@ button:disabled {
 }
 
 .command-block {
-  display: block;
-  white-space: pre-wrap;
-  word-break: break-word;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  overflow: hidden;
   line-height: 1.6;
-  padding: 12px 14px;
+  padding: 0;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel) 78%, var(--panel-2) 22%);
+}
+
+.command-gutter {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  padding: 12px 10px;
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-2) 86%, var(--panel) 14%);
+  color: var(--muted);
+  font-family: var(--font-mono), "SFMono-Regular", monospace;
+  font-size: 12px;
+  line-height: 1.75;
+  text-align: right;
+  user-select: none;
+}
+
+.command-code {
+  display: grid;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 12px 14px;
+  white-space: pre;
+}
+
+.command-line {
+  display: block;
+  min-height: 1.75em;
+  line-height: 1.75;
+}
+
+.bash-command {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.bash-flag {
+  color: var(--accent);
+}
+
+.bash-string {
+  color: var(--success);
+}
+
+.bash-target {
+  color: color-mix(in srgb, var(--primary) 72%, var(--text) 28%);
+}
+
+.bash-continuation {
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .node-card-actions {
