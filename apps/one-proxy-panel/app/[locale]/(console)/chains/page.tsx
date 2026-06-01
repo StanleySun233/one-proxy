@@ -18,6 +18,16 @@ import {formatControlPlaneError} from '@/lib/presentation';
 import {ChainEditor} from './_components/chain-editor';
 import {CompilationPreviewModal} from './_components/compilation-preview-modal';
 
+function probeReasonLabel(reason: string, chainsT: ReturnType<typeof useTranslations<'chains'>>) {
+  if (!reason) {
+    return '';
+  }
+  if (['missing_entry_transport', 'missing_parent_transport', 'unknown_or_disabled_node', 'probe_dispatch_failed', 'chain_transport_ready', 'chain_blocked'].includes(reason)) {
+    return chainsT(`probeReasons.${reason}`);
+  }
+  return reason;
+}
+
 export default function ChainsPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
@@ -259,7 +269,7 @@ export default function ChainsPage() {
                 {Object.entries(probeResults).map(([chainId, result]) => (
                   <div className="token-box" key={chainId}>
                     <strong>{result.status === 'connected' ? chainsT('transportReady') : chainsT('transportBlocked')}</strong>
-                    <span className="field-hint">{result.blockingReason || result.message}</span>
+                    <span className="field-hint">{probeReasonLabel(result.blockingReason || result.message, chainsT)}</span>
                     {result.resolvedHops.length > 0 && (
                       <span className="mono">{result.resolvedHops.map((hop) => `${hop.nodeName}:${hop.transportType}`).join(' → ')}</span>
                     )}

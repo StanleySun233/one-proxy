@@ -370,6 +370,14 @@
     "transportReady": "Transport ready",
     "transportBlocked": "Transport blocked",
     "blockingNode": "Blocking node",
+    "probeReasons": {
+      "missing_entry_transport": "Entry node has no available public transport",
+      "missing_parent_transport": "Downstream node is not connected to its upstream node",
+      "unknown_or_disabled_node": "Node is missing or disabled",
+      "probe_dispatch_failed": "Entry node probe request failed",
+      "chain_transport_ready": "Chain transport is ready",
+      "chain_blocked": "Chain is blocked"
+    },
     "createSuccess": "Chain created",
     "updateSuccess": "Chain updated",
     "copiedConfig": "Copied to clipboard",
