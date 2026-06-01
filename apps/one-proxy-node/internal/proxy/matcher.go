@@ -46,6 +46,8 @@ func Match(snapshot policystore.Snapshot, req *http.Request) RouteMatch {
 			if strings.EqualFold(protocol, rule.MatchValue) {
 				return RouteMatch{Rule: rule, Found: true}
 			}
+		case domain.MatchTypeDefault:
+			return RouteMatch{Rule: rule, Found: true}
 		}
 	}
 	return RouteMatch{}

@@ -12,6 +12,7 @@ const (
 	MatchTypeIPCIDR              = "ip_cidr"
 	MatchTypeIP                  = "ip"
 	MatchTypeProtocol            = "protocol"
+	MatchTypeDefault             = "default"
 	TransportTypeReverseWSParent = "reverse_ws_parent"
 )
 

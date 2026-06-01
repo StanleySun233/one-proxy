@@ -52,3 +52,24 @@ func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
 		t.Fatalf("body = %q", resp.Body.String())
 	}
 }
+
+func TestMatchSupportsDefaultRoute(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "http://www.baidu.com/", nil)
+	match := Match(policystore.Snapshot{
+		RouteRules: []domain.RouteRule{
+			{
+				ID:         "1",
+				MatchType:  domain.MatchTypeDefault,
+				ActionType: domain.ActionTypeDirect,
+				Enabled:    true,
+			},
+		},
+	}, req)
+
+	if !match.Found {
+		t.Fatal("default route did not match")
+	}
+	if match.Rule.ID != "1" {
+		t.Fatalf("rule id = %q", match.Rule.ID)
+	}
+}

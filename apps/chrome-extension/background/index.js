@@ -551,6 +551,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case 'clear-diagnostic-logs':
         sendResponse(await clearDiagnosticLogs());
         return;
+      case 'record-diagnostic-event': {
+        const state = await getState();
+        await appendLog('info', message.event || 'diagnostic_event', pacSummary(state));
+        sendResponse(await diagnosticLogs());
+        return;
+      }
       case 'set-enabled':
         sendResponse(await setPartialState((state) => ({ ...state, enabled: Boolean(message.enabled) })));
         return;

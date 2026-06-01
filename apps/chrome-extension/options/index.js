@@ -243,6 +243,7 @@ chrome.runtime.onMessage.addListener((message) => {
 
 async function init() {
   applyLanguage();
+  renderLogs(await sendMessage({ type: 'record-diagnostic-event', event: 'options_opened' }));
   render(await sendMessage({ type: 'get-state' }));
   setFeedback('idle', text('statusIdle'));
 }

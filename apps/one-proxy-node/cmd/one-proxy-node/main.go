@@ -101,7 +101,7 @@ func main() {
 	proxyHandler := proxy.NewServer(store, manager.NodeID, tunnelRegistry)
 	mux := http.NewServeMux()
 	mux.Handle("/", proxyHandler)
-	httpHandler := http.Handler(mux)
+	httpHandler := proxyAwareHandler(proxyHandler, mux)
 	mux.Handle("/api/v1/control-relay/probe", controlrelay.NewProbeHandler(tunnelRegistry))
 	mux.Handle("/api/v1/node/bootstrap/attach", bootstrap.New(cfg.ListenAddr, cfg.HTTPSListenAddr, manager))
 	mux.Handle(cfg.NodeTunnelPath, tunnel.NewServer(manager, tunnelRegistry))
@@ -180,6 +180,16 @@ func withObservability(next http.Handler) http.Handler {
 			}
 		}()
 		next.ServeHTTP(sw, req)
+	})
+}
+
+func proxyAwareHandler(proxyHandler http.Handler, mux http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method == http.MethodConnect {
+			proxyHandler.ServeHTTP(w, req)
+			return
+		}
+		mux.ServeHTTP(w, req)
 	})
 }
 
