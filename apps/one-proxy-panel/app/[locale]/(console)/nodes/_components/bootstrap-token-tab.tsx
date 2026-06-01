@@ -47,7 +47,13 @@ export function BootstrapTokenTab({
   }
 
   return (
-    <form className="nodes-form-grid" onSubmit={(e) => { form.handleSubmit(onSubmit)(e); }}>
+    <form
+      className="nodes-form-grid"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void form.handleSubmit(onSubmit)(e);
+      }}
+    >
       <div className="field-stack nodes-form-full">
         <span>{t('nodes.bootstrap.nodeName')} <span className="muted-text">({t('common.required')})</span></span>
         <input
@@ -56,8 +62,9 @@ export function BootstrapTokenTab({
           {...form.register('nodeName', {
             required: t('nodes.bootstrap.nodeNameRequired'),
             validate: (value) => {
-              if (!value) return true;
-              const exists = nodes.some((n) => n.name.toLowerCase() === value.trim().toLowerCase());
+              const candidate = String(value || '').trim().toLowerCase();
+              if (!candidate) return true;
+              const exists = nodes.some((n) => n.name.toLowerCase() === candidate);
               return exists ? t('nodes.bootstrap.nodeNameDuplicate') : true;
             }
           })}
