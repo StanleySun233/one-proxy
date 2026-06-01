@@ -46,11 +46,11 @@ func main() {
 			ControlPlaneURL: cfg.ControlPlaneURL,
 			NodeID:          cfg.NodeID,
 			NodeAccessToken: cfg.NodeAccessToken,
-			NodeName:        firstNonEmpty(cfg.NodeName, current.NodeName),
-			NodeMode:        firstNonEmpty(cfg.NodeMode, current.NodeMode),
-			NodeScopeKey:    firstNonEmpty(cfg.NodeScopeKey, current.NodeScopeKey),
-			NodeParentID:    firstNonEmpty(cfg.NodeParentID, current.NodeParentID),
-			NodePublicHost:  firstNonEmpty(cfg.NodePublicHost, current.NodePublicHost),
+			NodeName:        agentconfig.FirstNonEmpty(cfg.NodeName, current.NodeName),
+			NodeMode:        agentconfig.FirstNonEmpty(cfg.NodeMode, current.NodeMode),
+			NodeScopeKey:    agentconfig.FirstNonEmpty(cfg.NodeScopeKey, current.NodeScopeKey),
+			NodeParentID:    agentconfig.FirstNonEmpty(cfg.NodeParentID, current.NodeParentID),
+			NodePublicHost:  agentconfig.FirstNonEmpty(cfg.NodePublicHost, current.NodePublicHost),
 			NodePublicPort:  firstPositive(listenPort(cfg.ListenAddr), current.NodePublicPort),
 		}); err != nil {
 			log.Fatalf("attach runtime binding failed: %v", err)
@@ -225,15 +225,6 @@ func listenPort(addr string) int {
 		return 0
 	}
 	return port
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func firstPositive(values ...int) int {

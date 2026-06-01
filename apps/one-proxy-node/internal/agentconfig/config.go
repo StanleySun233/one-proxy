@@ -33,7 +33,7 @@ func Load() Config {
 	joinPassword, joinPasswordProvided := lookupEnvOrDefault("NODE_JOIN_PASSWORD", "password")
 	parentURL := envOrDefault("NODE_PARENT_URL", "")
 	return Config{
-		ControlPlaneURL:          firstNonEmpty(envOrDefault("CONTROL_PLANE_URL", ""), parentURL),
+		ControlPlaneURL:          FirstNonEmpty(envOrDefault("CONTROL_PLANE_URL", ""), parentURL),
 		NodeParentURL:            parentURL,
 		NodeBootstrapToken:       envOrDefault("NODE_BOOTSTRAP_TOKEN", ""),
 		NodeAccessToken:          envOrDefault("NODE_ACCESS_TOKEN", ""),
@@ -46,7 +46,7 @@ func Load() Config {
 		NodePublicHost:           envOrDefault("NODE_PUBLIC_HOST", ""),
 		NodeJoinPassword:         joinPassword,
 		NodeJoinPasswordProvided: joinPasswordProvided,
-		NodeParentTunnelURL:      firstNonEmpty(envOrDefault("NODE_PARENT_TUNNEL_URL", ""), parentURL),
+		NodeParentTunnelURL:      FirstNonEmpty(envOrDefault("NODE_PARENT_TUNNEL_URL", ""), parentURL),
 		NodeTunnelPath:           envOrDefault("NODE_TUNNEL_PATH", "/api/v1/node-tunnel/connect"),
 		NodeTunnelHeartbeat:      envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),
 		ListenAddr:               envOrDefault("NODE_LISTEN_ADDR", ":2988"),
@@ -60,7 +60,7 @@ func Load() Config {
 	}
 }
 
-func firstNonEmpty(values ...string) string {
+func FirstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if value != "" {
 			return value
