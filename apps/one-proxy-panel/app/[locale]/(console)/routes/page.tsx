@@ -6,26 +6,17 @@ import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
-import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
-import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {createRouteRule, deleteRouteRule, fetchEnums, getChains, getPolicyRevisions, getRouteRules, getScopes, publishPolicy, updateRouteRule, validateRouteRule} from '@/lib/api';
 import {RouteRule, RouteRuleValidationResult} from '@/lib/types';
-import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
+import {formatControlPlaneError} from '@/lib/presentation';
 
+import {PolicyPanel} from './_components/policy-panel';
 import {RegexTesterModal} from './_components/regex-tester-modal';
-
-type RouteRuleFormValues = {
-  priority: string;
-  matchType: string;
-  matchValue: string;
-  actionType: string;
-  chainId: string;
-  destinationScope: string;
-  enabled: boolean;
-};
+import {RouteRuleForm, RouteRuleFormValues} from './_components/route-rule-form';
+import {RouteRuleTable} from './_components/route-rule-table';
 
 type RouteRuleValidationPayload = {
   priority: number;
@@ -347,6 +338,32 @@ export default function RoutesPage() {
     });
   }, [form]);
 
+  const submitRouteRule = useCallback((values: RouteRuleFormValues) => {
+    const chainDestinationScope = values.actionType === 'chain'
+      ? chains.find((chain) => chain.id === values.chainId)?.destinationScope || ''
+      : values.destinationScope.trim();
+    const payload = {
+      priority: Number(values.priority),
+      matchType: values.matchType.trim(),
+      matchValue: values.matchValue.trim(),
+      actionType: values.actionType,
+      chainId: values.chainId.trim(),
+      destinationScope: chainDestinationScope,
+      enabled: values.enabled
+    };
+    if (editingRuleId) {
+      updateRuleMutation.mutate({id: editingRuleId, ...payload});
+    } else {
+      createRuleMutation.mutate(payload);
+    }
+  }, [chains, createRuleMutation, editingRuleId, updateRuleMutation]);
+
+  const deleteRoute = useCallback((ruleId: string) => {
+    if (window.confirm(routesT('deleteConfirm'))) {
+      deleteRuleMutation.mutate(ruleId);
+    }
+  }, [deleteRuleMutation, routesT]);
+
   useEffect(() => {
     if (actionType !== 'chain') {
       return;
@@ -363,316 +380,49 @@ export default function RoutesPage() {
         <PageHero eyebrow={t('nav.routes')} title={pageT('routesTitle')} />
 
         <section className="forms-grid">
-          <article className="panel-card">
-            <div className="inline-cluster" style={{gap: 8}}>
-              <h3>{editingRule ? routesT('editRule') : routesT('createRule')}</h3>
-              {validationPending && <span className="badge is-neutral">{t('common.validating')}</span>}
-              {!validationPending && validationResult && (
-                <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
-                  {validationResult.valid ? t('common.valid') : t('common.invalid')}
-                </span>
-              )}
-            </div>
-            <form
-              className="sub-grid"
-              onSubmit={(e) => { form.handleSubmit((values) => {
-                const chainDestinationScope = values.actionType === 'chain'
-                  ? chains.find((chain) => chain.id === values.chainId)?.destinationScope || ''
-                  : values.destinationScope.trim();
-                const payload = {
-                  priority: Number(values.priority),
-                  matchType: values.matchType.trim(),
-                  matchValue: values.matchValue.trim(),
-                  actionType: values.actionType,
-                  chainId: values.chainId.trim(),
-                  destinationScope: chainDestinationScope,
-                  enabled: values.enabled
-                };
-                if (editingRuleId) {
-                  updateRuleMutation.mutate({id: editingRuleId, ...payload});
-                } else {
-                  createRuleMutation.mutate(payload);
-                }
-              })(e); }}
-            >
-              <div className="field-stack">
-                <span>{routesT('priority')}</span>
-                <input
-                  aria-invalid={form.formState.errors.priority ? 'true' : 'false'}
-                  className="field-input"
-                  type="number"
-                  {...form.register('priority', {
-                    required: routesT('priorityRequired'),
-                    validate: (value) => Number(value) > 0 || routesT('priorityPositive')
-                  })}
-                />
-                {form.formState.errors.priority ? <p className="error-text">{form.formState.errors.priority.message}</p> : null}
-              </div>
-              <div className="field-stack">
-                <span>{routesT('matchType')}</span>
-                <select
-                  aria-invalid={form.formState.errors.matchType ? 'true' : 'false'}
-                  className="field-select"
-                  {...form.register('matchType', {required: routesT('matchTypeRequired')})}
-                >
-                  {matchTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {form.formState.errors.matchType ? <p className="error-text">{form.formState.errors.matchType.message}</p> : null}
-              </div>
-              <div className="field-stack">
-                <span>{routesT('matchValue')}</span>
-                <div className="inline-cluster">
-                  <input
-                    aria-invalid={form.formState.errors.matchValue ? 'true' : 'false'}
-                    className="field-input"
-                    placeholder={matchValuePlaceholder}
-                    style={{flex: 1}}
-                    {...form.register('matchValue', {
-                      required: routesT('matchValueRequired'),
-                      validate: (value) => validateMatchValue(matchType, value, routesT)
-                    })}
-                  />
-                  {matchType === 'url_regex' && (
-                    <button className="secondary-button" onClick={() => setRegexTesterOpen(true)} type="button">
-                      {routesT('testRegex')}
-                    </button>
-                  )}
-                </div>
-                {form.formState.errors.matchValue ? <p className="error-text">{form.formState.errors.matchValue.message}</p> : null}
-              </div>
-              <div className="field-stack">
-                <span>{routesT('actionType')}</span>
-                <select className="field-select" {...form.register('actionType', {required: true})}>
-                  {actionTypeOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field-stack">
-                <span>{routesT('chain')}</span>
-                <select
-                  aria-invalid={form.formState.errors.chainId ? 'true' : 'false'}
-                  className="field-select"
-                  disabled={actionType !== 'chain'}
-                  {...form.register('chainId', {
-                    validate: (value) => (actionType !== 'chain' || value.trim() !== '' ? true : routesT('chainRequired'))
-                  })}
-                >
-                  <option value="">{t('common.selectChain')}</option>
-                  {chains.map((chain) => {
-                    const hopCount = Array.isArray(chain.hops) ? chain.hops.length : 0;
-                    const hopDisplay = hopCount > 0 ? ` (${Array.from({length: hopCount}, (_, i) => i + 1).join(' → ')})` : '';
-                    return (
-                      <option key={chain.id} value={chain.id}>
-                        {chain.name}
-                        {hopDisplay}
-                      </option>
-                    );
-                  })}
-                </select>
-                {form.formState.errors.chainId ? <p className="error-text">{form.formState.errors.chainId.message}</p> : null}
-                {selectedChain && actionType === 'chain' ? (
-                  <div className="field-hint">
-                    <span className="muted-text">
-                      {routesT('destinationScope')}: <strong>{selectedChain.destinationScope}</strong>
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-              <div className="field-stack">
-                <span>{routesT('destinationScope')}</span>
-                <select
-                  aria-invalid={form.formState.errors.destinationScope ? 'true' : 'false'}
-                  className="field-select"
-                  disabled={actionType !== 'direct'}
-                  {...form.register('destinationScope', {
-                    validate: (value) => (actionType !== 'direct' || value.trim() !== '' ? true : routesT('destinationScopeRequired'))
-                  })}
-                >
-                  <option value="">{routesT('destinationScopePlaceholder')}</option>
-                  {scopes.map((scope) => (
-                    <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
-                  ))}
-                </select>
-                {form.formState.errors.destinationScope ? <p className="error-text">{form.formState.errors.destinationScope.message}</p> : null}
-              </div>
-              <label className="toggle-inline">
-                <input type="checkbox" {...form.register('enabled')} />
-                <span>{t('common.enabled')}</span>
-              </label>
+          <RouteRuleForm
+            actionType={actionType}
+            actionTypeOptions={actionTypeOptions}
+            chains={chains}
+            createPending={createRuleMutation.isPending}
+            editingRule={!!editingRule}
+            form={form}
+            matchType={matchType}
+            matchTypeOptions={matchTypeOptions}
+            matchValuePlaceholder={matchValuePlaceholder}
+            onCancel={resetForm}
+            onOpenRegexTester={() => setRegexTesterOpen(true)}
+            onSubmit={submitRouteRule}
+            routesT={routesT}
+            scopes={scopes}
+            selectedChain={selectedChain}
+            t={t}
+            updatePending={updateRuleMutation.isPending}
+            validateMatchValue={(type, value) => validateMatchValue(type, value, routesT)}
+            validationPending={validationPending}
+            validationResult={validationResult}
+          />
 
-              {validationResult && (
-                <div className="probe-results-section">
-                  <div className="section-header">
-                    <h4>{routesT('validation')}</h4>
-                    {validationPending ? <span className="badge is-neutral">{t('common.validating')}</span> : (
-                      <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
-                        {validationResult.valid ? t('common.valid') : t('common.invalid')}
-                      </span>
-                    )}
-                  </div>
-                  {validationResult.errors.map((msg, i) => (
-                    <div className="token-box" key={`err-${i}`} style={{borderColor: 'var(--danger)'}}>
-                      <span className="field-hint" style={{color: 'var(--danger)'}}>{msg}</span>
-                    </div>
-                  ))}
-                  {validationResult.warnings.map((msg, i) => (
-                    <div className="token-box" key={`warn-${i}`} style={{borderColor: 'var(--accent)'}}>
-                      <span className="field-hint" style={{color: 'var(--accent)'}}>{msg}</span>
-                    </div>
-                  ))}
-                  {validationResult.matchValueValidation && !validationResult.matchValueValidation.valid && (
-                    <div className="token-box" style={{borderColor: 'var(--danger)'}}>
-                      <span className="field-hint" style={{color: 'var(--danger)'}}>{validationResult.matchValueValidation.message}</span>
-                    </div>
-                  )}
-                  {validationResult.chainValidation && !validationResult.chainValidation.valid && (
-                    <div className="token-box" style={{borderColor: 'var(--danger)'}}>
-                      <span className="field-hint" style={{color: 'var(--danger)'}}>{routesT('chainNotFound')}</span>
-                    </div>
-                  )}
-                  {validationResult.scopeValidation && !validationResult.scopeValidation.valid && (
-                    <div className="token-box" style={{borderColor: 'var(--danger)'}}>
-                      <span className="field-hint" style={{color: 'var(--danger)'}}>{routesT('scopeNotFound')}</span>
-                    </div>
-                  )}
-                  {validationResult.scopeValidation && validationResult.scopeValidation.valid && !validationResult.scopeValidation.matchesChainFinalHop && (
-                    <div className="token-box" style={{borderColor: 'var(--accent)'}}>
-                      <span className="field-hint" style={{color: 'var(--accent)'}}>{routesT('scopeChainMismatch')}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="submit-row">
-                <button className="primary-button" disabled={createRuleMutation.isPending || updateRuleMutation.isPending} type="submit">
-                  {createRuleMutation.isPending || updateRuleMutation.isPending
-                    ? t('common.submitting')
-                    : editingRule ? routesT('saveRule') : routesT('createRule')}
-                </button>
-                {editingRule ? (
-                  <button className="secondary-button" onClick={resetForm} type="button">
-                    {t('common.cancel')}
-                  </button>
-                ) : null}
-              </div>
-            </form>
-          </article>
-
-          <article className="panel-card soft-card">
-            <div className="panel-toolbar">
-              <h3>{routesT('policies')}</h3>
-              <button className="primary-button" disabled={publishMutation.isPending} onClick={() => publishMutation.mutate()} type="button">
-                {publishMutation.isPending ? t('common.submitting') : routesT('publishPolicy')}
-              </button>
-            </div>
-            {policiesQuery.isPending ? (
-              <AsyncState detail={t('common.loading')} title={routesT('loadingPolicies')} />
-            ) : policiesQuery.isError ? (
-              <AsyncState
-                actionLabel={t('common.retry')}
-                detail={formatControlPlaneError(policiesQuery.error)}
-                onAction={() => void policiesQuery.refetch()}
-                title={routesT('failedPolicies')}
-              />
-            ) : policies.length === 0 ? (
-              <AsyncState detail={routesT('emptyPolicies')} title={t('common.empty')} />
-            ) : (
-              <div className="stack-list">
-                {policies.map((policy) => (
-                  <div className="stack-item" key={policy.id}>
-                    <strong>{policy.version}</strong>
-                    <span className="muted-text">
-                      {policy.status} · {routesT('nodesCount', {count: policy.assignedNodes})}
-                    </span>
-                    <span className="mono">{formatISODateTime(policy.createdAt)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </article>
+          <PolicyPanel
+            onPublish={() => publishMutation.mutate()}
+            policies={policies}
+            policiesQuery={policiesQuery}
+            publishPending={publishMutation.isPending}
+            routesT={routesT}
+            t={t}
+          />
         </section>
 
-        <article className="panel-card">
-          <div className="panel-toolbar">
-            <h3>{routesT('routeRules')}</h3>
-            <span className="badge">{routeRules.length}</span>
-          </div>
-          {routeRulesQuery.isPending ? (
-            <AsyncState detail={t('common.loading')} title={routesT('loadingRules')} />
-          ) : routeRulesQuery.isError ? (
-            <AsyncState
-              actionLabel={t('common.retry')}
-              detail={formatControlPlaneError(routeRulesQuery.error)}
-              onAction={() => void routeRulesQuery.refetch()}
-              title={routesT('failedRules')}
-            />
-          ) : routeRules.length === 0 ? (
-            <AsyncState detail={routesT('emptyRules')} title={t('common.empty')} />
-          ) : (
-            <div className="table-card">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>{routesT('priority')}</th>
-                    <th>{routesT('match')}</th>
-                    <th>{routesT('action')}</th>
-                    <th>{routesT('chain')}</th>
-                    <th>{routesT('scope')}</th>
-                    <th>{routesT('status')}</th>
-                    <th>{t('common.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {routeRules.map((rule) => {
-                    const chain = chains.find((c) => c.id === rule.chainId);
-                    const chainName = chain?.name || rule.chainId;
-                    return (
-                      <tr key={rule.id}>
-                        <td>{rule.priority}</td>
-                        <td>
-                          <strong>{rule.matchType}</strong>
-                          <div className="muted-text mono">{rule.matchValue}</div>
-                        </td>
-                        <td>{rule.actionType}</td>
-                        <td>{chainName ? <NameTag kind="chain">{chainName}</NameTag> : '-'}</td>
-                        <td>{rule.destinationScope ? <NameTag kind="scope">{rule.destinationScope}</NameTag> : '-'}</td>
-                        <td>
-                          <span className={rule.enabled ? 'badge is-good' : 'badge'}>
-                            {rule.enabled ? t('common.enabled') : t('common.disabled')}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="inline-cluster">
-                            <button className="secondary-button" onClick={() => startEdit(rule)} type="button">
-                              {t('common.edit')}
-                            </button>
-                            <button
-                              className="danger-button"
-                              disabled={deleteRuleMutation.isPending}
-                              onClick={() => {
-                                if (window.confirm(routesT('deleteConfirm'))) {
-                                  deleteRuleMutation.mutate(rule.id);
-                                }
-                              }}
-                              type="button"
-                            >
-                              {t('common.delete')}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </article>
+        <RouteRuleTable
+          chains={chains}
+          deletePending={deleteRuleMutation.isPending}
+          onDelete={deleteRoute}
+          onEdit={startEdit}
+          routeRules={routeRules}
+          routeRulesQuery={routeRulesQuery}
+          routesT={routesT}
+          t={t}
+        />
 
         {regexTesterOpen && (
           <RegexTesterModal initialPattern={form.getValues('matchValue')} onClose={() => setRegexTesterOpen(false)} />
