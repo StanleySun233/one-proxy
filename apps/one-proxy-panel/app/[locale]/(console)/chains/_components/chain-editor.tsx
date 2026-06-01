@@ -10,7 +10,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {NameTag} from '@/components/common/name-tag';
 import {validateChain} from '@/lib/api';
-import {ChainValidationResult, Node} from '@/lib/types';
+import {ChainValidationResult, Node, Scope} from '@/lib/types';
 
 type HopItem = {
   id: string;
@@ -25,6 +25,7 @@ type ChainEditorProps = {
   destinationScope: string;
   hops: string[];
   nodes: Node[];
+  scopes: Scope[];
   onNameChange: (name: string) => void;
   onScopeChange: (scope: string) => void;
   onHopsChange: (hops: string[]) => void;
@@ -41,6 +42,7 @@ export function ChainEditor({
   destinationScope,
   hops,
   nodes,
+  scopes,
   onNameChange,
   onScopeChange,
   onHopsChange,
@@ -140,8 +142,6 @@ export function ChainEditor({
   };
 
   const availableNodes = nodes.filter((node) => !hops.includes(node.id));
-  const availableScopes = Array.from(new Set(nodes.map((node) => node.scopeKey).filter(Boolean)));
-
   return (
     <div className="chain-editor">
       <div className="panel-toolbar">
@@ -167,18 +167,12 @@ export function ChainEditor({
 
         <label className="field-stack">
           <span>{chainsT('destinationScope')}</span>
-          <input
-            className="field-input"
-            list="scope-suggestions"
-            onChange={(e) => onScopeChange(e.target.value)}
-            placeholder={chainsT('destinationScopePlaceholder')}
-            value={destinationScope}
-          />
-          <datalist id="scope-suggestions">
-            {availableScopes.map((scope) => (
-              <option key={scope} value={scope} />
+          <select className="field-select" onChange={(e) => onScopeChange(e.target.value)} value={destinationScope}>
+            <option value="">{chainsT('destinationScopePlaceholder')}</option>
+            {scopes.map((scope) => (
+              <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
             ))}
-          </datalist>
+          </select>
         </label>
       </div>
 

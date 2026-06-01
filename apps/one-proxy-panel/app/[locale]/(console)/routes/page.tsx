@@ -11,7 +11,7 @@ import {AuthGate} from '@/components/auth-gate';
 import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createRouteRule, fetchEnums, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy, validateRouteRule} from '@/lib/api';
+import {createRouteRule, fetchEnums, getChains, getPolicyRevisions, getRouteRules, getScopes, publishPolicy, validateRouteRule} from '@/lib/api';
 import {RouteRuleValidationResult} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
@@ -202,9 +202,9 @@ export default function RoutesPage() {
     queryFn: () => getChains(accessToken),
     enabled: !!accessToken
   });
-  const nodesQuery = useQuery({
-    queryKey: ['nodes', accessToken],
-    queryFn: () => getNodes(accessToken),
+  const scopesQuery = useQuery({
+    queryKey: ['scopes', accessToken],
+    queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
   const policiesQuery = useQuery({
@@ -251,11 +251,10 @@ export default function RoutesPage() {
   const routeRules = routeRulesQuery.data || [];
   const policies = policiesQuery.data || [];
   const chains = chainsQuery.data || [];
-  const nodes = nodesQuery.data || [];
+  const scopes = scopesQuery.data || [];
 
 
   const selectedChain = chains.find((c) => c.id === selectedChainId);
-  const availableScopes = Array.from(new Set([...nodes.map((n) => n.scopeKey).filter(Boolean), ...chains.map((c) => c.destinationScope)]));
   const matchValuePlaceholder = matchType === 'default' ? '*' : routesT('matchValuePlaceholder', {type: matchType || routesT('value')});
 
   useEffect(() => {
@@ -390,21 +389,19 @@ export default function RoutesPage() {
               </div>
               <div className="field-stack">
                 <span>{routesT('destinationScope')}</span>
-                <input
+                <select
                   aria-invalid={form.formState.errors.destinationScope ? 'true' : 'false'}
-                  className="field-input"
+                  className="field-select"
                   disabled={actionType !== 'direct'}
-                  list="scope-options"
-                  placeholder={routesT('destinationScopePlaceholder')}
                   {...form.register('destinationScope', {
                     validate: (value) => (actionType !== 'direct' || value.trim() !== '' ? true : routesT('destinationScopeRequired'))
                   })}
-                />
-                <datalist id="scope-options">
-                  {availableScopes.map((scope) => (
-                    <option key={scope} value={scope} />
+                >
+                  <option value="">{routesT('destinationScopePlaceholder')}</option>
+                  {scopes.map((scope) => (
+                    <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
                   ))}
-                </datalist>
+                </select>
                 {form.formState.errors.destinationScope ? <p className="error-text">{form.formState.errors.destinationScope.message}</p> : null}
               </div>
 

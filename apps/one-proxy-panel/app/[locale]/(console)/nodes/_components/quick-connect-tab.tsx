@@ -5,15 +5,18 @@ import {UseFormReturn} from 'react-hook-form';
 import {useQuery} from '@tanstack/react-query';
 
 import {fetchEnums} from '@/lib/api';
+import {Scope} from '@/lib/types';
 import {QuickConnectFormValues} from './types';
 
 export function QuickConnectTab({
   form,
   submitting,
+  scopes,
   onSubmit
 }: {
   form: UseFormReturn<QuickConnectFormValues>;
   submitting: boolean;
+  scopes: Scope[];
   onSubmit: (data: QuickConnectFormValues) => void;
 }) {
   const t = useTranslations();
@@ -42,7 +45,12 @@ export function QuickConnectTab({
       </div>
       <div className="field-stack">
         <span>{t('nodes.quickConnect.scopeKey')}</span>
-        <input className="field-input" placeholder={t('nodes.quickConnect.scopeKeyPlaceholder')} {...form.register('scopeKey', {required: t('nodes.quickConnect.scopeRequired')})} />
+        <select className="field-select" {...form.register('scopeKey', {required: t('nodes.quickConnect.scopeRequired')})}>
+          <option value="">{t('nodes.quickConnect.scopeKeyPlaceholder')}</option>
+          {scopes.map((scope) => (
+            <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
+          ))}
+        </select>
         {form.formState.errors.scopeKey ? <p className="error-text">{form.formState.errors.scopeKey.message}</p> : null}
       </div>
       <div className="field-stack">

@@ -11,7 +11,7 @@ import {AuthGate} from '@/components/auth-gate';
 import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createChain, getChains, getNodes, previewChain, probeChain, updateChain} from '@/lib/api';
+import {createChain, getChains, getNodes, getScopes, previewChain, probeChain, updateChain} from '@/lib/api';
 import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
 
@@ -44,6 +44,12 @@ export default function ChainsPage() {
   const nodesQuery = useQuery({
     queryKey: ['nodes', accessToken],
     queryFn: () => getNodes(accessToken),
+    enabled: !!accessToken
+  });
+
+  const scopesQuery = useQuery({
+    queryKey: ['scopes', accessToken],
+    queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
 
@@ -150,6 +156,7 @@ export default function ChainsPage() {
 
   const chains = chainsQuery.data || [];
   const nodes = nodesQuery.data || [];
+  const scopes = scopesQuery.data || [];
 
   return (
     <AuthGate>
@@ -164,6 +171,7 @@ export default function ChainsPage() {
               destinationScope={destinationScope}
               hops={hops}
               nodes={nodes}
+              scopes={scopes}
               onCancel={handleCloseEditor}
               onHopsChange={setHops}
               onNameChange={setChainName}
@@ -218,7 +226,7 @@ export default function ChainsPage() {
                           <NameTag kind="chain">{chain.name}</NameTag>
                         </td>
                         <td className="mono">{chain.hops.join(' → ')}</td>
-                        <td>{chain.destinationScope}</td>
+                        <td><NameTag kind="scope">{chain.destinationScope}</NameTag></td>
                         <td>
                           <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? t('common.enabled') : t('common.disabled')}</span>
                         </td>

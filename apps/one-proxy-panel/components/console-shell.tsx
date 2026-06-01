@@ -9,6 +9,7 @@ import {
   Route,
   ShieldCheck,
   Shirt,
+  Tags,
   Users,
   Workflow
 } from 'lucide-react';
@@ -60,6 +61,13 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         {label: t('shell.nodeRegistry'), href: '/nodes/registry'},
         {label: t('shell.nodeTopology'), href: '/nodes/topology'}
       ]
+    },
+    {
+      key: 'scopes',
+      label: t('nav.scopes'),
+      href: '/scopes',
+      icon: Tags,
+      items: [{label: t('shell.scopeBoard'), href: '/scopes'}]
     },
     {
       key: 'chains',

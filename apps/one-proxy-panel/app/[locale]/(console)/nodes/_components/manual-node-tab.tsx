@@ -5,15 +5,18 @@ import {UseFormReturn} from 'react-hook-form';
 import {useQuery} from '@tanstack/react-query';
 
 import {fetchEnums} from '@/lib/api';
+import {Scope} from '@/lib/types';
 import {NodeFormValues} from './types';
 
 export function ManualNodeTab({
   form,
   submitting,
+  scopes,
   onSubmit
 }: {
   form: UseFormReturn<NodeFormValues>;
   submitting: boolean;
+  scopes: Scope[];
   onSubmit: (data: NodeFormValues) => void;
 }) {
   const t = useTranslations();
@@ -36,7 +39,12 @@ export function ManualNodeTab({
       </div>
       <div className="field-stack">
         <span>{t('nodes.manual.scopeKey')}</span>
-        <input className="field-input" placeholder={t('nodes.manual.scopeKeyPlaceholder')} {...form.register('scopeKey', {required: t('nodes.manual.scopeRequired')})} />
+        <select className="field-select" {...form.register('scopeKey', {required: t('nodes.manual.scopeRequired')})}>
+          <option value="">{t('nodes.manual.scopeKeyPlaceholder')}</option>
+          {scopes.map((scope) => (
+            <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
+          ))}
+        </select>
         {form.formState.errors.scopeKey ? <p className="error-text">{form.formState.errors.scopeKey.message}</p> : null}
       </div>
       <div className="field-stack">

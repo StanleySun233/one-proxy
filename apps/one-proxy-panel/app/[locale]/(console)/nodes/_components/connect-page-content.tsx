@@ -41,6 +41,7 @@ export function NodeConnectPageContent() {
           </div>
           <QuickConnectTab
             form={nodeConsole.quickConnectForm}
+            scopes={nodeConsole.scopesQuery.data || []}
             submitting={nodeConsole.quickConnect.isPending}
             onSubmit={handleQuickConnect}
           />

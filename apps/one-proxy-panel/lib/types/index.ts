@@ -26,6 +26,7 @@ export type {
   RouteRuleValidationResult,
 } from './routes';
 export type { Group, GroupDetail } from './groups';
+export type { Scope } from './scopes';
 export type {
   APIResponse,
   AccountRole,

@@ -9,7 +9,7 @@ import {
   createGroup,
   getAccounts,
   getGroup,
-  getNodes,
+  getScopes,
   setGroupAccounts,
   setGroupScopes,
   updateGroup
@@ -54,14 +54,13 @@ export default function GroupDialog({open, onClose, onSaved, accessToken, group}
     enabled: open && !!accessToken
   });
 
-  // Fetch nodes to extract scope keys
-  const nodesQuery = useQuery({
-    queryKey: ['nodes', accessToken],
-    queryFn: () => getNodes(accessToken),
+  const scopesQuery = useQuery({
+    queryKey: ['scopes', accessToken],
+    queryFn: () => getScopes(accessToken),
     enabled: open && !!accessToken
   });
 
-  const scopeKeys = [...new Set((nodesQuery.data || []).map((n) => n.scopeKey).filter(Boolean))].sort();
+  const scopes = scopesQuery.data || [];
 
   useEffect(() => {
     if (open) {
@@ -205,20 +204,21 @@ export default function GroupDialog({open, onClose, onSaved, accessToken, group}
 
           <div className="field-stack">
             <span>{t('shell.groupScopes')}</span>
-            {nodesQuery.isPending ? (
+            {scopesQuery.isPending ? (
               <p className="muted-text">{t('common.loading')}</p>
-            ) : scopeKeys.length === 0 ? (
+            ) : scopes.length === 0 ? (
               <p className="muted-text">{t('common.empty')}</p>
             ) : (
               <div className="check-list">
-                {scopeKeys.map((scopeKey) => (
-                  <label className="inline-cluster" key={scopeKey} style={{justifyContent: 'flex-start'}}>
+                {scopes.map((scope) => (
+                  <label className="inline-cluster" key={scope.id} style={{justifyContent: 'flex-start'}}>
                     <input
                       type="checkbox"
-                      checked={selectedScopes.includes(scopeKey)}
-                      onChange={() => toggleScope(scopeKey)}
+                      checked={selectedScopes.includes(scope.id)}
+                      onChange={() => toggleScope(scope.id)}
                     />
-                    <span className="mono">{scopeKey}</span>
+                    <span>{scope.name}</span>
+                    <span className="badge is-neutral">{scope.id}</span>
                   </label>
                 ))}
               </div>

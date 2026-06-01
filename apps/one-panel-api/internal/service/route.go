@@ -158,22 +158,13 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 	if input.ActionType == domain.ActionTypeChain && matchedChain != nil {
 		input.DestinationScope = matchedChain.DestinationScope
 	}
-	scopes := c.NodeScopes()
-	var matchedScope *domain.NodeScope
-	for _, scope := range scopes {
-		if scope.ScopeKey == input.DestinationScope {
-			s := scope
-			matchedScope = &s
-			break
-		}
-	}
 	if input.ActionType == domain.ActionTypeDirect && input.DestinationScope == "" {
 		result.ScopeValidation = domain.ScopeValidation{Valid: false}
 		result.Valid = false
 		result.Errors = append(result.Errors, "scope_not_found")
 	} else if input.DestinationScope == "" {
 		result.ScopeValidation = domain.ScopeValidation{Valid: true}
-	} else if matchedScope == nil {
+	} else if !c.scopeExists(input.DestinationScope) {
 		result.ScopeValidation = domain.ScopeValidation{
 			Valid:       false,
 			ScopeExists: false,
@@ -182,13 +173,21 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 		result.Errors = append(result.Errors, "scope_not_found")
 	} else {
 		matchesFinalHop := false
+		ownerNodeID := ""
 		if matchedChain != nil && len(matchedChain.Hops) > 0 {
-			matchesFinalHop = matchedChain.Hops[len(matchedChain.Hops)-1] == matchedScope.OwnerNodeID
+			finalHopID := matchedChain.Hops[len(matchedChain.Hops)-1]
+			ownerNodeID = finalHopID
+			for _, node := range c.store.ListNodes() {
+				if node.ID == finalHopID {
+					matchesFinalHop = node.ScopeKey == input.DestinationScope
+					break
+				}
+			}
 		}
 		result.ScopeValidation = domain.ScopeValidation{
 			Valid:                true,
 			ScopeExists:          true,
-			ScopeOwnerNodeID:     matchedScope.OwnerNodeID,
+			ScopeOwnerNodeID:     ownerNodeID,
 			MatchesChainFinalHop: matchesFinalHop,
 		}
 		if !matchesFinalHop && matchedChain != nil && len(matchedChain.Hops) > 0 {
@@ -315,14 +314,7 @@ func (c *ControlPlane) validateRouteRule(actionType string, chainID string, dest
 		if destinationScope == "" {
 			return invalidInput("invalid_route_rule_payload")
 		}
-		found := false
-		for _, scope := range c.NodeScopes() {
-			if scope.ScopeKey == destinationScope {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !c.scopeExists(destinationScope) {
 			return invalidInput("invalid_route_rule_payload")
 		}
 	}

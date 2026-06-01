@@ -5,7 +5,7 @@ import {useTranslations} from 'next-intl';
 import {UseFormReturn} from 'react-hook-form';
 import {toast} from 'sonner';
 
-import {BootstrapToken, Node} from '@/lib/types';
+import {BootstrapToken, Node, Scope} from '@/lib/types';
 import {BootstrapFormValues} from './types';
 
 function shellQuote(value: string) {
@@ -38,12 +38,14 @@ export function BootstrapTokenTab({
   submitting,
   latestToken,
   nodes,
+  scopes,
   onSubmit
 }: {
   form: UseFormReturn<BootstrapFormValues>;
   submitting: boolean;
   latestToken: BootstrapToken | null;
   nodes: Node[];
+  scopes: Scope[];
   onSubmit: (data: BootstrapFormValues) => void;
 }) {
   const t = useTranslations();
@@ -57,6 +59,7 @@ export function BootstrapTokenTab({
   const selectedNodeMode = form.watch('nodeMode');
   const selectedParentNodeId = form.watch('parentNodeId');
   const parentReachableUrl = form.watch('parentReachableUrl');
+  const publicPort = form.watch('publicPort');
   const dockerCommand = useMemo(() => {
     if (!latestToken) {
       return '';
@@ -70,11 +73,12 @@ export function BootstrapTokenTab({
       ]
       : [`  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`];
     const parentLines = parentID ? [`  -e NODE_PARENT_ID=${shellQuote(parentID)} \\`] : [];
+    const hostPublicPort = publicPort.trim() || '2988';
     return [
       'docker rm -f one-proxy-node >/dev/null 2>&1 || true',
       'docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true',
       'docker run -d --name one-proxy-node --restart unless-stopped \\',
-      '  -p 2988:2988 \\',
+      `  -p ${hostPublicPort}:2988 \\`,
       '  -p 2989:2989 \\',
       '  -v one-proxy-node-runtime:/app/runtime \\',
       ...endpointLines,
@@ -83,7 +87,7 @@ export function BootstrapTokenTab({
       "  -e TZ='Asia/Shanghai' \\",
       '  ghcr.io/stanleysun233/one-proxy-node:latest'
     ].join('\n');
-  }, [controlPlaneURL, latestToken, parentReachableUrl, selectedParentNodeId]);
+  }, [controlPlaneURL, latestToken, parentReachableUrl, publicPort, selectedParentNodeId]);
   const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);
   const needsParentReachableUrl = selectedNodeMode === 'relay' && selectedParentNodeId.trim() !== '';
 
@@ -156,11 +160,12 @@ export function BootstrapTokenTab({
       </div>
       <div className="field-stack">
         <span>{t('nodes.bootstrap.scopeKey')} <span className="muted-text">({t('common.required')})</span></span>
-        <input
-          className="field-input"
-          placeholder={t('nodes.bootstrap.scopeKeyPlaceholder')}
-          {...form.register('scopeKey', {required: t('nodes.bootstrap.scopeKeyRequired')})}
-        />
+        <select className="field-select" {...form.register('scopeKey', {required: t('nodes.bootstrap.scopeKeyRequired')})}>
+          <option value="">{t('nodes.bootstrap.scopeKeyPlaceholder')}</option>
+          {scopes.map((scope) => (
+            <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
+          ))}
+        </select>
       </div>
       <div className="field-stack">
         <span>{t('nodes.bootstrap.parentNodeId')}</span>

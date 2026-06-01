@@ -23,6 +23,7 @@ export {
 export { getChains, createChain, updateChain, probeChain, validateChain, previewChain } from './chains';
 export { getRouteRules, createRouteRule, validateRouteRule } from './routes';
 export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAccounts, setGroupScopes } from './groups';
+export { getScopes, createScope, updateScope, deleteScope } from './scopes';
 export { getAccounts, createAccount, updateAccount, deleteAccount } from './accounts';
 export { getPolicyRevisions, publishPolicy } from './policies';
 export { getCertificates } from './certificates';

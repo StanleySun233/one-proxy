@@ -52,6 +52,9 @@ func (c *ControlPlane) CreateNode(input domain.CreateNodeInput) (domain.Node, er
 	if err := validateNodeInput(input.Name, input.Mode, input.ScopeKey); err != nil {
 		return domain.Node{}, err
 	}
+	if !c.scopeExists(input.ScopeKey) {
+		return domain.Node{}, invalidInput("scope_not_found")
+	}
 	return c.store.CreateNode(input)
 }
 
@@ -61,6 +64,9 @@ func (c *ControlPlane) ConnectNode(input domain.ConnectNodeInput) (domain.Connec
 	}
 	if err := validateNodeInput(input.Name, input.Mode, input.ScopeKey); err != nil {
 		return domain.ConnectedNodeResult{}, err
+	}
+	if !c.scopeExists(input.ScopeKey) {
+		return domain.ConnectedNodeResult{}, invalidInput("scope_not_found")
 	}
 	if parsedURL, err := url.Parse(input.ControlPlaneURL); err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
 		return domain.ConnectedNodeResult{}, invalidInput("invalid_control_plane_url")
@@ -141,6 +147,9 @@ func (c *ControlPlane) UpdateNode(nodeID string, input domain.UpdateNodeInput) (
 	}
 	if err := validateNodeInput(input.Name, input.Mode, input.ScopeKey); err != nil {
 		return domain.Node{}, err
+	}
+	if !c.scopeExists(input.ScopeKey) {
+		return domain.Node{}, invalidInput("scope_not_found")
 	}
 	return c.store.UpdateNode(nodeID, input)
 }
@@ -261,32 +270,6 @@ func (c *ControlPlane) UpdateNodeOnboardingTaskStatus(taskID string, input domai
 	return c.store.UpdateNodeOnboardingTaskStatus(taskID, input.Status, input.StatusMessage)
 }
 
-func (c *ControlPlane) NodeScopes() []domain.NodeScope {
-	nodes := c.store.ListNodes()
-	scopeMap := make(map[string]domain.NodeScope)
-
-	for _, node := range nodes {
-		if node.ScopeKey == "" {
-			continue
-		}
-		if _, exists := scopeMap[node.ScopeKey]; !exists {
-			scopeMap[node.ScopeKey] = domain.NodeScope{
-				ScopeKey:      node.ScopeKey,
-				OwnerNodeID:   node.ID,
-				OwnerNodeName: node.Name,
-				Description:   fmt.Sprintf("Scope managed by %s", node.Name),
-			}
-		}
-	}
-
-	scopes := make([]domain.NodeScope, 0, len(scopeMap))
-	for _, scope := range scopeMap {
-		scopes = append(scopes, scope)
-	}
-
-	return scopes
-}
-
 func (c *ControlPlane) PendingNodeEnrollments() []domain.Node {
 	return c.store.ListPendingNodes()
 }
@@ -308,6 +291,9 @@ func (c *ControlPlane) CreateBootstrapToken(input domain.CreateBootstrapTokenInp
 	if input.TargetID == "" {
 		if err := validateNodeInput(input.NodeName, input.NodeMode, input.ScopeKey); err != nil {
 			return domain.BootstrapToken{}, err
+		}
+		if !c.scopeExists(input.ScopeKey) {
+			return domain.BootstrapToken{}, invalidInput("scope_not_found")
 		}
 	}
 	if input.NodeMode != "" && !c.isValidEnum("node_mode", input.NodeMode) {

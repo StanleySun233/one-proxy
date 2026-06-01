@@ -18,6 +18,7 @@ export function NodeRegistryPageContent() {
   const nodesT = useTranslations('nodesConsole');
   const nodeConsole = useNodeConsole();
   const nodes = nodeConsole.nodesQuery.data || [];
+  const scopes = nodeConsole.scopesQuery.data || [];
   const healthRows = nodeConsole.healthQuery.data || [];
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -232,7 +233,7 @@ export function NodeRegistryPageContent() {
                               </div>
                             </td>
                             <td>{node.mode}</td>
-                            <td>{node.scopeKey || <span className="muted-text">{t('common.noScope')}</span>}</td>
+                            <td>{node.scopeKey ? <NameTag kind="scope">{node.scopeKey}</NameTag> : <span className="muted-text">{t('common.noScope')}</span>}</td>
                             <td className="mono">{node.heartbeatAt ? formatISODateTime(node.heartbeatAt) : <span className="muted-text">{t('common.never')}</span>}</td>
                             <td>{node.policyRevisionId || <span className="muted-text">{t('common.unassigned')}</span>}</td>
                             <td>{node.publicHost ? `${node.publicHost}:${node.publicPort}` : <span className="muted-text">{nodesT('noPublicEndpoint')}</span>}</td>
@@ -298,7 +299,12 @@ export function NodeRegistryPageContent() {
                     </label>
                     <label className="field-stack">
                       <span>{nodesT('scopeKey')}</span>
-                      <input className="field-input" onChange={(event) => setFormState((current) => ({...current, scopeKey: event.target.value}))} value={formState.scopeKey} />
+                      <select className="field-select" onChange={(event) => setFormState((current) => ({...current, scopeKey: event.target.value}))} value={formState.scopeKey}>
+                        <option value="">{t('common.noScope')}</option>
+                        {scopes.map((scope) => (
+                          <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
+                        ))}
+                      </select>
                     </label>
                     <label className="field-stack">
                       <span>{t('common.parent')}</span>
@@ -342,7 +348,7 @@ export function NodeRegistryPageContent() {
                   <div className="submit-row">
                     <button
                       className="primary-button"
-                      disabled={nodeConsole.updateNode.isPending || formState.name.trim().length === 0}
+                      disabled={nodeConsole.updateNode.isPending || formState.name.trim().length === 0 || formState.scopeKey.trim().length === 0}
                       onClick={() =>
                         nodeConsole.updateNode.mutate(
                           {

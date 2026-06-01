@@ -21,6 +21,7 @@ import {
   getNodes,
   getNodeTransports,
   getPendingNodes,
+  getScopes,
   getUnconsumedBootstrapTokens,
   rejectNode,
   updateNode
@@ -48,7 +49,7 @@ export function useNodeConsole() {
       scopeKey: '',
       parentNodeId: '',
       publicHost: '',
-      publicPort: ''
+      publicPort: '2988'
     }
   });
 
@@ -74,17 +75,23 @@ export function useNodeConsole() {
       targetId: '',
       nodeName: '',
       nodeMode: DEFAULT_BOOTSTRAP_MODE,
-      scopeKey: 'scope-key',
+      scopeKey: '',
       parentNodeId: '',
       parentReachableUrl: '',
       publicHost: '',
-      publicPort: ''
+      publicPort: '2988'
     }
   });
 
   const nodesQuery = useQuery({
     queryKey: ['nodes', accessToken],
     queryFn: () => getNodes(accessToken),
+    enabled: !!accessToken
+  });
+
+  const scopesQuery = useQuery({
+    queryKey: ['scopes', accessToken],
+    queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
 
@@ -199,7 +206,7 @@ export function useNodeConsole() {
         parentNodeId: variables.parentNodeId,
         parentReachableUrl: variables.parentReachableUrl,
         publicHost: variables.publicHost,
-        publicPort: variables.publicPort > 0 ? String(variables.publicPort) : ''
+        publicPort: variables.publicPort > 0 ? String(variables.publicPort) : '2988'
       });
       bootstrapForm.setValue('targetId', '');
       setLatestToken(result);
@@ -306,6 +313,7 @@ export function useNodeConsole() {
     quickConnectForm,
     bootstrapForm,
     nodesQuery,
+    scopesQuery,
     linksQuery,
     healthQuery,
     transportsQuery,

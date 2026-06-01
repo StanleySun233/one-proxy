@@ -42,6 +42,7 @@ export function NodeBootstrapPageContent() {
             latestToken={nodeConsole.latestToken}
             submitting={nodeConsole.bootstrap.isPending}
             nodes={nodeConsole.nodesQuery.data || []}
+            scopes={nodeConsole.scopesQuery.data || []}
             onSubmit={handleBootstrap}
           />
         </section>

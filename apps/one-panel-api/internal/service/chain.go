@@ -158,12 +158,18 @@ func (c *ControlPlane) CreateChain(input domain.CreateChainInput) (domain.Chain,
 	if input.Name == "" || input.DestinationScope == "" || len(input.Hops) == 0 {
 		return domain.Chain{}, invalidInput("invalid_chain_payload")
 	}
+	if !c.scopeExists(input.DestinationScope) {
+		return domain.Chain{}, invalidInput("scope_not_found")
+	}
 	return c.store.CreateChain(input)
 }
 
 func (c *ControlPlane) UpdateChain(chainID string, input domain.UpdateChainInput) (domain.Chain, error) {
 	if chainID == "" || input.Name == "" || input.DestinationScope == "" || len(input.Hops) == 0 {
 		return domain.Chain{}, invalidInput("invalid_chain_payload")
+	}
+	if !c.scopeExists(input.DestinationScope) {
+		return domain.Chain{}, invalidInput("scope_not_found")
 	}
 	return c.store.UpdateChain(chainID, input)
 }

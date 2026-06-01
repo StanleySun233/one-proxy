@@ -112,11 +112,3 @@ func (r *Router) handlePolicyPublish(w http.ResponseWriter, req *http.Request) {
 	}
 	writeSuccess(w, http.StatusOK, item)
 }
-
-func (r *Router) handleNodeScopes(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		writeMethodNotAllowed(w, "GET")
-		return
-	}
-	writeSuccess(w, http.StatusOK, r.service.NodeScopes())
-}

@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS scopes (
+  id VARCHAR(191) PRIMARY KEY,
+  name VARCHAR(191) NOT NULL,
+  description TEXT,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL
+);

@@ -37,6 +37,7 @@ export function NodeManualPageContent() {
           </div>
           <ManualNodeTab
             form={nodeConsole.nodeForm}
+            scopes={nodeConsole.scopesQuery.data || []}
             submitting={nodeConsole.createNode.isPending}
             onSubmit={handleCreateNode}
           />

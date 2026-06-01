@@ -511,6 +511,7 @@ func (s *MySQLStore) nextID(name string) (string, error) {
 		"onboarding_task":  "node_onboarding_tasks",
 		"node_transport":   "node_transports",
 		"group":            "`groups`",
+		"scope":            "scopes",
 	}
 	table, ok := tables[name]
 	if !ok {

@@ -86,6 +86,13 @@ type GroupStore interface {
 	SetGroupScopes(groupID string, scopeKeys []string) error
 }
 
+type ScopeStore interface {
+	ListScopes() []domain.Scope
+	CreateScope(input domain.CreateScopeInput) (domain.Scope, error)
+	UpdateScope(scopeID string, input domain.UpdateScopeInput) (domain.Scope, error)
+	DeleteScope(scopeID string) error
+}
+
 type PolicyStore interface {
 	ListPolicyRevisions() []domain.PolicyRevision
 	PublishPolicy(accountID string) (domain.PolicyRevision, error)
@@ -116,6 +123,7 @@ type Store interface {
 	RouteStore
 	HealthStore
 	GroupStore
+	ScopeStore
 	PolicyStore
 	MaintenanceStore
 }

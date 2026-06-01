@@ -161,29 +161,29 @@ type UpsertNodeTransportInput struct {
 }
 
 type BootstrapToken struct {
-	ID         string `json:"id"`
-	Token      string `json:"token"`
-	TargetType string `json:"targetType"`
-	TargetID   string `json:"targetId"`
-	NodeName   string `json:"nodeName"`
-	NodeMode   string `json:"nodeMode"`
-	ScopeKey   string `json:"scopeKey"`
+	ID           string `json:"id"`
+	Token        string `json:"token"`
+	TargetType   string `json:"targetType"`
+	TargetID     string `json:"targetId"`
+	NodeName     string `json:"nodeName"`
+	NodeMode     string `json:"nodeMode"`
+	ScopeKey     string `json:"scopeKey"`
 	ParentNodeID string `json:"parentNodeId"`
-	PublicHost string `json:"publicHost"`
-	PublicPort int    `json:"publicPort"`
-	ExpiresAt  string `json:"expiresAt"`
-	CreatedAt  string `json:"createdAt"`
+	PublicHost   string `json:"publicHost"`
+	PublicPort   int    `json:"publicPort"`
+	ExpiresAt    string `json:"expiresAt"`
+	CreatedAt    string `json:"createdAt"`
 }
 
 type CreateBootstrapTokenInput struct {
-	TargetType string `json:"targetType"`
-	TargetID   string `json:"targetId"`
-	NodeName   string `json:"nodeName"`
-	NodeMode   string `json:"nodeMode"`
-	ScopeKey   string `json:"scopeKey"`
+	TargetType   string `json:"targetType"`
+	TargetID     string `json:"targetId"`
+	NodeName     string `json:"nodeName"`
+	NodeMode     string `json:"nodeMode"`
+	ScopeKey     string `json:"scopeKey"`
 	ParentNodeID string `json:"parentNodeId"`
-	PublicHost string `json:"publicHost"`
-	PublicPort int    `json:"publicPort"`
+	PublicHost   string `json:"publicHost"`
+	PublicPort   int    `json:"publicPort"`
 }
 
 type EnrollNodeInput struct {
@@ -212,11 +212,4 @@ type ApproveNodeEnrollmentResult struct {
 type ExchangeNodeEnrollmentInput struct {
 	NodeID           string `json:"nodeId"`
 	EnrollmentSecret string `json:"enrollmentSecret"`
-}
-
-type NodeScope struct {
-	ScopeKey      string `json:"scopeKey"`
-	OwnerNodeID   string `json:"ownerNodeId"`
-	OwnerNodeName string `json:"ownerNodeName"`
-	Description   string `json:"description"`
 }
