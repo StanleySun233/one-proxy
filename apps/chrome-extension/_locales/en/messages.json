@@ -248,8 +248,23 @@
   "statusOverridesSaved": {
     "message": "Local overrides saved."
   },
+  "statusProxyAuthSaved": {
+    "message": "Proxy authentication saved."
+  },
   "statusIdle": {
     "message": "Remote groups are ready when you sign in."
+  },
+  "proxyAuth": {
+    "message": "Proxy authentication"
+  },
+  "proxyAuthUsername": {
+    "message": "Proxy user"
+  },
+  "proxyAuthPassword": {
+    "message": "Proxy password"
+  },
+  "saveProxyAuth": {
+    "message": "Save proxy auth"
   },
   "diagnostics": {
     "message": "Diagnostics"

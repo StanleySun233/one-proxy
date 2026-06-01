@@ -34,6 +34,10 @@ body {
   grid-column: 1 / -1;
 }
 
+.panel-proxy-auth {
+  grid-column: 1 / 3;
+}
+
 .panel-overview {
   grid-row: 1;
 }

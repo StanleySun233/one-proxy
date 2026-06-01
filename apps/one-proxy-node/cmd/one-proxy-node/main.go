@@ -100,7 +100,12 @@ func main() {
 			}
 		}
 	}
-	proxyHandler, err := proxy.NewServerWithReverseTarget(store, manager.NodeID, tunnelRegistry, cfg.NodeReverseTargetURL)
+	proxyHandler, err := proxy.NewServerWithOptions(store, manager.NodeID, tunnelRegistry, cfg.NodeReverseTargetURL, proxy.AuthConfig{
+		ReverseUser:     cfg.NodeReverseAuthUser,
+		ReversePassword: cfg.NodeReverseAuthPassword,
+		ForwardUser:     cfg.NodeForwardProxyUser,
+		ForwardPassword: cfg.NodeForwardProxyPassword,
+	})
 	if err != nil {
 		log.Fatalf("init proxy server failed: %v", err)
 	}

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -52,6 +53,37 @@ func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
 	}
 	if resp.Body.String() != "ok" {
 		t.Fatalf("body = %q", resp.Body.String())
+	}
+}
+
+func TestForwardProxyRequiresProxyAuthorization(t *testing.T) {
+	store := policystore.New("")
+	payload, err := json.Marshal(policystore.Snapshot{
+		RouteRules: []domain.RouteRule{
+			{ID: "default", MatchType: domain.MatchTypeDefault, ActionType: domain.ActionTypeDirect, Enabled: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update("test", string(payload)); err != nil {
+		t.Fatal(err)
+	}
+	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
+		ForwardUser:     "agent",
+		ForwardPassword: "secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusProxyAuthRequired {
+		t.Fatalf("status = %d", resp.Code)
+	}
+	if resp.Header().Get("Proxy-Authenticate") == "" {
+		t.Fatal("missing Proxy-Authenticate")
 	}
 }
 
@@ -168,6 +200,37 @@ func TestReverseTargetForwardsOriginFormHTTP(t *testing.T) {
 	}
 	if resp.Body.String() != "proxy.local" {
 		t.Fatalf("forwarded host = %q", resp.Body.String())
+	}
+}
+
+func TestReverseTargetRequiresAuthorization(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer origin.Close()
+	server, err := NewServerWithOptions(policystore.New(""), func() string { return "node-1" }, nil, origin.URL, AuthConfig{
+		ReverseUser:     "viewer",
+		ReversePassword: "secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "http://proxy.local/api", nil)
+	req.URL.Scheme = ""
+	req.URL.Host = ""
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d", resp.Code)
+	}
+	if resp.Header().Get("WWW-Authenticate") == "" {
+		t.Fatal("missing WWW-Authenticate")
+	}
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("viewer:secret")))
+	resp = httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("authorized status = %d body=%q", resp.Code, resp.Body.String())
 	}
 }
 

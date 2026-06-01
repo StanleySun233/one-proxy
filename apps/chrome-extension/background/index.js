@@ -3,6 +3,7 @@ import { applyProxy } from './pac.js';
 import { getState, configureStateEffects, handleStateStorageChange, persistState } from './state.js';
 import { getComputedState, registerMessageHandler } from './messages.js';
 import { runProxyMonitor } from './monitor.js';
+import { registerProxyAuthHandler, updateProxyAuthCache } from './proxy-auth.js';
 
 async function broadcastState() {
   try {
@@ -18,6 +19,7 @@ function ensureMonitorAlarm() {
 }
 
 configureStateEffects(async (state) => {
+  updateProxyAuthCache(state);
   await applyProxy(state);
   await broadcastState();
 });
@@ -30,7 +32,9 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 chrome.runtime.onStartup.addListener(async () => {
   ensureMonitorAlarm();
-  await applyProxy(await getState());
+  const state = await getState();
+  updateProxyAuthCache(state);
+  await applyProxy(state);
   await appendLog('info', 'extension_startup');
 });
 
@@ -58,4 +62,6 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
   await broadcastState();
 });
 
+updateProxyAuthCache(await getState());
+registerProxyAuthHandler();
 registerMessageHandler();

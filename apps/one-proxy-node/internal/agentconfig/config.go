@@ -17,6 +17,10 @@ type Config struct {
 	NodeJoinPassword         string
 	NodeJoinPasswordProvided bool
 	NodeReverseTargetURL     string
+	NodeReverseAuthUser      string
+	NodeReverseAuthPassword  string
+	NodeForwardProxyUser     string
+	NodeForwardProxyPassword string
 	NodeParentTunnelURL      string
 	NodeTunnelPath           string
 	NodeTunnelHeartbeat      string
@@ -48,6 +52,10 @@ func Load() Config {
 		NodeJoinPassword:         joinPassword,
 		NodeJoinPasswordProvided: joinPasswordProvided,
 		NodeReverseTargetURL:     envOrDefault("NODE_REVERSE_TARGET_URL", ""),
+		NodeReverseAuthUser:      envOrDefault("NODE_REVERSE_AUTH_USER", ""),
+		NodeReverseAuthPassword:  envOrDefault("NODE_REVERSE_AUTH_PASSWORD", ""),
+		NodeForwardProxyUser:     envOrDefault("NODE_FORWARD_PROXY_USER", ""),
+		NodeForwardProxyPassword: envOrDefault("NODE_FORWARD_PROXY_PASSWORD", ""),
 		NodeParentTunnelURL:      FirstNonEmpty(envOrDefault("NODE_PARENT_TUNNEL_URL", ""), parentURL),
 		NodeTunnelPath:           envOrDefault("NODE_TUNNEL_PATH", "/api/v1/node-tunnel/connect"),
 		NodeTunnelHeartbeat:      envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),

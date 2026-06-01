@@ -23,6 +23,10 @@ export const DEFAULT_STATE = {
     directHosts: [],
     proxyHosts: []
   },
+  proxyAuth: {
+    username: '',
+    password: ''
+  },
   monitor: {
     targetUrl: '',
     lastRunAt: '',
@@ -115,6 +119,10 @@ export function mergeState(raw) {
     localOverrides: {
       ...DEFAULT_STATE.localOverrides,
       ...(raw.localOverrides || {})
+    },
+    proxyAuth: {
+      ...DEFAULT_STATE.proxyAuth,
+      ...(raw.proxyAuth || {})
     },
     monitor: {
       ...DEFAULT_STATE.monitor,

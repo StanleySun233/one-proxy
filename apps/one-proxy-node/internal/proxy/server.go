@@ -14,6 +14,14 @@ type Server struct {
 	nodeIDGetter   func() string
 	tunnelRegistry *tunnel.Registry
 	reverseTarget  *url.URL
+	auth           AuthConfig
+}
+
+type AuthConfig struct {
+	ReverseUser     string
+	ReversePassword string
+	ForwardUser     string
+	ForwardPassword string
 }
 
 type chainHop struct {
@@ -27,7 +35,12 @@ func NewServer(store *policystore.Store, nodeIDGetter func() string, tunnelRegis
 }
 
 func NewServerWithReverseTarget(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry, reverseTargetURL string) (*Server, error) {
+	return NewServerWithOptions(store, nodeIDGetter, tunnelRegistry, reverseTargetURL, AuthConfig{})
+}
+
+func NewServerWithOptions(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry, reverseTargetURL string, auth AuthConfig) (*Server, error) {
 	server := NewServer(store, nodeIDGetter, tunnelRegistry)
+	server.auth = auth
 	if reverseTargetURL == "" {
 		return server, nil
 	}
@@ -44,11 +57,17 @@ func NewServerWithReverseTarget(store *policystore.Store, nodeIDGetter func() st
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if s.reverseTarget != nil && !isForwardProxyRequest(req) {
+		if !s.authorizeReverse(w, req) {
+			return
+		}
 		if isWebSocketUpgrade(req) {
 			s.upgradeReverse(w, req)
 			return
 		}
 		s.forwardReverse(w, req)
+		return
+	}
+	if !s.authorizeForward(w, req) {
 		return
 	}
 	_, snapshot := s.store.Current()
