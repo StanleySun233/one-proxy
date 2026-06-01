@@ -535,9 +535,10 @@ func (s *SeedStore) ListPolicyRevisions() []domain.PolicyRevision {
 
 func (s *SeedStore) PublishPolicy(accountID string) (domain.PolicyRevision, error) {
 	_ = accountID
+	policyID := s.nextID("policy_revision")
 	return domain.PolicyRevision{
-		ID:            s.nextID("policy_revision"),
-		Version:       fmt.Sprintf("rev-%d", time.Now().Unix()),
+		ID:            policyID,
+		Version:       policyID,
 		Status:        "published",
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
 		AssignedNodes: 0,

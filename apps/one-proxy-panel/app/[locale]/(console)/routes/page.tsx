@@ -11,8 +11,8 @@ import {AuthGate} from '@/components/auth-gate';
 import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createRouteRule, fetchEnums, getChains, getPolicyRevisions, getRouteRules, getScopes, publishPolicy, validateRouteRule} from '@/lib/api';
-import {RouteRuleValidationResult} from '@/lib/types';
+import {createRouteRule, deleteRouteRule, fetchEnums, getChains, getPolicyRevisions, getRouteRules, getScopes, publishPolicy, updateRouteRule, validateRouteRule} from '@/lib/api';
+import {RouteRule, RouteRuleValidationResult} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {RegexTesterModal} from './_components/regex-tester-modal';
@@ -24,6 +24,7 @@ type RouteRuleFormValues = {
   actionType: string;
   chainId: string;
   destinationScope: string;
+  enabled: boolean;
 };
 
 type RouteRuleValidationPayload = {
@@ -107,7 +108,8 @@ export default function RoutesPage() {
       matchValue: '',
       actionType: DEFAULT_ACTION_TYPE,
       chainId: '',
-      destinationScope: ''
+      destinationScope: '',
+      enabled: true
     }
   });
   const actionType = form.watch('actionType');
@@ -118,6 +120,7 @@ export default function RoutesPage() {
   const [regexTesterOpen, setRegexTesterOpen] = useState(false);
   const [validationResult, setValidationResult] = useState<RouteRuleValidationResult | null>(null);
   const [validationPending, setValidationPending] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduledValidationKeyRef = useRef('');
   const inFlightValidationKeyRef = useRef('');
@@ -230,8 +233,68 @@ export default function RoutesPage() {
         matchValue: '',
         actionType: 'chain',
         chainId: '',
-        destinationScope: ''
+        destinationScope: '',
+        enabled: true
       });
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+  const updateRuleMutation = useMutation({
+    mutationFn: (payload: {
+      id: string;
+      priority: number;
+      matchType: string;
+      matchValue: string;
+      actionType: string;
+      chainId: string;
+      destinationScope: string;
+      enabled: boolean;
+    }) => updateRouteRule(accessToken, payload.id, {
+      priority: payload.priority,
+      matchType: payload.matchType,
+      matchValue: payload.matchValue,
+      actionType: payload.actionType,
+      chainId: payload.chainId,
+      destinationScope: payload.destinationScope,
+      enabled: payload.enabled
+    }),
+    onSuccess: () => {
+      toast.success(routesT('updateSuccess'));
+      queryClient.invalidateQueries({queryKey: ['route-rules']});
+      setEditingRuleId('');
+      form.reset({
+        priority: '100',
+        matchType: 'domain',
+        matchValue: '',
+        actionType: 'chain',
+        chainId: '',
+        destinationScope: '',
+        enabled: true
+      });
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+  const deleteRuleMutation = useMutation({
+    mutationFn: (ruleId: string) => deleteRouteRule(accessToken, ruleId),
+    onSuccess: () => {
+      toast.success(routesT('deleteSuccess'));
+      queryClient.invalidateQueries({queryKey: ['route-rules']});
+      if (editingRuleId) {
+        setEditingRuleId('');
+        form.reset({
+          priority: '100',
+          matchType: 'domain',
+          matchValue: '',
+          actionType: 'chain',
+          chainId: '',
+          destinationScope: '',
+          enabled: true
+        });
+      }
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -256,6 +319,33 @@ export default function RoutesPage() {
 
   const selectedChain = chains.find((c) => c.id === selectedChainId);
   const matchValuePlaceholder = matchType === 'default' ? '*' : routesT('matchValuePlaceholder', {type: matchType || routesT('value')});
+  const editingRule = routeRules.find((rule) => rule.id === editingRuleId);
+
+  const resetForm = useCallback(() => {
+    setEditingRuleId('');
+    form.reset({
+      priority: '100',
+      matchType: 'domain',
+      matchValue: '',
+      actionType: 'chain',
+      chainId: '',
+      destinationScope: '',
+      enabled: true
+    });
+  }, [form]);
+
+  const startEdit = useCallback((rule: RouteRule) => {
+    setEditingRuleId(rule.id);
+    form.reset({
+      priority: String(rule.priority),
+      matchType: rule.matchType,
+      matchValue: rule.matchValue,
+      actionType: rule.actionType,
+      chainId: rule.chainId || '',
+      destinationScope: rule.destinationScope || '',
+      enabled: rule.enabled
+    });
+  }, [form]);
 
   useEffect(() => {
     if (actionType !== 'chain') {
@@ -275,7 +365,7 @@ export default function RoutesPage() {
         <section className="forms-grid">
           <article className="panel-card">
             <div className="inline-cluster" style={{gap: 8}}>
-              <h3>{routesT('createRule')}</h3>
+              <h3>{editingRule ? routesT('editRule') : routesT('createRule')}</h3>
               {validationPending && <span className="badge is-neutral">{t('common.validating')}</span>}
               {!validationPending && validationResult && (
                 <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
@@ -289,14 +379,20 @@ export default function RoutesPage() {
                 const chainDestinationScope = values.actionType === 'chain'
                   ? chains.find((chain) => chain.id === values.chainId)?.destinationScope || ''
                   : values.destinationScope.trim();
-                createRuleMutation.mutate({
+                const payload = {
                   priority: Number(values.priority),
                   matchType: values.matchType.trim(),
                   matchValue: values.matchValue.trim(),
                   actionType: values.actionType,
                   chainId: values.chainId.trim(),
-                  destinationScope: chainDestinationScope
-                });
+                  destinationScope: chainDestinationScope,
+                  enabled: values.enabled
+                };
+                if (editingRuleId) {
+                  updateRuleMutation.mutate({id: editingRuleId, ...payload});
+                } else {
+                  createRuleMutation.mutate(payload);
+                }
               })(e); }}
             >
               <div className="field-stack">
@@ -404,6 +500,10 @@ export default function RoutesPage() {
                 </select>
                 {form.formState.errors.destinationScope ? <p className="error-text">{form.formState.errors.destinationScope.message}</p> : null}
               </div>
+              <label className="toggle-inline">
+                <input type="checkbox" {...form.register('enabled')} />
+                <span>{t('common.enabled')}</span>
+              </label>
 
               {validationResult && (
                 <div className="probe-results-section">
@@ -449,9 +549,16 @@ export default function RoutesPage() {
               )}
 
               <div className="submit-row">
-                <button className="primary-button" disabled={createRuleMutation.isPending} type="submit">
-                  {createRuleMutation.isPending ? t('common.submitting') : routesT('createRule')}
+                <button className="primary-button" disabled={createRuleMutation.isPending || updateRuleMutation.isPending} type="submit">
+                  {createRuleMutation.isPending || updateRuleMutation.isPending
+                    ? t('common.submitting')
+                    : editingRule ? routesT('saveRule') : routesT('createRule')}
                 </button>
+                {editingRule ? (
+                  <button className="secondary-button" onClick={resetForm} type="button">
+                    {t('common.cancel')}
+                  </button>
+                ) : null}
               </div>
             </form>
           </article>
@@ -517,6 +624,7 @@ export default function RoutesPage() {
                     <th>{routesT('chain')}</th>
                     <th>{routesT('scope')}</th>
                     <th>{routesT('status')}</th>
+                    <th>{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -537,6 +645,25 @@ export default function RoutesPage() {
                           <span className={rule.enabled ? 'badge is-good' : 'badge'}>
                             {rule.enabled ? t('common.enabled') : t('common.disabled')}
                           </span>
+                        </td>
+                        <td>
+                          <div className="inline-cluster">
+                            <button className="secondary-button" onClick={() => startEdit(rule)} type="button">
+                              {t('common.edit')}
+                            </button>
+                            <button
+                              className="danger-button"
+                              disabled={deleteRuleMutation.isPending}
+                              onClick={() => {
+                                if (window.confirm(routesT('deleteConfirm'))) {
+                                  deleteRuleMutation.mutate(rule.id);
+                                }
+                              }}
+                              type="button"
+                            >
+                              {t('common.delete')}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

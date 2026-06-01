@@ -143,6 +143,8 @@
   },
   "routes": {
     "createRule": "Create rule",
+    "editRule": "Edit rule",
+    "saveRule": "Save rule",
     "priority": "Priority",
     "match": "Match",
     "matchType": "Match type",
@@ -177,6 +179,9 @@
     "scopeNotFound": "Scope not found",
     "scopeChainMismatch": "Scope does not match chain's final hop node",
     "createSuccess": "Route rule created",
+    "updateSuccess": "Route rule updated",
+    "deleteSuccess": "Route rule deleted",
+    "deleteConfirm": "Delete this route rule?",
     "publishSuccess": "Policy published",
     "loadingPolicies": "Loading policy revisions",
     "failedPolicies": "Failed to load policy revisions",

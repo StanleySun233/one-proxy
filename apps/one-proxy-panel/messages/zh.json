@@ -143,6 +143,8 @@
   },
   "routes": {
     "createRule": "创建规则",
+    "editRule": "编辑规则",
+    "saveRule": "保存规则",
     "priority": "优先级",
     "match": "匹配",
     "matchType": "匹配类型",
@@ -177,6 +179,9 @@
     "scopeNotFound": "未找到范围",
     "scopeChainMismatch": "范围与链路最终跳节点不匹配",
     "createSuccess": "路由规则已创建",
+    "updateSuccess": "路由规则已更新",
+    "deleteSuccess": "路由规则已删除",
+    "deleteConfirm": "确定删除此路由规则？",
     "publishSuccess": "策略已发布",
     "loadingPolicies": "加载策略版本中",
     "failedPolicies": "策略版本加载失败",

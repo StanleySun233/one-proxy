@@ -3,8 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/policy"
@@ -136,7 +134,7 @@ func (s *MySQLStore) PublishPolicy(accountID string) (domain.PolicyRevision, err
 	}
 	item := domain.PolicyRevision{
 		ID:            policyID,
-		Version:       fmt.Sprintf("rev-%d", time.Now().Unix()),
+		Version:       policyID,
 		Status:        domain.PolicyStatusPublished,
 		CreatedAt:     nowRFC3339(),
 		AssignedNodes: len(nodes),

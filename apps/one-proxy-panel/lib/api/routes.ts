@@ -23,6 +23,33 @@ export function createRouteRule(
   });
 }
 
+export function updateRouteRule(
+  accessToken: string,
+  ruleId: string,
+  payload: {
+    priority: number;
+    matchType: string;
+    matchValue: string;
+    actionType: string;
+    chainId: string;
+    destinationScope: string;
+    enabled: boolean;
+  }
+) {
+  return request<RouteRule>(`/route-rules/${ruleId}`, {
+    method: 'PATCH',
+    accessToken,
+    body: payload
+  });
+}
+
+export function deleteRouteRule(accessToken: string, ruleId: string) {
+  return request<{status: string}>(`/route-rules/${ruleId}`, {
+    method: 'DELETE',
+    accessToken
+  });
+}
+
 export function validateRouteRule(accessToken: string, payload: {
   priority: number;
   matchType: string;

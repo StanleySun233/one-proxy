@@ -1141,6 +1141,14 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.toggle-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+}
+
 .token-box {
   border: 1px solid var(--line);
   border-radius: 14px;
