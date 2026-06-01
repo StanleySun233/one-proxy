@@ -75,6 +75,7 @@ export type TestConnectionRequest = {
   user: string;
   password: string;
   database: string;
+  needInitialize: boolean;
 };
 
 export type InitRequest = {

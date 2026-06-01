@@ -49,18 +49,23 @@ func (r *Router) routes(cfg HTTPConfig) {
 			return
 		}
 		var body struct {
-			Host     string `json:"host"`
-			Port     int    `json:"port"`
-			User     string `json:"user"`
-			Password string `json:"password"`
-			Database string `json:"database"`
+			Host           string `json:"host"`
+			Port           int    `json:"port"`
+			User           string `json:"user"`
+			Password       string `json:"password"`
+			Database       string `json:"database"`
+			NeedInitialize bool   `json:"needInitialize"`
 		}
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_request_body")
 			return
 		}
+		database := body.Database
+		if body.NeedInitialize {
+			database = ""
+		}
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=UTC",
-			body.User, body.Password, body.Host, body.Port, body.Database)
+			body.User, body.Password, body.Host, body.Port, database)
 		db, err := sql.Open("mysql", dsn)
 		if err != nil {
 			writeSuccess(w, http.StatusOK, map[string]any{"success": false, "message": err.Error()})
@@ -73,7 +78,9 @@ func (r *Router) routes(cfg HTTPConfig) {
 			return
 		}
 		var tableCount int
-		_ = db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?", body.Database).Scan(&tableCount)
+		if body.Database != "" {
+			_ = db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?", body.Database).Scan(&tableCount)
+		}
 		writeSuccess(w, http.StatusOK, map[string]any{"success": true, "message": "connection_ok", "exists": tableCount > 0})
 	})
 

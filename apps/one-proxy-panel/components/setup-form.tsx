@@ -39,7 +39,7 @@ export function SetupForm() {
   async function handleTestConnection() {
     setTestPending(true);
     try {
-      const result = await testSetupConnection({host, port, user, password, database});
+      const result = await testSetupConnection({host, port, user, password, database, needInitialize});
       if (result.success) {
         setConnStatus(result.exists ? 'exists' : 'success');
         toast.success(t('setup.connectionSuccess'));

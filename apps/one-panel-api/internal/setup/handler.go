@@ -72,11 +72,12 @@ func writeMethodNotAllowed(w http.ResponseWriter, allowedMethod string) {
 // --- Request types ---
 
 type testConnectionRequest struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	Database string `json:"database"`
+	Host           string `json:"host"`
+	Port           int    `json:"port"`
+	User           string `json:"user"`
+	Password       string `json:"password"`
+	Database       string `json:"database"`
+	NeedInitialize bool   `json:"needInitialize"`
 }
 
 type initRequest struct {
@@ -121,7 +122,11 @@ func (h *SetupHandler) handleTestConnection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	dsn := buildDSN(req.User, req.Password, req.Host, req.Port, req.Database)
+	database := req.Database
+	if req.NeedInitialize {
+		database = ""
+	}
+	dsn := buildDSN(req.User, req.Password, req.Host, req.Port, database)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		writeSuccess(w, http.StatusOK, map[string]any{
@@ -142,7 +147,9 @@ func (h *SetupHandler) handleTestConnection(w http.ResponseWriter, r *http.Reque
 	}
 
 	var tableCount int
-	_ = db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?", req.Database).Scan(&tableCount)
+	if req.Database != "" {
+		_ = db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?", req.Database).Scan(&tableCount)
+	}
 
 	writeSuccess(w, http.StatusOK, map[string]any{
 		"success": true,
