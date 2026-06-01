@@ -1,6 +1,7 @@
 'use client';
 
 import {useCallback} from 'react';
+import {useTranslations} from 'next-intl';
 
 import {AuthGate} from '@/components/auth-gate';
 
@@ -9,6 +10,7 @@ import {BootstrapFormValues} from './types';
 import {useNodeConsole} from './use-node-console';
 
 export function NodeBootstrapPageContent() {
+  const nodesT = useTranslations('nodesConsole');
   const nodeConsole = useNodeConsole();
 
   const handleBootstrap = useCallback(
@@ -19,6 +21,7 @@ export function NodeBootstrapPageContent() {
         nodeMode: data.nodeMode,
         scopeKey: data.scopeKey.trim(),
         parentNodeId: data.parentNodeId.trim(),
+        parentReachableUrl: data.parentReachableUrl.trim(),
         publicHost: data.publicHost.trim(),
         publicPort: Number(data.publicPort) || 0
       });
@@ -31,9 +34,9 @@ export function NodeBootstrapPageContent() {
       <div className="page-stack">
         <section className="panel-card nodes-single-panel">
           <div>
-            <p className="section-kicker">Bootstrap</p>
-            <h3>Bootstrap token</h3>
-            <p className="section-copy">Issue a one-time token for remote self-enroll flows.</p>
+            <p className="section-kicker">{nodesT('bootstrap')}</p>
+            <h3>{nodesT('bootstrapToken')}</h3>
+            <p className="section-copy">{nodesT('bootstrapDesc')}</p>
           </div>
           <BootstrapTokenTab
             form={nodeConsole.bootstrapForm}

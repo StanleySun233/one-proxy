@@ -4,6 +4,7 @@ import "os"
 
 type Config struct {
 	ControlPlaneURL          string
+	NodeParentURL            string
 	NodeBootstrapToken       string
 	NodeAccessToken          string
 	EnrollmentSecret         string
@@ -30,8 +31,10 @@ type Config struct {
 
 func Load() Config {
 	joinPassword, joinPasswordProvided := lookupEnvOrDefault("NODE_JOIN_PASSWORD", "password")
+	parentURL := envOrDefault("NODE_PARENT_URL", "")
 	return Config{
-		ControlPlaneURL:          envOrDefault("CONTROL_PLANE_URL", ""),
+		ControlPlaneURL:          firstNonEmpty(envOrDefault("CONTROL_PLANE_URL", ""), parentURL),
+		NodeParentURL:            parentURL,
 		NodeBootstrapToken:       envOrDefault("NODE_BOOTSTRAP_TOKEN", ""),
 		NodeAccessToken:          envOrDefault("NODE_ACCESS_TOKEN", ""),
 		EnrollmentSecret:         envOrDefault("NODE_ENROLLMENT_SECRET", ""),
@@ -43,7 +46,7 @@ func Load() Config {
 		NodePublicHost:           envOrDefault("NODE_PUBLIC_HOST", ""),
 		NodeJoinPassword:         joinPassword,
 		NodeJoinPasswordProvided: joinPasswordProvided,
-		NodeParentTunnelURL:      envOrDefault("NODE_PARENT_TUNNEL_URL", ""),
+		NodeParentTunnelURL:      firstNonEmpty(envOrDefault("NODE_PARENT_TUNNEL_URL", ""), parentURL),
 		NodeTunnelPath:           envOrDefault("NODE_TUNNEL_PATH", "/api/v1/node-tunnel/connect"),
 		NodeTunnelHeartbeat:      envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),
 		ListenAddr:               envOrDefault("NODE_LISTEN_ADDR", ":2988"),
@@ -55,6 +58,15 @@ func Load() Config {
 		LetsEncryptEmail:         envOrDefault("LETSENCRYPT_EMAIL", ""),
 		LetsEncryptCacheDir:      envOrDefault("LETSENCRYPT_CACHE_DIR", "runtime/autocert"),
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func envOrDefault(key string, fallback string) string {

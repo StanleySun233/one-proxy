@@ -3,8 +3,6 @@ export type {
   Node,
   NodeLink,
   NodeTransport,
-  NodeAccessPath,
-  NodeOnboardingTask,
   NodeHealth,
   NodeHealthHistory,
   BootstrapToken,

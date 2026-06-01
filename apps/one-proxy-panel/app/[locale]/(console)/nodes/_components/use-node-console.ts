@@ -76,6 +76,7 @@ export function useNodeConsole() {
       nodeMode: DEFAULT_BOOTSTRAP_MODE,
       scopeKey: 'scope-key',
       parentNodeId: '',
+      parentReachableUrl: '',
       publicHost: '',
       publicPort: ''
     }
@@ -177,8 +178,17 @@ export function useNodeConsole() {
   });
 
   const bootstrapMutation = useMutation({
-    mutationFn: (payload: {targetId: string; nodeName: string; nodeMode: string; scopeKey: string; parentNodeId: string; publicHost: string; publicPort: number}) =>
-      createBootstrapToken(accessToken, {targetType: DEFAULT_TARGET_TYPE, ...payload}),
+    mutationFn: (payload: {targetId: string; nodeName: string; nodeMode: string; scopeKey: string; parentNodeId: string; parentReachableUrl: string; publicHost: string; publicPort: number}) =>
+      createBootstrapToken(accessToken, {
+        targetType: DEFAULT_TARGET_TYPE,
+        targetId: payload.targetId,
+        nodeName: payload.nodeName,
+        nodeMode: payload.nodeMode,
+        scopeKey: payload.scopeKey,
+        parentNodeId: payload.parentNodeId,
+        publicHost: payload.publicHost,
+        publicPort: payload.publicPort
+      }),
     onSuccess: (result, variables) => {
       toast.success('bootstrap token created');
       bootstrapForm.reset({
@@ -187,6 +197,7 @@ export function useNodeConsole() {
         nodeMode: variables.nodeMode,
         scopeKey: variables.scopeKey,
         parentNodeId: variables.parentNodeId,
+        parentReachableUrl: variables.parentReachableUrl,
         publicHost: variables.publicHost,
         publicPort: variables.publicPort > 0 ? String(variables.publicPort) : ''
       });

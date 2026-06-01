@@ -81,45 +81,6 @@ paths:
       responses:
         "201":
           description: Envelope node link created response
-  /api/v1/node-access-paths:
-    get:
-      security:
-        - controlPlaneBearer: []
-      responses:
-        "200":
-          description: Envelope node access path list response
-    post:
-      security:
-        - controlPlaneBearer: []
-      responses:
-        "201":
-          description: Envelope node access path created response
-  /api/v1/node-access-paths/{pathId}:
-    patch:
-      security:
-        - controlPlaneBearer: []
-      responses:
-        "200":
-          description: Envelope node access path updated response
-    delete:
-      security:
-        - controlPlaneBearer: []
-      responses:
-        "200":
-          description: Envelope node access path deleted response
-  /api/v1/node-onboarding-tasks:
-    get:
-      security:
-        - controlPlaneBearer: []
-      responses:
-        "200":
-          description: Envelope node onboarding task list response
-    post:
-      security:
-        - controlPlaneBearer: []
-      responses:
-        "201":
-          description: Envelope node onboarding task created response
   /api/v1/nodes:
     get:
       security:

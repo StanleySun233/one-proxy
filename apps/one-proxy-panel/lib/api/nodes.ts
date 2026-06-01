@@ -6,8 +6,6 @@ import type {
   BootstrapToken,
   UnconsumedBootstrapToken,
   ConnectedNodeResult,
-  NodeAccessPath,
-  NodeOnboardingTask,
   NodeHealth,
   NodeHealthHistory,
   Overview,
@@ -128,93 +126,6 @@ export function rejectNode(accessToken: string, nodeId: string, reason?: string)
     method: 'POST',
     accessToken,
     body: {reason: reason || ''}
-  });
-}
-
-export function getNodeAccessPaths(accessToken: string) {
-  return request<NodeAccessPath[]>('/node-access-paths', {accessToken});
-}
-
-export function createNodeAccessPath(
-  accessToken: string,
-  payload: {
-    name: string;
-    mode: string;
-    targetNodeId: string;
-    entryNodeId: string;
-    relayNodeIds: string[];
-    targetHost: string;
-    targetPort: number;
-  }
-) {
-  return request<NodeAccessPath>('/node-access-paths', {
-    method: 'POST',
-    accessToken,
-    body: payload
-  });
-}
-
-export function updateNodeAccessPath(
-  accessToken: string,
-  pathID: string,
-  payload: {
-    name: string;
-    mode: string;
-    targetNodeId: string;
-    entryNodeId: string;
-    relayNodeIds: string[];
-    targetHost: string;
-    targetPort: number;
-    enabled: boolean;
-  }
-) {
-  return request<NodeAccessPath>(`/node-access-paths/${pathID}`, {
-    method: 'PATCH',
-    accessToken,
-    body: payload
-  });
-}
-
-export function deleteNodeAccessPath(accessToken: string, pathID: string) {
-  return request<{status: string}>(`/node-access-paths/${pathID}`, {
-    method: 'DELETE',
-    accessToken
-  });
-}
-
-export function getNodeOnboardingTasks(accessToken: string) {
-  return request<NodeOnboardingTask[]>('/node-onboarding-tasks', {accessToken});
-}
-
-export function createNodeOnboardingTask(
-  accessToken: string,
-  payload: {
-    mode: string;
-    pathId: string;
-    targetNodeId: string;
-    targetHost: string;
-    targetPort: number;
-  }
-) {
-  return request<NodeOnboardingTask>('/node-onboarding-tasks', {
-    method: 'POST',
-    accessToken,
-    body: payload
-  });
-}
-
-export function updateNodeOnboardingTaskStatus(
-  accessToken: string,
-  taskID: string,
-  payload: {
-    status: string;
-    statusMessage: string;
-  }
-) {
-  return request<NodeOnboardingTask>(`/node-onboarding-tasks/${taskID}`, {
-    method: 'PATCH',
-    accessToken,
-    body: payload
   });
 }
 

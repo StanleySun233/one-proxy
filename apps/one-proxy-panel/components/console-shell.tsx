@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Shirt,
   Users,
-  Waypoints,
   Workflow
 } from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
@@ -61,13 +60,6 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         {label: t('shell.nodeRegistry'), href: '/nodes/registry'},
         {label: t('shell.nodeTopology'), href: '/nodes/topology'}
       ]
-    },
-    {
-      key: 'onboarding',
-      label: t('nav.onboarding'),
-      href: '/onboarding',
-      icon: Waypoints,
-      items: [{label: t('shell.taskConsole'), href: '/onboarding'}]
     },
     {
       key: 'chains',

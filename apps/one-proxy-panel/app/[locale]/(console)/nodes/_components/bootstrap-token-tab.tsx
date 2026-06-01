@@ -54,10 +54,16 @@ export function BootstrapTokenTab({
     }
     return window.location.origin;
   }, []);
+  const selectedNodeMode = form.watch('nodeMode');
+  const selectedParentNodeId = form.watch('parentNodeId');
+  const parentReachableUrl = form.watch('parentReachableUrl');
   const dockerCommand = useMemo(() => {
     if (!latestToken) {
       return '';
     }
+    const controlURLLine = parentReachableUrl.trim()
+      ? `  -e NODE_PARENT_URL=${shellQuote(parentReachableUrl.trim())} \\`
+      : `  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`;
     return [
       'docker rm -f one-proxy-node >/dev/null 2>&1 || true',
       'docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true',
@@ -65,14 +71,14 @@ export function BootstrapTokenTab({
       '  -p 2988:2988 \\',
       '  -p 2989:2989 \\',
       '  -v one-proxy-node-runtime:/app/runtime \\',
-      `  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`,
+      controlURLLine,
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
       "  -e TZ='Asia/Shanghai' \\",
       '  ghcr.io/stanleysun233/one-proxy-node:latest'
     ].join('\n');
-  }, [controlPlaneURL, latestToken]);
+  }, [controlPlaneURL, latestToken, parentReachableUrl]);
   const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);
-  const selectedNodeMode = form.watch('nodeMode');
+  const needsParentReachableUrl = selectedNodeMode === 'relay' && selectedParentNodeId.trim() !== '';
 
   async function copy(value: string, key: string) {
     try {
@@ -107,7 +113,7 @@ export function BootstrapTokenTab({
         <span>{t('nodes.bootstrap.nodeName')} <span className="muted-text">({t('common.required')})</span></span>
         <input
           className="field-input"
-          placeholder="e.g. hk-gateway"
+          placeholder={t('nodes.bootstrap.nodeNamePlaceholder')}
           {...form.register('nodeName', {
             required: t('nodes.bootstrap.nodeNameRequired'),
             validate: (value) => {
@@ -145,7 +151,7 @@ export function BootstrapTokenTab({
         <span>{t('nodes.bootstrap.scopeKey')} <span className="muted-text">({t('common.required')})</span></span>
         <input
           className="field-input"
-          placeholder="scope-key"
+          placeholder={t('nodes.bootstrap.scopeKeyPlaceholder')}
           {...form.register('scopeKey', {required: t('nodes.bootstrap.scopeKeyRequired')})}
         />
         <p className="field-hint">{t('nodes.bootstrap.scopeKeyHint')}</p>
@@ -160,9 +166,28 @@ export function BootstrapTokenTab({
         </select>
         <p className="field-hint">{t('nodes.bootstrap.parentNodeIdHint')}</p>
       </div>
+      {needsParentReachableUrl ? (
+        <div className="field-stack nodes-form-full">
+          <span>{t('nodes.bootstrap.parentReachableUrl')} <span className="muted-text">({t('common.required')})</span></span>
+          <input
+            className="field-input"
+            placeholder={t('nodes.bootstrap.parentReachableUrlPlaceholder')}
+            {...form.register('parentReachableUrl', {
+              validate: (value) => {
+                if (!needsParentReachableUrl) return true;
+                return value.trim() !== '' ? true : t('nodes.bootstrap.parentReachableUrlRequired');
+              }
+            })}
+          />
+          <p className="field-hint">{t('nodes.bootstrap.parentReachableUrlHint')}</p>
+          {form.formState.errors.parentReachableUrl ? (
+            <p className="field-error">{form.formState.errors.parentReachableUrl.message}</p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="field-stack">
         <span>{t('nodes.bootstrap.publicHost')}</span>
-        <input className="field-input" placeholder="103.214.172.211" {...form.register('publicHost')} />
+        <input className="field-input" placeholder={t('nodes.bootstrap.publicHostPlaceholder')} {...form.register('publicHost')} />
         <p className="field-hint">{t('nodes.bootstrap.publicHostHint')}</p>
       </div>
       <div className="field-stack">
@@ -170,7 +195,7 @@ export function BootstrapTokenTab({
         <input
           className="field-input"
           inputMode="numeric"
-          placeholder="2988"
+          placeholder={t('nodes.bootstrap.publicPortPlaceholder')}
           {...form.register('publicPort', {
             validate: (value) => {
               if (!value) return true;

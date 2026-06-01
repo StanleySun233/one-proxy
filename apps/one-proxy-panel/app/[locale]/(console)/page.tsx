@@ -9,7 +9,7 @@ import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {TopologyPreview} from '@/components/topology-preview';
 import {Link} from '@/i18n/navigation';
-import {getNodeAccessPaths, getNodeOnboardingTasks, getNodes, getOverview, getPendingNodes} from '@/lib/api';
+import {getNodes, getOverview, getPendingNodes} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 export default function OverviewPage() {
@@ -27,16 +27,6 @@ export default function OverviewPage() {
     queryFn: () => getNodes(accessToken),
     enabled: !!accessToken
   });
-  const tasksQuery = useQuery({
-    queryKey: ['onboarding-tasks', accessToken],
-    queryFn: () => getNodeOnboardingTasks(accessToken),
-    enabled: !!accessToken
-  });
-  const pathsQuery = useQuery({
-    queryKey: ['node-access-paths', accessToken],
-    queryFn: () => getNodeAccessPaths(accessToken),
-    enabled: !!accessToken
-  });
   const pendingQuery = useQuery({
     queryKey: ['pending-nodes', accessToken],
     queryFn: () => getPendingNodes(accessToken),
@@ -46,10 +36,7 @@ export default function OverviewPage() {
 
   const overview = overviewQuery.data;
   const nodes = nodesQuery.data || [];
-  const tasks = tasksQuery.data || [];
-  const paths = pathsQuery.data || [];
   const pendingNodes = pendingQuery.data || [];
-  const pendingTasks = tasks.slice(0, 3);
 
   return (
     <AuthGate>
@@ -77,8 +64,8 @@ export default function OverviewPage() {
                 <strong>{overviewQuery.isPending ? '-' : overview?.nodes.degraded ?? '-'}</strong>
               </article>
               <article className="metric-card">
-                <span>{t('overview.activeTasks')}</span>
-                <strong>{tasksQuery.isPending ? '-' : tasks.length}</strong>
+                <span>{t('overview.pendingEnrollments')}</span>
+                <strong>{pendingQuery.isPending ? '-' : pendingNodes.length}</strong>
               </article>
               <article className="metric-card">
                 <span>{t('overview.policyRevision')}</span>
@@ -101,39 +88,38 @@ export default function OverviewPage() {
               </div>
               <span className="badge">{t('overview.nodesCount', {count: nodes.length})}</span>
             </div>
-            {nodesQuery.isPending || pathsQuery.isPending ? (
+            {nodesQuery.isPending ? (
               <AsyncState detail={t('common.loading')} title={t('overview.loadingTopology')} />
-            ) : nodesQuery.isError || pathsQuery.isError ? (
+            ) : nodesQuery.isError ? (
               <AsyncState
                 actionLabel={t('common.retry')}
-                detail={formatControlPlaneError(nodesQuery.error || pathsQuery.error)}
+                detail={formatControlPlaneError(nodesQuery.error)}
                 onAction={() => {
                   void nodesQuery.refetch();
-                  void pathsQuery.refetch();
                 }}
                 title={t('overview.failedTopology')}
               />
             ) : (
-              <TopologyPreview nodes={nodes} paths={paths} />
+              <TopologyPreview nodes={nodes} />
             )}
           </article>
 
           <article className="panel-card soft-card">
             <div>
-              <p className="section-kicker">{t('overview.tasks')}</p>
-              <h3>{t('overview.queueTitle')}</h3>
-              <p className="section-copy">{t('overview.tasksHint')}</p>
+              <p className="section-kicker">{t('overview.pendingEnrollments')}</p>
+              <h3>{t('shell.nodeApprovals')}</h3>
+              <p className="section-copy">{t('overview.pendingApproval', {count: pendingNodes.length})}</p>
             </div>
-            {tasksQuery.isPending ? (
+            {pendingQuery.isPending ? (
               <AsyncState detail={t('common.loading')} title={t('overview.loadingQueue')} />
-            ) : tasksQuery.isError ? (
+            ) : pendingQuery.isError ? (
               <AsyncState
                 actionLabel={t('common.retry')}
-                detail={formatControlPlaneError(tasksQuery.error)}
-                onAction={() => void tasksQuery.refetch()}
+                detail={formatControlPlaneError(pendingQuery.error)}
+                onAction={() => void pendingQuery.refetch()}
                 title={t('overview.failedQueue')}
               />
-            ) : pendingTasks.length === 0 ? (
+            ) : pendingNodes.length === 0 ? (
               <div className="queue-list">
                 <div className="queue-item">
                   <strong>{t('common.empty')}</strong>
@@ -142,11 +128,11 @@ export default function OverviewPage() {
               </div>
             ) : (
               <div className="queue-list">
-                {pendingTasks.map((task) => (
-                  <div className="queue-item" key={task.id}>
-                    <strong>{task.mode}</strong>
+                {pendingNodes.slice(0, 3).map((node) => (
+                  <div className="queue-item" key={node.id}>
+                    <strong>{node.name}</strong>
                     <span className="section-copy">
-                      {task.targetNodeId || task.targetHost || 'target'} · {task.status} · {task.statusMessage}
+                      {node.mode} · {node.scopeKey} · {node.status}
                     </span>
                   </div>
                 ))}
@@ -161,12 +147,12 @@ export default function OverviewPage() {
             <p>{overview ? t('overview.healthSummary', {healthy: overview.nodes.healthy, degraded: overview.nodes.degraded}) : t('common.loading')}</p>
           </article>
           <article className="signal-card">
-            <strong>{t('overview.tasks')}</strong>
-            <p>{tasksQuery.isPending ? t('common.loading') : t('overview.tasksSummary', {count: tasks.length})}</p>
+            <strong>{t('overview.pendingEnrollments')}</strong>
+            <p>{pendingQuery.isPending ? t('common.loading') : t('overview.pendingApproval', {count: pendingNodes.length})}</p>
           </article>
           <article className="signal-card">
             <strong>{t('overview.pathDesigner')}</strong>
-            <p>{pathsQuery.isPending ? t('common.loading') : t('overview.pathsSummary', {count: paths.length})}</p>
+            <p>{t('overview.nodesCount', {count: nodes.length})}</p>
           </article>
         </section>
       </div>

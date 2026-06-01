@@ -35,32 +35,6 @@ export type NodeTransport = {
   details: Record<string, string>;
 };
 
-export type NodeAccessPath = {
-  id: string;
-  name: string;
-  mode: string;
-  targetNodeId: string;
-  entryNodeId: string;
-  relayNodeIds: string[];
-  targetHost: string;
-  targetPort: number;
-  enabled: boolean;
-};
-
-export type NodeOnboardingTask = {
-  id: string;
-  mode: string;
-  pathId: string;
-  targetNodeId: string;
-  targetHost: string;
-  targetPort: number;
-  status: string;
-  statusMessage: string;
-  requestedByAccountId?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type NodeHealth = {
   nodeId: string;
   heartbeatAt: string;

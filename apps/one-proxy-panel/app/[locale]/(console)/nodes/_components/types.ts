@@ -28,6 +28,7 @@ export type BootstrapFormValues = {
   nodeMode: string;
   scopeKey: string;
   parentNodeId: string;
+  parentReachableUrl: string;
   publicHost: string;
   publicPort: string;
 };
