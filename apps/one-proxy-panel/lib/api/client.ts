@@ -74,7 +74,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!response.ok || !envelope || envelope.code !== 0) {
     const code = envelope?.message || `http_${response.status}`;
-    if (response.status === 401) {
+    if (response.status === 401 && options.accessToken) {
       notifyUnauthorized();
     }
     throw new ControlPlaneAPIError(code, code, response.status);
