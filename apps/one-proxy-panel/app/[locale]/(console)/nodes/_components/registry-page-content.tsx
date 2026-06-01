@@ -2,6 +2,7 @@
 
 import {useEffect, useMemo, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
+import {useTranslations} from 'next-intl';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
@@ -12,6 +13,8 @@ import {useNodeConsole} from './use-node-console';
 import {describeNodeName, deriveNodeHealthState, healthBadgeClassName, statusBadgeClassName} from './node-utils';
 
 export function NodeRegistryPageContent() {
+  const t = useTranslations();
+  const nodesT = useTranslations('nodesConsole');
   const nodeConsole = useNodeConsole();
   const nodes = nodeConsole.nodesQuery.data || [];
   const healthRows = nodeConsole.healthQuery.data || [];
@@ -107,84 +110,84 @@ export function NodeRegistryPageContent() {
       <div className="page-stack">
         <section className="metrics-grid">
           <article className="metric-card panel-card">
-            <span className="metric-label">Healthy nodes</span>
+            <span className="metric-label">{nodesT('healthyNodes')}</span>
             <strong>{summary.healthy}</strong>
-            <span className="metric-foot">Nodes with recent heartbeat and no degraded signal.</span>
+            <span className="metric-foot">{nodesT('healthyNodesDesc')}</span>
           </article>
           <article className="metric-card panel-card soft-card">
-            <span className="metric-label">Degraded nodes</span>
+            <span className="metric-label">{nodesT('degradedNodes')}</span>
             <strong>{summary.degraded}</strong>
-            <span className="metric-foot">Nodes reporting non-healthy listener or certificate state.</span>
+            <span className="metric-foot">{nodesT('degradedNodesDesc')}</span>
           </article>
           <article className="metric-card panel-card warm-card">
-            <span className="metric-label">Stale nodes</span>
+            <span className="metric-label">{nodesT('staleNodes')}</span>
             <strong>{summary.stale}</strong>
-            <span className="metric-foot">Nodes whose heartbeat freshness window has already expired.</span>
+            <span className="metric-foot">{nodesT('staleNodesDesc')}</span>
           </article>
           <article className="metric-card panel-card">
-            <span className="metric-label">Unreported nodes</span>
+            <span className="metric-label">{nodesT('unreportedNodes')}</span>
             <strong>{summary.unreported}</strong>
-            <span className="metric-foot">Registered nodes without any heartbeat record yet.</span>
+            <span className="metric-foot">{nodesT('unreportedNodesDesc')}</span>
           </article>
         </section>
 
         <section className="panel-card">
           <div className="panel-toolbar">
             <div>
-              <p className="section-kicker">Registry</p>
-              <h3>Node registry</h3>
-              <p className="section-copy">Query registered nodes, inspect derived health and policy attachment, and maintain records with read, update, and delete actions.</p>
+              <p className="section-kicker">{nodesT('registry')}</p>
+              <h3>{nodesT('registryTitle')}</h3>
+              <p className="section-copy">{nodesT('registryDesc')}</p>
             </div>
             <div className="inline-cluster">
-              <span className="badge">{filteredNodes.length} shown</span>
-              <span className="badge">{nodeRows.length} total</span>
+              <span className="badge">{filteredNodes.length} {t('common.shown')}</span>
+              <span className="badge">{nodeRows.length} {t('common.total')}</span>
             </div>
           </div>
           {nodeConsole.nodesQuery.isPending || nodeConsole.healthQuery.isPending ? (
-            <AsyncState detail="Loading" title="Loading node registry" />
+            <AsyncState detail={t('common.loading')} title={nodesT('loadingRegistry')} />
           ) : nodeConsole.nodesQuery.error ? (
             <AsyncState
-              actionLabel="Retry"
+              actionLabel={t('common.retry')}
               detail={formatControlPlaneError(nodeConsole.nodesQuery.error)}
               onAction={() => void nodeConsole.nodesQuery.refetch()}
-              title="Failed to load node registry"
+              title={nodesT('failedRegistry')}
             />
           ) : nodeConsole.healthQuery.error ? (
             <AsyncState
-              actionLabel="Retry"
+              actionLabel={t('common.retry')}
               detail={formatControlPlaneError(nodeConsole.healthQuery.error)}
               onAction={() => void nodeConsole.healthQuery.refetch()}
-              title="Failed to load node health"
+              title={nodesT('failedHealth')}
             />
           ) : nodes.length === 0 ? (
-            <AsyncState detail="Create or connect the first node to populate the registry." title="Empty" />
+            <AsyncState detail={nodesT('emptyRegistry')} title={t('common.empty')} />
           ) : (
             <div className="registry-stack">
               <div className="registry-toolbar">
                 <label className="field-stack registry-filter">
-                  <span>Search</span>
+                  <span>{t('common.search')}</span>
                   <input
                     className="field-input"
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search by name, id, scope, parent, or host"
+                    placeholder={nodesT('registrySearchPlaceholder')}
                     type="search"
                     value={query}
                   />
                 </label>
                 <label className="field-stack registry-filter registry-filter-short">
-                  <span>Health</span>
+                  <span>{t('common.status')}</span>
                   <select className="field-select" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
-                    <option value="all">All health states</option>
-                    <option value="healthy">healthy</option>
-                    <option value="degraded">degraded</option>
-                    <option value="stale">stale</option>
-                    <option value="unreported">unreported</option>
+                    <option value="all">{nodesT('allHealthStates')}</option>
+                    <option value="healthy">{nodesT('healthyNodes')}</option>
+                    <option value="degraded">{nodesT('degradedNodes')}</option>
+                    <option value="stale">{nodesT('staleNodes')}</option>
+                    <option value="unreported">{nodesT('unreportedNodes')}</option>
                   </select>
                 </label>
                 <label className="field-stack registry-filter registry-filter-short">
-                  <span>Mode</span>
+                  <span>{t('common.mode')}</span>
                   <select className="field-select" onChange={(event) => setModeFilter(event.target.value)} value={modeFilter}>
-                    <option value="all">All modes</option>
+                    <option value="all">{nodesT('allModes')}</option>
                     {availableModes.map((mode) => (
                       <option key={mode} value={mode}>
                         {mode}
@@ -194,22 +197,22 @@ export function NodeRegistryPageContent() {
                 </label>
               </div>
               {filteredNodes.length === 0 ? (
-                <AsyncState detail="Adjust the current query or filters to see matching nodes." title="No matching nodes" />
+                <AsyncState detail={nodesT('noMatchingNodesDetail')} title={nodesT('noMatchingNodes')} />
               ) : (
                 <div className="table-card">
                   <table className="data-table registry-table">
                     <thead>
                       <tr>
-                        <th>Name</th>
-                        <th>Health</th>
-                        <th>Mode</th>
-                        <th>Scope</th>
-                        <th>Heartbeat</th>
-                        <th>Policy</th>
-                        <th>Public endpoint</th>
-                        <th>Parent</th>
-                        <th>ID</th>
-                        <th>Actions</th>
+                        <th>{t('common.name')}</th>
+                        <th>{t('common.status')}</th>
+                        <th>{t('common.mode')}</th>
+                        <th>{t('common.scope')}</th>
+                        <th>{t('common.heartbeat')}</th>
+                        <th>{t('common.policy')}</th>
+                        <th>{nodesT('publicEndpoint')}</th>
+                        <th>{t('common.parent')}</th>
+                        <th>{t('common.id')}</th>
+                        <th>{t('common.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -222,7 +225,7 @@ export function NodeRegistryPageContent() {
                               <div className="registry-name-cell">
                                 <strong>{node.name}</strong>
                                 <span className={`badge ${node.enabled ? 'is-good-soft' : 'is-neutral'}`}>
-                                  {node.enabled ? 'enabled' : 'disabled'}
+                                  {node.enabled ? t('common.enabled') : t('common.disabled')}
                                 </span>
                               </div>
                             </td>
@@ -233,11 +236,11 @@ export function NodeRegistryPageContent() {
                               </div>
                             </td>
                             <td>{node.mode}</td>
-                            <td>{node.scopeKey || <span className="muted-text">no-scope</span>}</td>
-                            <td className="mono">{node.heartbeatAt ? formatISODateTime(node.heartbeatAt) : <span className="muted-text">never</span>}</td>
-                            <td>{node.policyRevisionId || <span className="muted-text">unassigned</span>}</td>
-                            <td>{node.publicHost ? `${node.publicHost}:${node.publicPort}` : <span className="muted-text">No public endpoint</span>}</td>
-                            <td>{describeNodeName(node.parentNodeId, nodesByID) || <span className="muted-text">root</span>}</td>
+                            <td>{node.scopeKey || <span className="muted-text">{t('common.noScope')}</span>}</td>
+                            <td className="mono">{node.heartbeatAt ? formatISODateTime(node.heartbeatAt) : <span className="muted-text">{t('common.never')}</span>}</td>
+                            <td>{node.policyRevisionId || <span className="muted-text">{t('common.unassigned')}</span>}</td>
+                            <td>{node.publicHost ? `${node.publicHost}:${node.publicPort}` : <span className="muted-text">{nodesT('noPublicEndpoint')}</span>}</td>
+                            <td>{describeNodeName(node.parentNodeId, nodesByID) || <span className="muted-text">{t('common.root')}</span>}</td>
                             <td className="mono registry-id-cell">{node.id}</td>
                             <td>
                               <div className="registry-actions">
@@ -246,13 +249,13 @@ export function NodeRegistryPageContent() {
                                   onClick={() => setEditingNodeID(active ? '' : node.id)}
                                   type="button"
                                 >
-                                  {active ? 'Cancel' : 'Edit'}
+                                  {active ? t('common.cancel') : t('common.edit')}
                                 </button>
                                 <button
                                   className="danger-button"
                                   disabled={nodeConsole.deleteNode.isPending}
                                   onClick={() => {
-                                    if (!window.confirm(`Delete node ${node.name} (${node.id})?`)) {
+                                    if (!window.confirm(nodesT('deleteNodeConfirm', {name: node.name, id: node.id}))) {
                                       return;
                                     }
                                     if (editingNodeID === node.id) {
@@ -262,7 +265,7 @@ export function NodeRegistryPageContent() {
                                   }}
                                   type="button"
                                 >
-                                  Delete
+                                  {t('common.delete')}
                                 </button>
                               </div>
                             </td>
@@ -277,19 +280,19 @@ export function NodeRegistryPageContent() {
                 <section className="node-editor-card">
                   <div className="panel-toolbar">
                     <div>
-                      <p className="section-kicker">Update</p>
-                      <h3>Edit node record</h3>
-                      <p className="section-copy">Update metadata, exposure, and runtime state for the selected node.</p>
+                      <p className="section-kicker">{t('common.update')}</p>
+                      <h3>{nodesT('editNode')}</h3>
+                      <p className="section-copy">{nodesT('editNodeDesc')}</p>
                     </div>
                     <span className="badge mono">{editingNode.id}</span>
                   </div>
                   <div className="forms-grid">
                     <label className="field-stack">
-                      <span>Name</span>
+                      <span>{t('common.name')}</span>
                       <input className="field-input" onChange={(event) => setFormState((current) => ({...current, name: event.target.value}))} value={formState.name} />
                     </label>
                     <label className="field-stack">
-                      <span>Mode</span>
+                      <span>{t('common.mode')}</span>
                       <select className="field-select" onChange={(event) => setFormState((current) => ({...current, mode: event.target.value}))} value={formState.mode}>
                         {nodeModeOptions.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -299,13 +302,13 @@ export function NodeRegistryPageContent() {
                       </select>
                     </label>
                     <label className="field-stack">
-                      <span>Scope key</span>
+                      <span>{nodesT('scopeKey')}</span>
                       <input className="field-input" onChange={(event) => setFormState((current) => ({...current, scopeKey: event.target.value}))} value={formState.scopeKey} />
                     </label>
                     <label className="field-stack">
-                      <span>Parent node</span>
+                      <span>{t('common.parent')}</span>
                       <select className="field-select" onChange={(event) => setFormState((current) => ({...current, parentNodeId: event.target.value}))} value={formState.parentNodeId}>
-                        <option value="">None (root node)</option>
+                        <option value="">{t('common.root')}</option>
                         {nodes.filter((n) => n.id !== editingNode!.id).map((n) => (
                           <option key={n.id} value={n.id}>
                             {n.name} ({n.mode})
@@ -314,15 +317,15 @@ export function NodeRegistryPageContent() {
                       </select>
                     </label>
                     <label className="field-stack">
-                      <span>Public host</span>
+                      <span>{nodesT('publicHost')}</span>
                       <input className="field-input" onChange={(event) => setFormState((current) => ({...current, publicHost: event.target.value}))} value={formState.publicHost} />
                     </label>
                     <label className="field-stack">
-                      <span>Public port</span>
+                      <span>{nodesT('publicPort')}</span>
                       <input className="field-input" inputMode="numeric" onChange={(event) => setFormState((current) => ({...current, publicPort: event.target.value}))} value={formState.publicPort} />
                     </label>
                     <label className="field-stack">
-                      <span>Status</span>
+                      <span>{t('common.status')}</span>
                       <select className="field-select" onChange={(event) => setFormState((current) => ({...current, status: event.target.value}))} value={formState.status}>
                         {nodeStatusOptions.map((opt) => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -330,14 +333,14 @@ export function NodeRegistryPageContent() {
                       </select>
                     </label>
                     <label className="field-stack">
-                      <span>Enabled</span>
+                      <span>{t('common.enabled')}</span>
                       <select
                         className="field-select"
                         onChange={(event) => setFormState((current) => ({...current, enabled: event.target.value === 'true'}))}
                         value={String(formState.enabled)}
                       >
-                        <option value="true">enabled</option>
-                        <option value="false">disabled</option>
+                        <option value="true">{t('common.enabled')}</option>
+                        <option value="false">{t('common.disabled')}</option>
                       </select>
                     </label>
                   </div>
@@ -367,10 +370,10 @@ export function NodeRegistryPageContent() {
                       }
                       type="button"
                     >
-                      Save changes
+                      {nodesT('saveChanges')}
                     </button>
                     <button className="secondary-button" onClick={() => setEditingNodeID('')} type="button">
-                      Close
+                      {t('common.close')}
                     </button>
                   </div>
                 </section>

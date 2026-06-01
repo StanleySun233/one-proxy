@@ -120,7 +120,7 @@ export default function GroupDialog({open, onClose, onSaved, accessToken, group}
       enabled
     };
     if (!payload.name) {
-      toast.error('Name is required');
+      toast.error(t('accounts.accountRequired'));
       return;
     }
     if (isEdit) {
@@ -155,7 +155,7 @@ export default function GroupDialog({open, onClose, onSaved, accessToken, group}
             <span>{t('shell.groupName')}</span>
             <input
               className="field-input"
-              placeholder="e.g. Dev Team"
+              placeholder={t('shell.groupNamePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -164,7 +164,7 @@ export default function GroupDialog({open, onClose, onSaved, accessToken, group}
             <span>{t('shell.groupDescription')}</span>
             <textarea
               className="field-textarea"
-              placeholder="Optional description"
+              placeholder={t('shell.groupDescriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -227,10 +227,10 @@ export default function GroupDialog({open, onClose, onSaved, accessToken, group}
 
           <div className="submit-row">
             <button className="secondary-button" onClick={onClose} type="button">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button className="primary-button" disabled={isPending} onClick={handleSave} type="button">
-              {isPending ? t('common.submitting') : isEdit ? 'Save' : t('shell.groupCreate')}
+              {isPending ? t('common.submitting') : isEdit ? t('common.save') : t('shell.groupCreate')}
             </button>
           </div>
         </div>

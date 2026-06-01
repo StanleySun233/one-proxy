@@ -12,7 +12,9 @@ import {fetchEnums, getCertificates, getNodes} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 export default function CertificatesPage() {
-  const t = useTranslations('pages');
+  const pageT = useTranslations('pages');
+  const common = useTranslations('common');
+  const healthT = useTranslations('health');
   const {session} = useAuth();
   const accessToken = session?.accessToken || '';
 
@@ -84,43 +86,43 @@ export default function CertificatesPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow="Health" title={t('healthTitle')} description={t('healthDesc')} />
+        <PageHero eyebrow={healthT('eyebrow')} title={pageT('healthTitle')} description={pageT('healthDesc')} />
 
         <section className="panel-card">
           <div className="panel-toolbar">
             <div>
-              <p className="section-kicker">Certificate Registry</p>
-              <h3>Certificate status</h3>
-              <p className="section-copy">Track public and internal certificate pressure separately from heartbeat freshness so renewal risk remains visible.</p>
+              <p className="section-kicker">{healthT('certificateRegistry')}</p>
+              <h3>{healthT('certificateStatus')}</h3>
+              <p className="section-copy">{healthT('certificateDesc')}</p>
             </div>
             <div className="inline-cluster">
-              <span className="badge">{filteredCertificates.length} shown</span>
-              <span className="badge">{certificateRows.length} total</span>
+              <span className="badge">{filteredCertificates.length} {common('shown')}</span>
+              <span className="badge">{certificateRows.length} {common('total')}</span>
             </div>
           </div>
           {loading ? (
-            <AsyncState detail="Certificate status is loading." title="Loading certificates" />
+            <AsyncState detail={healthT('loadingCertificatesDetail')} title={healthT('loadingCertificates')} />
           ) : error ? (
-            <AsyncState actionLabel="Retry" detail={formatControlPlaneError(certificatesQuery.error || nodesQuery.error)} onAction={() => { void certificatesQuery.refetch(); void nodesQuery.refetch(); }} title="Failed to load certificates" />
+            <AsyncState actionLabel={common('retry')} detail={formatControlPlaneError(certificatesQuery.error || nodesQuery.error)} onAction={() => { void certificatesQuery.refetch(); void nodesQuery.refetch(); }} title={healthT('failedCertificates')} />
           ) : empty ? (
-            <AsyncState detail="Public and internal certificates will appear here once registered." title="No certificates yet" />
+            <AsyncState detail={healthT('emptyCertificatesDetail')} title={healthT('emptyCertificates')} />
           ) : (
             <div className="registry-stack">
               <div className="registry-toolbar">
                 <label className="field-stack registry-filter">
-                  <span>Search</span>
+                  <span>{common('search')}</span>
                   <input
                     className="field-input"
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search by owner, type, provider, or ID"
+                    placeholder={healthT('certificateSearchPlaceholder')}
                     type="search"
                     value={query}
                   />
                 </label>
                 <label className="field-stack registry-filter registry-filter-short">
-                  <span>Status</span>
+                  <span>{common('status')}</span>
                   <select className="field-select" onChange={(event) => setCertFilter(event.target.value)} value={certFilter}>
-                    <option value="all">All statuses</option>
+                    <option value="all">{healthT('allStatuses')}</option>
                     {availableCertStatuses.map((status) => (
                       <option key={status} value={status}>
                         {status}
@@ -129,29 +131,29 @@ export default function CertificatesPage() {
                   </select>
                 </label>
                 <label className="field-stack registry-filter registry-filter-short">
-                  <span>Expiring within</span>
+                  <span>{healthT('expiringWithin')}</span>
                   <select className="field-select" onChange={(event) => setExpiryRange(event.target.value)} value={expiryRange}>
-                    <option value="all">All</option>
-                    <option value="expired">Expired</option>
-                    <option value="7d">7 days</option>
-                    <option value="30d">30 days</option>
-                    <option value="90d">90 days</option>
+                    <option value="all">{common('all')}</option>
+                    <option value="expired">{healthT('expired')}</option>
+                    <option value="7d">{common('days7')}</option>
+                    <option value="30d">{common('days30')}</option>
+                    <option value="90d">{common('days90')}</option>
                   </select>
                 </label>
               </div>
               {filteredEmpty ? (
-                <AsyncState detail="Adjust the current search or filters to see matching certificates." title="No matching certificates" />
+                <AsyncState detail={healthT('noMatchingCertificatesDetail')} title={healthT('noMatchingCertificates')} />
               ) : (
                 <div className="table-card">
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Owner</th>
-                        <th>Status</th>
-                        <th>Type</th>
-                        <th>Provider</th>
-                        <th>Valid to</th>
-                        <th>ID</th>
+                        <th>{healthT('owner')}</th>
+                        <th>{common('status')}</th>
+                        <th>{common('type')}</th>
+                        <th>{healthT('provider')}</th>
+                        <th>{healthT('validTo')}</th>
+                        <th>{common('id')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -169,7 +171,7 @@ export default function CertificatesPage() {
                               {formatISODateTime(item.notAfter, '-')}
                               {item.daysRemaining !== null && (
                                 <span className={`expiry-days ${expiryDotColor(item.daysRemaining)}`}>
-                                  {item.daysRemaining > 0 ? `${item.daysRemaining}d` : 'expired'}
+                                  {item.daysRemaining > 0 ? `${item.daysRemaining}d` : healthT('expired')}
                                 </span>
                               )}
                             </span>

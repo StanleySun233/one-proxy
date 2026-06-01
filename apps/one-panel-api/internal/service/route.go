@@ -121,33 +121,43 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 		result.Valid = false
 		result.Errors = append(result.Errors, result.MatchValueValidation.Message)
 	}
+	if !c.isValidEnum("action_type", input.ActionType) {
+		result.Valid = false
+		result.Errors = append(result.Errors, "invalid_action_type")
+	}
 
-	chains := c.store.ListChains()
 	var matchedChain *domain.Chain
-	for _, chain := range chains {
-		if chain.ID == input.ChainID {
-			c := chain
-			matchedChain = &c
-			break
+	if input.ActionType == domain.ActionTypeChain {
+		chains := c.store.ListChains()
+		for _, chain := range chains {
+			if chain.ID == input.ChainID {
+				c := chain
+				matchedChain = &c
+				break
+			}
 		}
-	}
-	if matchedChain == nil {
-		result.ChainValidation = domain.ChainValidation{
-			Valid:        false,
-			ChainEnabled: false,
-		}
-		result.Errors = append(result.Errors, "chain_not_found")
-	} else {
-		result.ChainValidation = domain.ChainValidation{
-			Valid:        true,
-			ChainEnabled: matchedChain.Enabled,
-			ChainHops:    matchedChain.Hops,
-		}
-		if !matchedChain.Enabled {
-			result.Warnings = append(result.Warnings, "Selected chain is disabled")
+		if matchedChain == nil {
+			result.ChainValidation = domain.ChainValidation{
+				Valid:        false,
+				ChainEnabled: false,
+			}
+			result.Valid = false
+			result.Errors = append(result.Errors, "chain_not_found")
+		} else {
+			result.ChainValidation = domain.ChainValidation{
+				Valid:        true,
+				ChainEnabled: matchedChain.Enabled,
+				ChainHops:    matchedChain.Hops,
+			}
+			if !matchedChain.Enabled {
+				result.Warnings = append(result.Warnings, "Selected chain is disabled")
+			}
 		}
 	}
 
+	if input.ActionType == domain.ActionTypeChain && matchedChain != nil {
+		input.DestinationScope = matchedChain.DestinationScope
+	}
 	scopes := c.NodeScopes()
 	var matchedScope *domain.NodeScope
 	for _, scope := range scopes {
@@ -157,11 +167,18 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 			break
 		}
 	}
-	if matchedScope == nil {
+	if input.ActionType == domain.ActionTypeDirect && input.DestinationScope == "" {
+		result.ScopeValidation = domain.ScopeValidation{Valid: false}
+		result.Valid = false
+		result.Errors = append(result.Errors, "scope_not_found")
+	} else if input.DestinationScope == "" {
+		result.ScopeValidation = domain.ScopeValidation{Valid: true}
+	} else if matchedScope == nil {
 		result.ScopeValidation = domain.ScopeValidation{
 			Valid:       false,
 			ScopeExists: false,
 		}
+		result.Valid = false
 		result.Errors = append(result.Errors, "scope_not_found")
 	} else {
 		matchesFinalHop := false
@@ -276,13 +293,36 @@ func (c *ControlPlane) validateRouteRule(actionType string, chainID string, dest
 	if !c.isValidEnum("action_type", actionType) {
 		return invalidInput("invalid_route_rule_payload")
 	}
+	if !c.validateMatchValue(matchType, matchValue).Valid {
+		return invalidInput("invalid_route_rule_payload")
+	}
 	switch actionType {
 	case domain.ActionTypeChain:
 		if chainID == "" {
 			return invalidInput("invalid_route_rule_payload")
 		}
+		found := false
+		for _, chain := range c.store.ListChains() {
+			if chain.ID == chainID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return invalidInput("invalid_route_rule_payload")
+		}
 	case domain.ActionTypeDirect:
 		if destinationScope == "" {
+			return invalidInput("invalid_route_rule_payload")
+		}
+		found := false
+		for _, scope := range c.NodeScopes() {
+			if scope.ScopeKey == destinationScope {
+				found = true
+				break
+			}
+		}
+		if !found {
 			return invalidInput("invalid_route_rule_payload")
 		}
 	}

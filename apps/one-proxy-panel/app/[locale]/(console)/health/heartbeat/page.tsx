@@ -17,7 +17,9 @@ import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 const staleThresholdMs = 2 * 60 * 1000;
 
 export default function HeartbeatPage() {
-  const t = useTranslations('pages');
+  const pageT = useTranslations('pages');
+  const common = useTranslations('common');
+  const healthT = useTranslations('health');
   const {session} = useAuth();
   const accessToken = session?.accessToken || '';
 
@@ -129,33 +131,33 @@ export default function HeartbeatPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow="Health" title={t('healthTitle')} description={t('healthDesc')} />
+        <PageHero eyebrow={healthT('eyebrow')} title={pageT('healthTitle')} description={pageT('healthDesc')} />
 
         <section className="panel-card">
           <div className="panel-toolbar">
             <div>
-              <p className="section-kicker">Heartbeat Registry</p>
-              <h3>Node health</h3>
-              <p className="section-copy">Filter by derived state, inspect listener and certificate summaries, and watch policy attachment drift per node.</p>
+              <p className="section-kicker">{healthT('heartbeatRegistry')}</p>
+              <h3>{healthT('nodeHealth')}</h3>
+              <p className="section-copy">{healthT('heartbeatDesc')}</p>
             </div>
             <div className="inline-cluster">
-              <span className="badge">{filteredHealth.length} shown</span>
-              <span className="badge">{healthRows.length} total</span>
+              <span className="badge">{filteredHealth.length} {common('shown')}</span>
+              <span className="badge">{healthRows.length} {common('total')}</span>
             </div>
           </div>
           {loading ? (
-            <AsyncState detail="Heartbeat and node registry data are loading." title="Loading node health" />
+            <AsyncState detail={healthT('loadingNodeHealthDetail')} title={healthT('loadingNodeHealth')} />
           ) : error ? (
-            <AsyncState actionLabel="Retry" detail={formatControlPlaneError(healthQuery.error || nodesQuery.error)} onAction={() => { void healthQuery.refetch(); void nodesQuery.refetch(); }} title="Failed to load node health" />
+            <AsyncState actionLabel={common('retry')} detail={formatControlPlaneError(healthQuery.error || nodesQuery.error)} onAction={() => { void healthQuery.refetch(); void nodesQuery.refetch(); }} title={healthT('failedNodeHealth')} />
           ) : empty ? (
-            <AsyncState detail="Heartbeat rows will appear after the first node-agent reports status." title="No health data yet" />
+            <AsyncState detail={healthT('emptyNodeHealthDetail')} title={healthT('emptyNodeHealth')} />
           ) : (
             <div className="registry-stack">
               <div className="registry-toolbar">
                 <label className="field-stack registry-filter registry-filter-short">
-                  <span>Parent node</span>
+                  <span>{healthT('parentNode')}</span>
                   <select className="field-select" onChange={(event) => setParentFilter(event.target.value)} value={parentFilter}>
-                    <option value="all">All nodes</option>
+                    <option value="all">{healthT('allNodes')}</option>
                     {parentNodeOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
@@ -164,19 +166,19 @@ export default function HeartbeatPage() {
                   </select>
                 </label>
                 <label className="field-stack registry-filter">
-                  <span>Search</span>
+                  <span>{common('search')}</span>
                   <input
                     className="field-input"
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search by name, id, mode, scope, policy, or listener"
+                    placeholder={healthT('heartbeatSearchPlaceholder')}
                     type="search"
                     value={query}
                   />
                 </label>
                 <label className="field-stack registry-filter registry-filter-short">
-                  <span>Derived state</span>
+                  <span>{healthT('derivedState')}</span>
                   <select className="field-select" onChange={(event) => setHealthFilter(event.target.value)} value={healthFilter}>
-                    <option value="all">All states</option>
+                    <option value="all">{healthT('allStates')}</option>
                     {enums?.node_status && Object.entries(enums.node_status).map(([value, entry]) => (
                       <option key={value} value={value}>{entry.name}</option>
                     ))}
@@ -184,20 +186,20 @@ export default function HeartbeatPage() {
                 </label>
               </div>
               {filteredEmpty ? (
-                <AsyncState detail="Adjust the current query or filters to see matching heartbeat rows." title="No matching health rows" />
+                <AsyncState detail={healthT('noMatchingHealthDetail')} title={healthT('noMatchingHealth')} />
               ) : (
                 <div className="table-card">
                   <table className="data-table">
                     <thead>
                       <tr>
                         <th className="registry-expand-col" />
-                        <th>Node</th>
-                        <th>State</th>
-                        <th>Mode</th>
-                        <th>Heartbeat</th>
-                        <th>Policy</th>
-                        <th>Listeners</th>
-                        <th>Certificates</th>
+                        <th>{common('name')}</th>
+                        <th>{common('status')}</th>
+                        <th>{common('mode')}</th>
+                        <th>{common('heartbeat')}</th>
+                        <th>{common('policy')}</th>
+                        <th>{healthT('listeners')}</th>
+                        <th>{healthT('certificates')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -252,6 +254,8 @@ function ExpandableRow({
   enums: FieldEnumMap | undefined;
   onToggle: () => void;
 }) {
+  const common = useTranslations('common');
+  const healthT = useTranslations('health');
   const historyQuery = useQuery({
     queryKey: ['node-health-history', accessToken, item.nodeId],
     queryFn: () => getNodeHealthHistory(accessToken, item.nodeId, '24h'),
@@ -282,48 +286,48 @@ function ExpandableRow({
         <td>
           <span className={healthBadgeClassName(item.derivedStatus, enums)}>{item.derivedLabel}</span>
         </td>
-        <td>{item.mode || <span className="muted-text">unknown</span>}</td>
-        <td className="mono">{item.heartbeatAt ? formatISODateTime(item.heartbeatAt) : <span className="muted-text">never</span>}</td>
-        <td>{item.policyRevisionId || <span className="muted-text">unassigned</span>}</td>
-        <td>{item.listenerSummary || <span className="muted-text">none</span>}</td>
-        <td>{item.certSummary || <span className="muted-text">none</span>}</td>
+        <td>{item.mode || <span className="muted-text">{common('unknown')}</span>}</td>
+        <td className="mono">{item.heartbeatAt ? formatISODateTime(item.heartbeatAt) : <span className="muted-text">{common('never')}</span>}</td>
+        <td>{item.policyRevisionId || <span className="muted-text">{common('unassigned')}</span>}</td>
+        <td>{item.listenerSummary || <span className="muted-text">{common('none')}</span>}</td>
+        <td>{item.certSummary || <span className="muted-text">{common('none')}</span>}</td>
       </tr>
       {expanded ? (
         <tr className="detail-row">
           <td colSpan={8}>
             <div className="detail-panel">
               <div className="detail-section">
-                <h4>Listener status</h4>
+                <h4>{healthT('listenerStatus')}</h4>
                 <div className="detail-badge-grid">
                   {Object.entries(item.listenerStatus || {}).length > 0 ? (
                     Object.entries(item.listenerStatus).map(([key, value]) => (
                       <span key={key} className={`badge ${enums?.listener_status?.[value]?.meta?.className || 'is-danger'}`}>{key}: {value}</span>
                     ))
                   ) : (
-                    <span className="muted-text">No listener data</span>
+                    <span className="muted-text">{healthT('noListenerData')}</span>
                   )}
                 </div>
               </div>
               <div className="detail-section">
-                <h4>Certificate status</h4>
+                <h4>{healthT('certificateStatus')}</h4>
                 <div className="detail-badge-grid">
                   {Object.entries(item.certStatus || {}).length > 0 ? (
                     Object.entries(item.certStatus).map(([key, value]) => (
                       <span key={key} className={`badge ${enums?.cert_status?.[value]?.meta?.className || 'is-danger'}`}>{key}: {value}</span>
                     ))
                   ) : (
-                    <span className="muted-text">No certificate data</span>
+                    <span className="muted-text">{healthT('noCertificateData')}</span>
                   )}
                 </div>
               </div>
               <div className="detail-section">
-                <h4>Health trend (24h)</h4>
+                <h4>{healthT('healthTrend24h')}</h4>
                 {historyQuery.isPending ? (
-                  <AsyncState detail="Loading health history for this node." title="" />
+                  <AsyncState detail={healthT('loadingHistoryDetail')} title="" />
                 ) : historyQuery.isError ? (
-                  <AsyncState actionLabel="Retry" detail={formatControlPlaneError(historyQuery.error)} onAction={() => void historyQuery.refetch()} title="Failed to load history" />
+                  <AsyncState actionLabel={common('retry')} detail={formatControlPlaneError(historyQuery.error)} onAction={() => void historyQuery.refetch()} title={healthT('failedHistory')} />
                 ) : historyData.length === 0 ? (
-                  <AsyncState detail="No historical health data available for this node." title="" />
+                  <AsyncState detail={healthT('emptyHistoryDetail')} title="" />
                 ) : (
                   <ReactECharts
                     option={{

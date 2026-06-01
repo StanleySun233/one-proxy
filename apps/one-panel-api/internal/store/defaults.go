@@ -27,7 +27,7 @@ func defaultChains() []domain.Chain {
 func defaultRouteRules() []domain.RouteRule {
 	return []domain.RouteRule{
 		{ID: "rule-corp-domain", Priority: 100, MatchType: "domain_suffix", MatchValue: ".corp.internal", ActionType: "chain", ChainID: "chain-corp-k8s", DestinationScope: "c-k8s", Enabled: true},
-		{ID: "rule-b-lan-cidr", Priority: 200, MatchType: "cidr", MatchValue: "10.30.0.0/16", ActionType: "chain", ChainID: "chain-corp-k8s", DestinationScope: "b-lan", Enabled: true},
+		{ID: "rule-b-lan-cidr", Priority: 200, MatchType: domain.MatchTypeIPCIDR, MatchValue: "10.30.0.0/16", ActionType: "chain", ChainID: "chain-corp-k8s", DestinationScope: "b-lan", Enabled: true},
 		{ID: "rule-office-host", Priority: 300, MatchType: "domain", MatchValue: "grafana.office.local", ActionType: "chain", ChainID: "chain-office-tools", DestinationScope: "d-office", Enabled: true},
 	}
 }

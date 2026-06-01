@@ -1,6 +1,7 @@
 'use client';
 
 import {useCallback} from 'react';
+import {useTranslations} from 'next-intl';
 
 import {AuthGate} from '@/components/auth-gate';
 
@@ -9,6 +10,7 @@ import {NodeFormValues} from './types';
 import {useNodeConsole} from './use-node-console';
 
 export function NodeManualPageContent() {
+  const nodesT = useTranslations('nodesConsole');
   const nodeConsole = useNodeConsole();
 
   const handleCreateNode = useCallback(
@@ -30,9 +32,9 @@ export function NodeManualPageContent() {
       <div className="page-stack">
         <section className="panel-card nodes-single-panel">
           <div>
-            <p className="section-kicker">Node record</p>
-            <h3>Manual record</h3>
-            <p className="section-copy">Create node metadata first, then bind the real runtime later.</p>
+            <p className="section-kicker">{nodesT('nodeRecord')}</p>
+            <h3>{nodesT('manualRecord')}</h3>
+            <p className="section-copy">{nodesT('manualDesc')}</p>
           </div>
           <ManualNodeTab
             form={nodeConsole.nodeForm}

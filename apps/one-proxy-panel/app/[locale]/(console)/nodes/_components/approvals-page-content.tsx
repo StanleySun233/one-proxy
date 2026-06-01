@@ -4,11 +4,14 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {Node, UnconsumedBootstrapToken} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
+import {useTranslations} from 'next-intl';
 
 import {useNodeConsole} from './use-node-console';
 import {statusBadgeClassName} from './node-utils';
 
 export function NodeApprovalsPageContent() {
+  const t = useTranslations();
+  const nodesT = useTranslations('nodesConsole');
   const nodeConsole = useNodeConsole();
   const pendingNodes = nodeConsole.pendingNodesQuery.data || [];
   const unconsumedTokens = nodeConsole.unconsumedTokensQuery.data || [];
@@ -24,34 +27,34 @@ export function NodeApprovalsPageContent() {
         <section className="panel-card">
           <div className="panel-toolbar">
             <div>
-              <p className="section-kicker">Approvals</p>
-              <h3>Pending node enrollments</h3>
-              <p className="section-copy">Review and approve pending node enrollment requests created via bootstrap tokens.</p>
+              <p className="section-kicker">{nodesT('approvals')}</p>
+              <h3>{nodesT('pendingEnrollments')}</h3>
+              <p className="section-copy">{nodesT('approvalsDesc')}</p>
             </div>
             <span className="badge">{combinedCount}</span>
           </div>
           {nodeConsole.pendingNodesQuery.isPending || nodeConsole.unconsumedTokensQuery.isPending ? (
-            <AsyncState detail="Loading" title="Loading pending enrollments" />
+            <AsyncState detail={t('common.loading')} title={nodesT('loadingPending')} />
           ) : nodeConsole.pendingNodesQuery.error ? (
             <AsyncState
-              actionLabel="Retry"
+              actionLabel={t('common.retry')}
               detail={formatControlPlaneError(nodeConsole.pendingNodesQuery.error)}
               onAction={() => void nodeConsole.pendingNodesQuery.refetch()}
-              title="Failed to load pending enrollments"
+              title={nodesT('failedPending')}
             />
           ) : combinedCount === 0 ? (
-            <AsyncState detail="No pending enrollment requests. Create a bootstrap token to start." title="Empty" />
+            <AsyncState detail={nodesT('emptyPending')} title={t('common.empty')} />
           ) : (
             <div className="table-card">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Target</th>
-                    <th>Status</th>
-                    <th>Created / Expires</th>
-                    <th>Actions</th>
+                    <th>{t('common.name')}</th>
+                    <th>{t('common.type')}</th>
+                    <th>{t('common.target')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('common.createdExpires')}</th>
+                    <th>{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -60,7 +63,7 @@ export function NodeApprovalsPageContent() {
                       const node = item.data;
                       return (
                         <tr key={node.id}>
-                          <td>{node.name || <span className="muted-text">not specified</span>}</td>
+                          <td>{node.name || <span className="muted-text">{t('common.notSpecified')}</span>}</td>
                           <td>{node.mode}</td>
                           <td className="mono">{node.id.substring(0, 12)}</td>
                           <td>
@@ -75,33 +78,33 @@ export function NodeApprovalsPageContent() {
                                 onClick={() => nodeConsole.approve.mutate(node.id)}
                                 type="button"
                               >
-                                Approve
+                                {t('common.approve')}
                               </button>
                               <button
                                 className="danger-button"
                                 disabled={nodeConsole.deleteNode.isPending}
                                 onClick={() => {
-                                  if (!window.confirm(`Delete pending node ${node.name || node.id}?`)) {
+                                  if (!window.confirm(nodesT('deletePendingConfirm', {name: node.name || node.id}))) {
                                     return;
                                   }
                                   nodeConsole.deleteNode.mutate(node.id);
                                 }}
                                 type="button"
                               >
-                                Delete
+                                {t('common.delete')}
                               </button>
                               <button
                                 className="danger-button"
                                 disabled={nodeConsole.rejectNode.isPending}
                                 onClick={() => {
-                                  if (!window.confirm(`Reject enrollment for ${node.name || 'this node'}?`)) {
+                                  if (!window.confirm(nodesT('rejectEnrollmentConfirm', {name: node.name || node.id}))) {
                                     return;
                                   }
                                   nodeConsole.rejectNode.mutate({nodeId: node.id});
                                 }}
                                 type="button"
                               >
-                                Reject
+                                {t('common.reject')}
                               </button>
                             </div>
                           </td>
@@ -111,30 +114,30 @@ export function NodeApprovalsPageContent() {
                     const token = item.data;
                     return (
                       <tr key={token.id}>
-                        <td>{token.nodeName || <span className="muted-text">not specified</span>}</td>
-                        <td><span className="badge is-neutral">unconnected</span></td>
-                        <td className="mono">{token.targetId || <span className="muted-text">new node</span>}</td>
+                        <td>{token.nodeName || <span className="muted-text">{t('common.notSpecified')}</span>}</td>
+                        <td><span className="badge is-neutral">{nodesT('unconnected')}</span></td>
+                        <td className="mono">{token.targetId || <span className="muted-text">{t('common.newNode')}</span>}</td>
                         <td>
-                          <span className="badge is-neutral">unused</span>
+                          <span className="badge is-neutral">{t('common.unused')}</span>
                         </td>
                         <td>
                           <span className="muted-text">{formatISODateTime(token.createdAt)}</span>
                           <br />
-                          <span className="muted-text">expires {formatISODateTime(token.expiresAt)}</span>
+                          <span className="muted-text">{t('common.expires')} {formatISODateTime(token.expiresAt)}</span>
                         </td>
                         <td>
                           <button
                             className="danger-button"
                             disabled={nodeConsole.deleteBootstrapToken.isPending}
                             onClick={() => {
-                              if (!window.confirm(`Delete bootstrap token for ${token.nodeName || token.id}?`)) {
+                              if (!window.confirm(nodesT('deleteBootstrapTokenConfirm', {name: token.nodeName || token.id}))) {
                                 return;
                               }
                               nodeConsole.deleteBootstrapToken.mutate(token.id);
                             }}
                             type="button"
                           >
-                            Delete
+                            {t('common.delete')}
                           </button>
                         </td>
                       </tr>

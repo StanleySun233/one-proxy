@@ -1,5 +1,7 @@
 'use client';
 
+import {useTranslations} from 'next-intl';
+
 import {Node, NodeLink, NodeTransport} from '@/lib/types';
 import {formatISODateTime} from '@/lib/presentation';
 
@@ -16,6 +18,8 @@ export function NodeLinkCard({
   transports: NodeTransport[];
   reverseWsType: string;
 }) {
+  const t = useTranslations();
+  const nodesT = useTranslations('nodesConsole');
   const childTunnel = transports.find(
     (transport) =>
       transport.nodeId === link.targetNodeId &&
@@ -38,13 +42,13 @@ export function NodeLinkCard({
         <div className="node-approval-meta">
           <span className={transportBadgeClassName(childTunnel.status)}>{childTunnel.status}</span>
           <span className="mono">{childTunnel.transportType}</span>
-          <span className="muted-text">{childTunnel.lastHeartbeatAt ? formatISODateTime(childTunnel.lastHeartbeatAt) : 'heartbeat: never'}</span>
+          <span className="muted-text">{childTunnel.lastHeartbeatAt ? formatISODateTime(childTunnel.lastHeartbeatAt) : nodesT('heartbeatNever')}</span>
         </div>
       ) : (
-        <span className="badge is-neutral">no active child tunnel</span>
+        <span className="badge is-neutral">{nodesT('noActiveChildTunnel')}</span>
       )}
-      <span className="muted-text">source: {link.sourceNodeId}</span>
-      <span className="muted-text">target: {link.targetNodeId}</span>
+      <span className="muted-text">{t('common.source')}: {link.sourceNodeId}</span>
+      <span className="muted-text">{t('common.target')}: {link.targetNodeId}</span>
       <span className="mono">{link.id}</span>
     </article>
   );

@@ -394,7 +394,7 @@ export default function RoutesPage() {
                   className="field-input"
                   disabled={actionType !== 'direct'}
                   list="scope-options"
-                  placeholder="target-scope"
+                  placeholder={routesT('destinationScopePlaceholder')}
                   {...form.register('destinationScope', {
                     validate: (value) => (actionType !== 'direct' || value.trim() !== '' ? true : routesT('destinationScopeRequired'))
                   })}

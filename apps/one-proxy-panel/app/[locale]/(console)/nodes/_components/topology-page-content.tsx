@@ -2,6 +2,7 @@
 
 import {useMemo} from 'react';
 import {useQuery} from '@tanstack/react-query';
+import {useTranslations} from 'next-intl';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
@@ -14,6 +15,8 @@ import {CreateNodeLinkForm} from './create-node-link-form';
 import {NodeLinkCard} from './node-link-card';
 
 export function NodeTopologyPageContent() {
+  const t = useTranslations();
+  const nodesT = useTranslations('nodesConsole');
   const nodeConsole = useNodeConsole();
   const nodes = nodeConsole.nodesQuery.data || [];
   const links = nodeConsole.linksQuery.data || [];
@@ -42,28 +45,28 @@ export function NodeTopologyPageContent() {
       <div className="page-stack">
         <section className="metrics-grid">
           <article className="metric-card panel-card">
-            <span className="metric-label">Public transports</span>
+            <span className="metric-label">{nodesT('publicTransports')}</span>
             <strong>{transportSummary.publicEndpoints}</strong>
-            <span className="metric-foot">Directly reachable node entrypoints synthesized from public endpoint records.</span>
+            <span className="metric-foot">{nodesT('publicTransportsDesc')}</span>
           </article>
           <article className="metric-card panel-card soft-card">
-            <span className="metric-label">Reverse tunnels up</span>
+            <span className="metric-label">{nodesT('reverseTunnelsUp')}</span>
             <strong>{transportSummary.reverseConnected}</strong>
-            <span className="metric-foot">Parent-child `reverse_ws_parent` sessions currently reporting connected.</span>
+            <span className="metric-foot">{nodesT('reverseTunnelsUpDesc')}</span>
           </article>
           <article className="metric-card panel-card warm-card">
-            <span className="metric-label">Reverse tunnels blocked</span>
+            <span className="metric-label">{nodesT('reverseTunnelsBlocked')}</span>
             <strong>{transportSummary.reverseBlocked}</strong>
-            <span className="metric-foot">Configured reverse tunnels that are not currently connected.</span>
+            <span className="metric-foot">{nodesT('reverseTunnelsBlockedDesc')}</span>
           </article>
         </section>
 
         <section className="panel-card">
           <div className="panel-toolbar">
             <div>
-              <p className="section-kicker">Topology</p>
-              <h3>Relay relationships</h3>
-              <p className="section-copy">Inspect parent-child links together with live transport state to verify a → b → c tunnel overlays.</p>
+              <p className="section-kicker">{nodesT('topology')}</p>
+              <h3>{nodesT('topologyTitle')}</h3>
+              <p className="section-copy">{nodesT('topologyDesc')}</p>
             </div>
             <span className="badge">{links.length}</span>
           </div>
@@ -75,30 +78,30 @@ export function NodeTopologyPageContent() {
             defaultTrustState={TRUST_STATE_TRUSTED}
           />
           {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending || nodeConsole.transportsQuery.isPending ? (
-            <AsyncState detail="Loading" title="Loading topology links" />
+            <AsyncState detail={t('common.loading')} title={nodesT('loadingTopology')} />
           ) : nodeConsole.nodesQuery.error ? (
             <AsyncState
-              actionLabel="Retry"
+              actionLabel={t('common.retry')}
               detail={formatControlPlaneError(nodeConsole.nodesQuery.error)}
               onAction={() => void nodeConsole.nodesQuery.refetch()}
-              title="Failed to load node registry"
+              title={nodesT('failedRegistry')}
             />
           ) : nodeConsole.linksQuery.error ? (
             <AsyncState
-              actionLabel="Retry"
+              actionLabel={t('common.retry')}
               detail={formatControlPlaneError(nodeConsole.linksQuery.error)}
               onAction={() => void nodeConsole.linksQuery.refetch()}
-              title="Failed to load topology links"
+              title={nodesT('failedTopology')}
             />
           ) : nodeConsole.transportsQuery.error ? (
             <AsyncState
-              actionLabel="Retry"
+              actionLabel={t('common.retry')}
               detail={formatControlPlaneError(nodeConsole.transportsQuery.error)}
               onAction={() => void nodeConsole.transportsQuery.refetch()}
-              title="Failed to load transport registry"
+              title={nodesT('failedTransport')}
             />
           ) : links.length === 0 ? (
-            <AsyncState detail="Links appear after parent-child registration or relay trust setup." title="Empty" />
+            <AsyncState detail={nodesT('emptyTopology')} title={t('common.empty')} />
           ) : (
             <div className="topology-stack">
               <div className="nodes-link-grid">
@@ -110,20 +113,20 @@ export function NodeTopologyPageContent() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Node</th>
-                      <th>Type</th>
-                      <th>Direction</th>
-                      <th>Status</th>
-                      <th>Address</th>
-                      <th>Parent</th>
-                      <th>Heartbeat</th>
+                      <th>{t('common.name')}</th>
+                      <th>{t('common.type')}</th>
+                      <th>{nodesT('direction')}</th>
+                      <th>{t('common.status')}</th>
+                      <th>{nodesT('address')}</th>
+                      <th>{t('common.parent')}</th>
+                      <th>{t('common.heartbeat')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {transports.length === 0 ? (
                       <tr>
                         <td className="muted-text" colSpan={7}>
-                          No runtime transports have been reported yet.
+                          {nodesT('noRuntimeTransports')}
                         </td>
                       </tr>
                     ) : (
@@ -136,8 +139,8 @@ export function NodeTopologyPageContent() {
                             <span className={transportBadgeClassName(transport.status, enums)}>{transport.status}</span>
                           </td>
                           <td className="mono">{transport.address}</td>
-                          <td>{describeNodeName(transport.parentNodeId, nodesByID) || <span className="muted-text">root</span>}</td>
-                          <td className="mono">{transport.lastHeartbeatAt ? formatISODateTime(transport.lastHeartbeatAt) : <span className="muted-text">never</span>}</td>
+                          <td>{describeNodeName(transport.parentNodeId, nodesByID) || <span className="muted-text">{t('common.root')}</span>}</td>
+                          <td className="mono">{transport.lastHeartbeatAt ? formatISODateTime(transport.lastHeartbeatAt) : <span className="muted-text">{t('common.never')}</span>}</td>
                         </tr>
                       ))
                     )}

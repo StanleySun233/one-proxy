@@ -14,8 +14,13 @@ func (c *ControlPlane) Overview() domain.Overview {
 func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.ExtensionBootstrap {
 	nodes := c.store.ListNodes()
 	rules := c.store.ListRouteRules()
+	chains := c.store.ListChains()
 	overview := c.store.GetOverview()
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
+	chainsByID := make(map[string]domain.Chain, len(chains))
+	for _, chain := range chains {
+		chainsByID[chain.ID] = chain
+	}
 
 	filteredNodes := nodes
 	filteredRules := rules
@@ -37,7 +42,12 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 			}
 			filteredRules = make([]domain.RouteRule, 0)
 			for _, rule := range rules {
-				if rule.DestinationScope == "" || allowedScopes[rule.DestinationScope] {
+				if rule.ActionType == domain.ActionTypeDirect && allowedScopes[rule.DestinationScope] {
+					filteredRules = append(filteredRules, rule)
+					continue
+				}
+				chain, ok := chainsByID[rule.ChainID]
+				if rule.ActionType == domain.ActionTypeChain && ok && allowedScopes[chain.DestinationScope] {
 					filteredRules = append(filteredRules, rule)
 				}
 			}
@@ -69,6 +79,15 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 			if value == "" {
 				continue
 			}
+			if rule.ActionType == domain.ActionTypeChain {
+				chain, ok := chainsByID[rule.ChainID]
+				if !ok || !chain.Enabled || len(chain.Hops) == 0 || chain.Hops[0] != node.ID {
+					continue
+				}
+			}
+			if rule.ActionType == domain.ActionTypeDirect && rule.DestinationScope != node.ScopeKey {
+				continue
+			}
 			switch rule.MatchType {
 			case domain.MatchTypeDomain:
 				if rule.ActionType == domain.ActionTypeDirect {
@@ -77,13 +96,16 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 					group.ProxyHosts = append(group.ProxyHosts, value)
 				}
 			case domain.MatchTypeDomainSuffix:
-				pattern := "*" + value
+				pattern := value
+				if strings.HasPrefix(pattern, ".") {
+					pattern = "*" + pattern
+				}
 				if rule.ActionType == domain.ActionTypeDirect {
 					group.DirectHosts = append(group.DirectHosts, pattern)
 				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyHosts = append(group.ProxyHosts, pattern)
 				}
-			case "cidr":
+			case domain.MatchTypeIPCIDR:
 				if rule.ActionType == domain.ActionTypeDirect {
 					group.DirectCIDRs = append(group.DirectCIDRs, value)
 				} else if rule.ActionType == domain.ActionTypeChain {

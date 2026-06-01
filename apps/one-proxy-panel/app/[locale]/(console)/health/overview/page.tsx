@@ -16,7 +16,9 @@ import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 const staleThresholdMs = 2 * 60 * 1000;
 
 export default function HealthOverviewPage() {
-  const t = useTranslations('pages');
+  const pageT = useTranslations('pages');
+  const common = useTranslations('common');
+  const healthT = useTranslations('health');
   const {session} = useAuth();
   const accessToken = session?.accessToken || '';
 
@@ -254,52 +256,52 @@ export default function HealthOverviewPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow="Health" title={t('healthTitle')} description={t('healthDesc')} />
+        <PageHero eyebrow={healthT('eyebrow')} title={pageT('healthTitle')} description={pageT('healthDesc')} />
 
         <section className="metrics-grid">
           <article className="metric-card panel-card">
-            <span className="metric-label">Healthy heartbeats</span>
+            <span className="metric-label">{healthT('healthyHeartbeats')}</span>
             <strong>{summary.healthy}</strong>
-            <span className="metric-foot">Nodes reporting normal listener and cert state.</span>
+            <span className="metric-foot">{healthT('healthyHeartbeatsDesc')}</span>
           </article>
           <article className="metric-card panel-card soft-card">
-            <span className="metric-label">Stale heartbeats</span>
+            <span className="metric-label">{healthT('staleHeartbeats')}</span>
             <strong>{summary.stale}</strong>
-            <span className="metric-foot">Last heartbeat older than the configured freshness window.</span>
+            <span className="metric-foot">{healthT('staleHeartbeatsDesc')}</span>
           </article>
           <article className="metric-card panel-card warm-card">
-            <span className="metric-label">Unreported nodes</span>
+            <span className="metric-label">{healthT('unreportedNodes')}</span>
             <strong>{summary.unreported}</strong>
-            <span className="metric-foot">Registered nodes that have never sent a heartbeat row.</span>
+            <span className="metric-foot">{healthT('unreportedNodesDesc')}</span>
           </article>
           <article className="metric-card panel-card warm-card">
-            <span className="metric-label">Certificate pressure</span>
+            <span className="metric-label">{healthT('certificatePressure')}</span>
             <strong>{summary.certPressure}</strong>
-            <span className="metric-foot">Certificates marked rotate, renew-soon, failed, or otherwise non-healthy.</span>
+            <span className="metric-foot">{healthT('certificatePressureDesc')}</span>
           </article>
         </section>
 
         <section className="charts-row">
           <article className="panel-card chart-col">
-            <h3 className="section-title">Node Health Distribution</h3>
+            <h3 className="section-title">{healthT('nodeHealthDistribution')}</h3>
             {isLoading ? (
-              <AsyncState detail="Loading health data for distribution chart." title="Loading" />
+              <AsyncState detail={healthT('loadingDistributionDetail')} title={common('loadingTitle')} />
             ) : isError ? (
-              <AsyncState title="Failed to load health data" detail={formatControlPlaneError(healthQuery.error || nodesQuery.error)} />
+              <AsyncState title={healthT('failedDistribution')} detail={formatControlPlaneError(healthQuery.error || nodesQuery.error)} />
             ) : healthRows.length === 0 ? (
-              <AsyncState detail="No health data available for distribution chart." title="No data" />
+              <AsyncState detail={healthT('emptyDistributionDetail')} title={common('noData')} />
             ) : (
               <ReactECharts option={pieOption} style={{height: 300}} />
             )}
           </article>
           <article className="panel-card chart-col">
-            <h3 className="section-title">Certificate Status</h3>
+            <h3 className="section-title">{healthT('certificateStatusChart')}</h3>
             {certificatesQuery.isPending ? (
-              <AsyncState detail="Loading certificate data." title="Loading" />
+              <AsyncState detail={healthT('loadingCertificateData')} title={common('loadingTitle')} />
             ) : certificatesQuery.isError ? (
-              <AsyncState title="Failed to load certificates" detail={formatControlPlaneError(certificatesQuery.error)} />
+              <AsyncState title={healthT('failedCertificates')} detail={formatControlPlaneError(certificatesQuery.error)} />
             ) : certificateRows.length === 0 ? (
-              <AsyncState detail="No certificate data available." title="No data" />
+              <AsyncState detail={healthT('noCertificateData')} title={common('noData')} />
             ) : (
               <ReactECharts option={barOption} style={{height: 300}} />
             )}
@@ -309,22 +311,22 @@ export default function HealthOverviewPage() {
         <section className="panel-card">
           <div className="panel-toolbar">
             <div>
-              <p className="section-kicker">Trend</p>
-              <h3>Health trend</h3>
+              <p className="section-kicker">{healthT('trend')}</p>
+              <h3>{healthT('healthTrend')}</h3>
               <p className="section-copy">
                 {selectedNodeId
-                  ? 'Heartbeat history for the selected node over the last 24 hours.'
-                  : 'Select a node to view its heartbeat history.'}
+                  ? healthT('historySelected')
+                  : healthT('historySelectPrompt')}
               </p>
             </div>
             <label className="field-stack registry-filter registry-filter-short">
-              <span>Node</span>
+              <span>{common('name')}</span>
               <select
                 className="field-select"
                 value={selectedNodeId}
                 onChange={(e) => setSelectedNodeId(e.target.value)}
               >
-                <option value="">All nodes</option>
+                <option value="">{healthT('allNodes')}</option>
                 {nodes.map((node) => (
                   <option key={node.id} value={node.id}>{node.name}</option>
                 ))}
@@ -336,36 +338,36 @@ export default function HealthOverviewPage() {
               <div className="trend-summary-grid">
                 <div className="trend-summary-item">
                   <strong style={{color: enums?.node_status?.healthy?.meta?.color || '#22c55e'}}>{summary.healthy}</strong>
-                  <span>Healthy</span>
+                  <span>{healthT('healthy')}</span>
                 </div>
                 <div className="trend-summary-item">
                   <strong style={{color: enums?.node_status?.stale?.meta?.color || '#f59e0b'}}>{summary.stale}</strong>
-                  <span>Stale</span>
+                  <span>{healthT('stale')}</span>
                 </div>
                 <div className="trend-summary-item">
                   <strong style={{color: enums?.node_status?.degraded?.meta?.color || '#ef4444'}}>{summary.degraded}</strong>
-                  <span>Degraded</span>
+                  <span>{healthT('degraded')}</span>
                 </div>
                 <div className="trend-summary-item">
                   <strong style={{color: enums?.node_status?.unreported?.meta?.color || '#6b7280'}}>{summary.unreported}</strong>
-                  <span>Unreported</span>
+                  <span>{healthT('unreported')}</span>
                 </div>
               </div>
               <p className="muted-text" style={{textAlign: 'center', marginTop: 16}}>
-                Select a specific node from the dropdown above to view its 24-hour heartbeat trend.
+                {healthT('selectNodeTrend')}
               </p>
             </div>
           ) : historyQuery.isPending ? (
-            <AsyncState detail="Loading health history for selected node." title="Loading history" />
+            <AsyncState detail={healthT('loadingHistoryDetail')} title={healthT('loadingHistory')} />
           ) : historyQuery.isError ? (
             <AsyncState
-              actionLabel="Retry"
+              actionLabel={common('retry')}
               detail={formatControlPlaneError(historyQuery.error)}
               onAction={() => void historyQuery.refetch()}
-              title="Failed to load health history"
+              title={healthT('failedHistory')}
             />
           ) : !trendChartData || trendChartData.length === 0 ? (
-            <AsyncState detail="No heartbeat history available for this node in the last 24 hours." title="No history data" />
+            <AsyncState detail={healthT('emptyHistoryDetail')} title={healthT('emptyHistory')} />
           ) : trendOption ? (
             <ReactECharts option={trendOption} style={{height: 300}} />
           ) : null}

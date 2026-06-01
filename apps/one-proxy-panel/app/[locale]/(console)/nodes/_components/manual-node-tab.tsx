@@ -23,7 +23,7 @@ export function ManualNodeTab({
     <form className="nodes-form-grid" onSubmit={(e) => { form.handleSubmit(onSubmit)(e); }}>
       <div className="field-stack">
         <span>{t('nodes.manual.name')}</span>
-        <input className="field-input" placeholder="relay-a" {...form.register('name', {required: t('nodes.manual.nameRequired')})} />
+        <input className="field-input" placeholder={t('nodes.manual.namePlaceholder')} {...form.register('name', {required: t('nodes.manual.nameRequired')})} />
         {form.formState.errors.name ? <p className="error-text">{form.formState.errors.name.message}</p> : null}
       </div>
       <div className="field-stack">
@@ -36,22 +36,22 @@ export function ManualNodeTab({
       </div>
       <div className="field-stack">
         <span>{t('nodes.manual.scopeKey')}</span>
-        <input className="field-input" placeholder="target-scope" {...form.register('scopeKey', {required: t('nodes.manual.scopeRequired')})} />
+        <input className="field-input" placeholder={t('nodes.manual.scopeKeyPlaceholder')} {...form.register('scopeKey', {required: t('nodes.manual.scopeRequired')})} />
         {form.formState.errors.scopeKey ? <p className="error-text">{form.formState.errors.scopeKey.message}</p> : null}
       </div>
       <div className="field-stack">
         <span>{t('nodes.manual.parentNodeId')}</span>
-        <input className="field-input" placeholder="optional upstream node id" {...form.register('parentNodeId')} />
+        <input className="field-input" placeholder={t('nodes.manual.parentNodeIdPlaceholder')} {...form.register('parentNodeId')} />
       </div>
       <div className="field-stack">
         <span>{t('nodes.manual.publicHost')}</span>
-        <input className="field-input" placeholder="relay.example.com" {...form.register('publicHost')} />
+        <input className="field-input" placeholder={t('nodes.manual.publicHostPlaceholder')} {...form.register('publicHost')} />
       </div>
       <div className="field-stack">
         <span>{t('nodes.manual.publicPort')}</span>
         <input
           className="field-input"
-          placeholder="2988"
+          placeholder={t('nodes.manual.publicPortPlaceholder')}
           type="number"
           {...form.register('publicPort', {
             validate: (value) => {

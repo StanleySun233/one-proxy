@@ -20,6 +20,7 @@ import {CompilationPreviewModal} from './_components/compilation-preview-modal';
 export default function ChainsPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
+  const chainsT = useTranslations('chains');
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
@@ -48,7 +49,7 @@ export default function ChainsPage() {
   const createChainMutation = useMutation({
     mutationFn: (payload: {name: string; destinationScope: string; hops: string[]}) => createChain(accessToken, payload),
     onSuccess: () => {
-      toast.success('chain created');
+      toast.success(chainsT('createSuccess'));
       queryClient.invalidateQueries({queryKey: ['chains']});
       handleCloseEditor();
     },
@@ -66,7 +67,7 @@ export default function ChainsPage() {
         enabled: payload.enabled
       }),
     onSuccess: () => {
-      toast.success('chain updated');
+      toast.success(chainsT('updateSuccess'));
       queryClient.invalidateQueries({queryKey: ['chains']});
       handleCloseEditor();
     },
@@ -78,7 +79,7 @@ export default function ChainsPage() {
   const probeChainMutation = useMutation({
     mutationFn: (chainID: string) => probeChain(accessToken, chainID),
     onSuccess: (result) => {
-      toast.success(result.status === 'connected' ? 'chain probe ready' : 'chain probe blocked');
+      toast.success(result.status === 'connected' ? chainsT('probeReady') : chainsT('probeBlocked'));
       setProbeResults((current) => ({...current, [result.chainId]: result}));
     },
     onError: (error) => {
@@ -152,7 +153,7 @@ export default function ChainsPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow="Chains" title={pageT('chainsTitle')} description={pageT('chainsDesc')} />
+        <PageHero eyebrow={chainsT('eyebrow')} title={pageT('chainsTitle')} description={pageT('chainsDesc')} />
 
         {editorOpen ? (
           <section className="panel-card">
@@ -176,37 +177,37 @@ export default function ChainsPage() {
           <section className="panel-card">
             <div className="panel-toolbar">
               <div>
-                <p className="section-kicker">Management</p>
-                <h3>Chain List</h3>
-                <p className="section-copy">Manage relay chains and configure hop sequences</p>
+                <p className="section-kicker">{chainsT('management')}</p>
+                <h3>{chainsT('listTitle')}</h3>
+                <p className="section-copy">{chainsT('listDesc')}</p>
               </div>
               <button className="primary-button" onClick={() => handleOpenEditor()} type="button">
-                Create Chain
+                {chainsT('createChain')}
               </button>
             </div>
 
             {chainsQuery.isPending ? (
-              <AsyncState detail={t('common.loading')} title="Loading chains" />
+              <AsyncState detail={t('common.loading')} title={chainsT('loadingChains')} />
             ) : chainsQuery.isError ? (
               <AsyncState
                 actionLabel={t('common.retry')}
                 detail={formatControlPlaneError(chainsQuery.error)}
                 onAction={() => void chainsQuery.refetch()}
-                title="Failed to load chains"
+                title={chainsT('failedChains')}
               />
             ) : chains.length === 0 ? (
-              <AsyncState detail="Create relay chains before binding route rules to them." title={t('common.empty')} />
+              <AsyncState detail={chainsT('emptyChains')} title={t('common.empty')} />
             ) : (
               <div className="table-card">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>Name</th>
-                      <th>Hops</th>
-                      <th>Destination Scope</th>
-                      <th>Status</th>
-                      <th>Actions</th>
+                      <th>{t('common.id')}</th>
+                      <th>{t('common.name')}</th>
+                      <th>{chainsT('hops')}</th>
+                      <th>{chainsT('destinationScope')}</th>
+                      <th>{t('common.status')}</th>
+                      <th>{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -219,13 +220,13 @@ export default function ChainsPage() {
                         <td className="mono">{chain.hops.join(' → ')}</td>
                         <td>{chain.destinationScope}</td>
                         <td>
-                          <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? 'enabled' : 'disabled'}</span>
+                          <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? t('common.enabled') : t('common.disabled')}</span>
                         </td>
                         <td>
                           <div className="chain-list-actions">
                             <button className="secondary-button" onClick={() => handleOpenEditor(chain)} type="button">
                               <Edit size={14} />
-                              Edit
+                              {t('common.edit')}
                             </button>
                             <button
                               className="secondary-button"
@@ -233,7 +234,7 @@ export default function ChainsPage() {
                               onClick={() => probeChainMutation.mutate(chain.id)}
                               type="button"
                             >
-                              Probe
+                              {chainsT('probe')}
                             </button>
                           </div>
                         </td>
@@ -246,15 +247,15 @@ export default function ChainsPage() {
 
             {Object.keys(probeResults).length > 0 && (
               <div className="probe-results-section">
-                <h4>Probe Results</h4>
+                <h4>{chainsT('probeResults')}</h4>
                 {Object.entries(probeResults).map(([chainId, result]) => (
                   <div className="token-box" key={chainId}>
-                    <strong>{result.status === 'connected' ? 'Transport ready' : 'Transport blocked'}</strong>
+                    <strong>{result.status === 'connected' ? chainsT('transportReady') : chainsT('transportBlocked')}</strong>
                     <span className="field-hint">{result.blockingReason || result.message}</span>
                     {result.resolvedHops.length > 0 && (
                       <span className="mono">{result.resolvedHops.map((hop) => `${hop.nodeName}:${hop.transportType}`).join(' → ')}</span>
                     )}
-                    {result.blockingNodeId && <span className="muted-text">blocking node: {result.blockingNodeId}</span>}
+                    {result.blockingNodeId && <span className="muted-text">{chainsT('blockingNode')}: {result.blockingNodeId}</span>}
                   </div>
                 ))}
               </div>

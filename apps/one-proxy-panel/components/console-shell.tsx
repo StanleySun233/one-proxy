@@ -147,7 +147,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         <div className="console-topbar-actions">
           <CapsuleSelectGroup>
             <CapsuleSelect
-              aria-label="Theme"
+              aria-label={t('shell.themeLabel')}
               icon={<Shirt size={16} />}
               onChange={handleThemeChange}
               options={[
@@ -158,7 +158,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
             />
 
             <CapsuleSelect
-              aria-label="Language"
+              aria-label={t('shell.languageLabel')}
               icon={<Languages size={16} />}
               onChange={handleLocaleChange}
               options={[

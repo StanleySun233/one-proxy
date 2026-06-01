@@ -5,6 +5,7 @@ import {SortableContext, verticalListSortingStrategy, arrayMove} from '@dnd-kit/
 import {useSortable} from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
 import {GripVertical, Plus, X} from 'lucide-react';
+import {useTranslations} from 'next-intl';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {validateChain} from '@/lib/api';
@@ -48,6 +49,8 @@ export function ChainEditor({
   saving,
   previewing
 }: ChainEditorProps) {
+  const t = useTranslations();
+  const chainsT = useTranslations('chains');
   const [hopItems, setHopItems] = useState<HopItem[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string>('');
   const [validationResult, setValidationResult] = useState<ChainValidationResult | null>(null);
@@ -68,7 +71,7 @@ export function ChainEditor({
       return {
         id: `hop-${index}`,
         nodeId,
-        nodeName: node?.name || `Node ${nodeId}`,
+        nodeName: node?.name || `${t('common.name')} ${nodeId}`,
         nodeMode: node?.mode || 'unknown'
       };
     });
@@ -142,33 +145,33 @@ export function ChainEditor({
     <div className="chain-editor">
       <div className="panel-toolbar">
         <div>
-          <p className="section-kicker">Chain Editor</p>
+          <p className="section-kicker">{chainsT('chainEditor')}</p>
           <div className="inline-cluster" style={{gap: 8}}>
-            <h3>{chainName || 'New Chain'}</h3>
-            {validationPending && <span className="badge is-neutral">validating...</span>}
+            <h3>{chainName || chainsT('newChain')}</h3>
+            {validationPending && <span className="badge is-neutral">{t('common.validating')}</span>}
             {!validationPending && validationResult && (
               <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
-                {validationResult.valid ? 'valid' : 'invalid'}
+                {validationResult.valid ? t('common.valid') : t('common.invalid')}
               </span>
             )}
           </div>
-          <p className="section-copy">Configure chain hops and destination scope</p>
+          <p className="section-copy">{chainsT('editorDesc')}</p>
         </div>
       </div>
 
       <div className="forms-grid">
         <label className="field-stack">
-          <span>Chain Name</span>
-          <input className="field-input" onChange={(e) => onNameChange(e.target.value)} placeholder="prod-k8s-path" value={chainName} />
+          <span>{chainsT('chainName')}</span>
+          <input className="field-input" onChange={(e) => onNameChange(e.target.value)} placeholder={chainsT('chainNamePlaceholder')} value={chainName} />
         </label>
 
         <label className="field-stack">
-          <span>Destination Scope</span>
+          <span>{chainsT('destinationScope')}</span>
           <input
             className="field-input"
             list="scope-suggestions"
             onChange={(e) => onScopeChange(e.target.value)}
-            placeholder="k8s-prod"
+            placeholder={chainsT('destinationScopePlaceholder')}
             value={destinationScope}
           />
           <datalist id="scope-suggestions">
@@ -181,7 +184,7 @@ export function ChainEditor({
 
       <div className="hop-editor-section">
         <div className="section-header">
-          <h4>Hops</h4>
+          <h4>{chainsT('hops')}</h4>
           <span className="badge">{hopItems.length}</span>
         </div>
 
@@ -197,16 +200,16 @@ export function ChainEditor({
 
         {hopItems.length === 0 && (
           <div className="empty-hops">
-            <span className="muted-text">No hops added yet. Add nodes to create a chain.</span>
+            <span className="muted-text">{chainsT('noHops')}</span>
           </div>
         )}
 
         <div className="add-hop-section">
           <label className="field-stack">
-            <span>Add Hop</span>
+            <span>{chainsT('addHop')}</span>
             <div className="inline-cluster">
               <select className="field-select" onChange={(e) => setSelectedNodeId(e.target.value)} value={selectedNodeId}>
-                <option value="">Select a node</option>
+                <option value="">{chainsT('selectNode')}</option>
                 {availableNodes.map((node) => (
                   <option key={node.id} value={node.id}>
                     {node.id} - {node.name} ({node.mode})
@@ -215,7 +218,7 @@ export function ChainEditor({
               </select>
               <button className="secondary-button" disabled={!selectedNodeId} onClick={handleAddHop} type="button">
                 <Plus size={16} />
-                Add
+                {t('common.create')}
               </button>
             </div>
           </label>
@@ -239,13 +242,13 @@ export function ChainEditor({
 
       <div className="submit-row">
         <button className="primary-button" disabled={saving || !chainName || !destinationScope || hopItems.length === 0} onClick={onSave} type="button">
-          {saving ? 'Saving...' : 'Save Chain'}
+          {saving ? t('common.saving') : chainsT('saveChain')}
         </button>
         <button className="secondary-button" disabled={previewing || !chainName || !destinationScope} onClick={onPreview} type="button">
-          {previewing ? 'Compiling...' : 'Preview'}
+          {previewing ? t('common.compiling') : chainsT('preview')}
         </button>
         <button className="secondary-button" onClick={onCancel} type="button">
-          Cancel
+          {t('common.cancel')}
         </button>
       </div>
     </div>
@@ -272,7 +275,7 @@ function SortableHopCard({item, index, onRemove}: {item: HopItem; index: number;
           <strong>{item.nodeName}</strong>
           <span className="badge is-neutral">{item.nodeMode}</span>
         </div>
-        <span className="muted-text mono">Node ID: {item.nodeId}</span>
+        <span className="muted-text mono">ID: {item.nodeId}</span>
       </div>
       <button className="hop-card-remove" onClick={onRemove} type="button">
         <X size={16} />
