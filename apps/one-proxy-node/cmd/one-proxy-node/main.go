@@ -55,7 +55,7 @@ func main() {
 		}); err != nil {
 			log.Fatalf("attach runtime binding failed: %v", err)
 		}
-	} else if cfg.ControlPlaneURL != "" {
+	} else if cfg.ControlPlaneURL != "" && !manager.Bound() {
 		client := controlplane.New(cfg.ControlPlaneURL, cfg.NodeAccessToken)
 		if cfg.NodeAccessToken == "" {
 			if cfg.EnrollmentSecret == "" {
