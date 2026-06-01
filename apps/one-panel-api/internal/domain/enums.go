@@ -43,11 +43,11 @@ const (
 
 // Task status constants
 const (
-	TaskStatusPlanned    = "planned"
-	TaskStatusPending    = "pending"
-	TaskStatusConnected  = "connected"
-	TaskStatusFailed     = "failed"
-	TaskStatusCancelled  = "cancelled"
+	TaskStatusPlanned   = "planned"
+	TaskStatusPending   = "pending"
+	TaskStatusConnected = "connected"
+	TaskStatusFailed    = "failed"
+	TaskStatusCancelled = "cancelled"
 )
 
 // Action type constants
@@ -80,19 +80,20 @@ const (
 
 // Transport status constants
 const (
-	TransportStatusConnected  = "connected"
-	TransportStatusAvailable  = "available"
-	TransportStatusDegraded   = "degraded"
-	TransportStatusFailed     = "failed"
-	TransportStatusPending    = "pending"
+	TransportStatusConnected = "connected"
+	TransportStatusAvailable = "available"
+	TransportStatusDegraded  = "degraded"
+	TransportStatusFailed    = "failed"
+	TransportStatusPending   = "pending"
 )
 
 // Cert status constants
 const (
-	CertStatusHealthy  = "healthy"
+	CertStatusHealthy   = "healthy"
+	CertStatusDegraded  = "degraded"
 	CertStatusRenewSoon = "renew-soon"
-	CertStatusExpired  = "expired"
-	CertStatusRenewed  = "renewed"
+	CertStatusExpired   = "expired"
+	CertStatusRenewed   = "renewed"
 )
 
 // Cert type constants

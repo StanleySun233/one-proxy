@@ -135,7 +135,10 @@ func (s *MySQLStore) RenewNodeCertificate(input domain.NodeCertRenewInput) (doma
 		input.NodeID, input.CertType,
 	).Scan(&certID)
 	if err != nil {
-		certID = newID("cert")
+		certID, err = s.nextID("certificate")
+		if err != nil {
+			return domain.NodeCertRenewResult{}, err
+		}
 		_, err = s.db.Exec(
 			`INSERT INTO certificates (id, owner_type, owner_id, cert_type, provider, status, not_before, not_after, created_at, updated_at)
 			 VALUES (?, 'node', ?, ?, ?, ?, ?, ?, ?, ?)`,

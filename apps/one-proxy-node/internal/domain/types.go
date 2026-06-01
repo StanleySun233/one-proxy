@@ -1,10 +1,18 @@
 package domain
 
 const (
-	ListenerStatusUp       = "up"
-	ListenerStatusDegraded = "degraded"
-	CertStatusHealthy      = "healthy"
-	CertStatusDegraded     = "degraded"
+	ActionTypeChain              = "chain"
+	ActionTypeDirect             = "direct"
+	ListenerStatusUp             = "up"
+	ListenerStatusDegraded       = "degraded"
+	CertStatusHealthy            = "healthy"
+	CertStatusDegraded           = "degraded"
+	MatchTypeDomain              = "domain"
+	MatchTypeDomainSuffix        = "domain_suffix"
+	MatchTypeIPCIDR              = "ip_cidr"
+	MatchTypeIP                  = "ip"
+	MatchTypeProtocol            = "protocol"
+	TransportTypeReverseWSParent = "reverse_ws_parent"
 )
 
 type Node struct {

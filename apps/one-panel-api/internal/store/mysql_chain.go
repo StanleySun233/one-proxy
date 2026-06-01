@@ -95,7 +95,11 @@ func (s *MySQLStore) SaveChainProbeResult(input domain.SaveChainProbeResultInput
 }
 
 func (s *MySQLStore) CreateChain(input domain.CreateChainInput) (domain.Chain, error) {
-	item := domain.Chain{ID: newID("chain"), Name: input.Name, DestinationScope: input.DestinationScope, Enabled: true, Hops: input.Hops}
+	chainID, err := s.nextID("chain")
+	if err != nil {
+		return domain.Chain{}, err
+	}
+	item := domain.Chain{ID: chainID, Name: input.Name, DestinationScope: input.DestinationScope, Enabled: true, Hops: input.Hops}
 	now := nowRFC3339()
 	tx, err := s.db.Begin()
 	if err != nil {

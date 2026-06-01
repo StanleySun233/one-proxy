@@ -8,6 +8,7 @@ import {GripVertical, Plus, X} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
+import {NameTag} from '@/components/common/name-tag';
 import {validateChain} from '@/lib/api';
 import {ChainValidationResult, Node} from '@/lib/types';
 
@@ -272,7 +273,7 @@ function SortableHopCard({item, index, onRemove}: {item: HopItem; index: number;
       <div className="hop-card-content">
         <div className="hop-card-header">
           <span className="hop-index">{index + 1}</span>
-          <strong>{item.nodeName}</strong>
+          <NameTag kind="node">{item.nodeName}</NameTag>
           <span className="badge is-neutral">{item.nodeMode}</span>
         </div>
         <span className="muted-text mono">ID: {item.nodeId}</span>

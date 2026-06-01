@@ -158,11 +158,15 @@ func (s *MySQLStore) bootstrapAdmin(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	accountID, err := s.nextID("account")
+	if err != nil {
+		return err
+	}
 	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO accounts
 		 (id, account, password_hash, role_id, status, must_rotate_password, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"acct-admin", "admin", hash, "role-super-admin", domain.AccountStatusActive, 0, now, now,
+		accountID, "admin", hash, "role-super-admin", domain.AccountStatusActive, 0, now, now,
 	)
 	if err == nil {
 		s.bootstrapAdminPassword = password
@@ -490,7 +494,28 @@ func splitSQLStatements(schema string) []string {
 	return statements
 }
 
-func (s *MySQLStore) nextNodeID() (string, error) {
+func (s *MySQLStore) nextID(name string) (string, error) {
+	tables := map[string]string{
+		"account":          "accounts",
+		"session":          "sessions",
+		"node":             "nodes",
+		"node_link":        "node_links",
+		"chain":            "chains",
+		"route_rule":       "route_rules",
+		"policy_revision":  "policy_revisions",
+		"bootstrap_token":  "bootstrap_tokens",
+		"certificate":      "certificates",
+		"node_api_token":   "node_api_tokens",
+		"trust_material":   "node_trust_materials",
+		"node_access_path": "node_access_paths",
+		"onboarding_task":  "node_onboarding_tasks",
+		"node_transport":   "node_transports",
+		"group":            "`groups`",
+	}
+	table, ok := tables[name]
+	if !ok {
+		return "", fmt.Errorf("unknown id sequence %q", name)
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return "", err
@@ -498,18 +523,22 @@ func (s *MySQLStore) nextNodeID() (string, error) {
 	defer tx.Rollback()
 
 	now := nowRFC3339()
+	var maxExisting int64
+	if err := tx.QueryRow(fmt.Sprintf("SELECT COALESCE(MAX(CAST(id AS UNSIGNED)), 0) FROM %s WHERE id REGEXP '^[0-9]+$'", table)).Scan(&maxExisting); err != nil {
+		return "", err
+	}
 	_, err = tx.Exec(
 		`INSERT INTO id_sequences (name, current_value, updated_at)
-		 VALUES ('node_id', 1, ?)
-		 ON DUPLICATE KEY UPDATE current_value = current_value + 1, updated_at = ?`,
-		now, now,
+		 VALUES (?, ?, ?)
+		 ON DUPLICATE KEY UPDATE current_value = GREATEST(current_value + 1, VALUES(current_value)), updated_at = ?`,
+		name, maxExisting+1, now, now,
 	)
 	if err != nil {
 		return "", err
 	}
 
 	var nextID int64
-	err = tx.QueryRow(`SELECT current_value FROM id_sequences WHERE name = 'node_id'`).Scan(&nextID)
+	err = tx.QueryRow(`SELECT current_value FROM id_sequences WHERE name = ?`, name).Scan(&nextID)
 	if err != nil {
 		return "", err
 	}
@@ -519,6 +548,10 @@ func (s *MySQLStore) nextNodeID() (string, error) {
 	}
 
 	return fmt.Sprintf("%d", nextID), nil
+}
+
+func (s *MySQLStore) nextNodeID() (string, error) {
+	return s.nextID("node")
 }
 
 func boolToInt(value bool) int {

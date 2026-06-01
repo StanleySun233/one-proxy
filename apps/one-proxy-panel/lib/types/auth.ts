@@ -1,8 +1,10 @@
+import type {AccountRole, AccountStatus} from './common';
+
 export type Account = {
   id: string;
   account: string;
-  role: string;
-  status: string;
+  role: AccountRole;
+  status: AccountStatus;
   mustRotatePassword: boolean;
 };
 

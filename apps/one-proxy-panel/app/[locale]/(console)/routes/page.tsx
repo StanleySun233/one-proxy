@@ -8,6 +8,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {createRouteRule, fetchEnums, getChains, getNodes, getPolicyRevisions, getRouteRules, publishPolicy, validateRouteRule} from '@/lib/api';
@@ -533,8 +534,8 @@ export default function RoutesPage() {
                           <div className="muted-text mono">{rule.matchValue}</div>
                         </td>
                         <td>{rule.actionType}</td>
-                        <td>{chainName || '-'}</td>
-                        <td>{rule.destinationScope || '-'}</td>
+                        <td>{chainName ? <NameTag kind="chain">{chainName}</NameTag> : '-'}</td>
+                        <td>{rule.destinationScope ? <NameTag kind="scope">{rule.destinationScope}</NameTag> : '-'}</td>
                         <td>
                           <span className={rule.enabled ? 'badge is-good' : 'badge'}>
                             {rule.enabled ? t('common.enabled') : t('common.disabled')}

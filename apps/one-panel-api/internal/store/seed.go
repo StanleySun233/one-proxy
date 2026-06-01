@@ -10,10 +10,16 @@ import (
 
 type SeedStore struct {
 	adminPassword string
+	sequences     map[string]int64
 }
 
 func NewSeedStore() *SeedStore {
-	return &SeedStore{adminPassword: "admin"}
+	return &SeedStore{adminPassword: "admin", sequences: make(map[string]int64)}
+}
+
+func (s *SeedStore) nextID(name string) string {
+	s.sequences[name]++
+	return fmt.Sprintf("%d", s.sequences[name])
 }
 
 func (s *SeedStore) IsInitialized() bool {
@@ -56,7 +62,7 @@ func (s *SeedStore) ListAccounts() []domain.Account {
 
 func (s *SeedStore) CreateAccount(input domain.CreateAccountInput) (domain.Account, error) {
 	return domain.Account{
-		ID:                 newID("acct"),
+		ID:                 s.nextID("account"),
 		Account:            input.Account,
 		Role:               input.Role,
 		Status:             "active",
@@ -70,7 +76,7 @@ func (s *SeedStore) ListNodeLinks() []domain.NodeLink {
 
 func (s *SeedStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.NodeLink, error) {
 	return domain.NodeLink{
-		ID:           newID("link"),
+		ID:           s.nextID("node_link"),
 		SourceNodeID: input.SourceNodeID,
 		TargetNodeID: input.TargetNodeID,
 		LinkType:     input.LinkType,
@@ -84,7 +90,7 @@ func (s *SeedStore) ListNodeAccessPaths() []domain.NodeAccessPath {
 
 func (s *SeedStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error) {
 	return domain.NodeAccessPath{
-		ID:           newID("path"),
+		ID:           s.nextID("node_access_path"),
 		Name:         input.Name,
 		Mode:         input.Mode,
 		TargetNodeID: input.TargetNodeID,
@@ -122,7 +128,7 @@ func (s *SeedStore) ListNodeOnboardingTasks() []domain.NodeOnboardingTask {
 func (s *SeedStore) CreateNodeOnboardingTask(accountID string, input domain.CreateNodeOnboardingTaskInput) (domain.NodeOnboardingTask, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	return domain.NodeOnboardingTask{
-		ID:                   newID("task"),
+		ID:                   s.nextID("onboarding_task"),
 		Mode:                 input.Mode,
 		PathID:               input.PathID,
 		TargetNodeID:         input.TargetNodeID,
@@ -243,7 +249,7 @@ func (s *SeedStore) ListNodeTransports() []domain.NodeTransport {
 
 func (s *SeedStore) UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error) {
 	return domain.NodeTransport{
-		ID:              newID("transport"),
+		ID:              s.nextID("node_transport"),
 		NodeID:          input.NodeID,
 		TransportType:   input.TransportType,
 		Direction:       input.Direction,
@@ -259,7 +265,7 @@ func (s *SeedStore) UpsertNodeTransport(input domain.UpsertNodeTransportInput) (
 
 func (s *SeedStore) CreateNode(input domain.CreateNodeInput) (domain.Node, error) {
 	return domain.Node{
-		ID:           fmt.Sprintf("node-%d", time.Now().UnixNano()),
+		ID:           s.nextID("node"),
 		Name:         input.Name,
 		Mode:         input.Mode,
 		ScopeKey:     input.ScopeKey,
@@ -331,7 +337,7 @@ func (s *SeedStore) SaveChainProbeResult(input domain.SaveChainProbeResultInput)
 
 func (s *SeedStore) CreateChain(input domain.CreateChainInput) (domain.Chain, error) {
 	return domain.Chain{
-		ID:               fmt.Sprintf("chain-%d", time.Now().UnixNano()),
+		ID:               s.nextID("chain"),
 		Name:             input.Name,
 		DestinationScope: input.DestinationScope,
 		Enabled:          true,
@@ -360,7 +366,7 @@ func (s *SeedStore) ListRouteRules() []domain.RouteRule {
 
 func (s *SeedStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
 	return domain.RouteRule{
-		ID:               fmt.Sprintf("rule-%d", time.Now().UnixNano()),
+		ID:               s.nextID("route_rule"),
 		Priority:         input.Priority,
 		MatchType:        input.MatchType,
 		MatchValue:       input.MatchValue,
@@ -400,18 +406,18 @@ func (s *SeedStore) ListNodeHealthHistory(nodeID string, window time.Duration) (
 func (s *SeedStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error) {
 	token, _ := auth.RandomToken()
 	return domain.BootstrapToken{
-		ID:         newID("bootstrap"),
-		Token:      token,
-		TargetType: input.TargetType,
-		TargetID:   input.TargetID,
-		NodeName:   input.NodeName,
-		NodeMode:   input.NodeMode,
-		ScopeKey:   input.ScopeKey,
+		ID:           s.nextID("bootstrap_token"),
+		Token:        token,
+		TargetType:   input.TargetType,
+		TargetID:     input.TargetID,
+		NodeName:     input.NodeName,
+		NodeMode:     input.NodeMode,
+		ScopeKey:     input.ScopeKey,
 		ParentNodeID: input.ParentNodeID,
-		PublicHost: input.PublicHost,
-		PublicPort: input.PublicPort,
-		ExpiresAt:  time.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339),
-		CreatedAt:  nowRFC3339(),
+		PublicHost:   input.PublicHost,
+		PublicPort:   input.PublicPort,
+		ExpiresAt:    time.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339),
+		CreatedAt:    nowRFC3339(),
 	}, nil
 }
 
@@ -428,7 +434,7 @@ func (s *SeedStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeR
 	enrollmentSecret, _ := auth.RandomToken()
 	return domain.EnrollNodeResult{
 		Node: domain.Node{
-			ID:           newID("node"),
+			ID:           s.nextID("node"),
 			Name:         input.Name,
 			Mode:         input.Mode,
 			ScopeKey:     input.ScopeKey,
@@ -480,7 +486,7 @@ func (s *SeedStore) ListPolicyRevisions() []domain.PolicyRevision {
 func (s *SeedStore) PublishPolicy(accountID string) (domain.PolicyRevision, error) {
 	_ = accountID
 	return domain.PolicyRevision{
-		ID:            newID("policy"),
+		ID:            s.nextID("policy_revision"),
 		Version:       fmt.Sprintf("rev-%d", time.Now().Unix()),
 		Status:        "published",
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
@@ -550,7 +556,7 @@ func (s *SeedStore) CreateGroup(input domain.CreateGroupInput) (domain.Group, er
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	return domain.Group{
-		ID:          newID("grp"),
+		ID:          s.nextID("group"),
 		Name:        input.Name,
 		Description: input.Description,
 		Enabled:     enabled,

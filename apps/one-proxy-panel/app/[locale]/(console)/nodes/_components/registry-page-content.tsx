@@ -6,6 +6,7 @@ import {useTranslations} from 'next-intl';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {NameTag} from '@/components/common/name-tag';
 import {fetchEnums} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
@@ -223,7 +224,7 @@ export function NodeRegistryPageContent() {
                           <tr className={active ? 'is-active-row' : ''} key={node.id}>
                             <td>
                               <div className="registry-name-cell">
-                                <strong>{node.name}</strong>
+                                <NameTag kind="node">{node.name}</NameTag>
                                 <span className={`badge ${node.enabled ? 'is-good-soft' : 'is-neutral'}`}>
                                   {node.enabled ? t('common.enabled') : t('common.disabled')}
                                 </span>

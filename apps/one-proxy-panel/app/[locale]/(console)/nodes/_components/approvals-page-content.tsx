@@ -2,6 +2,7 @@
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {NameTag} from '@/components/common/name-tag';
 import {Node, UnconsumedBootstrapToken} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 import {useTranslations} from 'next-intl';
@@ -63,7 +64,7 @@ export function NodeApprovalsPageContent() {
                       const node = item.data;
                       return (
                         <tr key={node.id}>
-                          <td>{node.name || <span className="muted-text">{t('common.notSpecified')}</span>}</td>
+                          <td>{node.name ? <NameTag kind="node">{node.name}</NameTag> : <span className="muted-text">{t('common.notSpecified')}</span>}</td>
                           <td>{node.mode}</td>
                           <td className="mono">{node.id.substring(0, 12)}</td>
                           <td>

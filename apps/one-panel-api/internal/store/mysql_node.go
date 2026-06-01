@@ -101,7 +101,6 @@ func (s *MySQLStore) syntheticPublicTransports(items []domain.NodeTransport) []d
 }
 
 func (s *MySQLStore) UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error) {
-	id := newID("transport")
 	now := nowRFC3339()
 	detailsJSON := encodeJSONMap(input.Details)
 	existingID := ""
@@ -109,8 +108,13 @@ func (s *MySQLStore) UpsertNodeTransport(input domain.UpsertNodeTransportInput) 
 		`SELECT id FROM node_transports WHERE node_id = ? AND transport_type = ? AND address = ? LIMIT 1`,
 		input.NodeID, input.TransportType, input.Address,
 	).Scan(&existingID)
-	if existingID != "" {
-		id = existingID
+	id := existingID
+	if id == "" {
+		nextID, err := s.nextID("node_transport")
+		if err != nil {
+			return domain.NodeTransport{}, err
+		}
+		id = nextID
 	}
 	_, err := s.db.Exec(
 		`INSERT INTO node_transports (id, node_id, transport_type, direction, address, status, parent_node_id, connected_at, last_heartbeat_at, latency_ms, details_json, created_at, updated_at)
@@ -192,6 +196,14 @@ func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrol
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	now := nowRFC3339()
+	trustID, err := s.nextID("trust_material")
+	if err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	nodeTokenID, err := s.nextID("node_api_token")
+	if err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
 	expiresAt := time.Now().UTC().Add(30 * 24 * time.Hour).Format(time.RFC3339)
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -213,14 +225,14 @@ func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrol
 	if _, err := tx.Exec(
 		`INSERT INTO node_trust_materials (id, node_id, material_type, material_value, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		newID("trust"), nodeID, "shared_secret", trustMaterial, domain.TrustMaterialStatusActive, now, now,
+		trustID, nodeID, "shared_secret", trustMaterial, domain.TrustMaterialStatusActive, now, now,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO node_api_tokens (id, node_id, token_hash, expires_at, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		newID("node-token"), nodeID, accessToken, expiresAt, now, now,
+		nodeTokenID, nodeID, accessToken, expiresAt, now, now,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
@@ -338,15 +350,19 @@ func (s *MySQLStore) ListNodeLinks() []domain.NodeLink {
 }
 
 func (s *MySQLStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.NodeLink, error) {
+	linkID, err := s.nextID("node_link")
+	if err != nil {
+		return domain.NodeLink{}, err
+	}
 	item := domain.NodeLink{
-		ID:           newID("link"),
+		ID:           linkID,
 		SourceNodeID: input.SourceNodeID,
 		TargetNodeID: input.TargetNodeID,
 		LinkType:     input.LinkType,
 		TrustState:   input.TrustState,
 	}
 	now := nowRFC3339()
-	_, err := s.db.Exec(
+	_, err = s.db.Exec(
 		`INSERT INTO node_links (id, source_node_id, target_node_id, link_type, trust_state, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		item.ID, item.SourceNodeID, item.TargetNodeID, item.LinkType, item.TrustState, now, now,
@@ -380,8 +396,12 @@ func (s *MySQLStore) ListNodeAccessPaths() []domain.NodeAccessPath {
 }
 
 func (s *MySQLStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error) {
+	pathID, err := s.nextID("node_access_path")
+	if err != nil {
+		return domain.NodeAccessPath{}, err
+	}
 	item := domain.NodeAccessPath{
-		ID:           newID("path"),
+		ID:           pathID,
 		Name:         input.Name,
 		Mode:         input.Mode,
 		TargetNodeID: input.TargetNodeID,
@@ -392,7 +412,7 @@ func (s *MySQLStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput
 		Enabled:      true,
 	}
 	now := nowRFC3339()
-	_, err := s.db.Exec(
+	_, err = s.db.Exec(
 		`INSERT INTO node_access_paths (id, name, mode, target_node_id, entry_node_id, relay_node_ids_json, target_host, target_port, enabled, created_at, updated_at)
 		 VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?)`,
 		item.ID, item.Name, item.Mode, item.TargetNodeID, item.EntryNodeID, encodeJSONStringSlice(item.RelayNodeIDs), item.TargetHost, item.TargetPort, 1, now, now,
@@ -447,8 +467,12 @@ func (s *MySQLStore) ListNodeOnboardingTasks() []domain.NodeOnboardingTask {
 
 func (s *MySQLStore) CreateNodeOnboardingTask(accountID string, input domain.CreateNodeOnboardingTaskInput) (domain.NodeOnboardingTask, error) {
 	now := nowRFC3339()
+	taskID, err := s.nextID("onboarding_task")
+	if err != nil {
+		return domain.NodeOnboardingTask{}, err
+	}
 	item := domain.NodeOnboardingTask{
-		ID:                   newID("task"),
+		ID:                   taskID,
 		Mode:                 input.Mode,
 		PathID:               input.PathID,
 		TargetNodeID:         input.TargetNodeID,
@@ -460,7 +484,7 @@ func (s *MySQLStore) CreateNodeOnboardingTask(accountID string, input domain.Cre
 		CreatedAt:            now,
 		UpdatedAt:            now,
 	}
-	_, err := s.db.Exec(
+	_, err = s.db.Exec(
 		`INSERT INTO node_onboarding_tasks (id, mode, path_id, target_node_id, target_host, target_port, status, status_message, requested_by_account_id, created_at, updated_at)
 		 VALUES (?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?)`,
 		item.ID, item.Mode, item.PathID, item.TargetNodeID, item.TargetHost, item.TargetPort, item.Status, item.StatusMessage, item.RequestedByAccountID, item.CreatedAt, item.UpdatedAt,
@@ -490,19 +514,23 @@ func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput
 	if err != nil {
 		return domain.BootstrapToken{}, err
 	}
+	tokenID, err := s.nextID("bootstrap_token")
+	if err != nil {
+		return domain.BootstrapToken{}, err
+	}
 	item := domain.BootstrapToken{
-		ID:         newID("bootstrap"),
-		Token:      token,
-		TargetType: input.TargetType,
-		TargetID:   input.TargetID,
-		NodeName:   input.NodeName,
-		NodeMode:   input.NodeMode,
-		ScopeKey:   input.ScopeKey,
+		ID:           tokenID,
+		Token:        token,
+		TargetType:   input.TargetType,
+		TargetID:     input.TargetID,
+		NodeName:     input.NodeName,
+		NodeMode:     input.NodeMode,
+		ScopeKey:     input.ScopeKey,
 		ParentNodeID: input.ParentNodeID,
-		PublicHost: input.PublicHost,
-		PublicPort: input.PublicPort,
-		ExpiresAt:  time.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339),
-		CreatedAt:  nowRFC3339(),
+		PublicHost:   input.PublicHost,
+		PublicPort:   input.PublicPort,
+		ExpiresAt:    time.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339),
+		CreatedAt:    nowRFC3339(),
 	}
 	_, err = s.db.Exec(
 		`INSERT INTO bootstrap_tokens (id, token_hash, target_type, target_id, node_name, node_mode, scope_key, parent_node_id, public_host, public_port, expires_at, consumed_at, created_at)
@@ -600,6 +628,10 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	if err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
+	enrollmentTrustID, err := s.nextID("trust_material")
+	if err != nil {
+		return domain.EnrollNodeResult{}, err
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return domain.EnrollNodeResult{}, err
@@ -671,7 +703,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	if _, err := tx.Exec(
 		`INSERT INTO node_trust_materials (id, node_id, material_type, material_value, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		newID("trust"), node.ID, "enrollment_secret", enrollmentSecret, domain.TrustMaterialStatusPending, now, now,
+		enrollmentTrustID, node.ID, "enrollment_secret", enrollmentSecret, domain.TrustMaterialStatusPending, now, now,
 	); err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
@@ -711,6 +743,14 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (do
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	now := nowRFC3339()
+	trustID, err := s.nextID("trust_material")
+	if err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	nodeTokenID, err := s.nextID("node_api_token")
+	if err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
 	expiresAt := time.Now().UTC().Add(30 * 24 * time.Hour).Format(time.RFC3339)
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -732,14 +772,14 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (do
 	if _, err := tx.Exec(
 		`INSERT INTO node_trust_materials (id, node_id, material_type, material_value, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		newID("trust"), nodeID, "shared_secret", trustMaterial, domain.TrustMaterialStatusActive, now, now,
+		trustID, nodeID, "shared_secret", trustMaterial, domain.TrustMaterialStatusActive, now, now,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO node_api_tokens (id, node_id, token_hash, expires_at, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		newID("node-token"), nodeID, accessToken, expiresAt, now, now,
+		nodeTokenID, nodeID, accessToken, expiresAt, now, now,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
@@ -804,10 +844,14 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 		if err != nil {
 			return domain.ApproveNodeEnrollmentResult{}, err
 		}
+		trustID, err := s.nextID("trust_material")
+		if err != nil {
+			return domain.ApproveNodeEnrollmentResult{}, err
+		}
 		_, err = s.db.Exec(
 			`INSERT INTO node_trust_materials (id, node_id, material_type, material_value, status, created_at, updated_at)
 			 VALUES (?, ?, 'shared_secret', ?, 'active', ?, ?)`,
-			newID("trust"), input.NodeID, trustValue, nowRFC3339(), nowRFC3339(),
+			trustID, input.NodeID, trustValue, nowRFC3339(), nowRFC3339(),
 		)
 		if err != nil {
 			return domain.ApproveNodeEnrollmentResult{}, err

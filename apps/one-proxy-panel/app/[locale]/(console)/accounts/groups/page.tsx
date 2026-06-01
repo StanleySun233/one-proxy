@@ -7,6 +7,7 @@ import {toast} from 'sonner';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {deleteGroup, getGroup, listGroups} from '@/lib/api';
@@ -91,7 +92,7 @@ export default function GroupListPage() {
                 return (
                   <div className="stack-item" key={group.id}>
                     <div className="stack-head">
-                      <strong>{group.name}</strong>
+                      <NameTag kind="group">{group.name}</NameTag>
                       <span className={`badge${group.enabled ? ' is-good' : ' is-neutral'}`}>
                         {group.enabled ? t('shell.groupEnabled') : t('common.disabled')}
                       </span>

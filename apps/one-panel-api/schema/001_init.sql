@@ -334,6 +334,7 @@ INSERT IGNORE INTO field_enum (id, field, value, name, meta) VALUES
 ('enum-transport_status-failed', 'transport_status', 'failed', 'Failed', '{"color":"#ef4444","className":"is-bad"}'),
 ('enum-transport_status-pending', 'transport_status', 'pending', 'Pending', '{"color":"#6b7280","className":"is-muted"}'),
 ('enum-cert_status-healthy', 'cert_status', 'healthy', 'Healthy', '{"color":"#22c55e","className":"is-good"}'),
+('enum-cert_status-degraded', 'cert_status', 'degraded', 'Degraded', '{"color":"#f59e0b","className":"is-warn"}'),
 ('enum-cert_status-renew_soon', 'cert_status', 'renew-soon', 'Renew Soon', '{"color":"#f59e0b","className":"is-warn"}'),
 ('enum-cert_status-expired', 'cert_status', 'expired', 'Expired', '{"color":"#dc2626","className":"is-bad"}'),
 ('enum-cert_status-renewed', 'cert_status', 'renewed', 'Renewed', '{"color":"#22c55e","className":"is-good"}'),

@@ -1,3 +1,5 @@
+import type {NodeMode, ProbeResultStatus, TransportStatus, TransportType} from './common';
+
 export type Chain = {
   id: string;
   name: string;
@@ -9,14 +11,14 @@ export type Chain = {
 export type ChainProbeHop = {
   nodeId: string;
   nodeName: string;
-  transportType: string;
+  transportType: TransportType;
   address: string;
-  status: string;
+  status: TransportStatus;
 };
 
 export type ChainProbeResult = {
   chainId: string;
-  status: string;
+  status: ProbeResultStatus;
   message: string;
   resolvedHops: ChainProbeHop[];
   blockingNodeId: string;
@@ -37,7 +39,7 @@ export type ChainValidationResult = {
 export type CompiledChainHop = {
   nodeId: string;
   nodeName: string;
-  mode: string;
+  mode: NodeMode;
 };
 
 export type CompiledChainConfig = {

@@ -28,6 +28,28 @@ export type FieldEnumEntry = {
 
 export type FieldEnumMap = Record<string, Record<string, FieldEnumEntry>>;
 
+export type NodeMode = 'edge' | 'relay';
+export type NodeStatus = 'healthy' | 'degraded' | 'pending' | 'inactive';
+export type AccountRole = 'super_admin';
+export type AccountStatus = 'active' | 'disabled';
+export type PathMode = 'direct' | 'relay_chain' | 'upstream_pull';
+export type TaskStatus = 'planned' | 'pending' | 'connected' | 'failed' | 'cancelled';
+export type ActionType = 'chain' | 'direct';
+export type LinkType = 'parent_child' | 'relay' | 'managed';
+export type TrustState = 'trusted' | 'active';
+export type TransportType = 'public_http' | 'public_https' | 'reverse_ws_parent' | 'child_ws' | 'reverse_ws';
+export type TransportStatus = 'connected' | 'available' | 'degraded' | 'failed' | 'pending';
+export type CertStatus = 'healthy' | 'degraded' | 'renew-soon' | 'expired' | 'renewed';
+export type CertType = 'public' | 'internal';
+export type BootstrapTargetType = 'node';
+export type TrustMaterialStatus = 'active' | 'rotated' | 'pending' | 'consumed';
+export type ProbeResultStatus = 'connected' | 'failed';
+export type PolicyStatus = 'published';
+export type ListenerStatus = 'up' | 'degraded';
+export type ApprovalState = 'pending' | 'approved' | 'rejected';
+export type MatchType = 'domain' | 'domain_suffix' | 'ip_cidr' | 'ip_range' | 'port' | 'url_regex' | 'default';
+export type DerivedHealthStatus = 'healthy' | 'degraded' | 'stale' | 'unreported';
+
 export type SetupStatus = {
   configured: boolean;
 };
@@ -69,7 +91,7 @@ export type InitRequest = {
 export type PolicyRevision = {
   id: string;
   version: string;
-  status: string;
+  status: PolicyStatus;
   createdAt: string;
   assignedNodes: number;
 };
@@ -78,9 +100,9 @@ export type Certificate = {
   id: string;
   ownerType: string;
   ownerId: string;
-  certType: string;
+  certType: CertType;
   provider: string;
-  status: string;
+  status: CertStatus;
   notBefore: string;
   notAfter: string;
 };

@@ -1,9 +1,11 @@
+import type {ActionType, MatchType} from './common';
+
 export type RouteRule = {
   id: string;
   priority: number;
-  matchType: string;
+  matchType: MatchType;
   matchValue: string;
-  actionType: string;
+  actionType: ActionType;
   chainId?: string;
   destinationScope?: string;
   enabled: boolean;

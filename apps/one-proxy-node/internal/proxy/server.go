@@ -40,13 +40,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	switch match.Rule.ActionType {
-	case "direct":
+	case domain.ActionTypeDirect:
 		if req.Method == http.MethodConnect {
 			s.tunnelDirect(w, req)
 			return
 		}
 		s.forwardDirect(w, req)
-	case "chain":
+	case domain.ActionTypeChain:
 		s.forwardChain(w, req, snapshot, match.Rule)
 	default:
 		http.Error(w, "unsupported_route_action", http.StatusBadRequest)

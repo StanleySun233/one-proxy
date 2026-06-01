@@ -130,8 +130,12 @@ func (s *MySQLStore) PublishPolicy(accountID string) (domain.PolicyRevision, err
 	if err != nil {
 		return domain.PolicyRevision{}, err
 	}
+	policyID, err := s.nextID("policy_revision")
+	if err != nil {
+		return domain.PolicyRevision{}, err
+	}
 	item := domain.PolicyRevision{
-		ID:            newID("policy"),
+		ID:            policyID,
 		Version:       fmt.Sprintf("rev-%d", time.Now().Unix()),
 		Status:        domain.PolicyStatusPublished,
 		CreatedAt:     nowRFC3339(),

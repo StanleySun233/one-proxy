@@ -8,6 +8,7 @@ import {Edit, Trash2} from 'lucide-react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {createChain, getChains, getNodes, previewChain, probeChain, updateChain} from '@/lib/api';
@@ -215,7 +216,7 @@ export default function ChainsPage() {
                       <tr key={chain.id}>
                         <td className="mono">{chain.id}</td>
                         <td>
-                          <strong>{chain.name}</strong>
+                          <NameTag kind="chain">{chain.name}</NameTag>
                         </td>
                         <td className="mono">{chain.hops.join(' → ')}</td>
                         <td>{chain.destinationScope}</td>

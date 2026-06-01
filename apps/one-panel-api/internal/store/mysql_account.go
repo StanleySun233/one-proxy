@@ -42,12 +42,16 @@ func (s *MySQLStore) createSession(accountID string, account string, role string
 	if err != nil {
 		return domain.LoginResult{}, false
 	}
+	sessionID, err := s.nextID("session")
+	if err != nil {
+		return domain.LoginResult{}, false
+	}
 	now := time.Now().UTC()
 	expiresAt := now.Add(12 * time.Hour).Format(time.RFC3339)
 	_, _ = s.db.Exec(
 		`INSERT INTO sessions (id, account_id, access_token_hash, refresh_token_hash, expires_at, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		newID("sess"), accountID, accessToken, refreshToken, expiresAt, now.Format(time.RFC3339), now.Format(time.RFC3339),
+		sessionID, accountID, accessToken, refreshToken, expiresAt, now.Format(time.RFC3339), now.Format(time.RFC3339),
 	)
 	return domain.LoginResult{
 		Account:            domain.Account{ID: accountID, Account: account, Role: role, Status: status, MustRotatePassword: mustRotate},
@@ -92,8 +96,12 @@ func (s *MySQLStore) CreateAccount(input domain.CreateAccountInput) (domain.Acco
 	if err != nil {
 		return domain.Account{}, err
 	}
+	accountID, err := s.nextID("account")
+	if err != nil {
+		return domain.Account{}, err
+	}
 	item := domain.Account{
-		ID:                 newID("acct"),
+		ID:                 accountID,
 		Account:            input.Account,
 		Role:               input.Role,
 		Status:             domain.AccountStatusActive,

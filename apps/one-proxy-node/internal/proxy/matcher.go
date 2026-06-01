@@ -24,25 +24,25 @@ func Match(snapshot policystore.Snapshot, req *http.Request) RouteMatch {
 	protocol := requestProtocol(req)
 	for _, rule := range snapshot.RouteRules {
 		switch rule.MatchType {
-		case "domain":
+		case domain.MatchTypeDomain:
 			if strings.EqualFold(name, rule.MatchValue) {
 				return RouteMatch{Rule: rule, Found: true}
 			}
-		case "domain_suffix":
+		case domain.MatchTypeDomainSuffix:
 			if strings.HasSuffix(strings.ToLower(name), strings.ToLower(rule.MatchValue)) {
 				return RouteMatch{Rule: rule, Found: true}
 			}
-		case "ip":
+		case domain.MatchTypeIP:
 			if name == rule.MatchValue {
 				return RouteMatch{Rule: rule, Found: true}
 			}
-		case "cidr":
+		case domain.MatchTypeIPCIDR:
 			ip := net.ParseIP(name)
 			_, network, err := net.ParseCIDR(rule.MatchValue)
 			if err == nil && ip != nil && network.Contains(ip) {
 				return RouteMatch{Rule: rule, Found: true}
 			}
-		case "protocol":
+		case domain.MatchTypeProtocol:
 			if strings.EqualFold(protocol, rule.MatchValue) {
 				return RouteMatch{Rule: rule, Found: true}
 			}

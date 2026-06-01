@@ -53,9 +53,9 @@ export function ConsoleShell({children}: {children: ReactNode}) {
       href: '/nodes/connect',
       icon: Workflow,
       items: [
+        {label: t('shell.nodeBootstrap'), href: '/nodes/bootstrap'},
         {label: t('shell.nodeConnect'), href: '/nodes/connect'},
         {label: t('shell.nodeManual'), href: '/nodes/manual'},
-        {label: t('shell.nodeBootstrap'), href: '/nodes/bootstrap'},
         {label: t('shell.nodeApprovals'), href: '/nodes/approvals'},
         {label: t('shell.nodeRegistry'), href: '/nodes/registry'},
         {label: t('shell.nodeTopology'), href: '/nodes/topology'}

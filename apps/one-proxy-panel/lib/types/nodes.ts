@@ -1,11 +1,23 @@
+import type {
+  BootstrapTargetType,
+  CertStatus,
+  ListenerStatus,
+  LinkType,
+  NodeMode,
+  NodeStatus,
+  TransportStatus,
+  TransportType,
+  TrustState
+} from './common';
+
 export type Node = {
   id: string;
   name: string;
-  mode: string;
+  mode: NodeMode;
   scopeKey: string;
   parentNodeId: string;
   enabled: boolean;
-  status: string;
+  status: NodeStatus;
   publicHost?: string;
   publicPort?: number;
   reviewedBy?: string;
@@ -17,17 +29,17 @@ export type NodeLink = {
   id: string;
   sourceNodeId: string;
   targetNodeId: string;
-  linkType: string;
-  trustState: string;
+  linkType: LinkType;
+  trustState: TrustState;
 };
 
 export type NodeTransport = {
   id: string;
   nodeId: string;
-  transportType: string;
+  transportType: TransportType;
   direction: string;
   address: string;
-  status: string;
+  status: TransportStatus;
   parentNodeId: string;
   connectedAt: string;
   lastHeartbeatAt: string;
@@ -39,23 +51,23 @@ export type NodeHealth = {
   nodeId: string;
   heartbeatAt: string;
   policyRevisionId: string;
-  listenerStatus: Record<string, string>;
-  certStatus: Record<string, string>;
+  listenerStatus: Record<string, ListenerStatus | NodeStatus>;
+  certStatus: Record<string, CertStatus>;
 };
 
 export type NodeHealthHistory = {
   heartbeatAt: string;
-  listenerStatus: Record<string, string>;
-  certStatus: Record<string, string>;
+  listenerStatus: Record<string, ListenerStatus | NodeStatus>;
+  certStatus: Record<string, CertStatus>;
 };
 
 export type BootstrapToken = {
   id: string;
   token: string;
-  targetType: string;
+  targetType: BootstrapTargetType;
   targetId: string;
   nodeName: string;
-  nodeMode: string;
+  nodeMode: NodeMode;
   scopeKey: string;
   parentNodeId: string;
   publicHost: string;
@@ -65,10 +77,10 @@ export type BootstrapToken = {
 
 export type UnconsumedBootstrapToken = {
   id: string;
-  targetType: string;
+  targetType: BootstrapTargetType;
   targetId: string;
   nodeName: string;
-  nodeMode: string;
+  nodeMode: NodeMode;
   scopeKey: string;
   parentNodeId: string;
   publicHost: string;

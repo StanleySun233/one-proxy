@@ -7,6 +7,7 @@ import {toast} from 'sonner';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {deleteAccount, getAccounts} from '@/lib/api';
@@ -65,7 +66,7 @@ export default function AccountListPage() {
               {accounts.map((account) => (
                 <div className="stack-item" key={account.id}>
                   <div className="stack-head">
-                    <strong>{account.account}</strong>
+                    <NameTag kind="account">{account.account}</NameTag>
                     <span className="badge">{account.role}</span>
                   </div>
                   <span className="muted-text">{account.status}</span>

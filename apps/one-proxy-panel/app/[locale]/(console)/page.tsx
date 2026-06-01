@@ -5,6 +5,7 @@ import {useTranslations} from 'next-intl';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {TopologyPreview} from '@/components/topology-preview';
@@ -130,7 +131,7 @@ export default function OverviewPage() {
               <div className="queue-list">
                 {pendingNodes.slice(0, 3).map((node) => (
                   <div className="queue-item" key={node.id}>
-                    <strong>{node.name}</strong>
+                    <NameTag kind="node">{node.name}</NameTag>
                     <span className="section-copy">
                       {node.mode} · {node.scopeKey} · {node.status}
                     </span>

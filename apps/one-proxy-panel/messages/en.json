@@ -517,7 +517,7 @@
       "controlPlaneUrl": "Control plane URL",
       "nodeAddressPlaceholder": "relay.example.com:2988",
       "joinPasswordPlaceholder": "password",
-      "nodeNamePlaceholder": "node-b",
+      "nodeNamePlaceholder": "relay-b",
       "scopeKeyPlaceholder": "target-scope",
       "parentNodeIdPlaceholder": "optional upstream node id",
       "publicHostPlaceholder": "optional, fallback to address host",

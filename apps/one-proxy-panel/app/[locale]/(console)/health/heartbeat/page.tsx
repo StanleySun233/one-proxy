@@ -8,6 +8,7 @@ import ReactECharts from 'echarts-for-react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {fetchEnums, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/api';
@@ -279,7 +280,7 @@ function ExpandableRow({
         </td>
         <td>
           <div className="registry-name-cell">
-            <strong>{item.name}</strong>
+            <NameTag kind="node">{item.name}</NameTag>
             <span className="muted-text">{item.scopeKey || item.nodeId}</span>
           </div>
         </td>

@@ -10,15 +10,19 @@ func (s *MySQLStore) CreateGroup(input domain.CreateGroupInput) (domain.Group, e
 	if input.Enabled != nil && !*input.Enabled {
 		enabled = 0
 	}
+	groupID, err := s.nextID("group")
+	if err != nil {
+		return domain.Group{}, err
+	}
 	item := domain.Group{
-		ID:          newID("grp"),
+		ID:          groupID,
 		Name:        input.Name,
 		Description: input.Description,
 		Enabled:     enabled == 1,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	_, err := s.db.Exec(
+	_, err = s.db.Exec(
 		"INSERT INTO `groups` (id, name, description, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
 		item.ID, item.Name, item.Description, enabled, now, now,
 	)

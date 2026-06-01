@@ -2,8 +2,6 @@ package store
 
 import (
 	"encoding/json"
-	"fmt"
-	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
@@ -19,16 +17,16 @@ func defaultNodes() []domain.Node {
 
 func defaultChains() []domain.Chain {
 	return []domain.Chain{
-		{ID: "chain-corp-k8s", Name: "corp-k8s", DestinationScope: "c-k8s", Enabled: true, Hops: []string{"1", "2", "3"}},
-		{ID: "chain-office-tools", Name: "office-tools", DestinationScope: "d-office", Enabled: true, Hops: []string{"1", "4"}},
+		{ID: "1", Name: "corp-k8s", DestinationScope: "c-k8s", Enabled: true, Hops: []string{"1", "2", "3"}},
+		{ID: "2", Name: "office-tools", DestinationScope: "d-office", Enabled: true, Hops: []string{"1", "4"}},
 	}
 }
 
 func defaultRouteRules() []domain.RouteRule {
 	return []domain.RouteRule{
-		{ID: "rule-corp-domain", Priority: 100, MatchType: "domain_suffix", MatchValue: ".corp.internal", ActionType: "chain", ChainID: "chain-corp-k8s", DestinationScope: "c-k8s", Enabled: true},
-		{ID: "rule-b-lan-cidr", Priority: 200, MatchType: domain.MatchTypeIPCIDR, MatchValue: "10.30.0.0/16", ActionType: "chain", ChainID: "chain-corp-k8s", DestinationScope: "b-lan", Enabled: true},
-		{ID: "rule-office-host", Priority: 300, MatchType: "domain", MatchValue: "grafana.office.local", ActionType: "chain", ChainID: "chain-office-tools", DestinationScope: "d-office", Enabled: true},
+		{ID: "1", Priority: 100, MatchType: "domain_suffix", MatchValue: ".corp.internal", ActionType: "chain", ChainID: "1", DestinationScope: "c-k8s", Enabled: true},
+		{ID: "2", Priority: 200, MatchType: domain.MatchTypeIPCIDR, MatchValue: "10.30.0.0/16", ActionType: "chain", ChainID: "1", DestinationScope: "b-lan", Enabled: true},
+		{ID: "3", Priority: 300, MatchType: "domain", MatchValue: "grafana.office.local", ActionType: "chain", ChainID: "2", DestinationScope: "d-office", Enabled: true},
 	}
 }
 
@@ -60,16 +58,16 @@ func defaultNodeHealth() []domain.NodeHealth {
 
 func defaultNodeLinks() []domain.NodeLink {
 	return []domain.NodeLink{
-		{ID: "link-1-2", SourceNodeID: "1", TargetNodeID: "2", LinkType: "parent_child", TrustState: "trusted"},
-		{ID: "link-2-3", SourceNodeID: "2", TargetNodeID: "3", LinkType: "parent_child", TrustState: "trusted"},
-		{ID: "link-1-4", SourceNodeID: "1", TargetNodeID: "4", LinkType: "parent_child", TrustState: "trusted"},
+		{ID: "1", SourceNodeID: "1", TargetNodeID: "2", LinkType: "parent_child", TrustState: "trusted"},
+		{ID: "2", SourceNodeID: "2", TargetNodeID: "3", LinkType: "parent_child", TrustState: "trusted"},
+		{ID: "3", SourceNodeID: "1", TargetNodeID: "4", LinkType: "parent_child", TrustState: "trusted"},
 	}
 }
 
 func defaultCertificates() []domain.Certificate {
 	return []domain.Certificate{
-		{ID: "cert-1-public", OwnerType: "node", OwnerID: "1", CertType: "public", Status: "renew-soon", NotBefore: "2026-04-01T00:00:00Z", NotAfter: "2026-05-13T00:00:00Z"},
-		{ID: "cert-2-internal", OwnerType: "node", OwnerID: "2", CertType: "internal", Status: "healthy", NotBefore: "2026-04-01T00:00:00Z", NotAfter: "2026-06-05T00:00:00Z"},
+		{ID: "1", OwnerType: "node", OwnerID: "1", CertType: "public", Status: "renew-soon", NotBefore: "2026-04-01T00:00:00Z", NotAfter: "2026-05-13T00:00:00Z"},
+		{ID: "2", OwnerType: "node", OwnerID: "2", CertType: "internal", Status: "healthy", NotBefore: "2026-04-01T00:00:00Z", NotAfter: "2026-06-05T00:00:00Z"},
 	}
 }
 
@@ -117,11 +115,4 @@ func normalizeStringSlice(value []string) []string {
 		return []string{}
 	}
 	return value
-}
-
-func newID(prefix string) string {
-	if prefix == "node" {
-		return "node-auto-increment"
-	}
-	return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano())
 }

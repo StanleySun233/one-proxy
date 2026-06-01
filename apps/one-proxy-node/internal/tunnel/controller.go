@@ -307,7 +307,7 @@ func (c *Controller) report(current runtime.Binding, status string, lastHeartbea
 		return
 	}
 	_, _ = client.UpsertTransport(domain.UpsertNodeTransportInput{
-		TransportType:   "reverse_ws_parent",
+		TransportType:   domain.TransportTypeReverseWSParent,
 		Direction:       "outbound",
 		Address:         address,
 		Status:          status,

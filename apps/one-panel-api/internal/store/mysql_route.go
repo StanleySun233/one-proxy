@@ -29,8 +29,12 @@ func (s *MySQLStore) ListRouteRules() []domain.RouteRule {
 }
 
 func (s *MySQLStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
+	ruleID, err := s.nextID("route_rule")
+	if err != nil {
+		return domain.RouteRule{}, err
+	}
 	item := domain.RouteRule{
-		ID:               newID("rule"),
+		ID:               ruleID,
 		Priority:         input.Priority,
 		MatchType:        input.MatchType,
 		MatchValue:       input.MatchValue,
@@ -40,7 +44,7 @@ func (s *MySQLStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.
 		Enabled:          true,
 	}
 	now := nowRFC3339()
-	_, err := s.db.Exec(
+	_, err = s.db.Exec(
 		`INSERT INTO route_rules (id, priority, match_type, match_value, action_type, chain_id, destination_scope, enabled, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?)`,
 		item.ID, item.Priority, item.MatchType, item.MatchValue, item.ActionType, item.ChainID, item.DestinationScope, 1, now, now,

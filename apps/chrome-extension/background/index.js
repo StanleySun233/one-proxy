@@ -99,6 +99,14 @@ function escapePacString(value) {
   return String(value || '').replaceAll('\\', '\\\\').replaceAll("'", "\\'");
 }
 
+function urlHostname(value) {
+  try {
+    return new URL(value).hostname;
+  } catch (_error) {
+    return '';
+  }
+}
+
 function cidrToMask(prefix) {
   const bits = Number(prefix);
   if (!Number.isInteger(bits) || bits < 0 || bits > 32) {
@@ -134,6 +142,8 @@ function buildPacScript(state) {
     'localhost',
     '*.local',
     '*.lan',
+    urlHostname(state.controlPlaneUrl),
+    group ? group.proxyHost : '',
     ...(group ? group.directHosts : []),
     ...(state.localOverrides.directHosts || [])
   ]);
