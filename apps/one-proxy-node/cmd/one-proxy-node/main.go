@@ -39,16 +39,17 @@ func main() {
 	}
 	tunnelRegistry := tunnel.NewRegistry()
 	if cfg.ControlPlaneURL != "" && cfg.NodeAccessToken != "" && cfg.NodeID != "" {
+		current := manager.Current()
 		if err := manager.Attach(runtime.Binding{
 			ControlPlaneURL: cfg.ControlPlaneURL,
 			NodeID:          cfg.NodeID,
 			NodeAccessToken: cfg.NodeAccessToken,
-			NodeName:        cfg.NodeName,
-			NodeMode:        cfg.NodeMode,
-			NodeScopeKey:    cfg.NodeScopeKey,
-			NodeParentID:    cfg.NodeParentID,
-			NodePublicHost:  cfg.NodePublicHost,
-			NodePublicPort:  listenPort(cfg.ListenAddr),
+			NodeName:        firstNonEmpty(cfg.NodeName, current.NodeName),
+			NodeMode:        firstNonEmpty(cfg.NodeMode, current.NodeMode),
+			NodeScopeKey:    firstNonEmpty(cfg.NodeScopeKey, current.NodeScopeKey),
+			NodeParentID:    firstNonEmpty(cfg.NodeParentID, current.NodeParentID),
+			NodePublicHost:  firstNonEmpty(cfg.NodePublicHost, current.NodePublicHost),
+			NodePublicPort:  firstPositive(listenPort(cfg.ListenAddr), current.NodePublicPort),
 		}); err != nil {
 			log.Fatalf("attach runtime binding failed: %v", err)
 		}
@@ -207,4 +208,22 @@ func listenPort(addr string) int {
 		return 0
 	}
 	return port
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func firstPositive(values ...int) int {
+	for _, value := range values {
+		if value > 0 {
+			return value
+		}
+	}
+	return 0
 }

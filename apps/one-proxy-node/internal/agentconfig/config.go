@@ -37,7 +37,7 @@ func Load() Config {
 		EnrollmentSecret:         envOrDefault("NODE_ENROLLMENT_SECRET", ""),
 		NodeID:                   envOrDefault("NODE_ID", ""),
 		NodeName:                 envOrDefault("NODE_NAME", ""),
-		NodeMode:                 envOrDefault("NODE_MODE", "relay"),
+		NodeMode:                 envOrDefault("NODE_MODE", ""),
 		NodeScopeKey:             envOrDefault("NODE_SCOPE_KEY", ""),
 		NodeParentID:             envOrDefault("NODE_PARENT_ID", ""),
 		NodePublicHost:           envOrDefault("NODE_PUBLIC_HOST", ""),
