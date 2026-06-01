@@ -1,0 +1,74 @@
+.expiry-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.expiry-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.expiry-dot.is-good {
+  background: var(--success);
+}
+
+.expiry-dot.is-warn {
+  background: var(--accent);
+}
+
+.expiry-dot.is-danger {
+  background: var(--danger);
+}
+
+.expiry-days {
+  font-size: 11px;
+}
+
+.expiry-days.is-good {
+  color: var(--success);
+}
+
+.expiry-days.is-warn {
+  color: var(--accent);
+}
+
+.expiry-days.is-danger {
+  color: var(--danger);
+}
+
+.alert-banner {
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel) 88%);
+}
+
+.alert-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.alert-content strong {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.alert-content span {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.alert-content a {
+  color: var(--accent);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.alert-content a:hover {
+  opacity: 0.8;
+}

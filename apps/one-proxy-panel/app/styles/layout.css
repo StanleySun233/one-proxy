@@ -1,0 +1,157 @@
+.console-shell {
+  min-height: 100vh;
+  padding: 24px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 20px;
+}
+
+.console-topbar,
+.console-workspace,
+.console-rail,
+.console-main,
+.page-stack,
+.hero-copy,
+.hero-aside,
+.metrics-grid,
+.two-column-grid,
+.triple-grid,
+.nav-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.console-topbar,
+.nav-panel,
+.panel-card,
+.hero-panel,
+.flow-card,
+.console-main {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 86%, var(--backdrop) 14%);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(18px);
+}
+
+.console-topbar,
+.nav-panel,
+.panel-card,
+.hero-panel,
+.flow-card,
+.console-main {
+  border-radius: 20px;
+}
+
+.console-topbar {
+  position: relative;
+  z-index: 20;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 14px;
+}
+
+.console-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.console-topbar-favicon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-2) 86%, var(--panel) 14%);
+}
+
+.console-topbar-favicon img {
+  width: 24px;
+  height: 24px;
+}
+
+.console-topbar-wordmark {
+  font-size: 15px;
+  font-weight: 760;
+  color: var(--text);
+}
+
+.console-topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.console-user-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-2) 84%, var(--panel) 16%);
+}
+
+.console-user-avatar {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--primary) 20%, var(--panel) 80%);
+  color: var(--success);
+  font-weight: 700;
+}
+
+.console-user-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.console-user-copy strong {
+  font-size: 13px;
+}
+
+.console-user-copy span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.console-workspace {
+  grid-template-columns: 288px minmax(0, 1fr);
+  align-items: start;
+}
+
+.console-rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+
+.nav-panel,
+.panel-card,
+.console-main {
+  padding: 18px;
+}
+
+.section-kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel-card h3 {
+  margin: 0;
+}
+
+.mono,
+.react-flow__node {
+  font-family: var(--font-mono), "SFMono-Regular", monospace;
+}

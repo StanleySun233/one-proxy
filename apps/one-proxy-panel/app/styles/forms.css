@@ -1,0 +1,208 @@
+.field-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.field-stack span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.field-input,
+.field-select,
+.field-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.field-input[aria-invalid='true'],
+.field-select[aria-invalid='true'],
+.field-textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 55%, transparent 45%);
+}
+
+.field-textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.error-text {
+  margin: 0;
+  color: var(--danger);
+}
+
+.async-state {
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+  background: color-mix(in srgb, var(--panel-2) 86%, var(--panel) 14%);
+}
+
+.async-state p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.table-card,
+.list-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stack-list {
+  display: grid;
+  gap: 12px;
+}
+
+.stack-item {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--panel-2);
+  display: grid;
+  gap: 8px;
+}
+
+.stack-head,
+.inline-cluster,
+.panel-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.inline-cluster {
+  justify-content: flex-start;
+}
+
+.check-list {
+  display: grid;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-2);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 84%, var(--panel-2) 16%);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.badge.is-good {
+  background: color-mix(in srgb, var(--primary) 16%, var(--panel) 84%);
+  color: var(--success);
+}
+
+.badge.is-warn {
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel) 84%);
+  color: var(--accent);
+}
+
+.badge.is-danger {
+  background: color-mix(in srgb, var(--danger) 18%, var(--panel) 82%);
+  color: color-mix(in srgb, var(--danger) 84%, #7a221a 16%);
+}
+
+.badge.is-neutral {
+  background: color-mix(in srgb, var(--panel-2) 72%, var(--panel) 28%);
+  color: var(--muted);
+}
+
+.badge.is-good-soft {
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel) 90%);
+  color: var(--success);
+}
+
+.name-tag {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.name-tag.is-node {
+  border-color: color-mix(in srgb, #2f8f6f 36%, var(--line) 64%);
+  background: color-mix(in srgb, #2f8f6f 16%, var(--panel) 84%);
+  color: color-mix(in srgb, #1f6f56 86%, var(--text) 14%);
+}
+
+.name-tag.is-chain {
+  border-color: color-mix(in srgb, #4c74b9 34%, var(--line) 66%);
+  background: color-mix(in srgb, #4c74b9 15%, var(--panel) 85%);
+  color: color-mix(in srgb, #2f5798 86%, var(--text) 14%);
+}
+
+.name-tag.is-route {
+  border-color: color-mix(in srgb, #b7792f 34%, var(--line) 66%);
+  background: color-mix(in srgb, #b7792f 16%, var(--panel) 84%);
+  color: color-mix(in srgb, #86531c 86%, var(--text) 14%);
+}
+
+.name-tag.is-scope {
+  border-color: color-mix(in srgb, #8b6fb6 34%, var(--line) 66%);
+  background: color-mix(in srgb, #8b6fb6 15%, var(--panel) 85%);
+  color: color-mix(in srgb, #654c91 86%, var(--text) 14%);
+}
+
+.name-tag.is-account,
+.name-tag.is-group,
+.name-tag.is-certificate {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line) 66%);
+  background: color-mix(in srgb, var(--accent) 13%, var(--panel) 87%);
+  color: color-mix(in srgb, var(--accent) 86%, var(--text) 14%);
+}
