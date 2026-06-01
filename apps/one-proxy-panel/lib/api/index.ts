@@ -3,10 +3,8 @@ export type { Session } from './client';
 export { login, logout } from './auth';
 export {
   getNodes,
-  createNode,
   updateNode,
   deleteNode,
-  connectNode,
   approveNode,
   rejectNode,
   getPendingNodes,

@@ -9,9 +9,7 @@ import {useAuth} from '@/components/auth-provider';
 import {BootstrapToken} from '@/lib/types';
 import {
   approveNode,
-  connectNode,
   createBootstrapToken,
-  createNode,
   createNodeLink,
   deleteBootstrapToken,
   deleteNode,
@@ -30,7 +28,7 @@ import {
 } from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
-import {BootstrapFormValues, NodeFormValues, QuickConnectFormValues} from './types';
+import {BootstrapFormValues} from './types';
 
 export function useNodeConsole() {
   const {session} = useAuth();
@@ -39,36 +37,9 @@ export function useNodeConsole() {
 
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodeModeKeys = Object.keys(enums?.node_mode || {});
-  const DEFAULT_MODE = nodeModeKeys.find(k => k === 'relay') || 'relay';
   const DEFAULT_BOOTSTRAP_MODE = nodeModeKeys.find(k => k === 'edge') || 'edge';
   const bootstrapTargetKeys = Object.keys(enums?.bootstrap_target_type || {});
   const DEFAULT_TARGET_TYPE = bootstrapTargetKeys.find(k => k === 'node') || 'node';
-
-  const nodeForm = useForm<NodeFormValues>({
-    defaultValues: {
-      name: '',
-      mode: DEFAULT_MODE,
-      scopeKey: '',
-      parentNodeId: '',
-      publicHost: '',
-      publicPort: '2988'
-    }
-  });
-
-  const quickConnectForm = useForm<QuickConnectFormValues>({
-    defaultValues: {
-      address: '',
-      password: '',
-      newPassword: '',
-      name: '',
-      mode: DEFAULT_MODE,
-      scopeKey: '',
-      parentNodeId: '',
-      publicHost: '',
-      publicPort: '',
-      controlPlaneUrl: ''
-    }
-  });
 
   const [latestToken, setLatestToken] = useState<BootstrapToken | null>(null);
 
@@ -129,61 +100,6 @@ export function useNodeConsole() {
     queryFn: () => getUnconsumedBootstrapTokens(accessToken),
     enabled: !!accessToken,
     refetchInterval: 30000
-  });
-
-  const createNodeMutation = useMutation({
-    mutationFn: (payload: {
-      name: string;
-      mode: string;
-      scopeKey: string;
-      parentNodeId: string;
-      publicHost: string;
-      publicPort: number;
-    }) => createNode(accessToken, payload),
-    onSuccess: () => {
-      toast.success('node created');
-      queryClient.invalidateQueries({queryKey: ['nodes']});
-      nodeForm.reset();
-    },
-    onError: (error) => {
-      toast.error(formatControlPlaneError(error));
-    }
-  });
-
-  const quickConnectMutation = useMutation({
-    mutationFn: (payload: {
-      address: string;
-      password: string;
-      newPassword: string;
-      name: string;
-      mode: string;
-      scopeKey: string;
-      parentNodeId: string;
-      publicHost: string;
-      publicPort: number;
-      controlPlaneUrl: string;
-    }) => connectNode(accessToken, payload),
-    onSuccess: (result) => {
-      toast.success(`node connected ${result.node.id}`);
-      queryClient.invalidateQueries({queryKey: ['nodes']});
-      queryClient.invalidateQueries({queryKey: ['node-links']});
-      queryClient.invalidateQueries({queryKey: ['node-transports']});
-      quickConnectForm.reset({
-        address: '',
-        password: '',
-        newPassword: '',
-        name: '',
-        mode: DEFAULT_MODE,
-        scopeKey: '',
-        parentNodeId: '',
-        publicHost: '',
-        publicPort: '',
-        controlPlaneUrl: quickConnectForm.getValues('controlPlaneUrl')
-      });
-    },
-    onError: (error) => {
-      toast.error(formatControlPlaneError(error));
-    }
   });
 
   const bootstrapMutation = useMutation({
@@ -337,8 +253,6 @@ export function useNodeConsole() {
 
   return {
     accessToken,
-    nodeForm,
-    quickConnectForm,
     bootstrapForm,
     nodesQuery,
     scopesQuery,
@@ -348,8 +262,6 @@ export function useNodeConsole() {
     pendingNodesQuery,
     unconsumedTokensQuery,
     latestToken,
-    createNode: createNodeMutation,
-    quickConnect: quickConnectMutation,
     bootstrap: bootstrapMutation,
     approve: approveMutation,
     rejectNode: rejectNodeMutation,

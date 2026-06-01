@@ -88,13 +88,3 @@ export type UnconsumedBootstrapToken = {
   expiresAt: string;
   createdAt: string;
 };
-
-export type ConnectedNodeResult = {
-  node: Node;
-  connectionStatus: string;
-  localIps: string[];
-  nodeListenAddr: string;
-  nodeHttpsListenAddr: string;
-  controlPlaneBound: boolean;
-  mustRotatePassword: boolean;
-};

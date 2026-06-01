@@ -7,7 +7,6 @@ export type {
   NodeHealthHistory,
   BootstrapToken,
   UnconsumedBootstrapToken,
-  ConnectedNodeResult,
 } from './nodes';
 export type {
   Chain,

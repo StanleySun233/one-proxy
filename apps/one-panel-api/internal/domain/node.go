@@ -35,29 +35,6 @@ type UpdateNodeInput struct {
 	Status       string `json:"status"`
 }
 
-type ConnectNodeInput struct {
-	Address         string `json:"address"`
-	Password        string `json:"password"`
-	NewPassword     string `json:"newPassword"`
-	Name            string `json:"name"`
-	Mode            string `json:"mode"`
-	ScopeKey        string `json:"scopeKey"`
-	ParentNodeID    string `json:"parentNodeId"`
-	PublicHost      string `json:"publicHost"`
-	PublicPort      int    `json:"publicPort"`
-	ControlPlaneURL string `json:"controlPlaneUrl"`
-}
-
-type ConnectedNodeResult struct {
-	Node                Node     `json:"node"`
-	ConnectionStatus    string   `json:"connectionStatus"`
-	LocalIPs            []string `json:"localIps"`
-	NodeListenAddr      string   `json:"nodeListenAddr"`
-	NodeHTTPSListenAddr string   `json:"nodeHttpsListenAddr"`
-	ControlPlaneBound   bool     `json:"controlPlaneBound"`
-	MustRotatePassword  bool     `json:"mustRotatePassword"`
-}
-
 type NodeLink struct {
 	ID           string `json:"id"`
 	SourceNodeID string `json:"sourceNodeId"`

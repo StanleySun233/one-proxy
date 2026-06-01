@@ -9,7 +9,6 @@ import {
   Route,
   ShieldCheck,
   Shirt,
-  Tags,
   Users,
   Workflow
 } from 'lucide-react';
@@ -42,39 +41,33 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const pendingCount = (pendingQuery.data || []).length;
   const navSections = [
     {
+      key: 'chains',
+      label: t('nav.chains'),
+      href: '/scopes',
+      icon: GitBranch,
+      items: [
+        {label: t('shell.scopeBoard'), href: '/scopes'},
+        {label: t('shell.nodeTopology'), href: '/nodes/topology'},
+        {label: t('shell.chainStudio'), href: '/chains'}
+      ]
+    },
+    {
+      key: 'nodes',
+      label: t('nav.nodes'),
+      href: '/nodes/bootstrap',
+      icon: Workflow,
+      items: [
+        {label: t('shell.nodeBootstrap'), href: '/nodes/bootstrap'},
+        {label: t('shell.nodeApprovals'), href: '/nodes/approvals'},
+        {label: t('shell.nodeRegistry'), href: '/nodes/registry'}
+      ]
+    },
+    {
       key: 'overview',
       label: t('nav.overview'),
       href: '/',
       icon: LayoutDashboard,
       items: [{label: t('shell.summary'), href: '/'}]
-    },
-    {
-      key: 'nodes',
-      label: t('nav.nodes'),
-      href: '/nodes/connect',
-      icon: Workflow,
-      items: [
-        {label: t('shell.nodeBootstrap'), href: '/nodes/bootstrap'},
-        {label: t('shell.nodeConnect'), href: '/nodes/connect'},
-        {label: t('shell.nodeManual'), href: '/nodes/manual'},
-        {label: t('shell.nodeApprovals'), href: '/nodes/approvals'},
-        {label: t('shell.nodeRegistry'), href: '/nodes/registry'},
-        {label: t('shell.nodeTopology'), href: '/nodes/topology'}
-      ]
-    },
-    {
-      key: 'scopes',
-      label: t('nav.scopes'),
-      href: '/scopes',
-      icon: Tags,
-      items: [{label: t('shell.scopeBoard'), href: '/scopes'}]
-    },
-    {
-      key: 'chains',
-      label: t('nav.chains'),
-      href: '/chains',
-      icon: GitBranch,
-      items: [{label: t('shell.chainStudio'), href: '/chains'}]
     },
     {
       key: 'routes',

@@ -5,7 +5,6 @@ import type {
   NodeTransport,
   BootstrapToken,
   UnconsumedBootstrapToken,
-  ConnectedNodeResult,
   NodeHealth,
   NodeHealthHistory,
   Overview,
@@ -13,17 +12,6 @@ import type {
 
 export function getNodes(accessToken: string) {
   return request<Node[]>('/nodes', {accessToken});
-}
-
-export function createNode(
-  accessToken: string,
-  payload: {name: string; mode: string; scopeKey: string; parentNodeId: string; publicHost: string; publicPort: number}
-) {
-  return request<Node>('/nodes', {
-    method: 'POST',
-    accessToken,
-    body: payload
-  });
 }
 
 export function updateNode(
@@ -51,28 +39,6 @@ export function deleteNode(accessToken: string, nodeID: string) {
   return request<{status: string}>(`/nodes/${nodeID}`, {
     method: 'DELETE',
     accessToken
-  });
-}
-
-export function connectNode(
-  accessToken: string,
-  payload: {
-    address: string;
-    password: string;
-    newPassword: string;
-    name: string;
-    mode: string;
-    scopeKey: string;
-    parentNodeId: string;
-    publicHost: string;
-    publicPort: number;
-    controlPlaneUrl: string;
-  }
-) {
-  return request<ConnectedNodeResult>('/nodes/connect', {
-    method: 'POST',
-    accessToken,
-    body: payload
   });
 }
 

@@ -1,144 +1,17 @@
 package service
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/controlrelay"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/network"
 )
-
-type remoteNodeAttachInput struct {
-	Password        string   `json:"password"`
-	NewPassword     string   `json:"newPassword"`
-	ControlPlaneURL string   `json:"controlPlaneUrl"`
-	NodeID          string   `json:"nodeId"`
-	NodeAccessToken string   `json:"nodeAccessToken"`
-	NodeName        string   `json:"nodeName"`
-	NodeMode        string   `json:"nodeMode"`
-	NodeScopeKey    string   `json:"nodeScopeKey"`
-	NodeParentID    string   `json:"nodeParentId"`
-	NodePublicHost  string   `json:"nodePublicHost"`
-	NodePublicPort  int      `json:"nodePublicPort"`
-	LocalIPs        []string `json:"localIps"`
-}
-
-type remoteNodeAttachResult struct {
-	ConnectionStatus    string   `json:"connectionStatus"`
-	LocalIPs            []string `json:"localIps"`
-	NodeListenAddr      string   `json:"nodeListenAddr"`
-	NodeHTTPSListenAddr string   `json:"nodeHttpsListenAddr"`
-	ControlPlaneBound   bool     `json:"controlPlaneBound"`
-	MustRotatePassword  bool     `json:"mustRotatePassword"`
-}
-
-type remoteEnvelope[T any] struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    T      `json:"data"`
-}
 
 func (c *ControlPlane) Nodes() []domain.Node {
 	return c.store.ListNodes()
-}
-
-func (c *ControlPlane) CreateNode(input domain.CreateNodeInput) (domain.Node, error) {
-	if err := validateNodeInput(input.Name, input.Mode, input.ScopeKey); err != nil {
-		return domain.Node{}, err
-	}
-	if !c.scopeExists(input.ScopeKey) {
-		return domain.Node{}, invalidInput("scope_not_found")
-	}
-	return c.store.CreateNode(input)
-}
-
-func (c *ControlPlane) ConnectNode(input domain.ConnectNodeInput) (domain.ConnectedNodeResult, error) {
-	if input.Address == "" || input.Password == "" || input.ControlPlaneURL == "" {
-		return domain.ConnectedNodeResult{}, invalidInput("invalid_connect_node_payload")
-	}
-	if err := validateNodeInput(input.Name, input.Mode, input.ScopeKey); err != nil {
-		return domain.ConnectedNodeResult{}, err
-	}
-	if !c.scopeExists(input.ScopeKey) {
-		return domain.ConnectedNodeResult{}, invalidInput("scope_not_found")
-	}
-	if parsedURL, err := url.Parse(input.ControlPlaneURL); err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return domain.ConnectedNodeResult{}, invalidInput("invalid_control_plane_url")
-	}
-	publicHost := input.PublicHost
-	publicPort := input.PublicPort
-	if publicHost == "" || publicPort <= 0 {
-		host, port, err := splitAddress(input.Address)
-		if err != nil {
-			return domain.ConnectedNodeResult{}, invalidInput("invalid_node_address")
-		}
-		if publicHost == "" {
-			publicHost = host
-		}
-		if publicPort <= 0 {
-			publicPort = port
-		}
-	}
-	node, err := c.store.CreateNode(domain.CreateNodeInput{
-		Name:         input.Name,
-		Mode:         input.Mode,
-		ScopeKey:     input.ScopeKey,
-		ParentNodeID: input.ParentNodeID,
-		PublicHost:   publicHost,
-		PublicPort:   publicPort,
-	})
-	if err != nil {
-		return domain.ConnectedNodeResult{}, err
-	}
-	if input.ParentNodeID != "" {
-		if _, err := c.store.CreateNodeLink(domain.CreateNodeLinkInput{
-			SourceNodeID: input.ParentNodeID,
-			TargetNodeID: node.ID,
-			LinkType:     domain.LinkTypeManaged,
-			TrustState:   domain.TrustStateActive,
-		}); err != nil {
-			_ = c.store.DeleteNode(node.ID)
-			return domain.ConnectedNodeResult{}, err
-		}
-	}
-	issued, err := c.store.ProvisionNodeAccess(node.ID)
-	if err != nil {
-		_ = c.store.DeleteNode(node.ID)
-		return domain.ConnectedNodeResult{}, err
-	}
-	result, err := connectRemoteNode(input.Address, remoteNodeAttachInput{
-		Password:        input.Password,
-		NewPassword:     input.NewPassword,
-		ControlPlaneURL: input.ControlPlaneURL,
-		NodeID:          issued.Node.ID,
-		NodeAccessToken: issued.AccessToken,
-		NodeName:        issued.Node.Name,
-		NodeMode:        issued.Node.Mode,
-		NodeScopeKey:    issued.Node.ScopeKey,
-		NodeParentID:    issued.Node.ParentNodeID,
-		NodePublicHost:  issued.Node.PublicHost,
-		NodePublicPort:  issued.Node.PublicPort,
-		LocalIPs:        network.LocalIPs(),
-	})
-	if err != nil {
-		_ = c.store.DeleteNode(node.ID)
-		return domain.ConnectedNodeResult{}, invalidInput(err.Error())
-	}
-	return domain.ConnectedNodeResult{
-		Node:                issued.Node,
-		ConnectionStatus:    result.ConnectionStatus,
-		LocalIPs:            result.LocalIPs,
-		NodeListenAddr:      result.NodeListenAddr,
-		NodeHTTPSListenAddr: result.NodeHTTPSListenAddr,
-		ControlPlaneBound:   result.ControlPlaneBound,
-		MustRotatePassword:  result.MustRotatePassword,
-	}, nil
 }
 
 func (c *ControlPlane) UpdateNode(nodeID string, input domain.UpdateNodeInput) (domain.Node, error) {
@@ -496,65 +369,4 @@ func nodeByID(items []domain.Node, nodeID string) (domain.Node, bool) {
 		}
 	}
 	return domain.Node{}, false
-}
-
-func connectRemoteNode(address string, input remoteNodeAttachInput) (remoteNodeAttachResult, error) {
-	body, err := json.Marshal(input)
-	if err != nil {
-		return remoteNodeAttachResult{}, err
-	}
-	targetURL := normalizeNodeAddress(address) + "/api/v1/node/bootstrap/attach"
-	req, err := http.NewRequest(http.MethodPost, targetURL, bytes.NewReader(body))
-	if err != nil {
-		return remoteNodeAttachResult{}, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return remoteNodeAttachResult{}, fmt.Errorf("node_connect_failed")
-	}
-	defer resp.Body.Close()
-	var envelope remoteEnvelope[remoteNodeAttachResult]
-	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return remoteNodeAttachResult{}, fmt.Errorf("node_connect_failed")
-	}
-	if resp.StatusCode >= http.StatusBadRequest || envelope.Code != 0 {
-		if envelope.Message != "" {
-			return remoteNodeAttachResult{}, fmt.Errorf(envelope.Message)
-		}
-		return remoteNodeAttachResult{}, fmt.Errorf("node_connect_failed")
-	}
-	return envelope.Data, nil
-}
-
-func normalizeNodeAddress(address string) string {
-	trimmed := strings.TrimSpace(address)
-	if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
-		return strings.TrimRight(trimmed, "/")
-	}
-	return "http://" + strings.TrimRight(trimmed, "/")
-}
-
-func splitAddress(address string) (string, int, error) {
-	normalized := strings.TrimPrefix(strings.TrimPrefix(normalizeNodeAddress(address), "http://"), "https://")
-	hostPort := strings.SplitN(normalized, "/", 2)[0]
-	parts := strings.Split(hostPort, ":")
-	if len(parts) < 2 {
-		return "", 0, fmt.Errorf("invalid_address")
-	}
-	port, err := parsePort(parts[len(parts)-1])
-	if err != nil {
-		return "", 0, err
-	}
-	host := strings.Join(parts[:len(parts)-1], ":")
-	return host, port, nil
-}
-
-func parsePort(raw string) (int, error) {
-	var port int
-	if _, err := fmt.Sscanf(raw, "%d", &port); err != nil || port <= 0 {
-		return 0, fmt.Errorf("invalid_port")
-	}
-	return port, nil
 }

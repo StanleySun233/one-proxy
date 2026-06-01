@@ -16,20 +16,8 @@ func (r *Router) handleNodes(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		writeSuccess(w, http.StatusOK, r.service.Nodes())
-	case http.MethodPost:
-		var payload domain.CreateNodeInput
-		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_json")
-			return
-		}
-		item, err := r.service.CreateNode(payload)
-		if err != nil {
-			writeServiceError(w, req, err, "create_failed")
-			return
-		}
-		writeSuccess(w, http.StatusCreated, item)
 	default:
-		writeMethodNotAllowed(w, "GET, POST")
+		writeMethodNotAllowed(w, "GET")
 	}
 }
 
@@ -65,24 +53,6 @@ func (r *Router) handleNodeByID(w http.ResponseWriter, req *http.Request) {
 	default:
 		writeMethodNotAllowed(w, "PATCH, DELETE")
 	}
-}
-
-func (r *Router) handleNodeConnect(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		writeMethodNotAllowed(w, "POST")
-		return
-	}
-	var payload domain.ConnectNodeInput
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json")
-		return
-	}
-	item, err := r.service.ConnectNode(payload)
-	if err != nil {
-		writeServiceError(w, req, err, "connect_failed")
-		return
-	}
-	writeSuccess(w, http.StatusOK, item)
 }
 
 func (r *Router) handleNodeApprove(w http.ResponseWriter, req *http.Request) {
