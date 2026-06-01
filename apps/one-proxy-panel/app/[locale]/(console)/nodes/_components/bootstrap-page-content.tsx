@@ -13,7 +13,7 @@ export function NodeBootstrapPageContent() {
 
   const handleBootstrap = useCallback(
     (data: BootstrapFormValues) => {
-      nodeConsole.bootstrap.mutate({targetId: data.targetId.trim(), nodeName: data.nodeName.trim()});
+      nodeConsole.bootstrap.mutate({targetId: data.targetId.trim(), nodeName: data.nodeName.trim(), nodeMode: data.nodeMode});
     },
     [nodeConsole.bootstrap]
   );
@@ -30,6 +30,7 @@ export function NodeBootstrapPageContent() {
           <BootstrapTokenTab
             form={nodeConsole.bootstrapForm}
             latestToken={nodeConsole.latestToken}
+            latestTokenNodeMode={nodeConsole.latestTokenNodeMode}
             submitting={nodeConsole.bootstrap.isPending}
             nodes={nodeConsole.nodesQuery.data || []}
             onSubmit={handleBootstrap}

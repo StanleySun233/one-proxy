@@ -29,8 +29,8 @@ func main() {
 	if err != nil || interval <= 0 {
 		interval = 30 * time.Second
 	}
-	listenerStatus := map[string]string{"http": domain.ListenerStatusUp}
-	certStatus := map[string]string{"internal": domain.CertStatusHealthy}
+	listenerStatus := map[string]string{"runtime": domain.ListenerStatusUp}
+	certStatus := map[string]string{}
 	managePublicCert := cfg.PublicCertProvider == "lets_encrypt" && cfg.NodeMode == "edge" && cfg.NodePublicHost != "" && cfg.LetsEncryptEmail != ""
 	manager := runtime.New(cfg.RuntimeConfigPath, store, interval, listenerStatus, certStatus, managePublicCert, cfg.NodeJoinPassword, !cfg.NodeJoinPasswordProvided)
 	tunnelInterval, tunnelErr := time.ParseDuration(cfg.NodeTunnelHeartbeat)
@@ -136,7 +136,6 @@ func main() {
 			log.Fatalf("init letsencrypt manager failed: %v", err)
 		}
 		httpHandler = certManager.HTTPHandler(mux)
-		listenerStatus["https"] = domain.ListenerStatusUp
 		certStatus["public"] = domain.CertStatusHealthy
 		go func() {
 			httpsServer := &http.Server{

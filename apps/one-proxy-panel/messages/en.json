@@ -257,6 +257,18 @@
     "bootstrap": {
       "nodeName": "Node name",
       "nodeNameRequired": "Node name is required",
+      "nodeMode": "Node type",
+      "nodeModeRequired": "Choose a node type",
+      "nodeModeOptions": {
+        "edge": {
+          "label": "Edge public entry",
+          "hint": "The first reachable node for users, usually with a public endpoint and used as the first hop."
+        },
+        "relay": {
+          "label": "Relay private downstream",
+          "hint": "A user LAN, VPN-side, or transit node that usually sits behind an edge node."
+        }
+      },
       "targetNodeId": "Target node id",
       "targetNodeIdHint": "Leave blank for a brand new node, or bind this token to a manually created record.",
       "generateToken": "Generate bootstrap token",

@@ -257,6 +257,18 @@
     "bootstrap": {
       "nodeName": "节点名称",
       "nodeNameRequired": "节点名称不能为空",
+      "nodeMode": "节点类型",
+      "nodeModeRequired": "请选择节点类型",
+      "nodeModeOptions": {
+        "edge": {
+          "label": "Edge 公网入口",
+          "hint": "用户首先访问的节点，通常有公网地址，链路第一跳选它。"
+        },
+        "relay": {
+          "label": "Relay 内网下游",
+          "hint": "用户内网、VPN 后方或只做中转的节点，通常挂在 edge 后面。"
+        }
+      },
       "targetNodeId": "目标节点 ID",
       "targetNodeIdHint": "留空创建全新节点，或绑定到已有手动创建的记录。",
       "generateToken": "生成引导令牌",

@@ -37,12 +37,14 @@ export function BootstrapTokenTab({
   form,
   submitting,
   latestToken,
+  latestTokenNodeMode,
   nodes,
   onSubmit
 }: {
   form: UseFormReturn<BootstrapFormValues>;
   submitting: boolean;
   latestToken: BootstrapToken | null;
+  latestTokenNodeMode: string;
   nodes: Node[];
   onSubmit: (data: BootstrapFormValues) => void;
 }) {
@@ -69,13 +71,14 @@ export function BootstrapTokenTab({
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
       `  -e NODE_NAME=${shellQuote(latestToken.nodeName)} \\`,
       "  -e NODE_SCOPE_KEY='scope-key' \\",
-      "  -e NODE_MODE='relay' \\",
+      `  -e NODE_MODE=${shellQuote(latestTokenNodeMode || 'relay')} \\`,
       "  -e NODE_JOIN_PASSWORD='password' \\",
       "  -e TZ='Asia/Shanghai' \\",
       '  ghcr.io/stanleysun233/one-proxy-node:latest'
     ].join('\n');
-  }, [controlPlaneURL, latestToken]);
+  }, [controlPlaneURL, latestToken, latestTokenNodeMode]);
   const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);
+  const selectedNodeMode = form.watch('nodeMode');
 
   async function copy(value: string, key: string) {
     try {
@@ -123,6 +126,25 @@ export function BootstrapTokenTab({
         />
         {form.formState.errors.nodeName ? (
           <p className="field-error">{form.formState.errors.nodeName.message}</p>
+        ) : null}
+      </div>
+      <div className="field-stack nodes-form-full">
+        <span>{t('nodes.bootstrap.nodeMode')} <span className="muted-text">({t('common.required')})</span></span>
+        <div className="node-mode-picker">
+          {(['edge', 'relay'] as const).map((mode) => (
+            <label className={`node-mode-option ${selectedNodeMode === mode ? 'is-selected' : ''}`} key={mode}>
+              <input
+                type="radio"
+                value={mode}
+                {...form.register('nodeMode', {required: t('nodes.bootstrap.nodeModeRequired')})}
+              />
+              <span className="node-mode-title">{t(`nodes.bootstrap.nodeModeOptions.${mode}.label`)}</span>
+              <span className="node-mode-copy">{t(`nodes.bootstrap.nodeModeOptions.${mode}.hint`)}</span>
+            </label>
+          ))}
+        </div>
+        {form.formState.errors.nodeMode ? (
+          <p className="field-error">{form.formState.errors.nodeMode.message}</p>
         ) : null}
       </div>
       <div className="field-stack nodes-form-full">

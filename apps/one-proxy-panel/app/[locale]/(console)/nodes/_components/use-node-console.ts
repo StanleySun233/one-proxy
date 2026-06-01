@@ -37,6 +37,7 @@ export function useNodeConsole() {
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodeModeKeys = Object.keys(enums?.node_mode || {});
   const DEFAULT_MODE = nodeModeKeys.find(k => k === 'relay') || 'relay';
+  const DEFAULT_BOOTSTRAP_MODE = nodeModeKeys.find(k => k === 'edge') || 'edge';
   const bootstrapTargetKeys = Object.keys(enums?.bootstrap_target_type || {});
   const DEFAULT_TARGET_TYPE = bootstrapTargetKeys.find(k => k === 'node') || 'node';
 
@@ -67,11 +68,13 @@ export function useNodeConsole() {
   });
 
   const [latestToken, setLatestToken] = useState<BootstrapToken | null>(null);
+  const [latestTokenNodeMode, setLatestTokenNodeMode] = useState('');
 
   const bootstrapForm = useForm<BootstrapFormValues>({
     defaultValues: {
       targetId: '',
-      nodeName: ''
+      nodeName: '',
+      nodeMode: DEFAULT_BOOTSTRAP_MODE
     }
   });
 
@@ -171,12 +174,13 @@ export function useNodeConsole() {
   });
 
   const bootstrapMutation = useMutation({
-    mutationFn: ({targetId, nodeName}: {targetId: string; nodeName: string}) => createBootstrapToken(accessToken, {targetType: DEFAULT_TARGET_TYPE, targetId, nodeName}),
-    onSuccess: (result) => {
+    mutationFn: ({targetId, nodeName}: {targetId: string; nodeName: string; nodeMode: string}) => createBootstrapToken(accessToken, {targetType: DEFAULT_TARGET_TYPE, targetId, nodeName}),
+    onSuccess: (result, variables) => {
       toast.success('bootstrap token created');
-      bootstrapForm.reset();
+      bootstrapForm.reset({targetId: '', nodeName: '', nodeMode: variables.nodeMode});
       bootstrapForm.setValue('targetId', '');
       setLatestToken(result);
+      setLatestTokenNodeMode(variables.nodeMode);
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -286,6 +290,7 @@ export function useNodeConsole() {
     pendingNodesQuery,
     unconsumedTokensQuery,
     latestToken,
+    latestTokenNodeMode,
     createNode: createNodeMutation,
     quickConnect: quickConnectMutation,
     bootstrap: bootstrapMutation,
