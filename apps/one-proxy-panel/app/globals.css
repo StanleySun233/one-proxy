@@ -307,6 +307,7 @@ button:disabled {
 }
 
 .secondary-button,
+.ghost-button,
 .primary-button,
 .danger-button {
   border: 1px solid var(--line);
@@ -324,6 +325,11 @@ button:disabled {
 .secondary-button {
   background: var(--panel-2);
   color: var(--text);
+}
+
+.ghost-button {
+  background: transparent;
+  color: var(--muted);
 }
 
 .danger-button {
@@ -1102,6 +1108,17 @@ button:disabled {
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.topology-link-item {
+  display: grid;
+  gap: 10px;
+}
+
+.inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .node-record-card {

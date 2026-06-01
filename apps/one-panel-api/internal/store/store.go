@@ -30,6 +30,8 @@ type NodeStore interface {
 	UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error)
 	ListNodeLinks() []domain.NodeLink
 	CreateNodeLink(input domain.CreateNodeLinkInput) (domain.NodeLink, error)
+	UpdateNodeLink(linkID string, input domain.UpdateNodeLinkInput) (domain.NodeLink, error)
+	DeleteNodeLink(linkID string) error
 	ListNodeAccessPaths() []domain.NodeAccessPath
 	CreateNodeAccessPath(input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error)
 	UpdateNodeAccessPath(pathID string, input domain.UpdateNodeAccessPathInput) (domain.NodeAccessPath, error)

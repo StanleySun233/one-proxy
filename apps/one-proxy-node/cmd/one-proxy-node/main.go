@@ -118,6 +118,7 @@ func main() {
 		mux.Handle("/api/v1/node-agent/policy", forwarder)
 		mux.Handle("/api/v1/node-agent/heartbeat", forwarder)
 		mux.Handle("/api/v1/node-agent/cert/renew", forwarder)
+		mux.Handle("/api/v1/node-agent/transports", forwarder)
 		log.Printf("proxy-node bound nodeID=%s controlPlaneURL=%s", current.NodeID, current.ControlPlaneURL)
 	} else {
 		log.Printf("proxy-node starting without control plane binding localIPs=%v", network.LocalIPs())

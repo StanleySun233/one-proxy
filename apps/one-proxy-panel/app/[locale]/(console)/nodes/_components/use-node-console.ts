@@ -15,6 +15,7 @@ import {
   createNodeLink,
   deleteBootstrapToken,
   deleteNode,
+  deleteNodeLink,
   fetchEnums,
   getNodeHealth,
   getNodeLinks,
@@ -24,7 +25,8 @@ import {
   getScopes,
   getUnconsumedBootstrapTokens,
   rejectNode,
-  updateNode
+  updateNode,
+  updateNodeLink
 } from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
@@ -294,6 +296,32 @@ export function useNodeConsole() {
     }
   });
 
+  const updateNodeLinkMutation = useMutation({
+    mutationFn: (payload: {linkID: string; sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) => {
+      const {linkID, ...body} = payload;
+
+      return updateNodeLink(accessToken, linkID, body);
+    },
+    onSuccess: () => {
+      toast.success('link updated');
+      queryClient.invalidateQueries({queryKey: ['node-links']});
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
+  const deleteNodeLinkMutation = useMutation({
+    mutationFn: (linkID: string) => deleteNodeLink(accessToken, linkID),
+    onSuccess: () => {
+      toast.success('link deleted');
+      queryClient.invalidateQueries({queryKey: ['node-links']});
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
   const rejectNodeMutation = useMutation({
     mutationFn: ({nodeId, reason}: {nodeId: string; reason?: string}) =>
       rejectNode(accessToken, nodeId, reason),
@@ -328,6 +356,8 @@ export function useNodeConsole() {
     updateNode: updateNodeMutation,
     deleteNode: deleteNodeMutation,
     deleteBootstrapToken: deleteBootstrapTokenMutation,
-    createNodeLink: createNodeLinkMutation
+    createNodeLink: createNodeLinkMutation,
+    updateNodeLink: updateNodeLinkMutation,
+    deleteNodeLink: deleteNodeLinkMutation
   };
 }

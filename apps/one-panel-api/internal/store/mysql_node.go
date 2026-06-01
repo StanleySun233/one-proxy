@@ -370,6 +370,28 @@ func (s *MySQLStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.No
 	return item, err
 }
 
+func (s *MySQLStore) UpdateNodeLink(linkID string, input domain.UpdateNodeLinkInput) (domain.NodeLink, error) {
+	item := domain.NodeLink{
+		ID:           linkID,
+		SourceNodeID: input.SourceNodeID,
+		TargetNodeID: input.TargetNodeID,
+		LinkType:     input.LinkType,
+		TrustState:   input.TrustState,
+	}
+	_, err := s.db.Exec(
+		`UPDATE node_links
+		 SET source_node_id = ?, target_node_id = ?, link_type = ?, trust_state = ?, updated_at = ?
+		 WHERE id = ?`,
+		item.SourceNodeID, item.TargetNodeID, item.LinkType, item.TrustState, nowRFC3339(), item.ID,
+	)
+	return item, err
+}
+
+func (s *MySQLStore) DeleteNodeLink(linkID string) error {
+	_, err := s.db.Exec(`DELETE FROM node_links WHERE id = ?`, linkID)
+	return err
+}
+
 func (s *MySQLStore) ListNodeAccessPaths() []domain.NodeAccessPath {
 	rows, err := s.db.Query(
 		`SELECT id, name, mode, COALESCE(target_node_id, ''), COALESCE(entry_node_id, ''), relay_node_ids_json, COALESCE(target_host, ''), COALESCE(target_port, 0), enabled

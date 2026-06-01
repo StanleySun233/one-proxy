@@ -12,6 +12,8 @@ export {
   getPendingNodes,
   getNodeLinks,
   createNodeLink,
+  updateNodeLink,
+  deleteNodeLink,
   getNodeTransports,
   createBootstrapToken,
   getUnconsumedBootstrapTokens,

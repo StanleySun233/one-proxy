@@ -75,12 +75,12 @@ export function BootstrapTokenTab({
     }
     const parentUrl = parentReachableUrl.trim();
     const parentID = selectedParentNodeId.trim();
-    const endpointLines = parentUrl
+    const parentEndpointLines = parentUrl
       ? [
         `  -e NODE_PARENT_URL=${shellQuote(parentUrl)} \\`,
         `  -e NODE_PARENT_TUNNEL_URL=${shellQuote(parentUrl)} \\`
       ]
-      : [`  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`];
+      : [];
     const parentLines = parentID ? [`  -e NODE_PARENT_ID=${shellQuote(parentID)} \\`] : [];
     const hostPublicPort = publicPort.trim() || '2988';
     return [
@@ -90,7 +90,8 @@ export function BootstrapTokenTab({
       `  -p ${hostPublicPort}:2988 \\`,
       '  -p 2989:2989 \\',
       '  -v one-proxy-node-runtime:/app/runtime \\',
-      ...endpointLines,
+      `  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`,
+      ...parentEndpointLines,
       ...parentLines,
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
       "  -e TZ='Asia/Shanghai' \\",

@@ -84,6 +84,21 @@ func (s *SeedStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.Nod
 	}, nil
 }
 
+func (s *SeedStore) UpdateNodeLink(linkID string, input domain.UpdateNodeLinkInput) (domain.NodeLink, error) {
+	return domain.NodeLink{
+		ID:           linkID,
+		SourceNodeID: input.SourceNodeID,
+		TargetNodeID: input.TargetNodeID,
+		LinkType:     input.LinkType,
+		TrustState:   input.TrustState,
+	}, nil
+}
+
+func (s *SeedStore) DeleteNodeLink(linkID string) error {
+	_ = linkID
+	return nil
+}
+
 func (s *SeedStore) ListNodeAccessPaths() []domain.NodeAccessPath {
 	return []domain.NodeAccessPath{}
 }

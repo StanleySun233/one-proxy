@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo} from 'react';
+import {useMemo, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {useTranslations} from 'next-intl';
 
@@ -23,6 +23,8 @@ export function NodeTopologyPageContent() {
   const transports = nodeConsole.transportsQuery.data || [];
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const [editingLinkID, setEditingLinkID] = useState<string | null>(null);
+  const editingLink = links.find((link) => link.id === editingLinkID) || null;
   // Derive enum value references from the enums object
   const transportTypeKeys = Object.keys(enums?.transport_type || {});
   const PUBLIC_HTTP = transportTypeKeys.find(k => k === 'public_http') || 'public_http';
@@ -68,8 +70,19 @@ export function NodeTopologyPageContent() {
           </div>
           <CreateNodeLinkForm
             nodes={nodes}
-            pending={nodeConsole.createNodeLink.isPending}
-            onSubmit={(payload) => nodeConsole.createNodeLink.mutate(payload)}
+            pending={nodeConsole.createNodeLink.isPending || nodeConsole.updateNodeLink.isPending}
+            editingLink={editingLink}
+            onCancelEdit={() => setEditingLinkID(null)}
+            onSubmit={(payload) => {
+              if (editingLink) {
+                nodeConsole.updateNodeLink.mutate(
+                  {linkID: editingLink.id, ...payload},
+                  {onSuccess: () => setEditingLinkID(null)}
+                );
+                return;
+              }
+              nodeConsole.createNodeLink.mutate(payload);
+            }}
             defaultLinkType={LINK_TYPE_RELAY}
             defaultTrustState={TRUST_STATE_TRUSTED}
           />
@@ -102,7 +115,26 @@ export function NodeTopologyPageContent() {
             <div className="topology-stack">
               <div className="nodes-link-grid">
                 {links.map((link) => (
-                  <NodeLinkCard key={link.id} link={link} nodesByID={nodesByID} transports={transports} reverseWsType={REVERSE_WS_PARENT} />
+                  <div key={link.id} className="topology-link-item">
+                    <NodeLinkCard link={link} nodesByID={nodesByID} transports={transports} reverseWsType={REVERSE_WS_PARENT} />
+                    <div className="inline-actions">
+                      <button className="ghost-button" onClick={() => setEditingLinkID(link.id)} type="button">
+                        {t('common.edit')}
+                      </button>
+                      <button
+                        className="danger-button"
+                        disabled={nodeConsole.deleteNodeLink.isPending}
+                        onClick={() => {
+                          if (window.confirm(nodesT('deleteLinkConfirm', {id: link.id}))) {
+                            nodeConsole.deleteNodeLink.mutate(link.id);
+                          }
+                        }}
+                        type="button"
+                      >
+                        {t('common.delete')}
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
               <div className="table-card">

@@ -73,6 +73,13 @@ type CreateNodeLinkInput struct {
 	TrustState   string `json:"trustState"`
 }
 
+type UpdateNodeLinkInput struct {
+	SourceNodeID string `json:"sourceNodeId"`
+	TargetNodeID string `json:"targetNodeId"`
+	LinkType     string `json:"linkType"`
+	TrustState   string `json:"trustState"`
+}
+
 type NodeAccessPath struct {
 	ID           string   `json:"id"`
 	Name         string   `json:"name"`
