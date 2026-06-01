@@ -10,10 +10,10 @@ import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {fetchEnums, getCertificates, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/api';
-import {FieldEnumMap, NodeHealthHistory} from '@/lib/types';
+import {NodeHealthHistory} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
-const staleThresholdMs = 2 * 60 * 1000;
+import {buildHealthRows, deriveHealthState} from '../_lib/health-state';
 
 export default function HealthOverviewPage() {
   const pageT = useTranslations('pages');
@@ -53,39 +53,7 @@ export default function HealthOverviewPage() {
 
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
 
-  const healthRows = useMemo(() => {
-    const healthByNodeID = new Map(health.map((item) => [item.nodeId, item]));
-    return nodes.map((node) => {
-      const item = healthByNodeID.get(node.id);
-      if (!item) {
-        return {
-          nodeId: node.id,
-          heartbeatAt: '',
-          policyRevisionId: '',
-          listenerStatus: {},
-          certStatus: {},
-          name: node.name,
-          mode: node.mode,
-          scopeKey: node.scopeKey,
-          derivedStatus: 'unreported' as const,
-          derivedLabel: 'unreported',
-          listenerSummary: '',
-          certSummary: ''
-        };
-      }
-      const derived = deriveHealthState(item, enums);
-      return {
-        ...item,
-        name: node.name,
-        mode: node.mode,
-        scopeKey: node.scopeKey,
-        derivedStatus: derived.status,
-        derivedLabel: derived.label,
-        listenerSummary: joinMap(item.listenerStatus),
-        certSummary: joinMap(item.certStatus)
-      };
-    });
-  }, [health, nodes, enums]);
+  const healthRows = useMemo(() => buildHealthRows(nodes, health, enums), [health, nodes, enums]);
 
   const certificateRows = useMemo(() => {
     return certificates.map((item) => ({
@@ -363,34 +331,4 @@ export default function HealthOverviewPage() {
       </div>
     </AuthGate>
   );
-}
-
-function deriveHealthState(
-  item: {heartbeatAt: string; listenerStatus: Record<string, string>; certStatus: Record<string, string>},
-  enums?: FieldEnumMap
-) {
-  const heartbeatTime = Date.parse(item.heartbeatAt);
-  const isStale = Number.isFinite(heartbeatTime) ? Date.now() - heartbeatTime > staleThresholdMs : true;
-  const listenerValues = Object.values(item.listenerStatus || {});
-  const certValues = Object.values(item.certStatus || {});
-  const allValues = [...listenerValues, ...certValues];
-  const isGoodValue = (value: string) =>
-    enums?.listener_status?.[value]?.meta?.className === 'is-good' ||
-    enums?.cert_status?.[value]?.meta?.className === 'is-good';
-  const hasDegradedSignal = enums
-    ? allValues.some(v => !isGoodValue(v))
-    : allValues.some((value) => value !== 'up' && value !== 'healthy' && value !== 'renewed');
-  if (isStale) {
-    return {status: 'stale', label: 'stale'};
-  }
-  if (hasDegradedSignal) {
-    return {status: 'degraded', label: 'degraded'};
-  }
-  return {status: 'healthy', label: 'healthy'};
-}
-
-function joinMap(value: Record<string, string>) {
-  return Object.entries(value || {})
-    .map(([key, item]) => `${key}:${item}`)
-    .join(', ');
 }

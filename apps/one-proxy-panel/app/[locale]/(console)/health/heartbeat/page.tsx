@@ -12,10 +12,11 @@ import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
 import {fetchEnums, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/api';
-import {FieldEnumMap, NodeHealth, NodeHealthHistory} from '@/lib/types';
+import {FieldEnumMap} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
-const staleThresholdMs = 2 * 60 * 1000;
+import {healthBadgeClassName} from '../_lib/health-format';
+import {buildHealthRows, deriveTrendState, HealthRow} from '../_lib/health-state';
 
 export default function HeartbeatPage() {
   const pageT = useTranslations('pages');
@@ -47,41 +48,7 @@ export default function HeartbeatPage() {
 
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
 
-  const healthRows = useMemo(() => {
-    const healthByNodeID = new Map(health.map((item) => [item.nodeId, item]));
-    return nodes.map((node) => {
-      const item = healthByNodeID.get(node.id);
-      if (!item) {
-        return {
-          nodeId: node.id,
-          heartbeatAt: '',
-          policyRevisionId: '',
-          listenerStatus: {},
-          certStatus: {},
-          name: node.name,
-          mode: node.mode,
-          scopeKey: node.scopeKey,
-          parentNodeId: node.parentNodeId,
-          derivedStatus: 'unreported',
-          derivedLabel: 'unreported',
-          listenerSummary: '',
-          certSummary: ''
-        };
-      }
-      const derived = deriveHealthState(item, enums);
-      return {
-        ...item,
-        name: node.name,
-        mode: node.mode,
-        scopeKey: node.scopeKey,
-        parentNodeId: node.parentNodeId,
-        derivedStatus: derived.status,
-        derivedLabel: derived.label,
-        listenerSummary: joinMap(item.listenerStatus),
-        certSummary: joinMap(item.certStatus)
-      };
-    });
-  }, [health, nodes, enums]);
+  const healthRows = useMemo(() => buildHealthRows(nodes, health, enums), [health, nodes, enums]);
 
   const parentNodeOptions = useMemo(() => {
     const parentIds = new Set<string>();
@@ -225,22 +192,6 @@ export default function HeartbeatPage() {
   );
 }
 
-type HealthRow = {
-  nodeId: string;
-  heartbeatAt: string;
-  policyRevisionId: string;
-  listenerStatus: Record<string, string>;
-  certStatus: Record<string, string>;
-  name: string;
-  mode: string;
-  scopeKey: string;
-  parentNodeId: string;
-  derivedStatus: string;
-  derivedLabel: string;
-  listenerSummary: string;
-  certSummary: string;
-};
-
 function ExpandableRow({
   item,
   expanded,
@@ -348,48 +299,4 @@ function ExpandableRow({
       ) : null}
     </>
   );
-}
-
-function isGoodEnumValue(statusField: string, value: string, enums: FieldEnumMap | undefined): boolean {
-  return enums?.[statusField]?.[value]?.meta?.className === 'is-good';
-}
-
-function deriveHealthState(item: NodeHealth, enums: FieldEnumMap | undefined) {
-  const heartbeatTime = Date.parse(item.heartbeatAt);
-  const isStale = Number.isFinite(heartbeatTime) ? Date.now() - heartbeatTime > staleThresholdMs : true;
-  const listenerValues = Object.values(item.listenerStatus || {});
-  const certValues = Object.values(item.certStatus || {});
-  const hasDegradedSignal = [...listenerValues, ...certValues].some(
-    (value) => !isGoodEnumValue('listener_status', value, enums) && !isGoodEnumValue('cert_status', value, enums)
-  );
-  if (isStale) {
-    return {status: 'stale', label: enums?.node_status?.stale?.name || 'stale'};
-  }
-  if (hasDegradedSignal) {
-    return {status: 'degraded', label: enums?.node_status?.degraded?.name || 'degraded'};
-  }
-  return {status: 'healthy', label: enums?.node_status?.healthy?.name || 'healthy'};
-}
-
-function deriveTrendState(item: NodeHealthHistory, enums: FieldEnumMap | undefined): string {
-  const listenerValues = Object.values(item.listenerStatus || {});
-  const certValues = Object.values(item.certStatus || {});
-  const hasDegradedSignal = [...listenerValues, ...certValues].some(
-    (value) => !isGoodEnumValue('listener_status', value, enums) && !isGoodEnumValue('cert_status', value, enums)
-  );
-  return hasDegradedSignal ? 'degraded' : 'healthy';
-}
-
-function joinMap(value: Record<string, string>) {
-  return Object.entries(value || {})
-    .map(([key, item]) => `${key}:${item}`)
-    .join(', ');
-}
-
-function healthBadgeClassName(status: string, enums: FieldEnumMap | undefined): string {
-  const entry = enums?.node_status?.[status];
-  if (entry?.meta?.className) {
-    return `badge ${entry.meta.className}`;
-  }
-  return 'badge is-neutral';
 }
