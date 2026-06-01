@@ -64,7 +64,7 @@ export function BootstrapTokenTab({
             validate: (value) => {
               const candidate = String(value || '').trim().toLowerCase();
               if (!candidate) return true;
-              const exists = nodes.some((n) => n.name.toLowerCase() === candidate);
+              const exists = nodes.some((n) => String(n.name || '').toLowerCase() === candidate);
               return exists ? t('nodes.bootstrap.nodeNameDuplicate') : true;
             }
           })}
