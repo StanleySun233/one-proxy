@@ -47,13 +47,7 @@ export function BootstrapTokenTab({
   }
 
   return (
-    <form
-      className="nodes-form-grid"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void form.handleSubmit(onSubmit)(e);
-      }}
-    >
+    <div className="nodes-form-grid">
       <div className="field-stack nodes-form-full">
         <span>{t('nodes.bootstrap.nodeName')} <span className="muted-text">({t('common.required')})</span></span>
         <input
@@ -79,7 +73,7 @@ export function BootstrapTokenTab({
         <p className="field-hint">{t('nodes.bootstrap.targetNodeIdHint')}</p>
       </div>
       <div className="submit-row nodes-form-full">
-        <button className="primary-button" disabled={submitting} type="submit">
+        <button className="primary-button" disabled={submitting} onClick={() => void form.handleSubmit(onSubmit)()} type="button">
           {submitting ? t('nodes.bootstrap.submitting') : t('nodes.bootstrap.generateToken')}
         </button>
         <p className="field-hint">{t('nodes.bootstrap.bootstrapHint')}</p>
@@ -110,6 +104,6 @@ export function BootstrapTokenTab({
       ) : (
         <p className="field-hint nodes-form-full">{t('nodes.bootstrap.generateOnDemand')}</p>
       )}
-    </form>
+    </div>
   );
 }
