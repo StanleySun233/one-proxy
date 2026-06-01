@@ -79,6 +79,19 @@ export function NodeApprovalsPageContent() {
                               </button>
                               <button
                                 className="danger-button"
+                                disabled={nodeConsole.deleteNode.isPending}
+                                onClick={() => {
+                                  if (!window.confirm(`Delete pending node ${node.name || node.id}?`)) {
+                                    return;
+                                  }
+                                  nodeConsole.deleteNode.mutate(node.id);
+                                }}
+                                type="button"
+                              >
+                                Delete
+                              </button>
+                              <button
+                                className="danger-button"
                                 disabled={nodeConsole.rejectNode.isPending}
                                 onClick={() => {
                                   if (!window.confirm(`Reject enrollment for ${node.name || 'this node'}?`)) {
@@ -110,7 +123,19 @@ export function NodeApprovalsPageContent() {
                           <span className="muted-text">expires {formatISODateTime(token.expiresAt)}</span>
                         </td>
                         <td>
-                          <span className="muted-text">awaiting connection</span>
+                          <button
+                            className="danger-button"
+                            disabled={nodeConsole.deleteBootstrapToken.isPending}
+                            onClick={() => {
+                              if (!window.confirm(`Delete bootstrap token for ${token.nodeName || token.id}?`)) {
+                                return;
+                              }
+                              nodeConsole.deleteBootstrapToken.mutate(token.id);
+                            }}
+                            type="button"
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     );

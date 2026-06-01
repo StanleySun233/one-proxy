@@ -102,6 +102,13 @@ export function getUnconsumedBootstrapTokens(accessToken: string) {
   return request<UnconsumedBootstrapToken[]>('/nodes/bootstrap-tokens/unconsumed', {accessToken});
 }
 
+export function deleteBootstrapToken(accessToken: string, tokenID: string) {
+  return request<{status: string}>(`/nodes/bootstrap-tokens/${tokenID}`, {
+    method: 'DELETE',
+    accessToken
+  });
+}
+
 export function approveNode(accessToken: string, nodeID: string) {
   return request<{node: Node; accessToken: string; trustMaterial: string; expiresAt: string}>(`/nodes/approve/${nodeID}`, {
     method: 'POST',

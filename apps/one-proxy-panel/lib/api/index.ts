@@ -15,6 +15,7 @@ export {
   getNodeTransports,
   createBootstrapToken,
   getUnconsumedBootstrapTokens,
+  deleteBootstrapToken,
   getNodeAccessPaths,
   createNodeAccessPath,
   updateNodeAccessPath,

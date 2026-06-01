@@ -530,6 +530,15 @@ func (s *MySQLStore) ListUnconsumedBootstrapTokens() []domain.BootstrapToken {
 	return items
 }
 
+func (s *MySQLStore) DeleteBootstrapToken(tokenID string) error {
+	_, err := s.db.Exec(
+		`DELETE FROM bootstrap_tokens
+		 WHERE id = ? AND consumed_at IS NULL`,
+		tokenID,
+	)
+	return err
+}
+
 func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
 	var (
 		tokenID    string

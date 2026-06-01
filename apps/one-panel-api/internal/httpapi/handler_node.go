@@ -134,6 +134,24 @@ func (r *Router) handleUnconsumedBootstrapTokens(w http.ResponseWriter, req *htt
 	writeSuccess(w, http.StatusOK, r.service.UnconsumedBootstrapTokens())
 }
 
+func (r *Router) handleBootstrapTokenByID(w http.ResponseWriter, req *http.Request) {
+	tokenID := resourceID(req.URL.Path, "/api/v1/nodes/bootstrap-tokens/")
+	if tokenID == "" {
+		writeError(w, http.StatusBadRequest, "missing_bootstrap_token_id")
+		return
+	}
+	switch req.Method {
+	case http.MethodDelete:
+		if err := r.service.DeleteBootstrapToken(tokenID); err != nil {
+			writeServiceError(w, req, err, "delete_failed")
+			return
+		}
+		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
+	default:
+		writeMethodNotAllowed(w, "DELETE")
+	}
+}
+
 func (r *Router) handleNodeEnroll(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		writeMethodNotAllowed(w, "POST")

@@ -312,6 +312,13 @@ func (c *ControlPlane) UnconsumedBootstrapTokens() []domain.BootstrapToken {
 	return c.store.ListUnconsumedBootstrapTokens()
 }
 
+func (c *ControlPlane) DeleteBootstrapToken(tokenID string) error {
+	if tokenID == "" {
+		return invalidInput("missing_bootstrap_token_id")
+	}
+	return c.store.DeleteBootstrapToken(tokenID)
+}
+
 func (c *ControlPlane) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
 	if input.Token == "" {
 		return domain.EnrollNodeResult{}, invalidInput("missing_bootstrap_token")

@@ -13,6 +13,7 @@ import {
   createBootstrapToken,
   createNode,
   createNodeLink,
+  deleteBootstrapToken,
   deleteNode,
   fetchEnums,
   getNodeHealth,
@@ -228,8 +229,20 @@ export function useNodeConsole() {
     onSuccess: () => {
       toast.success('node deleted');
       queryClient.invalidateQueries({queryKey: ['nodes']});
+      queryClient.invalidateQueries({queryKey: ['pending-nodes']});
       queryClient.invalidateQueries({queryKey: ['node-links']});
       queryClient.invalidateQueries({queryKey: ['node-transports']});
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
+  const deleteBootstrapTokenMutation = useMutation({
+    mutationFn: (tokenID: string) => deleteBootstrapToken(accessToken, tokenID),
+    onSuccess: () => {
+      toast.success('bootstrap token deleted');
+      queryClient.invalidateQueries({queryKey: ['unconsumed-bootstrap-tokens']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -280,6 +293,7 @@ export function useNodeConsole() {
     rejectNode: rejectNodeMutation,
     updateNode: updateNodeMutation,
     deleteNode: deleteNodeMutation,
+    deleteBootstrapToken: deleteBootstrapTokenMutation,
     createNodeLink: createNodeLinkMutation
   };
 }
