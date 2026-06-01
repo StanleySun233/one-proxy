@@ -70,7 +70,7 @@ export function routePreviewForUrl(state, value) {
   if (cidrMatches(group.directCidrs || [], cleanHost)) {
     return { mode: 'direct', source: 'remote_direct', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
   }
-  const matchedRoute = matchGroupRoute(group, cleanHost, parsed.protocol);
+  const matchedRoute = matchGroupRoute(group, parsed);
   if (matchedRoute) {
     const mode = matchedRoute.actionType === 'direct' ? 'direct' : 'proxy';
     return {
@@ -119,10 +119,10 @@ function defaultPort(protocol) {
   return 80;
 }
 
-function matchGroupRoute(group, host, protocol) {
+function matchGroupRoute(group, parsed) {
   const routes = [...(group.routes || [])].sort((left, right) => Number(left.priority || 0) - Number(right.priority || 0));
   for (const route of routes) {
-    if (!routeMatches(route, host, protocol)) {
+    if (!routeMatches(route, parsed)) {
       continue;
     }
     return route;
@@ -130,24 +130,49 @@ function matchGroupRoute(group, host, protocol) {
   return null;
 }
 
-export function routeMatches(route, host, protocol) {
+export function routeMatches(route, target) {
+  const parsed = typeof target === 'object' && target ? target : parseTargetUrl(target);
   const value = String(route.matchValue || '').toLowerCase();
-  const cleanHost = sanitizeHost(host);
+  const cleanHost = sanitizeHost(parsed.host);
   switch (route.matchType) {
     case 'domain':
       return cleanHost === value;
     case 'domain_suffix':
-      return cleanHost.endsWith(value);
-    case 'ip':
-      return cleanHost === value;
+      return domainSuffixMatches(value, cleanHost);
     case 'ip_cidr':
       return cidrMatches([route.matchValue], cleanHost);
-    case 'protocol':
-      return String(protocol || '').toLowerCase() === value;
+    case 'ip_range':
+      return ipRangeMatches(value, cleanHost);
+    case 'port':
+      return Number(parsed.port) === Number(value);
+    case 'url_regex':
+      return urlRegexMatches(route.matchValue, parsed.url);
     case 'default':
       return true;
     default:
       return false;
+  }
+}
+
+function domainSuffixMatches(value, host) {
+  const suffix = value.startsWith('*.') ? value.slice(1) : value;
+  return suffix.startsWith('.') && host.endsWith(suffix);
+}
+
+function ipRangeMatches(value, host) {
+  const ip = ipv4ToNumber(host);
+  if (ip === null) {
+    return false;
+  }
+  const [start, end] = value.split('-', 2).map((item) => ipv4ToNumber(item.trim()));
+  return start !== null && end !== null && ip >= Math.min(start, end) && ip <= Math.max(start, end);
+}
+
+function urlRegexMatches(pattern, url) {
+  try {
+    return new RegExp(pattern).test(url || '');
+  } catch (_error) {
+    return false;
   }
 }
 
