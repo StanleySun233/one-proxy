@@ -80,6 +80,7 @@ export type BootstrapToken = {
   token: string;
   targetType: string;
   targetId: string;
+  nodeName: string;
   expiresAt: string;
 };
 

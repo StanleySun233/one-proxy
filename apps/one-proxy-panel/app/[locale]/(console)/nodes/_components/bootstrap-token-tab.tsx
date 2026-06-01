@@ -8,6 +8,10 @@ import {toast} from 'sonner';
 import {BootstrapToken, Node} from '@/lib/types';
 import {BootstrapFormValues} from './types';
 
+function shellQuote(value: string) {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
 export function BootstrapTokenTab({
   form,
   submitting,
@@ -33,7 +37,7 @@ export function BootstrapTokenTab({
     if (!latestToken) {
       return '';
     }
-    return `docker rm -f one-proxy-node >/dev/null 2>&1 || true && docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true && docker run -d --name one-proxy-node --restart unless-stopped -p 2988:2988 -p 2989:2989 -v one-proxy-node-runtime:/app/runtime -e CONTROL_PLANE_URL='${controlPlaneURL}' -e NODE_BOOTSTRAP_TOKEN='${latestToken.token}' -e NODE_SCOPE_KEY='scope-key' -e NODE_MODE='relay' -e NODE_JOIN_PASSWORD='password' -e TZ='Asia/Shanghai' ghcr.io/stanleysun233/one-proxy-node:latest`;
+    return `docker rm -f one-proxy-node >/dev/null 2>&1 || true && docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true && docker run -d --name one-proxy-node --restart unless-stopped -p 2988:2988 -p 2989:2989 -v one-proxy-node-runtime:/app/runtime -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} -e NODE_NAME=${shellQuote(latestToken.nodeName)} -e NODE_SCOPE_KEY='scope-key' -e NODE_MODE='relay' -e NODE_JOIN_PASSWORD='password' -e TZ='Asia/Shanghai' ghcr.io/stanleysun233/one-proxy-node:latest`;
   }, [controlPlaneURL, latestToken]);
 
   async function copy(value: string, key: string) {
