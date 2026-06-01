@@ -131,24 +131,24 @@ button:disabled {
 }
 
 .console-topbar-favicon {
-  width: 52px;
-  height: 52px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 16px;
+  border-radius: 10px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel-2) 86%, var(--panel) 14%);
 }
 
-.console-topbar-wordmark {
-  display: grid;
-  gap: 4px;
+.console-topbar-favicon img {
+  width: 24px;
+  height: 24px;
 }
 
-.console-topbar-wordmark h1 {
-  margin: 0;
-  font-size: clamp(24px, 3vw, 34px);
-  line-height: 1;
+.console-topbar-wordmark {
+  font-size: 15px;
+  font-weight: 760;
+  color: var(--text);
 }
 
 .console-topbar-actions {

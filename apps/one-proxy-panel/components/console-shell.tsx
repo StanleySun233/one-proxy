@@ -143,6 +143,10 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     <div className="console-shell">
       <header className="console-topbar">
         <div className="console-topbar-brand">
+          <span className="console-topbar-favicon">
+            <img alt="" src="/favicon.svg" />
+          </span>
+          <span className="console-topbar-wordmark">One Proxy</span>
         </div>
 
         <div className="console-topbar-actions">
