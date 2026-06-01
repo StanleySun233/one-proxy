@@ -38,7 +38,24 @@ export function BootstrapTokenTab({
 
   async function copy(value: string, key: string) {
     try {
-      await navigator.clipboard.writeText(value);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        try {
+          textarea.select();
+          if (!document.execCommand('copy')) {
+            throw new Error('copy_failed');
+          }
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      }
       setCopied(key);
       toast.success(t('common.copied'));
     } catch {
