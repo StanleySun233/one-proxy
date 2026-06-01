@@ -11,6 +11,7 @@ type Message struct {
 	Message             string   `json:"message,omitempty"`
 	Data                string   `json:"data,omitempty"`
 	RemainingHopNodeIDs []string `json:"remainingHopNodeIds,omitempty"`
+	Protocol            string   `json:"protocol,omitempty"`
 	TargetHost          string   `json:"targetHost,omitempty"`
 	TargetPort          int      `json:"targetPort,omitempty"`
 }

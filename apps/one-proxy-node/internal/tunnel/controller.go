@@ -164,7 +164,7 @@ func (c *Controller) handleProbeRequest(message Message) Message {
 		return Message{Status: "connected", Message: "chain_reachable"}
 	}
 	nextNodeID := message.RemainingHopNodeIDs[0]
-	response, err := c.registry.ForwardProbe(nextNodeID, message.RequestID, message.RemainingHopNodeIDs[1:], message.TargetHost, message.TargetPort)
+	response, err := c.registry.ForwardProbe(nextNodeID, message.RequestID, message.RemainingHopNodeIDs[1:], message.Protocol, message.TargetHost, message.TargetPort)
 	if err != nil {
 		return Message{Status: "failed", Message: "next_hop_unreachable"}
 	}

@@ -21,6 +21,10 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 	for _, chain := range chains {
 		chainsByID[chain.ID] = chain
 	}
+	nodesByID := make(map[string]domain.Node, len(nodes))
+	for _, node := range nodes {
+		nodesByID[node.ID] = node
+	}
 
 	filteredNodes := nodes
 	filteredRules := rules
@@ -70,20 +74,33 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 			ProxyScheme:   "PROXY",
 			ProxyHost:     node.PublicHost,
 			ProxyPort:     node.PublicPort,
+			Topology:      extensionTopology(nodesByID, []string{node.ID}),
 		}
 		for _, rule := range filteredRules {
 			if !rule.Enabled {
 				continue
 			}
+			topology := group.Topology
 			if rule.ActionType == domain.ActionTypeChain {
 				chain, ok := chainsByID[rule.ChainID]
 				if !ok || !chain.Enabled || len(chain.Hops) == 0 || chain.Hops[0] != node.ID {
 					continue
 				}
+				topology = extensionTopology(nodesByID, chain.Hops)
 			}
 			if rule.ActionType == domain.ActionTypeDirect && rule.DestinationScope != node.ScopeKey {
 				continue
 			}
+			group.Routes = append(group.Routes, domain.ExtensionRoute{
+				ID:               rule.ID,
+				Priority:         rule.Priority,
+				MatchType:        rule.MatchType,
+				MatchValue:       rule.MatchValue,
+				ActionType:       rule.ActionType,
+				ChainID:          rule.ChainID,
+				DestinationScope: rule.DestinationScope,
+				Topology:         topology,
+			})
 			value := strings.TrimSpace(rule.MatchValue)
 			switch rule.MatchType {
 			case domain.MatchTypeDefault:
@@ -133,6 +150,25 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 		FetchedAt:      fetchedAt,
 		Groups:         groups,
 	}
+}
+
+func extensionTopology(nodesByID map[string]domain.Node, nodeIDs []string) []domain.ExtensionTopologyNode {
+	result := make([]domain.ExtensionTopologyNode, 0, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
+		node, ok := nodesByID[nodeID]
+		if !ok {
+			continue
+		}
+		result = append(result, domain.ExtensionTopologyNode{
+			ID:         node.ID,
+			Name:       node.Name,
+			Mode:       node.Mode,
+			ScopeKey:   node.ScopeKey,
+			PublicHost: node.PublicHost,
+			PublicPort: node.PublicPort,
+		})
+	}
+	return result
 }
 
 func (c *ControlPlane) Certificates() []domain.Certificate {

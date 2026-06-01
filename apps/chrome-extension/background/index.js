@@ -24,6 +24,11 @@ const DEFAULT_STATE = {
   localOverrides: {
     directHosts: [],
     proxyHosts: []
+  },
+  monitor: {
+    targetUrl: '',
+    lastRunAt: '',
+    results: []
   }
 };
 
@@ -59,6 +64,8 @@ function uniqueStrings(items) {
 }
 
 function normalizeGroup(group) {
+  const routes = Array.isArray(group.routes) ? group.routes : [];
+  const topology = Array.isArray(group.topology) ? group.topology : [];
   return {
     id: '',
     name: '',
@@ -72,11 +79,42 @@ function normalizeGroup(group) {
     proxyCidrs: [],
     directHosts: [],
     directCidrs: [],
+    routes: [],
+    topology: [],
     ...group,
     proxyHosts: uniqueStrings(group.proxyHosts),
     proxyCidrs: uniqueStrings(group.proxyCidrs),
     directHosts: uniqueStrings(group.directHosts),
-    directCidrs: uniqueStrings(group.directCidrs)
+    directCidrs: uniqueStrings(group.directCidrs),
+    routes: routes.map(normalizeRoute),
+    topology: topology.map(normalizeTopologyNode)
+  };
+}
+
+function normalizeRoute(route) {
+  return {
+    id: '',
+    priority: 0,
+    matchType: '',
+    matchValue: '',
+    actionType: '',
+    chainId: '',
+    destinationScope: '',
+    topology: [],
+    ...route,
+    topology: Array.isArray(route.topology) ? route.topology.map(normalizeTopologyNode) : []
+  };
+}
+
+function normalizeTopologyNode(node) {
+  return {
+    id: '',
+    name: '',
+    mode: '',
+    scopeKey: '',
+    publicHost: '',
+    publicPort: 0,
+    ...node
   };
 }
 
@@ -99,6 +137,10 @@ function mergeState(raw) {
     localOverrides: {
       ...DEFAULT_STATE.localOverrides,
       ...(raw.localOverrides || {})
+    },
+    monitor: {
+      ...DEFAULT_STATE.monitor,
+      ...(raw.monitor || {})
     }
   };
   state.remote.groups = Array.isArray(state.remote.groups) ? state.remote.groups.map(normalizeGroup) : [];
@@ -121,6 +163,162 @@ async function getState() {
 
 function activeGroupFrom(state) {
   return state.remote.groups.find((group) => group.id === state.selection.activeGroupId) || state.remote.groups[0] || null;
+}
+
+function wildcardToRegExp(pattern) {
+  return new RegExp(`^${String(pattern || '').replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*')}$`, 'i');
+}
+
+function hostMatches(patterns, host) {
+  const cleanHost = sanitizeHost(host);
+  return uniqueStrings(patterns).some((pattern) => wildcardToRegExp(pattern).test(cleanHost));
+}
+
+function ipv4ToNumber(value) {
+  const parts = String(value || '').split('.');
+  if (parts.length !== 4) {
+    return null;
+  }
+  let result = 0;
+  for (const part of parts) {
+    const octet = Number(part);
+    if (!Number.isInteger(octet) || octet < 0 || octet > 255) {
+      return null;
+    }
+    result = (result * 256) + octet;
+  }
+  return result;
+}
+
+function cidrMatches(patterns, host) {
+  const ip = ipv4ToNumber(host);
+  if (ip === null) {
+    return false;
+  }
+  return uniqueStrings(patterns).some((pattern) => {
+    const [network, prefixValue] = pattern.split('/');
+    const networkIp = ipv4ToNumber(network);
+    const prefix = Number(prefixValue);
+    if (networkIp === null || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+      return false;
+    }
+    const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+    return (ip & mask) === (networkIp & mask);
+  });
+}
+
+function routePreviewForHost(state, host) {
+  return routePreviewForUrl(state, host ? `http://${host}` : '');
+}
+
+function routePreviewForUrl(state, value) {
+  const parsed = parseTargetUrl(value);
+  const cleanHost = sanitizeHost(parsed.host);
+  const group = activeGroupFrom(state);
+  if (!cleanHost) {
+    return { mode: 'unknown', source: 'no_site', host: '', topology: [] };
+  }
+  if (!state.enabled) {
+    return { mode: 'direct', source: 'proxy_off', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
+  }
+  if (!group || !group.proxyHost || !group.proxyPort) {
+    return { mode: 'direct', source: 'no_proxy_target', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
+  }
+  if (hostMatches(['localhost', '*.local', '*.lan', urlHostname(state.controlPlaneUrl), group.proxyHost, ...(group.directHosts || []), ...(state.localOverrides.directHosts || [])], cleanHost)) {
+    const local = hostMatches(state.localOverrides.directHosts, cleanHost);
+    return { mode: 'direct', source: local ? 'local_direct' : 'remote_direct', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
+  }
+  if (cidrMatches(group.directCidrs || [], cleanHost)) {
+    return { mode: 'direct', source: 'remote_direct', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
+  }
+  const matchedRoute = matchGroupRoute(group, cleanHost, parsed.protocol);
+  if (matchedRoute) {
+    return {
+      mode: 'proxy',
+      source: routeSource(matchedRoute),
+      host: cleanHost,
+      protocol: parsed.protocol,
+      port: parsed.port,
+      rule: matchedRoute,
+      topology: matchedRoute.topology && matchedRoute.topology.length ? matchedRoute.topology : group.topology
+    };
+  }
+  if (hostMatches([...(group.proxyHosts || []), ...(state.localOverrides.proxyHosts || [])], cleanHost)) {
+    const local = hostMatches(state.localOverrides.proxyHosts, cleanHost);
+    return { mode: 'proxy', source: local ? 'local_proxy' : 'remote_proxy', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: group.topology || [] };
+  }
+  if (cidrMatches(group.proxyCidrs || [], cleanHost)) {
+    return { mode: 'proxy', source: 'remote_proxy', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: group.topology || [] };
+  }
+  if (group.proxyDefault) {
+    return { mode: 'proxy', source: 'proxy_default', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: group.topology || [] };
+  }
+  return { mode: 'direct', source: 'default_direct', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
+}
+
+function parseTargetUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { url: '', host: '', protocol: 'http', port: 80 };
+  }
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `http://${raw}`;
+  try {
+    const parsed = new URL(withScheme);
+    const protocol = parsed.protocol.replace(':', '').toLowerCase() || 'http';
+    const port = Number(parsed.port) || defaultPort(protocol);
+    return { url: parsed.href, host: parsed.hostname, protocol, port };
+  } catch (_error) {
+    return { url: raw, host: raw.split('/')[0], protocol: 'http', port: 80 };
+  }
+}
+
+function defaultPort(protocol) {
+  if (protocol === 'https' || protocol === 'wss') {
+    return 443;
+  }
+  return 80;
+}
+
+function matchGroupRoute(group, host, protocol) {
+  const routes = [...(group.routes || [])].sort((left, right) => Number(left.priority || 0) - Number(right.priority || 0));
+  for (const route of routes) {
+    if (!routeMatches(route, host, protocol)) {
+      continue;
+    }
+    return route;
+  }
+  return null;
+}
+
+function routeMatches(route, host, protocol) {
+  const value = String(route.matchValue || '').toLowerCase();
+  const cleanHost = sanitizeHost(host);
+  switch (route.matchType) {
+    case 'domain':
+      return cleanHost === value;
+    case 'domain_suffix':
+      return cleanHost.endsWith(value);
+    case 'ip':
+      return cleanHost === value;
+    case 'ip_cidr':
+      return cidrMatches([route.matchValue], cleanHost);
+    case 'protocol':
+      return String(protocol || '').toLowerCase() === value;
+    case 'default':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function routeSource(route) {
+  if (route.matchType === 'default') {
+    return 'proxy_default';
+  }
+  if (route.actionType === 'chain') {
+    return 'remote_proxy';
+  }
+  return 'remote_proxy';
 }
 
 function escapePacString(value) {
@@ -299,13 +497,99 @@ async function getCurrentTabInfo() {
 
 async function getComputedState() {
   const state = await getState();
+  const currentTab = await getCurrentTabInfo();
   return {
     state,
     session: state.session,
     remote: state.remote,
     activeGroup: activeGroupFrom(state),
-    currentTab: await getCurrentTabInfo()
+    currentTab,
+    currentRoute: routePreviewForUrl(state, currentTab && currentTab.url),
+    monitorRoute: routePreviewForUrl(state, state.monitor.targetUrl)
   };
+}
+
+async function testUrlRoute(targetUrl, options = {}) {
+  const state = await getState();
+  const route = routePreviewForUrl(state, targetUrl);
+  const results = await runProxyProbes(state, targetUrl, route);
+  if (options.saveMonitorTarget) {
+    await persistState({
+      ...state,
+      monitor: {
+        targetUrl: parseTargetUrl(targetUrl).url || String(targetUrl || '').trim(),
+        lastRunAt: new Date().toISOString(),
+        results
+      }
+    });
+  }
+  return { route, results };
+}
+
+async function runProxyMonitor() {
+  const state = await getState();
+  if (!state.enabled || !state.monitor.targetUrl) {
+    return;
+  }
+  const route = routePreviewForUrl(state, state.monitor.targetUrl);
+  const results = await runProxyProbes(state, state.monitor.targetUrl, route);
+  await persistState({
+    ...state,
+    monitor: {
+      ...state.monitor,
+      lastRunAt: new Date().toISOString(),
+      results
+    }
+  });
+}
+
+async function runProxyProbes(state, targetUrl, route) {
+  const group = activeGroupFrom(state);
+  const parsed = parseTargetUrl(targetUrl);
+  if (!state.enabled || !group || !group.proxyHost || !group.proxyPort || !route || route.mode !== 'proxy') {
+    return probeProtocols().map((protocol) => ({ protocol, status: 'skipped', latencyMs: 0, message: 'proxy_not_applied' }));
+  }
+  const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
+  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/v1/control-relay/probe`;
+  return Promise.all(probeProtocols().map((protocol) => runNodeProbe(endpoint, {
+    protocol,
+    remainingHopNodeIds,
+    targetHost: parsed.host,
+    targetPort: parsed.port
+  })));
+}
+
+function probeProtocols() {
+  return ['http', 'https', 'ws', 'tcp', 'udp'];
+}
+
+async function runNodeProbe(endpoint, payload) {
+  const startedAt = Date.now();
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    let body = null;
+    try {
+      body = await response.json();
+    } catch (_error) {
+    }
+    return {
+      protocol: payload.protocol,
+      status: response.ok && body && body.status ? body.status : 'failed',
+      latencyMs: Date.now() - startedAt,
+      message: body && body.message ? body.message : `http_${response.status}`
+    };
+  } catch (error) {
+    return {
+      protocol: payload.protocol,
+      status: 'failed',
+      latencyMs: Date.now() - startedAt,
+      message: error.message || 'probe_failed'
+    };
+  }
 }
 
 async function persistState(nextState) {
@@ -509,6 +793,22 @@ async function addHostToRule(kind, host) {
   return getComputedState();
 }
 
+async function removeHostFromRule(host) {
+  const clean = sanitizeHost(host);
+  if (!clean) {
+    return getComputedState();
+  }
+  const state = await getState();
+  const overrides = {
+    ...state.localOverrides,
+    directHosts: uniqueStrings(state.localOverrides.directHosts).filter((item) => item !== clean),
+    proxyHosts: uniqueStrings(state.localOverrides.proxyHosts).filter((item) => item !== clean)
+  };
+  await persistState({ ...state, localOverrides: overrides });
+  await appendLog('info', 'local_override_removed', { host: clean });
+  return getComputedState();
+}
+
 async function setPartialState(mutator) {
   const current = await getState();
   const next = await mutator(structuredClone(current));
@@ -516,15 +816,32 @@ async function setPartialState(mutator) {
   return getComputedState();
 }
 
+function ensureMonitorAlarm() {
+  if (chrome.alarms) {
+    chrome.alarms.create('proxy-monitor', { periodInMinutes: 1 });
+  }
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
+  ensureMonitorAlarm();
   await persistState(await getState());
   await appendLog('info', 'extension_installed');
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  ensureMonitorAlarm();
   await applyProxy(await getState());
   await appendLog('info', 'extension_startup');
 });
+
+if (chrome.alarms) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'proxy-monitor') {
+      runProxyMonitor().catch((error) => appendLog('error', 'proxy_monitor_failed', { message: error.message || 'probe_failed' }));
+    }
+  });
+  ensureMonitorAlarm();
+}
 
 if (chrome.proxy && chrome.proxy.onProxyError) {
   chrome.proxy.onProxyError.addListener((details) => {
@@ -584,6 +901,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case 'sync-remote-config':
         sendResponse(await syncRemoteConfig());
         return;
+      case 'test-url-route':
+        sendResponse(await testUrlRoute(message.url, { saveMonitorTarget: Boolean(message.saveMonitorTarget) }));
+        return;
       case 'select-group':
         sendResponse(await setPartialState((state) => ({
           ...state,
@@ -610,6 +930,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case 'add-current-host-to-proxy': {
         const info = await getCurrentTabInfo();
         sendResponse(await addHostToRule('proxyHosts', (info && info.host) || ''));
+        return;
+      }
+      case 'remove-current-host-override': {
+        const info = await getCurrentTabInfo();
+        sendResponse(await removeHostFromRule((info && info.host) || ''));
         return;
       }
       default:

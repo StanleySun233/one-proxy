@@ -41,6 +41,69 @@
   "thisSiteProxy": {
     "message": "本站代理"
   },
+  "removeSiteOverride": {
+    "message": "移除本站覆盖"
+  },
+  "currentRoute": {
+    "message": "当前路由"
+  },
+  "routeTester": {
+    "message": "路由测试"
+  },
+  "runTest": {
+    "message": "测试"
+  },
+  "noTopology": {
+    "message": "无拓扑"
+  },
+  "noProbeData": {
+    "message": "暂无探测"
+  },
+  "notTested": {
+    "message": "未测试"
+  },
+  "probeSkipped": {
+    "message": "跳过"
+  },
+  "routeProxy": {
+    "message": "代理"
+  },
+  "routeDirect": {
+    "message": "直连"
+  },
+  "routeUnknown": {
+    "message": "未知"
+  },
+  "routeSource_no_site": {
+    "message": "无站点"
+  },
+  "routeSource_proxy_off": {
+    "message": "代理关闭"
+  },
+  "routeSource_no_proxy_target": {
+    "message": "无代理目标"
+  },
+  "routeSource_local_direct": {
+    "message": "本地直连覆盖"
+  },
+  "routeSource_local_proxy": {
+    "message": "本地代理覆盖"
+  },
+  "routeSource_remote_direct": {
+    "message": "远程直连规则"
+  },
+  "routeSource_remote_proxy": {
+    "message": "远程代理规则"
+  },
+  "routeSource_proxy_default": {
+    "message": "分组默认"
+  },
+  "routeSource_default_direct": {
+    "message": "默认直连"
+  },
+  "routeSource_unknown": {
+    "message": "未知"
+  },
   "optionsTitle": {
     "message": "One Proxy 设置"
   },
@@ -155,6 +218,9 @@
   "statusSynced": {
     "message": "远程配置已同步。"
   },
+  "statusTested": {
+    "message": "路由测试完成。"
+  },
   "statusLoggedIn": {
     "message": "登录成功，远程分组已加载。"
   },
@@ -181,6 +247,12 @@
   },
   "diagnostics": {
     "message": "诊断日志"
+  },
+  "overview": {
+    "message": "概览"
+  },
+  "localOverrides": {
+    "message": "本地覆盖"
   },
   "refreshLogs": {
     "message": "刷新"

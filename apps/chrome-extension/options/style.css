@@ -6,8 +6,10 @@
   --muted: #6c736d;
   --line: rgba(34, 52, 55, 0.12);
   --card: rgba(255, 252, 247, 0.84);
+  --card-strong: rgba(255, 255, 255, 0.94);
   --accent: #0d8a6a;
   --accent-soft: rgba(13, 138, 106, 0.14);
+  --accent-line: rgba(13, 138, 106, 0.28);
   --danger: #b14444;
   --danger-soft: rgba(177, 68, 68, 0.12);
   --warning: #b66a18;
@@ -23,8 +25,10 @@
   --muted: #94a59f;
   --line: rgba(203, 231, 222, 0.12);
   --card: rgba(12, 22, 27, 0.88);
+  --card-strong: rgba(15, 30, 34, 0.96);
   --accent: #57e0ba;
   --accent-soft: rgba(87, 224, 186, 0.16);
+  --accent-line: rgba(87, 224, 186, 0.32);
   --danger: #ff8787;
   --danger-soft: rgba(255, 135, 135, 0.14);
   --warning: #ffb45d;
@@ -53,6 +57,23 @@ textarea {
   font: inherit;
 }
 
+button {
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-line);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .page {
   display: grid;
   gap: 20px;
@@ -63,6 +84,7 @@ textarea {
 .panel,
 .group-row,
 .meta-card,
+.stat-card,
 input,
 textarea,
 .primary,
@@ -76,7 +98,7 @@ textarea,
 
 .headline,
 .panel {
-  border-radius: 18px;
+  border-radius: 14px;
 }
 
 .headline {
@@ -132,14 +154,19 @@ p {
 
 h1 {
   margin-top: 4px;
-  font-size: 30px;
+  font-size: 28px;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: 380px 320px minmax(380px, 1fr);
+  grid-template-columns: 360px 300px minmax(380px, 1fr);
   gap: 18px;
   align-items: start;
+}
+
+.panel-overview {
+  grid-column: 1 / -1;
+  grid-row: 1;
 }
 
 .panel-diagnostics {
@@ -164,6 +191,34 @@ h1 {
   gap: 12px;
 }
 
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  display: grid;
+  gap: 8px;
+  min-height: 86px;
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--card-strong);
+}
+
+.stat-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stat-card strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 18px;
+}
+
 label {
   display: grid;
   gap: 8px;
@@ -180,7 +235,7 @@ textarea,
 .ghost,
 .danger,
 .group-row {
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--ink);
 }
 
@@ -205,6 +260,7 @@ textarea {
 
 .primary {
   background: var(--accent-soft);
+  border-color: var(--accent-line);
 }
 
 .danger {
@@ -220,7 +276,7 @@ textarea {
 
 .group-row.is-active {
   background: var(--accent-soft);
-  border-color: rgba(13, 138, 106, 0.24);
+  border-color: var(--accent-line);
 }
 
 .group-name {
@@ -247,7 +303,7 @@ textarea {
 }
 
 .meta-card {
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 14px;
 }
 
@@ -327,6 +383,14 @@ textarea {
   color: var(--muted);
 }
 
+.empty-state {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.16);
+}
+
 .pill {
   padding: 8px 10px;
   border-radius: 999px;
@@ -343,6 +407,10 @@ textarea {
   .layout {
     grid-template-columns: 1fr;
   }
+
+  .panel-overview {
+    grid-row: auto;
+  }
 }
 
 @media (max-width: 760px) {
@@ -357,6 +425,20 @@ textarea {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .page {
+    padding: 16px;
+  }
+
+  .stat-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -10,10 +10,11 @@ import (
 )
 
 type ProbeRequest struct {
-	RemainingRelayURLs []string `json:"remainingRelayUrls"`
+	RemainingRelayURLs  []string `json:"remainingRelayUrls"`
 	RemainingHopNodeIDs []string `json:"remainingHopNodeIds"`
-	TargetHost         string   `json:"targetHost"`
-	TargetPort         int      `json:"targetPort"`
+	Protocol            string   `json:"protocol"`
+	TargetHost          string   `json:"targetHost"`
+	TargetPort          int      `json:"targetPort"`
 }
 
 type ProbeResponse struct {

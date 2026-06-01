@@ -41,6 +41,69 @@
   "thisSiteProxy": {
     "message": "This site proxy"
   },
+  "removeSiteOverride": {
+    "message": "Remove site override"
+  },
+  "currentRoute": {
+    "message": "Current route"
+  },
+  "routeTester": {
+    "message": "Route test"
+  },
+  "runTest": {
+    "message": "Test"
+  },
+  "noTopology": {
+    "message": "No topology"
+  },
+  "noProbeData": {
+    "message": "No probe data"
+  },
+  "notTested": {
+    "message": "Not tested"
+  },
+  "probeSkipped": {
+    "message": "Skipped"
+  },
+  "routeProxy": {
+    "message": "Proxy"
+  },
+  "routeDirect": {
+    "message": "Direct"
+  },
+  "routeUnknown": {
+    "message": "Unknown"
+  },
+  "routeSource_no_site": {
+    "message": "No site"
+  },
+  "routeSource_proxy_off": {
+    "message": "Proxy off"
+  },
+  "routeSource_no_proxy_target": {
+    "message": "No target"
+  },
+  "routeSource_local_direct": {
+    "message": "Local direct override"
+  },
+  "routeSource_local_proxy": {
+    "message": "Local proxy override"
+  },
+  "routeSource_remote_direct": {
+    "message": "Remote direct rule"
+  },
+  "routeSource_remote_proxy": {
+    "message": "Remote proxy rule"
+  },
+  "routeSource_proxy_default": {
+    "message": "Group default"
+  },
+  "routeSource_default_direct": {
+    "message": "Default direct"
+  },
+  "routeSource_unknown": {
+    "message": "Unknown"
+  },
   "optionsTitle": {
     "message": "One Proxy Settings"
   },
@@ -155,6 +218,9 @@
   "statusSynced": {
     "message": "Remote config synced."
   },
+  "statusTested": {
+    "message": "Route test finished."
+  },
   "statusLoggedIn": {
     "message": "Login succeeded and remote groups were loaded."
   },
@@ -181,6 +247,12 @@
   },
   "diagnostics": {
     "message": "Diagnostics"
+  },
+  "overview": {
+    "message": "Overview"
+  },
+  "localOverrides": {
+    "message": "Local overrides"
   },
   "refreshLogs": {
     "message": "Refresh"

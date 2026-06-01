@@ -13,6 +13,10 @@ const feedback = document.getElementById('feedback');
 const groupList = document.getElementById('groupList');
 const groupTitle = document.getElementById('groupTitle');
 const policyMeta = document.getElementById('policyMeta');
+const enabledMeta = document.getElementById('enabledMeta');
+const groupCountMeta = document.getElementById('groupCountMeta');
+const overrideCountMeta = document.getElementById('overrideCountMeta');
+const syncTimeMeta = document.getElementById('syncTimeMeta');
 const entryMeta = document.getElementById('entryMeta');
 const remoteRuleSummary = document.getElementById('remoteRuleSummary');
 const directHosts = document.getElementById('directHosts');
@@ -102,17 +106,28 @@ async function refreshDiagnosticLogs() {
 function renderGroupList() {
   groupList.innerHTML = '';
   const groups = bundle.remote.groups || [];
+  if (groups.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = text('statusNoGroups');
+    groupList.appendChild(empty);
+    return;
+  }
   for (const group of groups) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `group-row${bundle.activeGroup && bundle.activeGroup.id === group.id ? ' is-active' : ''}`;
-    button.innerHTML = `
-      <div class="group-name">
-        <strong>${group.name}</strong>
-        <span>${group.entryNodeName}</span>
-      </div>
-      <div class="group-meta">${text('ruleSummary', [String((group.proxyHosts || []).length + (group.proxyCidrs || []).length), String((group.directHosts || []).length + (group.directCidrs || []).length)])}</div>
-    `;
+    const name = document.createElement('div');
+    name.className = 'group-name';
+    const title = document.createElement('strong');
+    title.textContent = group.name;
+    const node = document.createElement('span');
+    node.textContent = group.entryNodeName;
+    const meta = document.createElement('div');
+    meta.className = 'group-meta';
+    meta.textContent = text('ruleSummary', [String((group.proxyHosts || []).length + (group.proxyCidrs || []).length), String((group.directHosts || []).length + (group.directCidrs || []).length)]);
+    name.append(title, node);
+    button.append(name, meta);
     button.addEventListener('click', async () => {
       const result = await sendMessage({ type: 'select-group', groupId: group.id });
       if (result && result.error) {
@@ -140,6 +155,10 @@ function renderSession() {
   controlPlaneUrl.value = state.controlPlaneUrl || '';
   account.value = session.account || '';
   policyMeta.textContent = remote.policyRevision ? `${text('policyShort')} ${remote.policyRevision}` : text('notSynced');
+  enabledMeta.textContent = state.enabled ? text('on') : text('off');
+  groupCountMeta.textContent = String((remote.groups || []).length);
+  overrideCountMeta.textContent = String((state.localOverrides.directHosts || []).length + (state.localOverrides.proxyHosts || []).length);
+  syncTimeMeta.textContent = remote.fetchedAt ? new Date(remote.fetchedAt).toLocaleString() : text('notSynced');
   sessionMeta.textContent = session.accessToken
     ? text('sessionSummary', [session.account || '-', session.expiresAt ? new Date(session.expiresAt).toLocaleString() : '-'])
     : text('statusLoginRequired');

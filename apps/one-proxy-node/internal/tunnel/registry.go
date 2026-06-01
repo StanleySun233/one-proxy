@@ -48,7 +48,7 @@ func (r *Registry) HasChild(nodeID string) bool {
 	return ok
 }
 
-func (r *Registry) ForwardProbe(nextNodeID string, requestID string, remaining []string, targetHost string, targetPort int) (Message, error) {
+func (r *Registry) ForwardProbe(nextNodeID string, requestID string, remaining []string, protocol string, targetHost string, targetPort int) (Message, error) {
 	r.mu.RLock()
 	session, ok := r.sessions[nextNodeID]
 	r.mu.RUnlock()
@@ -59,6 +59,7 @@ func (r *Registry) ForwardProbe(nextNodeID string, requestID string, remaining [
 		Type:                "probe_request",
 		RequestID:           requestID,
 		RemainingHopNodeIDs: remaining,
+		Protocol:            protocol,
 		TargetHost:          targetHost,
 		TargetPort:          targetPort,
 	})

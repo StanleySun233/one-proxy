@@ -43,6 +43,25 @@
         </div>
         <select id="groupSelect" class="select"></select>
       </section>
+      <section class="route-card" id="routeCard">
+        <div>
+          <p class="section-title" data-lang="currentRoute">Current route</p>
+          <p class="route-value" id="currentRouteValue">-</p>
+        </div>
+        <span class="route-source" id="currentRouteSource">-</span>
+      </section>
+      <section class="tester-card">
+        <div class="section-head">
+          <p class="section-title" data-lang="routeTester">Route test</p>
+          <span class="mono" id="monitorMeta">-</span>
+        </div>
+        <div class="test-row">
+          <input id="testUrlInput" class="input" type="text" spellcheck="false" placeholder="https://www.baidu.com" />
+          <button id="testUrlButton" class="secondary compact" type="button" data-lang="runTest">Test</button>
+        </div>
+        <div class="topology" id="topologyView"></div>
+        <div class="probe-grid" id="probeGrid"></div>
+      </section>
       <section class="detail-grid">
         <article class="detail-card">
           <p class="section-title" data-lang="entryNode">Entry node</p>
@@ -58,6 +77,7 @@
       <section class="quick-actions">
         <button id="addDirect" class="secondary" type="button" data-lang="thisSiteDirect">This site direct</button>
         <button id="addProxy" class="secondary" type="button" data-lang="thisSiteProxy">This site proxy</button>
+        <button id="removeOverride" class="secondary wide" type="button" data-lang="removeSiteOverride">Remove site override</button>
       </section>
     </main>
     <script type="module" src="index.js"></script>
