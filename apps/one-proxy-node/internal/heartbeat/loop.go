@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/controlplane"
+	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/policystore"
 )
 
@@ -58,7 +59,7 @@ func (l *Loop) tick() {
 		result, renewErr := l.client.RenewCertificate("public")
 		if renewErr != nil {
 			log.Printf("public cert renew failed: %v", renewErr)
-			l.certStatus["public"] = "degraded"
+			l.certStatus["public"] = domain.CertStatusDegraded
 		} else {
 			l.certStatus["public"] = result.Status
 		}

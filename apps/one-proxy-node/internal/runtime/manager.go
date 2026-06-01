@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/controlplane"
+	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/policystore"
 )
 
@@ -135,7 +136,7 @@ func (m *Manager) tick() {
 	if m.managePublicCert {
 		result, renewErr := client.RenewCertificate("public")
 		if renewErr != nil {
-			m.setCertStatus("public", "degraded")
+			m.setCertStatus("public", domain.CertStatusDegraded)
 		} else {
 			m.setCertStatus("public", result.Status)
 		}

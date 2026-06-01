@@ -1,5 +1,12 @@
 package domain
 
+const (
+	ListenerStatusUp       = "up"
+	ListenerStatusDegraded = "degraded"
+	CertStatusHealthy      = "healthy"
+	CertStatusDegraded     = "degraded"
+)
+
 type Node struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`

@@ -6,7 +6,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
-var healthyListenerValues = map[string]bool{domain.ListenerStatusUp: true}
+var healthyListenerValues = map[string]bool{domain.ListenerStatusUp: true, domain.NodeStatusHealthy: true}
 var healthyCertValues = map[string]bool{domain.CertStatusHealthy: true, domain.CertStatusRenewed: true}
 
 func heartbeatNodeStatus(listenerStatus map[string]string, certStatus map[string]string) string {

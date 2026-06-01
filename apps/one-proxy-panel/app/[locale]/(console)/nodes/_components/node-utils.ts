@@ -18,12 +18,14 @@ export function deriveNodeHealthState(item?: NodeHealth, enums?: FieldEnumMap) {
   const listenerValues = Object.values(item.listenerStatus || {});
   const certValues = Object.values(item.certStatus || {});
   const allValues = [...listenerValues, ...certValues];
+  const isKnownGoodValue = (value: string) => value === 'up' || value === 'healthy' || value === 'renewed';
   const isGoodValue = (value: string) =>
+    isKnownGoodValue(value) ||
     enums?.listener_status?.[value]?.meta?.className === 'is-good' ||
     enums?.cert_status?.[value]?.meta?.className === 'is-good';
   const hasDegradedSignal = enums
     ? allValues.some(v => !isGoodValue(v))
-    : allValues.some((value) => value !== 'up' && value !== 'healthy' && value !== 'renewed');
+    : allValues.some((value) => !isKnownGoodValue(value));
   if (isStale) {
     return {status: 'stale', label: 'stale'};
   }
