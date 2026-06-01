@@ -496,20 +496,25 @@ func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput
 		TargetType: input.TargetType,
 		TargetID:   input.TargetID,
 		NodeName:   input.NodeName,
+		NodeMode:   input.NodeMode,
+		ScopeKey:   input.ScopeKey,
+		ParentNodeID: input.ParentNodeID,
+		PublicHost: input.PublicHost,
+		PublicPort: input.PublicPort,
 		ExpiresAt:  time.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339),
 		CreatedAt:  nowRFC3339(),
 	}
 	_, err = s.db.Exec(
-		`INSERT INTO bootstrap_tokens (id, token_hash, target_type, target_id, node_name, expires_at, consumed_at, created_at)
-		 VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, NULL, ?)`,
-		item.ID, token, item.TargetType, item.TargetID, item.NodeName, item.ExpiresAt, nowRFC3339(),
+		`INSERT INTO bootstrap_tokens (id, token_hash, target_type, target_id, node_name, node_mode, scope_key, parent_node_id, public_host, public_port, expires_at, consumed_at, created_at)
+		 VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?, NULL, ?)`,
+		item.ID, token, item.TargetType, item.TargetID, item.NodeName, item.NodeMode, item.ScopeKey, item.ParentNodeID, item.PublicHost, item.PublicPort, item.ExpiresAt, nowRFC3339(),
 	)
 	return item, err
 }
 
 func (s *MySQLStore) ListUnconsumedBootstrapTokens() []domain.BootstrapToken {
 	rows, err := s.db.Query(
-		`SELECT id, target_type, COALESCE(target_id, ''), COALESCE(node_name, ''), expires_at, created_at
+		`SELECT id, target_type, COALESCE(target_id, ''), COALESCE(node_name, ''), COALESCE(node_mode, ''), COALESCE(scope_key, ''), COALESCE(parent_node_id, ''), COALESCE(public_host, ''), COALESCE(public_port, 0), expires_at, created_at
 		 FROM bootstrap_tokens
 		 WHERE consumed_at IS NULL AND expires_at > ?
 		 ORDER BY created_at DESC`,
@@ -522,7 +527,7 @@ func (s *MySQLStore) ListUnconsumedBootstrapTokens() []domain.BootstrapToken {
 	items := make([]domain.BootstrapToken, 0)
 	for rows.Next() {
 		var item domain.BootstrapToken
-		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.NodeName, &item.ExpiresAt, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.NodeName, &item.NodeMode, &item.ScopeKey, &item.ParentNodeID, &item.PublicHost, &item.PublicPort, &item.ExpiresAt, &item.CreatedAt); err != nil {
 			continue
 		}
 		items = append(items, item)
@@ -541,16 +546,21 @@ func (s *MySQLStore) DeleteBootstrapToken(tokenID string) error {
 
 func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
 	var (
-		tokenID    string
-		targetID   sql.NullString
-		nodeName   sql.NullString
-		expiresAt  string
-		consumedAt sql.NullString
+		tokenID      string
+		targetID     sql.NullString
+		nodeName     sql.NullString
+		nodeMode     sql.NullString
+		scopeKey     sql.NullString
+		parentNodeID sql.NullString
+		publicHost   sql.NullString
+		publicPort   sql.NullInt64
+		expiresAt    string
+		consumedAt   sql.NullString
 	)
 	err := s.db.QueryRow(
-		`SELECT id, target_id, node_name, expires_at, consumed_at FROM bootstrap_tokens WHERE token_hash = ?`,
+		`SELECT id, target_id, node_name, node_mode, scope_key, parent_node_id, public_host, public_port, expires_at, consumed_at FROM bootstrap_tokens WHERE token_hash = ?`,
 		input.Token,
-	).Scan(&tokenID, &targetID, &nodeName, &expiresAt, &consumedAt)
+	).Scan(&tokenID, &targetID, &nodeName, &nodeMode, &scopeKey, &parentNodeID, &publicHost, &publicPort, &expiresAt, &consumedAt)
 	if err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
@@ -561,6 +571,29 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	effectiveName := input.Name
 	if nodeName.Valid && nodeName.String != "" {
 		effectiveName = nodeName.String
+	}
+	effectiveMode := input.Mode
+	if nodeMode.Valid && nodeMode.String != "" {
+		effectiveMode = nodeMode.String
+	}
+	effectiveScopeKey := input.ScopeKey
+	if scopeKey.Valid && scopeKey.String != "" {
+		effectiveScopeKey = scopeKey.String
+	}
+	effectiveParentNodeID := input.ParentNodeID
+	if parentNodeID.Valid {
+		effectiveParentNodeID = parentNodeID.String
+	}
+	effectivePublicHost := input.PublicHost
+	if publicHost.Valid {
+		effectivePublicHost = publicHost.String
+	}
+	effectivePublicPort := input.PublicPort
+	if publicPort.Valid && publicPort.Int64 > 0 {
+		effectivePublicPort = int(publicPort.Int64)
+	}
+	if effectivePublicPort <= 0 {
+		effectivePublicPort = input.PublicPort
 	}
 	now := nowRFC3339()
 	enrollmentSecret, err := auth.RandomToken()
@@ -587,16 +620,16 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 			`UPDATE nodes
 			 SET name = ?, mode = ?, public_host = NULLIF(?, ''), public_port = ?, scope_key = ?, parent_node_id = NULLIF(?, ''), enabled = ?, status = ?, updated_at = ?
 			 WHERE id = ?`,
-			effectiveName, input.Mode, input.PublicHost, input.PublicPort, input.ScopeKey, input.ParentNodeID, 1, domain.NodeStatusHealthy, now, node.ID,
+			effectiveName, effectiveMode, effectivePublicHost, effectivePublicPort, effectiveScopeKey, effectiveParentNodeID, 1, domain.NodeStatusHealthy, now, node.ID,
 		); err != nil {
 			return domain.EnrollNodeResult{}, err
 		}
 		node.Name = effectiveName
-		node.Mode = input.Mode
-		node.ScopeKey = input.ScopeKey
-		node.ParentNodeID = input.ParentNodeID
-		node.PublicHost = input.PublicHost
-		node.PublicPort = input.PublicPort
+		node.Mode = effectiveMode
+		node.ScopeKey = effectiveScopeKey
+		node.ParentNodeID = effectiveParentNodeID
+		node.PublicHost = effectivePublicHost
+		node.PublicPort = effectivePublicPort
 		node.Enabled = true
 		node.Status = domain.NodeStatusHealthy
 	} else {
@@ -607,13 +640,13 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 		node = domain.Node{
 			ID:           nodeID,
 			Name:         effectiveName,
-			Mode:         input.Mode,
-			ScopeKey:     input.ScopeKey,
-			ParentNodeID: input.ParentNodeID,
+			Mode:         effectiveMode,
+			ScopeKey:     effectiveScopeKey,
+			ParentNodeID: effectiveParentNodeID,
 			Enabled:      true,
 			Status:       domain.NodeStatusPending,
-			PublicHost:   input.PublicHost,
-			PublicPort:   input.PublicPort,
+			PublicHost:   effectivePublicHost,
+			PublicPort:   effectivePublicPort,
 		}
 		if _, err := tx.Exec(
 			`INSERT INTO nodes (id, name, mode, public_host, public_port, scope_key, parent_node_id, enabled, status, created_at, updated_at)

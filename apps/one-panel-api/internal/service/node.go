@@ -305,6 +305,14 @@ func (c *ControlPlane) CreateBootstrapToken(input domain.CreateBootstrapTokenInp
 	if input.TargetType == "" {
 		return domain.BootstrapToken{}, invalidInput("invalid_bootstrap_payload")
 	}
+	if input.TargetID == "" {
+		if err := validateNodeInput(input.NodeName, input.NodeMode, input.ScopeKey); err != nil {
+			return domain.BootstrapToken{}, err
+		}
+	}
+	if input.NodeMode != "" && !c.isValidEnum("node_mode", input.NodeMode) {
+		return domain.BootstrapToken{}, invalidInput("invalid_node_payload")
+	}
 	return c.store.CreateBootstrapToken(input)
 }
 
@@ -322,9 +330,6 @@ func (c *ControlPlane) DeleteBootstrapToken(tokenID string) error {
 func (c *ControlPlane) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
 	if input.Token == "" {
 		return domain.EnrollNodeResult{}, invalidInput("missing_bootstrap_token")
-	}
-	if err := validateNodeInput(input.Name, input.Mode, input.ScopeKey); err != nil {
-		return domain.EnrollNodeResult{}, err
 	}
 	return c.store.EnrollNode(input)
 }

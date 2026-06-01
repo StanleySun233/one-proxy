@@ -115,6 +115,11 @@ CREATE TABLE IF NOT EXISTS bootstrap_tokens (
   target_type VARCHAR(64) NOT NULL,
   target_id VARCHAR(191),
   node_name VARCHAR(255),
+  node_mode VARCHAR(64),
+  scope_key VARCHAR(191),
+  parent_node_id VARCHAR(191),
+  public_host VARCHAR(255),
+  public_port INT,
   expires_at VARCHAR(64) NOT NULL,
   consumed_at VARCHAR(64),
   created_at VARCHAR(64) NOT NULL

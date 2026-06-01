@@ -103,6 +103,9 @@ func (s *MySQLStore) init(ctx context.Context) error {
 	if err := s.bootstrapAdmin(ctx); err != nil {
 		return err
 	}
+	if err := s.ensureBootstrapTokenMetadataColumns(ctx); err != nil {
+		return err
+	}
 	if err := s.cleanupLegacyDemoTopology(ctx); err != nil {
 		return err
 	}
@@ -111,6 +114,29 @@ func (s *MySQLStore) init(ctx context.Context) error {
 	}
 	if err := s.bootstrapConfig(ctx); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (s *MySQLStore) ensureBootstrapTokenMetadataColumns(ctx context.Context) error {
+	columns := map[string]string{
+		"node_mode":      "ALTER TABLE bootstrap_tokens ADD COLUMN node_mode VARCHAR(64)",
+		"scope_key":      "ALTER TABLE bootstrap_tokens ADD COLUMN scope_key VARCHAR(191)",
+		"parent_node_id": "ALTER TABLE bootstrap_tokens ADD COLUMN parent_node_id VARCHAR(191)",
+		"public_host":    "ALTER TABLE bootstrap_tokens ADD COLUMN public_host VARCHAR(255)",
+		"public_port":    "ALTER TABLE bootstrap_tokens ADD COLUMN public_port INT",
+	}
+	for column, statement := range columns {
+		exists, err := s.exists(ctx, "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'bootstrap_tokens' AND column_name = ?", column)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+		if _, err := s.db.ExecContext(ctx, statement); err != nil {
+			return err
+		}
 	}
 	return nil
 }

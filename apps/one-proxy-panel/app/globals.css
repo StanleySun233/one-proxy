@@ -116,6 +116,8 @@ button:disabled {
 }
 
 .console-topbar {
+  position: relative;
+  z-index: 20;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   padding: 10px 16px;
@@ -361,6 +363,10 @@ button:disabled {
   transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
 }
 
+.capsule-select-shell.is-open {
+  z-index: 30;
+}
+
 .capsule-select-shell:focus-within {
   border-color: color-mix(in srgb, var(--primary) 42%, var(--line) 58%);
   background: color-mix(in srgb, var(--primary) 10%, var(--panel) 90%);
@@ -410,7 +416,7 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 6px;
-  z-index: 100;
+  z-index: 40;
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
@@ -1336,7 +1342,8 @@ button:disabled {
 
 @media (max-width: 880px) {
   .forms-grid,
-  .registry-toolbar {
+  .registry-toolbar,
+  .node-mode-picker {
     grid-template-columns: 1fr;
   }
 

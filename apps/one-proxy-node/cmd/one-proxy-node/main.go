@@ -59,9 +59,6 @@ func main() {
 				if cfg.NodeBootstrapToken == "" {
 					log.Fatal("missing NODE_ACCESS_TOKEN or NODE_ENROLLMENT_SECRET or NODE_BOOTSTRAP_TOKEN")
 				}
-				if cfg.NodeName == "" || cfg.NodeScopeKey == "" {
-					log.Fatal("missing NODE_NAME or NODE_SCOPE_KEY for bootstrap enrollment")
-				}
 				enroll, err := client.EnrollNode(domain.EnrollNodeInput{
 					Token:        cfg.NodeBootstrapToken,
 					Name:         cfg.NodeName,

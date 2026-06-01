@@ -68,13 +68,16 @@ export function useNodeConsole() {
   });
 
   const [latestToken, setLatestToken] = useState<BootstrapToken | null>(null);
-  const [latestTokenNodeMode, setLatestTokenNodeMode] = useState('');
 
   const bootstrapForm = useForm<BootstrapFormValues>({
     defaultValues: {
       targetId: '',
       nodeName: '',
-      nodeMode: DEFAULT_BOOTSTRAP_MODE
+      nodeMode: DEFAULT_BOOTSTRAP_MODE,
+      scopeKey: 'scope-key',
+      parentNodeId: '',
+      publicHost: '',
+      publicPort: ''
     }
   });
 
@@ -174,13 +177,21 @@ export function useNodeConsole() {
   });
 
   const bootstrapMutation = useMutation({
-    mutationFn: ({targetId, nodeName}: {targetId: string; nodeName: string; nodeMode: string}) => createBootstrapToken(accessToken, {targetType: DEFAULT_TARGET_TYPE, targetId, nodeName}),
+    mutationFn: (payload: {targetId: string; nodeName: string; nodeMode: string; scopeKey: string; parentNodeId: string; publicHost: string; publicPort: number}) =>
+      createBootstrapToken(accessToken, {targetType: DEFAULT_TARGET_TYPE, ...payload}),
     onSuccess: (result, variables) => {
       toast.success('bootstrap token created');
-      bootstrapForm.reset({targetId: '', nodeName: '', nodeMode: variables.nodeMode});
+      bootstrapForm.reset({
+        targetId: '',
+        nodeName: '',
+        nodeMode: variables.nodeMode,
+        scopeKey: variables.scopeKey,
+        parentNodeId: variables.parentNodeId,
+        publicHost: variables.publicHost,
+        publicPort: variables.publicPort > 0 ? String(variables.publicPort) : ''
+      });
       bootstrapForm.setValue('targetId', '');
       setLatestToken(result);
-      setLatestTokenNodeMode(variables.nodeMode);
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -290,7 +301,6 @@ export function useNodeConsole() {
     pendingNodesQuery,
     unconsumedTokensQuery,
     latestToken,
-    latestTokenNodeMode,
     createNode: createNodeMutation,
     quickConnect: quickConnectMutation,
     bootstrap: bootstrapMutation,

@@ -37,14 +37,12 @@ export function BootstrapTokenTab({
   form,
   submitting,
   latestToken,
-  latestTokenNodeMode,
   nodes,
   onSubmit
 }: {
   form: UseFormReturn<BootstrapFormValues>;
   submitting: boolean;
   latestToken: BootstrapToken | null;
-  latestTokenNodeMode: string;
   nodes: Node[];
   onSubmit: (data: BootstrapFormValues) => void;
 }) {
@@ -69,14 +67,10 @@ export function BootstrapTokenTab({
       '  -v one-proxy-node-runtime:/app/runtime \\',
       `  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`,
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
-      `  -e NODE_NAME=${shellQuote(latestToken.nodeName)} \\`,
-      "  -e NODE_SCOPE_KEY='scope-key' \\",
-      `  -e NODE_MODE=${shellQuote(latestTokenNodeMode || 'relay')} \\`,
-      "  -e NODE_JOIN_PASSWORD='password' \\",
       "  -e TZ='Asia/Shanghai' \\",
       '  ghcr.io/stanleysun233/one-proxy-node:latest'
     ].join('\n');
-  }, [controlPlaneURL, latestToken, latestTokenNodeMode]);
+  }, [controlPlaneURL, latestToken]);
   const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);
   const selectedNodeMode = form.watch('nodeMode');
 
@@ -145,6 +139,49 @@ export function BootstrapTokenTab({
         </div>
         {form.formState.errors.nodeMode ? (
           <p className="field-error">{form.formState.errors.nodeMode.message}</p>
+        ) : null}
+      </div>
+      <div className="field-stack">
+        <span>{t('nodes.bootstrap.scopeKey')} <span className="muted-text">({t('common.required')})</span></span>
+        <input
+          className="field-input"
+          placeholder="scope-key"
+          {...form.register('scopeKey', {required: t('nodes.bootstrap.scopeKeyRequired')})}
+        />
+        <p className="field-hint">{t('nodes.bootstrap.scopeKeyHint')}</p>
+      </div>
+      <div className="field-stack">
+        <span>{t('nodes.bootstrap.parentNodeId')}</span>
+        <select className="field-input" {...form.register('parentNodeId')}>
+          <option value="">{t('nodes.bootstrap.noParent')}</option>
+          {nodes.map((node) => (
+            <option key={node.id} value={node.id}>{node.id} - {node.name}</option>
+          ))}
+        </select>
+        <p className="field-hint">{t('nodes.bootstrap.parentNodeIdHint')}</p>
+      </div>
+      <div className="field-stack">
+        <span>{t('nodes.bootstrap.publicHost')}</span>
+        <input className="field-input" placeholder="103.214.172.211" {...form.register('publicHost')} />
+        <p className="field-hint">{t('nodes.bootstrap.publicHostHint')}</p>
+      </div>
+      <div className="field-stack">
+        <span>{t('nodes.bootstrap.publicPort')}</span>
+        <input
+          className="field-input"
+          inputMode="numeric"
+          placeholder="2988"
+          {...form.register('publicPort', {
+            validate: (value) => {
+              if (!value) return true;
+              const port = Number(value);
+              return Number.isInteger(port) && port > 0 ? true : t('nodes.bootstrap.publicPortInvalid');
+            }
+          })}
+        />
+        <p className="field-hint">{t('nodes.bootstrap.publicPortHint')}</p>
+        {form.formState.errors.publicPort ? (
+          <p className="field-error">{form.formState.errors.publicPort.message}</p>
         ) : null}
       </div>
       <div className="field-stack nodes-form-full">

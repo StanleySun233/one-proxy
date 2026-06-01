@@ -166,6 +166,11 @@ type BootstrapToken struct {
 	TargetType string `json:"targetType"`
 	TargetID   string `json:"targetId"`
 	NodeName   string `json:"nodeName"`
+	NodeMode   string `json:"nodeMode"`
+	ScopeKey   string `json:"scopeKey"`
+	ParentNodeID string `json:"parentNodeId"`
+	PublicHost string `json:"publicHost"`
+	PublicPort int    `json:"publicPort"`
 	ExpiresAt  string `json:"expiresAt"`
 	CreatedAt  string `json:"createdAt"`
 }
@@ -174,6 +179,11 @@ type CreateBootstrapTokenInput struct {
 	TargetType string `json:"targetType"`
 	TargetID   string `json:"targetId"`
 	NodeName   string `json:"nodeName"`
+	NodeMode   string `json:"nodeMode"`
+	ScopeKey   string `json:"scopeKey"`
+	ParentNodeID string `json:"parentNodeId"`
+	PublicHost string `json:"publicHost"`
+	PublicPort int    `json:"publicPort"`
 }
 
 type EnrollNodeInput struct {

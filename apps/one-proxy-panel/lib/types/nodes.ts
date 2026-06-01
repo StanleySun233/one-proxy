@@ -81,6 +81,11 @@ export type BootstrapToken = {
   targetType: string;
   targetId: string;
   nodeName: string;
+  nodeMode: string;
+  scopeKey: string;
+  parentNodeId: string;
+  publicHost: string;
+  publicPort: number;
   expiresAt: string;
 };
 
@@ -89,6 +94,11 @@ export type UnconsumedBootstrapToken = {
   targetType: string;
   targetId: string;
   nodeName: string;
+  nodeMode: string;
+  scopeKey: string;
+  parentNodeId: string;
+  publicHost: string;
+  publicPort: number;
   expiresAt: string;
   createdAt: string;
 };

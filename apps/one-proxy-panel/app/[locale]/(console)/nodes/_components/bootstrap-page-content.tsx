@@ -13,7 +13,15 @@ export function NodeBootstrapPageContent() {
 
   const handleBootstrap = useCallback(
     (data: BootstrapFormValues) => {
-      nodeConsole.bootstrap.mutate({targetId: data.targetId.trim(), nodeName: data.nodeName.trim(), nodeMode: data.nodeMode});
+      nodeConsole.bootstrap.mutate({
+        targetId: data.targetId.trim(),
+        nodeName: data.nodeName.trim(),
+        nodeMode: data.nodeMode,
+        scopeKey: data.scopeKey.trim(),
+        parentNodeId: data.parentNodeId.trim(),
+        publicHost: data.publicHost.trim(),
+        publicPort: Number(data.publicPort) || 0
+      });
     },
     [nodeConsole.bootstrap]
   );
@@ -30,7 +38,6 @@ export function NodeBootstrapPageContent() {
           <BootstrapTokenTab
             form={nodeConsole.bootstrapForm}
             latestToken={nodeConsole.latestToken}
-            latestTokenNodeMode={nodeConsole.latestTokenNodeMode}
             submitting={nodeConsole.bootstrap.isPending}
             nodes={nodeConsole.nodesQuery.data || []}
             onSubmit={handleBootstrap}

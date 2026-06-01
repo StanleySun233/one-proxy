@@ -405,6 +405,11 @@ func (s *SeedStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput)
 		TargetType: input.TargetType,
 		TargetID:   input.TargetID,
 		NodeName:   input.NodeName,
+		NodeMode:   input.NodeMode,
+		ScopeKey:   input.ScopeKey,
+		ParentNodeID: input.ParentNodeID,
+		PublicHost: input.PublicHost,
+		PublicPort: input.PublicPort,
 		ExpiresAt:  time.Now().UTC().Add(15 * time.Minute).Format(time.RFC3339),
 		CreatedAt:  nowRFC3339(),
 	}, nil

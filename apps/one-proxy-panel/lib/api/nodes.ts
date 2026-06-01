@@ -90,7 +90,10 @@ export function getNodeTransports(accessToken: string) {
   return request<NodeTransport[]>('/node-transports', {accessToken});
 }
 
-export function createBootstrapToken(accessToken: string, payload: {targetType: string; targetId: string; nodeName: string}) {
+export function createBootstrapToken(
+  accessToken: string,
+  payload: {targetType: string; targetId: string; nodeName: string; nodeMode: string; scopeKey: string; parentNodeId: string; publicHost: string; publicPort: number}
+) {
   return request<BootstrapToken>('/nodes/bootstrap-token', {
     method: 'POST',
     accessToken,

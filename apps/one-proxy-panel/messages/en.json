@@ -269,6 +269,17 @@
           "hint": "A user LAN, VPN-side, or transit node that usually sits behind an edge node."
         }
       },
+      "scopeKey": "Scope key",
+      "scopeKeyRequired": "Scope key is required",
+      "scopeKeyHint": "Use the same scope for nodes that belong to the same reachable group.",
+      "parentNodeId": "Upstream node",
+      "noParent": "No upstream node",
+      "parentNodeIdHint": "Relay nodes usually choose their edge parent. Edge nodes usually leave this empty.",
+      "publicHost": "Public host",
+      "publicHostHint": "Recommended for edge nodes. Usually empty for relay or user-LAN nodes.",
+      "publicPort": "Public port",
+      "publicPortHint": "Leave empty to use the node listener default. Only public entries usually need this.",
+      "publicPortInvalid": "Port must be a positive integer",
       "targetNodeId": "Target node id",
       "targetNodeIdHint": "Leave blank for a brand new node, or bind this token to a manually created record.",
       "generateToken": "Generate bootstrap token",
@@ -279,7 +290,7 @@
       "copyCommand": "Copy command",
       "copied": "Copied",
       "tokenShownOnce": "Token is shown once in this page state. Generate a new one if the machine was not enrolled.",
-      "dockerScopeHint": "Replace `NODE_SCOPE_KEY` before running on the target machine. The control-plane domain is taken from the current panel URL.",
+      "dockerScopeHint": "Node name, type, scope, upstream and public endpoint metadata are stored in the bootstrap token. The target machine only needs the control-plane URL and token.",
       "generateOnDemand": "Generate on demand. Token content is only kept in current page state.",
       "nodeNameDuplicate": "A node with this name already exists",
       "bootstrapHint": "Remote node self-enroll flow for machines not directly reachable from the panel."
