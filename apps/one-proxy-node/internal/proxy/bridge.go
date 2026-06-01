@@ -62,6 +62,10 @@ func isWebSocketUpgrade(req *http.Request) bool {
 	return strings.EqualFold(req.Header.Get("Upgrade"), "websocket") && headerContainsToken(req.Header.Get("Connection"), "upgrade")
 }
 
+func isForwardProxyRequest(req *http.Request) bool {
+	return req.Method == http.MethodConnect || (req.URL != nil && req.URL.IsAbs())
+}
+
 func headerContainsToken(value string, token string) bool {
 	for _, item := range strings.Split(value, ",") {
 		if strings.EqualFold(strings.TrimSpace(item), token) {

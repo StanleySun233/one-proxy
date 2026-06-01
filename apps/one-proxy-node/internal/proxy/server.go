@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/policystore"
@@ -12,6 +13,7 @@ type Server struct {
 	store          *policystore.Store
 	nodeIDGetter   func() string
 	tunnelRegistry *tunnel.Registry
+	reverseTarget  *url.URL
 }
 
 type chainHop struct {
@@ -24,7 +26,31 @@ func NewServer(store *policystore.Store, nodeIDGetter func() string, tunnelRegis
 	return &Server{store: store, nodeIDGetter: nodeIDGetter, tunnelRegistry: tunnelRegistry}
 }
 
+func NewServerWithReverseTarget(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry, reverseTargetURL string) (*Server, error) {
+	server := NewServer(store, nodeIDGetter, tunnelRegistry)
+	if reverseTargetURL == "" {
+		return server, nil
+	}
+	target, err := url.Parse(reverseTargetURL)
+	if err != nil {
+		return nil, err
+	}
+	if target.Scheme == "" || target.Host == "" {
+		return nil, url.InvalidHostError(reverseTargetURL)
+	}
+	server.reverseTarget = target
+	return server, nil
+}
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if s.reverseTarget != nil && !isForwardProxyRequest(req) {
+		if isWebSocketUpgrade(req) {
+			s.upgradeReverse(w, req)
+			return
+		}
+		s.forwardReverse(w, req)
+		return
+	}
 	_, snapshot := s.store.Current()
 	match := Match(snapshot, req)
 	if !match.Found {

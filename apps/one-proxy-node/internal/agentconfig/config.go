@@ -16,6 +16,7 @@ type Config struct {
 	NodePublicHost           string
 	NodeJoinPassword         string
 	NodeJoinPasswordProvided bool
+	NodeReverseTargetURL     string
 	NodeParentTunnelURL      string
 	NodeTunnelPath           string
 	NodeTunnelHeartbeat      string
@@ -46,6 +47,7 @@ func Load() Config {
 		NodePublicHost:           envOrDefault("NODE_PUBLIC_HOST", ""),
 		NodeJoinPassword:         joinPassword,
 		NodeJoinPasswordProvided: joinPasswordProvided,
+		NodeReverseTargetURL:     envOrDefault("NODE_REVERSE_TARGET_URL", ""),
 		NodeParentTunnelURL:      FirstNonEmpty(envOrDefault("NODE_PARENT_TUNNEL_URL", ""), parentURL),
 		NodeTunnelPath:           envOrDefault("NODE_TUNNEL_PATH", "/api/v1/node-tunnel/connect"),
 		NodeTunnelHeartbeat:      envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),

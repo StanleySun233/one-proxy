@@ -3,11 +3,10 @@
 ## Structure
 
 - `apps/chrome-extension`: user-side Chrome extension
-- `apps/one-panel-api`: planned Go backend
-- `apps/one-proxy-panel`: planned Next.js admin console
-- `prototypes/proxy-node-demo`: archived Python demo
-- `docs/`: numbered design and development documents
-- `todolist.md`: progress tracker
+- `apps/one-panel-api`: Go control-plane backend
+- `apps/one-proxy-panel`: Next.js admin console
+- `apps/one-proxy-node`: Go proxy node
+- `docker/`: container build and startup assets
 
 ## Current Direction
 
@@ -73,6 +72,7 @@ docker run --rm --name one-proxy-node \
 ```
 
 The node keeps its local runtime state in SQLite/JSON files inside the container. Mount `/app/runtime` if you want persistence.
+Set `NODE_REVERSE_TARGET_URL=http://172.20.116.91:2333` when a node should act as a reverse HTTP/WebSocket entry for a JupyterLab service.
 
 ## GHCR
 

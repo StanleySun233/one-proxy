@@ -100,7 +100,10 @@ func main() {
 			}
 		}
 	}
-	proxyHandler := proxy.NewServer(store, manager.NodeID, tunnelRegistry)
+	proxyHandler, err := proxy.NewServerWithReverseTarget(store, manager.NodeID, tunnelRegistry, cfg.NodeReverseTargetURL)
+	if err != nil {
+		log.Fatalf("init proxy server failed: %v", err)
+	}
 	mux := http.NewServeMux()
 	mux.Handle("/", proxyHandler)
 	httpHandler := proxyAwareHandler(proxyHandler, mux)
