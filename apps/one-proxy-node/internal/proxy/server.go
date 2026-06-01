@@ -40,6 +40,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	switch match.Rule.ActionType {
 	case domain.ActionTypeDirect:
+		if isWebSocketUpgrade(req) {
+			s.upgradeDirect(w, req)
+			return
+		}
 		if req.Method == http.MethodConnect {
 			s.tunnelDirect(w, req)
 			return
@@ -63,6 +67,10 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 		return
 	}
 	if hop.isLast {
+		if isWebSocketUpgrade(req) {
+			s.upgradeDirect(w, req)
+			return
+		}
 		if req.Method == http.MethodConnect {
 			s.tunnelDirect(w, req)
 			return
@@ -71,6 +79,10 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 		return
 	}
 	if s.shouldUseTunnel(hop.node) {
+		if isWebSocketUpgrade(req) {
+			s.upgradeViaStream(w, req, hop)
+			return
+		}
 		if req.Method == http.MethodConnect {
 			s.tunnelViaStream(w, req, hop)
 			return
@@ -84,6 +96,10 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 	}
 	if req.Method == http.MethodConnect {
 		s.tunnelViaProxy(w, req, hop.node)
+		return
+	}
+	if isWebSocketUpgrade(req) {
+		s.upgradeViaProxy(w, req, hop.node)
 		return
 	}
 	s.forwardViaProxy(w, req, hop.node)
@@ -160,6 +176,50 @@ func (s *Server) forwardViaStream(w http.ResponseWriter, req *http.Request, hop 
 	}
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
+}
+
+func (s *Server) upgradeDirect(w http.ResponseWriter, req *http.Request) {
+	targetHost, targetPort := targetAddress(req)
+	targetConn, err := net.Dial("tcp", net.JoinHostPort(targetHost, strconv.Itoa(targetPort)))
+	if err != nil {
+		http.Error(w, "connect_failed", http.StatusBadGateway)
+		return
+	}
+	if err := writeUpgradeRequest(targetConn, req, false); err != nil {
+		targetConn.Close()
+		http.Error(w, "upgrade_write_failed", http.StatusBadGateway)
+		return
+	}
+	completeUpgrade(w, req, targetConn)
+}
+
+func (s *Server) upgradeViaProxy(w http.ResponseWriter, req *http.Request, nextHop domain.Node) {
+	proxyConn, err := net.Dial("tcp", net.JoinHostPort(nextHop.PublicHost, strconv.Itoa(nextHop.PublicPort)))
+	if err != nil {
+		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
+		return
+	}
+	if err := writeUpgradeRequest(proxyConn, req, true); err != nil {
+		proxyConn.Close()
+		http.Error(w, "upgrade_write_failed", http.StatusBadGateway)
+		return
+	}
+	completeUpgrade(w, req, proxyConn)
+}
+
+func (s *Server) upgradeViaStream(w http.ResponseWriter, req *http.Request, hop chainHop) {
+	targetHost, targetPort := targetAddress(req)
+	streamConn, err := s.tunnelRegistry.OpenStream(hop.node.ID, hop.remainingHops, targetHost, targetPort)
+	if err != nil {
+		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
+		return
+	}
+	if err := writeUpgradeRequest(streamConn, req, false); err != nil {
+		streamConn.Close()
+		http.Error(w, "upgrade_write_failed", http.StatusBadGateway)
+		return
+	}
+	completeUpgrade(w, req, streamConn)
 }
 
 func (s *Server) tunnelDirect(w http.ResponseWriter, req *http.Request) {
@@ -349,6 +409,77 @@ func removeHopByHopHeaders(header http.Header) {
 	header.Del("Upgrade")
 }
 
+func isWebSocketUpgrade(req *http.Request) bool {
+	return strings.EqualFold(req.Header.Get("Upgrade"), "websocket") && headerContainsToken(req.Header.Get("Connection"), "upgrade")
+}
+
+func headerContainsToken(value string, token string) bool {
+	for _, item := range strings.Split(value, ",") {
+		if strings.EqualFold(strings.TrimSpace(item), token) {
+			return true
+		}
+	}
+	return false
+}
+
+func writeUpgradeRequest(conn net.Conn, req *http.Request, absoluteForm bool) error {
+	outbound := req.Clone(req.Context())
+	outbound.Header = req.Header.Clone()
+	outbound.Header.Del("Proxy-Connection")
+	outbound.RequestURI = ""
+	if absoluteForm {
+		outbound.URL = cloneTargetURL(req)
+	} else {
+		if outbound.URL == nil {
+			outbound.URL = &url.URL{}
+		}
+		outbound.URL.Scheme = ""
+		outbound.URL.Host = ""
+	}
+	return outbound.Write(conn)
+}
+
+func completeUpgrade(w http.ResponseWriter, req *http.Request, backendConn net.Conn) {
+	reader := bufio.NewReader(backendConn)
+	resp, err := http.ReadResponse(reader, req)
+	if err != nil {
+		backendConn.Close()
+		http.Error(w, "upgrade_response_failed", http.StatusBadGateway)
+		return
+	}
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		defer resp.Body.Close()
+		defer backendConn.Close()
+		removeHopByHopHeaders(resp.Header)
+		for key, values := range resp.Header {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
+		w.WriteHeader(resp.StatusCode)
+		_, _ = io.Copy(w, resp.Body)
+		return
+	}
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
+		backendConn.Close()
+		http.Error(w, "hijack_not_supported", http.StatusInternalServerError)
+		return
+	}
+	clientConn, _, err := hijacker.Hijack()
+	if err != nil {
+		backendConn.Close()
+		http.Error(w, "hijack_failed", http.StatusInternalServerError)
+		return
+	}
+	if err := resp.Write(clientConn); err != nil {
+		clientConn.Close()
+		backendConn.Close()
+		return
+	}
+	bridgeUpgraded(clientConn, backendConn, reader)
+}
+
 func bridgeTunnel(left net.Conn, right net.Conn) {
 	go func() {
 		defer left.Close()
@@ -359,5 +490,18 @@ func bridgeTunnel(left net.Conn, right net.Conn) {
 		defer left.Close()
 		defer right.Close()
 		_, _ = io.Copy(left, right)
+	}()
+}
+
+func bridgeUpgraded(clientConn net.Conn, backendConn net.Conn, backendReader io.Reader) {
+	go func() {
+		defer clientConn.Close()
+		defer backendConn.Close()
+		_, _ = io.Copy(backendConn, clientConn)
+	}()
+	go func() {
+		defer clientConn.Close()
+		defer backendConn.Close()
+		_, _ = io.Copy(clientConn, backendReader)
 	}()
 }

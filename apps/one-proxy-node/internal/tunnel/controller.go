@@ -105,6 +105,7 @@ func (c *Controller) connect(current runtime.Binding) error {
 				done <- err
 				return
 			}
+			_ = conn.SetReadDeadline(time.Now().Add(c.heartbeatInterval * 3))
 			switch message.Type {
 			case "heartbeat_ack", "register_ack":
 				c.report(current, "connected", time.Now().UTC().Format(time.RFC3339))
