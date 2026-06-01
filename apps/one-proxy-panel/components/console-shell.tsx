@@ -194,9 +194,6 @@ export function ConsoleShell({children}: {children: ReactNode}) {
 
       <div className="console-workspace">
         <aside className="console-rail">
-          <div className="brand-panel">
-          </div>
-
           <nav className="nav-panel">
             {navSections.map((section) => {
               const sectionActive = section.key === expandedKey;

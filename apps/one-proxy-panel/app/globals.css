@@ -95,7 +95,6 @@ button:disabled {
 }
 
 .console-topbar,
-.brand-panel,
 .nav-panel,
 .panel-card,
 .hero-panel,
@@ -108,7 +107,6 @@ button:disabled {
 }
 
 .console-topbar,
-.brand-panel,
 .nav-panel,
 .panel-card,
 .hero-panel,
@@ -206,14 +204,12 @@ button:disabled {
   align-self: start;
 }
 
-.brand-panel,
 .nav-panel,
 .panel-card,
 .console-main {
   padding: 18px;
 }
 
-.brand-kicker,
 .section-kicker {
   margin: 0;
   font-size: 11px;
@@ -222,7 +218,6 @@ button:disabled {
   color: var(--muted);
 }
 
-.brand-panel h2,
 .hero-copy h2,
 .panel-card h3 {
   margin: 0;
@@ -233,31 +228,6 @@ button:disabled {
   font-family: var(--font-mono), "SFMono-Regular", monospace;
 }
 
-.brand-panel {
-  gap: 14px;
-}
-
-.brand-panel h2 {
-  font-size: 26px;
-  line-height: 1.05;
-}
-
-.brand-mark {
-  width: 64px;
-  height: 64px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--panel-2) 86%, var(--panel) 14%);
-}
-
-.brand-copy-block {
-  display: grid;
-  gap: 6px;
-}
-
-.brand-copy,
 .section-copy {
   margin: 0;
   color: var(--muted);
