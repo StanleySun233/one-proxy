@@ -57,10 +57,10 @@ export default function OverviewPage() {
         {pendingNodes.length > 0 && (
           <div className="alert-banner">
             <div className="alert-content">
-              <strong>Pending enrollments</strong>
+              <strong>{t('overview.pendingEnrollments')}</strong>
               <span>
-                {pendingNodes.length} node(s) require approval.{' '}
-                <Link href="/nodes/approvals">Review now</Link>
+                {t('overview.pendingApproval', {count: pendingNodes.length})}{' '}
+                <Link href="/nodes/approvals">{t('overview.reviewNow')}</Link>
               </span>
             </div>
           </div>
@@ -99,10 +99,10 @@ export default function OverviewPage() {
                 <h3>{t('overview.pathDesigner')}</h3>
                 <p className="section-copy">{t('overview.topologyHint')}</p>
               </div>
-              <span className="badge">{nodes.length} nodes</span>
+              <span className="badge">{t('overview.nodesCount', {count: nodes.length})}</span>
             </div>
             {nodesQuery.isPending || pathsQuery.isPending ? (
-              <AsyncState detail={t('common.loading')} title="Loading topology" />
+              <AsyncState detail={t('common.loading')} title={t('overview.loadingTopology')} />
             ) : nodesQuery.isError || pathsQuery.isError ? (
               <AsyncState
                 actionLabel={t('common.retry')}
@@ -111,7 +111,7 @@ export default function OverviewPage() {
                   void nodesQuery.refetch();
                   void pathsQuery.refetch();
                 }}
-                title="Failed to load topology"
+                title={t('overview.failedTopology')}
               />
             ) : (
               <TopologyPreview nodes={nodes} paths={paths} />
@@ -125,13 +125,13 @@ export default function OverviewPage() {
               <p className="section-copy">{t('overview.tasksHint')}</p>
             </div>
             {tasksQuery.isPending ? (
-              <AsyncState detail={t('common.loading')} title="Loading onboarding queue" />
+              <AsyncState detail={t('common.loading')} title={t('overview.loadingQueue')} />
             ) : tasksQuery.isError ? (
               <AsyncState
                 actionLabel={t('common.retry')}
                 detail={formatControlPlaneError(tasksQuery.error)}
                 onAction={() => void tasksQuery.refetch()}
-                title="Failed to load onboarding queue"
+                title={t('overview.failedQueue')}
               />
             ) : pendingTasks.length === 0 ? (
               <div className="queue-list">
@@ -158,15 +158,15 @@ export default function OverviewPage() {
         <section className="signal-strip">
           <article className="signal-card">
             <strong>{t('overview.health')}</strong>
-            <p>{overview ? `${overview.nodes.healthy} healthy / ${overview.nodes.degraded} degraded` : t('common.loading')}</p>
+            <p>{overview ? t('overview.healthSummary', {healthy: overview.nodes.healthy, degraded: overview.nodes.degraded}) : t('common.loading')}</p>
           </article>
           <article className="signal-card">
             <strong>{t('overview.tasks')}</strong>
-            <p>{tasksQuery.isPending ? t('common.loading') : `${tasks.length} task(s) tracked by control plane`}</p>
+            <p>{tasksQuery.isPending ? t('common.loading') : t('overview.tasksSummary', {count: tasks.length})}</p>
           </article>
           <article className="signal-card">
             <strong>{t('overview.pathDesigner')}</strong>
-            <p>{pathsQuery.isPending ? t('common.loading') : `${paths.length} access path(s) ready for onboarding flows`}</p>
+            <p>{pathsQuery.isPending ? t('common.loading') : t('overview.pathsSummary', {count: paths.length})}</p>
           </article>
         </section>
       </div>

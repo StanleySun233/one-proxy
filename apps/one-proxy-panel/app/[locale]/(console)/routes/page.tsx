@@ -25,42 +25,42 @@ type RouteRuleFormValues = {
   destinationScope: string;
 };
 
-function validateMatchValue(matchType: string, value: string): string | true {
+function validateMatchValue(matchType: string, value: string, t: (key: string) => string): string | true {
   const trimmed = value.trim();
-  if (!trimmed) return 'match value is required';
+  if (!trimmed) return t('matchValueRequired');
 
   switch (matchType) {
     case 'domain':
       if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(trimmed)) {
-        return 'invalid domain format';
+        return t('invalidDomain');
       }
       break;
     case 'domain_suffix':
       if (!/^\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(trimmed)) {
-        return 'invalid domain suffix format (must start with .)';
+        return t('invalidDomainSuffix');
       }
       break;
     case 'ip_cidr':
       if (!/^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(trimmed)) {
-        return 'invalid CIDR format (e.g., 10.0.0.0/24)';
+        return t('invalidCidr');
       }
       break;
     case 'ip_range':
       if (!/^(\d{1,3}\.){3}\d{1,3}-(\d{1,3}\.){3}\d{1,3}$/.test(trimmed)) {
-        return 'invalid IP range format (e.g., 10.0.0.1-10.0.0.255)';
+        return t('invalidIpRange');
       }
       break;
     case 'port':
       const port = Number(trimmed);
       if (isNaN(port) || port < 1 || port > 65535) {
-        return 'port must be between 1 and 65535';
+        return t('invalidPort');
       }
       break;
     case 'url_regex':
       try {
         new RegExp(trimmed);
       } catch {
-        return 'invalid regex syntax';
+        return t('invalidRegex');
       }
       break;
   }
@@ -70,6 +70,7 @@ function validateMatchValue(matchType: string, value: string): string | true {
 export default function RoutesPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
+  const routesT = useTranslations('routes');
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
@@ -168,7 +169,7 @@ export default function RoutesPage() {
       destinationScope: string;
     }) => createRouteRule(accessToken, payload),
     onSuccess: () => {
-      toast.success('route rule created');
+      toast.success(routesT('createSuccess'));
       queryClient.invalidateQueries({queryKey: ['route-rules']});
       form.reset({
         priority: '100',
@@ -186,7 +187,7 @@ export default function RoutesPage() {
   const publishMutation = useMutation({
     mutationFn: () => publishPolicy(accessToken),
     onSuccess: () => {
-      toast.success('policy published');
+      toast.success(routesT('publishSuccess'));
       queryClient.invalidateQueries({queryKey: ['policies-revisions']});
     },
     onError: (error) => {
@@ -202,21 +203,21 @@ export default function RoutesPage() {
 
   const selectedChain = chains.find((c) => c.id === selectedChainId);
   const availableScopes = Array.from(new Set([...nodes.map((n) => n.scopeKey).filter(Boolean), ...chains.map((c) => c.destinationScope)]));
-  const matchValuePlaceholder = matchType === 'default' ? '*' : `Enter ${matchType || 'value'}`;
+  const matchValuePlaceholder = matchType === 'default' ? '*' : routesT('matchValuePlaceholder', {type: matchType || routesT('value')});
 
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow="Routes" title={pageT('routesTitle')} description={pageT('routesDesc')} />
+        <PageHero eyebrow={t('nav.routes')} title={pageT('routesTitle')} description={pageT('routesDesc')} />
 
         <section className="forms-grid">
           <article className="panel-card">
             <div className="inline-cluster" style={{gap: 8}}>
-              <h3>Create route rule</h3>
-              {validationPending && <span className="badge is-neutral">validating...</span>}
+              <h3>{routesT('createRule')}</h3>
+              {validationPending && <span className="badge is-neutral">{t('common.validating')}</span>}
               {!validationPending && validationResult && (
                 <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
-                  {validationResult.valid ? 'valid' : 'invalid'}
+                  {validationResult.valid ? t('common.valid') : t('common.invalid')}
                 </span>
               )}
             </div>
@@ -234,24 +235,24 @@ export default function RoutesPage() {
               })(e); }}
             >
               <div className="field-stack">
-                <span>Priority</span>
+                <span>{routesT('priority')}</span>
                 <input
                   aria-invalid={form.formState.errors.priority ? 'true' : 'false'}
                   className="field-input"
                   type="number"
                   {...form.register('priority', {
-                    required: 'priority is required',
-                    validate: (value) => Number(value) > 0 || 'priority must be greater than 0'
+                    required: routesT('priorityRequired'),
+                    validate: (value) => Number(value) > 0 || routesT('priorityPositive')
                   })}
                 />
                 {form.formState.errors.priority ? <p className="error-text">{form.formState.errors.priority.message}</p> : null}
               </div>
               <div className="field-stack">
-                <span>Match type</span>
+                <span>{routesT('matchType')}</span>
                 <select
                   aria-invalid={form.formState.errors.matchType ? 'true' : 'false'}
                   className="field-select"
-                  {...form.register('matchType', {required: 'match type is required'})}
+                  {...form.register('matchType', {required: routesT('matchTypeRequired')})}
                 >
                   {matchTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -262,7 +263,7 @@ export default function RoutesPage() {
                 {form.formState.errors.matchType ? <p className="error-text">{form.formState.errors.matchType.message}</p> : null}
               </div>
               <div className="field-stack">
-                <span>Match value</span>
+                <span>{routesT('matchValue')}</span>
                 <div className="inline-cluster">
                   <input
                     aria-invalid={form.formState.errors.matchValue ? 'true' : 'false'}
@@ -270,20 +271,20 @@ export default function RoutesPage() {
                     placeholder={matchValuePlaceholder}
                     style={{flex: 1}}
                     {...form.register('matchValue', {
-                      required: 'match value is required',
-                      validate: (value) => validateMatchValue(matchType, value)
+                      required: routesT('matchValueRequired'),
+                      validate: (value) => validateMatchValue(matchType, value, routesT)
                     })}
                   />
                   {matchType === 'url_regex' && (
                     <button className="secondary-button" onClick={() => setRegexTesterOpen(true)} type="button">
-                      Test Regex
+                      {routesT('testRegex')}
                     </button>
                   )}
                 </div>
                 {form.formState.errors.matchValue ? <p className="error-text">{form.formState.errors.matchValue.message}</p> : null}
               </div>
               <div className="field-stack">
-                <span>Action type</span>
+                <span>{routesT('actionType')}</span>
                 <select className="field-select" {...form.register('actionType', {required: true})}>
                   {actionTypeOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -291,16 +292,16 @@ export default function RoutesPage() {
                 </select>
               </div>
               <div className="field-stack">
-                <span>Chain</span>
+                <span>{routesT('chain')}</span>
                 <select
                   aria-invalid={form.formState.errors.chainId ? 'true' : 'false'}
                   className="field-select"
                   disabled={actionType !== 'chain'}
                   {...form.register('chainId', {
-                    validate: (value) => (actionType !== 'chain' || value.trim() !== '' ? true : 'chain id is required for chain action')
+                    validate: (value) => (actionType !== 'chain' || value.trim() !== '' ? true : routesT('chainRequired'))
                   })}
                 >
-                  <option value="">Select chain</option>
+                  <option value="">{t('common.selectChain')}</option>
                   {chains.map((chain) => {
                     const hopCount = Array.isArray(chain.hops) ? chain.hops.length : 0;
                     const hopDisplay = hopCount > 0 ? ` (${Array.from({length: hopCount}, (_, i) => i + 1).join(' → ')})` : '';
@@ -316,13 +317,13 @@ export default function RoutesPage() {
                 {selectedChain && actionType === 'chain' ? (
                   <div className="field-hint">
                     <span className="muted-text">
-                      Destination scope: <strong>{selectedChain.destinationScope}</strong>
+                      {routesT('destinationScope')}: <strong>{selectedChain.destinationScope}</strong>
                     </span>
                   </div>
                 ) : null}
               </div>
               <div className="field-stack">
-                <span>Destination scope</span>
+                <span>{routesT('destinationScope')}</span>
                 <input
                   aria-invalid={form.formState.errors.destinationScope ? 'true' : 'false'}
                   className="field-input"
@@ -330,7 +331,7 @@ export default function RoutesPage() {
                   list="scope-options"
                   placeholder="target-scope"
                   {...form.register('destinationScope', {
-                    validate: (value) => (actionType !== 'direct' || value.trim() !== '' ? true : 'destination scope is required for direct action')
+                    validate: (value) => (actionType !== 'direct' || value.trim() !== '' ? true : routesT('destinationScopeRequired'))
                   })}
                 />
                 <datalist id="scope-options">
@@ -344,10 +345,10 @@ export default function RoutesPage() {
               {validationResult && (
                 <div className="probe-results-section">
                   <div className="section-header">
-                    <h4>Validation</h4>
-                    {validationPending ? <span className="badge is-neutral">validating...</span> : (
+                    <h4>{routesT('validation')}</h4>
+                    {validationPending ? <span className="badge is-neutral">{t('common.validating')}</span> : (
                       <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
-                        {validationResult.valid ? 'valid' : 'invalid'}
+                        {validationResult.valid ? t('common.valid') : t('common.invalid')}
                       </span>
                     )}
                   </div>
@@ -368,17 +369,17 @@ export default function RoutesPage() {
                   )}
                   {validationResult.chainValidation && !validationResult.chainValidation.valid && (
                     <div className="token-box" style={{borderColor: 'var(--danger)'}}>
-                      <span className="field-hint" style={{color: 'var(--danger)'}}>Chain not found</span>
+                      <span className="field-hint" style={{color: 'var(--danger)'}}>{routesT('chainNotFound')}</span>
                     </div>
                   )}
                   {validationResult.scopeValidation && !validationResult.scopeValidation.valid && (
                     <div className="token-box" style={{borderColor: 'var(--danger)'}}>
-                      <span className="field-hint" style={{color: 'var(--danger)'}}>Scope not found</span>
+                      <span className="field-hint" style={{color: 'var(--danger)'}}>{routesT('scopeNotFound')}</span>
                     </div>
                   )}
                   {validationResult.scopeValidation && validationResult.scopeValidation.valid && !validationResult.scopeValidation.matchesChainFinalHop && (
                     <div className="token-box" style={{borderColor: 'var(--accent)'}}>
-                      <span className="field-hint" style={{color: 'var(--accent)'}}>Scope does not match chain's final hop node</span>
+                      <span className="field-hint" style={{color: 'var(--accent)'}}>{routesT('scopeChainMismatch')}</span>
                     </div>
                   )}
                 </div>
@@ -386,7 +387,7 @@ export default function RoutesPage() {
 
               <div className="submit-row">
                 <button className="primary-button" disabled={createRuleMutation.isPending} type="submit">
-                  {createRuleMutation.isPending ? t('common.submitting') : 'Create rule'}
+                  {createRuleMutation.isPending ? t('common.submitting') : routesT('createRule')}
                 </button>
               </div>
             </form>
@@ -394,29 +395,29 @@ export default function RoutesPage() {
 
           <article className="panel-card soft-card">
             <div className="panel-toolbar">
-              <h3>Policies</h3>
+              <h3>{routesT('policies')}</h3>
               <button className="primary-button" disabled={publishMutation.isPending} onClick={() => publishMutation.mutate()} type="button">
-                {publishMutation.isPending ? t('common.submitting') : 'Publish policy'}
+                {publishMutation.isPending ? t('common.submitting') : routesT('publishPolicy')}
               </button>
             </div>
             {policiesQuery.isPending ? (
-              <AsyncState detail={t('common.loading')} title="Loading policy revisions" />
+              <AsyncState detail={t('common.loading')} title={routesT('loadingPolicies')} />
             ) : policiesQuery.isError ? (
               <AsyncState
                 actionLabel={t('common.retry')}
                 detail={formatControlPlaneError(policiesQuery.error)}
                 onAction={() => void policiesQuery.refetch()}
-                title="Failed to load policy revisions"
+                title={routesT('failedPolicies')}
               />
             ) : policies.length === 0 ? (
-              <AsyncState detail="The first publish will create a visible revision here." title={t('common.empty')} />
+              <AsyncState detail={routesT('emptyPolicies')} title={t('common.empty')} />
             ) : (
               <div className="stack-list">
                 {policies.map((policy) => (
                   <div className="stack-item" key={policy.id}>
                     <strong>{policy.version}</strong>
                     <span className="muted-text">
-                      {policy.status} · {policy.assignedNodes} nodes
+                      {policy.status} · {routesT('nodesCount', {count: policy.assignedNodes})}
                     </span>
                     <span className="mono">{formatISODateTime(policy.createdAt)}</span>
                   </div>
@@ -428,31 +429,31 @@ export default function RoutesPage() {
 
         <article className="panel-card">
           <div className="panel-toolbar">
-            <h3>Route rules</h3>
+            <h3>{routesT('routeRules')}</h3>
             <span className="badge">{routeRules.length}</span>
           </div>
           {routeRulesQuery.isPending ? (
-            <AsyncState detail={t('common.loading')} title="Loading route rules" />
+            <AsyncState detail={t('common.loading')} title={routesT('loadingRules')} />
           ) : routeRulesQuery.isError ? (
             <AsyncState
               actionLabel={t('common.retry')}
               detail={formatControlPlaneError(routeRulesQuery.error)}
               onAction={() => void routeRulesQuery.refetch()}
-              title="Failed to load route rules"
+              title={routesT('failedRules')}
             />
           ) : routeRules.length === 0 ? (
-            <AsyncState detail="Whitelist rules will appear here after the first rule is created." title={t('common.empty')} />
+            <AsyncState detail={routesT('emptyRules')} title={t('common.empty')} />
           ) : (
             <div className="table-card">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Priority</th>
-                    <th>Match</th>
-                    <th>Action</th>
-                    <th>Chain</th>
-                    <th>Scope</th>
-                    <th>Status</th>
+                    <th>{routesT('priority')}</th>
+                    <th>{routesT('match')}</th>
+                    <th>{routesT('action')}</th>
+                    <th>{routesT('chain')}</th>
+                    <th>{routesT('scope')}</th>
+                    <th>{routesT('status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -471,7 +472,7 @@ export default function RoutesPage() {
                         <td>{rule.destinationScope || '-'}</td>
                         <td>
                           <span className={rule.enabled ? 'badge is-good' : 'badge'}>
-                            {rule.enabled ? 'enabled' : 'disabled'}
+                            {rule.enabled ? t('common.enabled') : t('common.disabled')}
                           </span>
                         </td>
                       </tr>

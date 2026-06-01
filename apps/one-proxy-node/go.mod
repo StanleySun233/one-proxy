@@ -1,6 +1,8 @@
 module github.com/StanleySun233/python-proxy/apps/one-proxy-node
 
-go 1.23
+go 1.23.0
+
+toolchain go1.23.12
 
 require golang.org/x/crypto v0.36.0
 

@@ -39,7 +39,7 @@ export function CapsuleSelect({icon, value, onChange, options, ...props}: Capsul
   const selectedLabel = options.find((o) => o.value === value)?.label || value;
 
   return (
-    <div className="capsule-select-shell" ref={ref}>
+    <div className={`capsule-select-shell${open ? ' is-open' : ''}`} ref={ref}>
       <span aria-hidden="true" className="capsule-select-icon">
         {icon}
       </span>
