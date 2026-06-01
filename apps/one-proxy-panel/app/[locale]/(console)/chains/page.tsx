@@ -10,7 +10,7 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {createChain, getChains, getNodes, previewChain, probeChain} from '@/lib/api';
+import {createChain, getChains, getNodes, previewChain, probeChain, updateChain} from '@/lib/api';
 import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
 
@@ -49,6 +49,24 @@ export default function ChainsPage() {
     mutationFn: (payload: {name: string; destinationScope: string; hops: string[]}) => createChain(accessToken, payload),
     onSuccess: () => {
       toast.success('chain created');
+      queryClient.invalidateQueries({queryKey: ['chains']});
+      handleCloseEditor();
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
+  const updateChainMutation = useMutation({
+    mutationFn: (payload: {chainID: string; name: string; destinationScope: string; hops: string[]; enabled: boolean}) =>
+      updateChain(accessToken, payload.chainID, {
+        name: payload.name,
+        destinationScope: payload.destinationScope,
+        hops: payload.hops,
+        enabled: payload.enabled
+      }),
+    onSuccess: () => {
+      toast.success('chain updated');
       queryClient.invalidateQueries({queryKey: ['chains']});
       handleCloseEditor();
     },
@@ -103,6 +121,16 @@ export default function ChainsPage() {
   };
 
   const handleSaveChain = () => {
+    if (editingChain) {
+      updateChainMutation.mutate({
+        chainID: editingChain.id,
+        name: chainName,
+        destinationScope,
+        hops,
+        enabled: editingChain.enabled
+      });
+      return;
+    }
     createChainMutation.mutate({
       name: chainName,
       destinationScope,
@@ -141,7 +169,7 @@ export default function ChainsPage() {
               onSave={handleSaveChain}
               onScopeChange={setDestinationScope}
               previewing={previewMutation.isPending}
-              saving={createChainMutation.isPending}
+              saving={createChainMutation.isPending || updateChainMutation.isPending}
             />
           </section>
         ) : (

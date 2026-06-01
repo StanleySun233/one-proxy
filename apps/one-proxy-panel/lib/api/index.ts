@@ -27,7 +27,7 @@ export {
   getNodeHealth,
   getNodeHealthHistory,
 } from './nodes';
-export { getChains, createChain, probeChain, validateChain, previewChain } from './chains';
+export { getChains, createChain, updateChain, probeChain, validateChain, previewChain } from './chains';
 export { getRouteRules, createRouteRule, validateRouteRule } from './routes';
 export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAccounts, setGroupScopes } from './groups';
 export { getAccounts, createAccount, updateAccount, deleteAccount } from './accounts';

@@ -25,6 +25,26 @@ type RouteRuleFormValues = {
   destinationScope: string;
 };
 
+type RouteRuleValidationPayload = {
+  priority: number;
+  matchType: string;
+  matchValue: string;
+  actionType: string;
+  chainId: string;
+  destinationScope: string;
+};
+
+function routeRuleValidationPayload(values: RouteRuleFormValues): RouteRuleValidationPayload {
+  return {
+    priority: Number(values.priority) || 0,
+    matchType: values.matchType,
+    matchValue: values.matchValue.trim(),
+    actionType: values.actionType,
+    chainId: values.chainId.trim(),
+    destinationScope: values.destinationScope.trim()
+  };
+}
+
 function validateMatchValue(matchType: string, value: string, t: (key: string) => string): string | true {
   const trimmed = value.trim();
   if (!trimmed) return t('matchValueRequired');
@@ -98,46 +118,78 @@ export default function RoutesPage() {
   const [validationResult, setValidationResult] = useState<RouteRuleValidationResult | null>(null);
   const [validationPending, setValidationPending] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduledValidationKeyRef = useRef('');
+  const inFlightValidationKeyRef = useRef('');
+  const completedValidationKeyRef = useRef('');
 
   const formValues = form.watch();
 
-  const runValidation = useCallback(async (values: RouteRuleFormValues) => {
-    const payload = {
-      priority: Number(values.priority) || 0,
-      matchType: values.matchType,
-      matchValue: values.matchValue.trim(),
-      actionType: values.actionType,
-      chainId: values.chainId.trim(),
-      destinationScope: values.destinationScope.trim()
-    };
-    if (!payload.matchValue) {
-      setValidationResult(null);
+  const runValidation = useCallback(async (payload: RouteRuleValidationPayload, validationKey: string) => {
+    if (completedValidationKeyRef.current === validationKey || inFlightValidationKeyRef.current === validationKey) {
       return;
     }
+    scheduledValidationKeyRef.current = scheduledValidationKeyRef.current === validationKey ? '' : scheduledValidationKeyRef.current;
+    inFlightValidationKeyRef.current = validationKey;
     setValidationPending(true);
     try {
       const result = await validateRouteRule(accessToken, payload);
-      setValidationResult(result);
+      if (inFlightValidationKeyRef.current === validationKey) {
+        setValidationResult(result);
+      }
     } catch {
-      setValidationResult(null);
+      if (inFlightValidationKeyRef.current === validationKey) {
+        setValidationResult(null);
+      }
     } finally {
-      setValidationPending(false);
+      if (inFlightValidationKeyRef.current === validationKey) {
+        completedValidationKeyRef.current = validationKey;
+        inFlightValidationKeyRef.current = '';
+        setValidationPending(false);
+      }
     }
   }, [accessToken]);
 
   useEffect(() => {
+    const payload = routeRuleValidationPayload(formValues);
+    const validationKey = `${accessToken}:${JSON.stringify(payload)}`;
+
+    if (!accessToken || !payload.matchValue) {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      scheduledValidationKeyRef.current = '';
+      inFlightValidationKeyRef.current = '';
+      completedValidationKeyRef.current = '';
+      setValidationResult(null);
+      setValidationPending(false);
+      return;
+    }
+
+    if (
+      completedValidationKeyRef.current === validationKey ||
+      inFlightValidationKeyRef.current === validationKey ||
+      scheduledValidationKeyRef.current === validationKey
+    ) {
+      return;
+    }
+
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
+      debounceRef.current = null;
     }
+
+    scheduledValidationKeyRef.current = validationKey;
     debounceRef.current = setTimeout(() => {
-      runValidation(formValues);
+      runValidation(payload, validationKey);
     }, 500);
     return () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
+        debounceRef.current = null;
       }
     };
-  }, [formValues, runValidation]);
+  }, [accessToken, formValues, runValidation]);
 
   const routeRulesQuery = useQuery({
     queryKey: ['route-rules', accessToken],
@@ -205,6 +257,16 @@ export default function RoutesPage() {
   const availableScopes = Array.from(new Set([...nodes.map((n) => n.scopeKey).filter(Boolean), ...chains.map((c) => c.destinationScope)]));
   const matchValuePlaceholder = matchType === 'default' ? '*' : routesT('matchValuePlaceholder', {type: matchType || routesT('value')});
 
+  useEffect(() => {
+    if (actionType !== 'chain') {
+      return;
+    }
+    const nextScope = selectedChain?.destinationScope || '';
+    if (form.getValues('destinationScope') !== nextScope) {
+      form.setValue('destinationScope', nextScope, {shouldDirty: false, shouldValidate: false});
+    }
+  }, [actionType, form, selectedChain?.destinationScope]);
+
   return (
     <AuthGate>
       <div className="page-stack">
@@ -224,13 +286,16 @@ export default function RoutesPage() {
             <form
               className="sub-grid"
               onSubmit={(e) => { form.handleSubmit((values) => {
+                const chainDestinationScope = values.actionType === 'chain'
+                  ? chains.find((chain) => chain.id === values.chainId)?.destinationScope || ''
+                  : values.destinationScope.trim();
                 createRuleMutation.mutate({
                   priority: Number(values.priority),
                   matchType: values.matchType.trim(),
                   matchValue: values.matchValue.trim(),
                   actionType: values.actionType,
                   chainId: values.chainId.trim(),
-                  destinationScope: values.destinationScope.trim()
+                  destinationScope: chainDestinationScope
                 });
               })(e); }}
             >

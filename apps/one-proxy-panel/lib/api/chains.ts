@@ -13,6 +13,14 @@ export function createChain(accessToken: string, payload: {name: string; destina
   });
 }
 
+export function updateChain(accessToken: string, chainID: string, payload: {name: string; destinationScope: string; hops: string[]; enabled: boolean}) {
+  return request<Chain>(`/chains/${chainID}`, {
+    method: 'PATCH',
+    accessToken,
+    body: payload
+  });
+}
+
 export function probeChain(accessToken: string, chainID: string) {
   return request<ChainProbeResult>(`/chains/${chainID}/probe`, {
     method: 'POST',
