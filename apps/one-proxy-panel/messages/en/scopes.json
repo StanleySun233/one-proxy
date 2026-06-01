@@ -1,0 +1,22 @@
+{
+  "eyebrow": "Scope",
+  "formEyebrow": "Master data",
+  "createTitle": "Create scope",
+  "editTitle": "Edit scope",
+  "listEyebrow": "List",
+  "listTitle": "Scope list",
+  "namePlaceholder": "Target environment",
+  "description": "Description",
+  "descriptionPlaceholder": "Optional description",
+  "create": "Create scope",
+  "save": "Save scope",
+  "required": "Name is required",
+  "loading": "Loading scopes",
+  "failed": "Failed to load scopes",
+  "empty": "Create scopes before creating nodes, chains, and routes.",
+  "updatedAt": "Updated at",
+  "deleteConfirm": "Delete this scope?",
+  "createSuccess": "Scope created",
+  "updateSuccess": "Scope updated",
+  "deleteSuccess": "Scope deleted"
+}

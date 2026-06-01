@@ -1,0 +1,4 @@
+{
+  "title": "Control Plane",
+  "description": "Control surface for node orchestration, chain routing policy and certificate state."
+}

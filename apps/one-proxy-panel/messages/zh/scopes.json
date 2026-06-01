@@ -1,0 +1,22 @@
+{
+  "eyebrow": "范围",
+  "formEyebrow": "主数据",
+  "createTitle": "创建范围",
+  "editTitle": "编辑范围",
+  "listEyebrow": "列表",
+  "listTitle": "范围列表",
+  "namePlaceholder": "目标环境",
+  "description": "描述",
+  "descriptionPlaceholder": "可选描述",
+  "create": "创建范围",
+  "save": "保存范围",
+  "required": "名称不能为空",
+  "loading": "加载范围",
+  "failed": "范围加载失败",
+  "empty": "先创建范围，再创建节点、链路和规则。",
+  "updatedAt": "更新时间",
+  "deleteConfirm": "确定删除此范围？",
+  "createSuccess": "范围已创建",
+  "updateSuccess": "范围已更新",
+  "deleteSuccess": "范围已删除"
+}

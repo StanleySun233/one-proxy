@@ -1,0 +1,51 @@
+{
+  "bootstrap": {
+    "nodeName": "Node name",
+    "nodeNameRequired": "Node name is required",
+    "nodeMode": "Node type",
+    "nodeModeRequired": "Choose a node type",
+    "nodeModeOptions": {
+      "edge": {
+        "label": "Edge public entry",
+        "hint": "The first reachable node for users, usually with a public endpoint and used as the first hop."
+      },
+      "relay": {
+        "label": "Relay private downstream",
+        "hint": "A user LAN, VPN-side, or transit node that usually sits behind an edge node."
+      }
+    },
+    "scopeKey": "Scope",
+    "nodeNamePlaceholder": "e.g. hk-gateway",
+    "scopeKeyPlaceholder": "Choose scope",
+    "scopeKeyRequired": "Choose a scope",
+    "scopeKeyHint": "Use the same scope for nodes that belong to the same reachable group.",
+    "parentNodeId": "Upstream node",
+    "noParent": "No upstream node",
+    "parentNodeIdHint": "Relay nodes usually choose their edge parent. Edge nodes usually leave this empty.",
+    "parentReachableUrl": "Parent reachable URL",
+    "parentReachableUrlPlaceholder": "http://192.168.1.10:2988",
+    "parentReachableUrlRequired": "Selected upstream node has no reachable endpoint to auto match",
+    "parentReachableUrlHint": "Address that the child node can use to reach its upstream parent.",
+    "publicHost": "Public host",
+    "publicHostPlaceholder": "103.214.172.211",
+    "publicHostHint": "Recommended for edge nodes. Usually empty for relay or user-LAN nodes.",
+    "publicPort": "Public port",
+    "publicPortPlaceholder": "2988",
+    "publicPortHint": "Leave empty to use the node listener default. Only public entries usually need this.",
+    "publicPortInvalid": "Port must be a positive integer",
+    "targetNodeId": "Existing node record ID",
+    "targetNodeIdHint": "Leave blank for a new node. Fill only when binding to a manual record.",
+    "generateToken": "Generate bootstrap token",
+    "submitting": "Submitting",
+    "bootstrapToken": "Bootstrap token",
+    "dockerOneLiner": "Docker one-liner",
+    "copyToken": "Copy token",
+    "copyCommand": "Copy command",
+    "copied": "Copied",
+    "tokenShownOnce": "Token is shown once in this page state. Generate a new one if the machine was not enrolled.",
+    "dockerScopeHint": "Node name, type, scope, upstream and public endpoint metadata are stored in the bootstrap token. The target machine only needs the control-plane URL and token.",
+    "generateOnDemand": "Generate on demand. Token content is only kept in current page state.",
+    "nodeNameDuplicate": "A node with this name already exists",
+    "bootstrapHint": "Remote node self-enroll flow for machines not directly reachable from the panel."
+  }
+}

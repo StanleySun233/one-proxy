@@ -1,0 +1,51 @@
+{
+  "bootstrap": {
+    "nodeName": "节点名称",
+    "nodeNameRequired": "节点名称不能为空",
+    "nodeMode": "节点类型",
+    "nodeModeRequired": "请选择节点类型",
+    "nodeModeOptions": {
+      "edge": {
+        "label": "Edge 公网入口",
+        "hint": "用户首先访问的节点，通常有公网地址，链路第一跳选它。"
+      },
+      "relay": {
+        "label": "Relay 内网下游",
+        "hint": "用户内网、VPN 后方或只做中转的节点，通常挂在 edge 后面。"
+      }
+    },
+    "scopeKey": "范围",
+    "nodeNamePlaceholder": "例如 hk-gateway",
+    "scopeKeyPlaceholder": "选择范围",
+    "scopeKeyRequired": "请选择范围",
+    "scopeKeyHint": "同一批可互通节点使用相同范围。",
+    "parentNodeId": "上游节点",
+    "noParent": "无上游节点",
+    "parentNodeIdHint": "Relay 节点通常选择所属 edge；Edge 节点通常留空。",
+    "parentReachableUrl": "子节点可访问的上游 URL",
+    "parentReachableUrlPlaceholder": "http://192.168.1.10:2988",
+    "parentReachableUrlRequired": "所选上游节点没有可自动匹配的入口",
+    "parentReachableUrlHint": "子节点用于访问上游父节点的地址。",
+    "publicHost": "公网地址",
+    "publicHostPlaceholder": "103.214.172.211",
+    "publicHostHint": "Edge 节点建议填写；Relay / 用户内网节点通常留空。",
+    "publicPort": "公网端口",
+    "publicPortPlaceholder": "2988",
+    "publicPortHint": "留空使用节点默认监听端口；只有公网入口需要填写。",
+    "publicPortInvalid": "端口必须是正整数",
+    "targetNodeId": "绑定已有节点记录 ID",
+    "targetNodeIdHint": "留空创建全新节点；只在绑定手动建档记录时填写。",
+    "generateToken": "生成引导令牌",
+    "submitting": "提交中",
+    "bootstrapToken": "引导令牌",
+    "dockerOneLiner": "Docker 一键命令",
+    "copyToken": "复制令牌",
+    "copyCommand": "复制命令",
+    "copied": "已复制",
+    "tokenShownOnce": "令牌在当前页面仅展示一次。如果机器尚未注册请重新生成。",
+    "dockerScopeHint": "节点名称、类型、范围、上游和公网信息已写入引导令牌。目标机器只需要控制面地址和令牌。",
+    "generateOnDemand": "按需生成，令牌内容仅在当前页面中保留。",
+    "nodeNameDuplicate": "该名称的节点已存在",
+    "bootstrapHint": "用于面板无法直接访问的远程机器自助注册流程。"
+  }
+}

@@ -6,6 +6,7 @@ import {notFound} from 'next/navigation';
 import {ReactNode} from 'react';
 
 import {Providers} from '@/components/providers';
+import {loadMessages} from '@/i18n/messages';
 import {routing} from '@/i18n/routing';
 
 const sans = IBM_Plex_Sans({
@@ -23,7 +24,7 @@ const mono = IBM_Plex_Mono({
 export async function generateMetadata({params}: {params: Promise<{locale: string}>}): Promise<Metadata> {
   const {locale} = await params;
   const activeLocale = routing.locales.includes(locale as 'zh' | 'en') ? locale : routing.defaultLocale;
-  const messages = (await import(`../../messages/${activeLocale}.json`)).default;
+  const messages = await loadMessages(activeLocale);
 
   return {
     title: messages.meta.title,

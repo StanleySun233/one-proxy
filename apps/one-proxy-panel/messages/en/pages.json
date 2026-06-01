@@ -1,0 +1,16 @@
+{
+  "nodesTitle": "Node configuration and visual topology",
+  "nodesDesc": "Manage node detail, parent-child relationships and relay topology.",
+  "scopesTitle": "Scope manager",
+  "scopesDesc": "Maintain shared scope master data for nodes, chains, routes, and groups.",
+  "chainsTitle": "Chain editor",
+  "chainsDesc": "Edit hop ordering, validate scopes and preview compiled chain configuration.",
+  "routesTitle": "Route management",
+  "routesDesc": "Whitelist rules, match conditions and destination scopes.",
+  "healthTitle": "Health and alerts",
+  "healthDesc": "Node heartbeats and certificate state.",
+  "accountsTitle": "Accounts and roles",
+  "accountsDesc": "Account, role and operator permissions.",
+  "certificatesTitle": "Certificates",
+  "certificatesDesc": "Let’s Encrypt and internal certificate status."
+}

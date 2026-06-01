@@ -1,0 +1,16 @@
+{
+  "nodesTitle": "节点配置与可视化拓扑",
+  "nodesDesc": "管理节点详情、父子关系与 relay 拓扑。",
+  "scopesTitle": "范围管理",
+  "scopesDesc": "维护节点、链路、规则和用户组共享的范围主数据。",
+  "chainsTitle": "链路编辑",
+  "chainsDesc": "编辑 hop 顺序、校验范围，并预览编译后的链路配置。",
+  "routesTitle": "规则管理",
+  "routesDesc": "白名单规则、匹配条件与目标范围编辑。",
+  "healthTitle": "健康与告警",
+  "healthDesc": "节点心跳与证书状态。",
+  "accountsTitle": "账号与角色",
+  "accountsDesc": "账号、角色与操作权限。",
+  "certificatesTitle": "证书",
+  "certificatesDesc": "Let’s Encrypt 与内部证书状态。"
+}
