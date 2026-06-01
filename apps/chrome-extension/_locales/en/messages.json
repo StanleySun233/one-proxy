@@ -221,6 +221,12 @@
   "statusTested": {
     "message": "Route test finished."
   },
+  "statusTesting": {
+    "message": "Testing route..."
+  },
+  "statusInvalidTarget": {
+    "message": "Enter a test target."
+  },
   "statusLoggedIn": {
     "message": "Login succeeded and remote groups were loaded."
   },

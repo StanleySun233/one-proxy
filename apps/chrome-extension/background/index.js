@@ -233,14 +233,15 @@ function routePreviewForUrl(state, value) {
   }
   const matchedRoute = matchGroupRoute(group, cleanHost, parsed.protocol);
   if (matchedRoute) {
+    const mode = matchedRoute.actionType === 'direct' ? 'direct' : 'proxy';
     return {
-      mode: 'proxy',
+      mode,
       source: routeSource(matchedRoute),
       host: cleanHost,
       protocol: parsed.protocol,
       port: parsed.port,
       rule: matchedRoute,
-      topology: matchedRoute.topology && matchedRoute.topology.length ? matchedRoute.topology : group.topology
+      topology: mode === 'proxy' ? (matchedRoute.topology && matchedRoute.topology.length ? matchedRoute.topology : group.topology) : []
     };
   }
   if (hostMatches([...(group.proxyHosts || []), ...(state.localOverrides.proxyHosts || [])], cleanHost)) {
@@ -312,6 +313,9 @@ function routeMatches(route, host, protocol) {
 }
 
 function routeSource(route) {
+  if (route.actionType === 'direct') {
+    return 'remote_direct';
+  }
   if (route.matchType === 'default') {
     return 'proxy_default';
   }
@@ -479,20 +483,23 @@ async function applyProxy(state) {
 }
 
 async function getCurrentTabInfo() {
-  const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  const tab = tabs[0];
-  if (!tab || !tab.url) {
-    return null;
+  const queries = [{ active: true, currentWindow: true }, { active: true, lastFocusedWindow: true }];
+  for (const query of queries) {
+    const tabs = await chrome.tabs.query(query);
+    const tab = tabs[0];
+    if (!tab || !tab.url) {
+      continue;
+    }
+    try {
+      const parsed = new URL(tab.url);
+      return {
+        url: tab.url,
+        host: parsed.hostname
+      };
+    } catch (_error) {
+    }
   }
-  try {
-    const parsed = new URL(tab.url);
-    return {
-      url: tab.url,
-      host: parsed.hostname
-    };
-  } catch (_error) {
-    return null;
-  }
+  return null;
 }
 
 async function getComputedState() {
@@ -565,11 +572,14 @@ function probeProtocols() {
 
 async function runNodeProbe(endpoint, payload) {
   const startedAt = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
     let body = null;
     try {
@@ -587,8 +597,10 @@ async function runNodeProbe(endpoint, payload) {
       protocol: payload.protocol,
       status: 'failed',
       latencyMs: Date.now() - startedAt,
-      message: error.message || 'probe_failed'
+      message: error.name === 'AbortError' ? 'probe_timeout' : error.message || 'probe_failed'
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

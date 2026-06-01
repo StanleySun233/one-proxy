@@ -104,13 +104,15 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 			value := strings.TrimSpace(rule.MatchValue)
 			switch rule.MatchType {
 			case domain.MatchTypeDefault:
-				group.ProxyDefault = true
+				if rule.ActionType == domain.ActionTypeChain {
+					group.ProxyDefault = true
+				}
 			case domain.MatchTypeDomain:
 				if value == "" {
 					continue
 				}
 				if rule.ActionType == domain.ActionTypeDirect {
-					group.ProxyHosts = append(group.ProxyHosts, value)
+					group.DirectHosts = append(group.DirectHosts, value)
 				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyHosts = append(group.ProxyHosts, value)
 				}
@@ -123,7 +125,7 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 					pattern = "*" + pattern
 				}
 				if rule.ActionType == domain.ActionTypeDirect {
-					group.ProxyHosts = append(group.ProxyHosts, pattern)
+					group.DirectHosts = append(group.DirectHosts, pattern)
 				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyHosts = append(group.ProxyHosts, pattern)
 				}

@@ -55,6 +55,9 @@ function sourceLabel(source) {
 }
 
 function routeLabel(route) {
+  if (route && route.source === 'no_site') {
+    return text('noSite');
+  }
   if (route && route.mode === 'proxy') {
     return text('routeProxy');
   }
@@ -218,16 +221,29 @@ syncButton.addEventListener('click', async () => {
 });
 
 testUrlButton.addEventListener('click', async () => {
-  const result = await sendMessage({ type: 'test-url-route', url: testUrlInput.value.trim(), saveMonitorTarget: true });
-  if (result && result.error) {
-    setStatus('error', result.error);
+  const targetUrl = testUrlInput.value.trim();
+  if (!targetUrl) {
+    setStatus('error', text('statusInvalidTarget'));
     return;
   }
-  renderTopology(result.route);
-  renderProbes(result.results);
-  const refreshed = await sendMessage({ type: 'get-state' });
-  render(refreshed);
-  setStatus('ok', text('statusTested'));
+  testUrlButton.disabled = true;
+  setStatus('idle', text('statusTesting'));
+  try {
+    const result = await sendMessage({ type: 'test-url-route', url: targetUrl, saveMonitorTarget: true });
+    if (result && result.error) {
+      setStatus('error', result.error);
+      return;
+    }
+    renderTopology(result.route);
+    renderProbes(result.results);
+    const refreshed = await sendMessage({ type: 'get-state' });
+    render(refreshed);
+    setStatus('ok', text('statusTested'));
+  } catch (error) {
+    setStatus('error', error.message || 'test_failed');
+  } finally {
+    testUrlButton.disabled = !viewState || !viewState.activeGroup;
+  }
 });
 
 bindThemeMode(themeMode, async (mode) => {

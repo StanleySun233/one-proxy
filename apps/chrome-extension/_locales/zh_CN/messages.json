@@ -221,6 +221,12 @@
   "statusTested": {
     "message": "路由测试完成。"
   },
+  "statusTesting": {
+    "message": "正在测试路由..."
+  },
+  "statusInvalidTarget": {
+    "message": "请输入测试地址。"
+  },
   "statusLoggedIn": {
     "message": "登录成功，远程分组已加载。"
   },
