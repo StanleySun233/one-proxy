@@ -3,7 +3,12 @@ set -eu
 
 ENV_FILE="${ENV_FILE_PATH:-./data/.env}"
 if [ -f "$ENV_FILE" ]; then
-    export $(grep -v '^\s*#' "$ENV_FILE" | grep -v '^\s*$' | xargs)
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            ''|\#*) continue ;;
+        esac
+        export "$line"
+    done < "$ENV_FILE"
 fi
 if [ ! -f "$ENV_FILE" ] && [ -n "${MYSQL_DSN:-}" ]; then
     {
