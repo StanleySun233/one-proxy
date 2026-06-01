@@ -105,8 +105,8 @@ func (c *streamConn) Close() error {
 		c.session.streamsMu.Lock()
 		delete(c.session.streams, c.streamID)
 		c.session.streamsMu.Unlock()
-		close(c.readCh)
-		close(c.done)
+		closeOnce(c.readCh)
+		closeOnce(c.done)
 	})
 	return nil
 }
@@ -127,8 +127,8 @@ func (c *streamConn) closeWithError(err error) {
 		c.session.streamsMu.Lock()
 		delete(c.session.streams, c.streamID)
 		c.session.streamsMu.Unlock()
-		close(c.readCh)
-		close(c.done)
+			closeOnce(c.readCh)
+			closeOnce(c.done)
 	})
 }
 
