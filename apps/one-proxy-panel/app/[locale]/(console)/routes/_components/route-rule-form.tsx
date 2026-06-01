@@ -4,17 +4,8 @@ import {UseFormReturn} from 'react-hook-form';
 
 import {Chain, RouteRuleValidationResult, Scope} from '@/lib/types';
 
+import {RouteRuleFormValues} from '../_lib/form';
 import {ValidationPanel} from './validation-panel';
-
-export type RouteRuleFormValues = {
-  priority: string;
-  matchType: string;
-  matchValue: string;
-  actionType: string;
-  chainId: string;
-  destinationScope: string;
-  enabled: boolean;
-};
 
 type SelectOption = {
   value: string;

@@ -15,70 +15,10 @@ import {formatControlPlaneError} from '@/lib/presentation';
 
 import {PolicyPanel} from './_components/policy-panel';
 import {RegexTesterModal} from './_components/regex-tester-modal';
-import {RouteRuleForm, RouteRuleFormValues} from './_components/route-rule-form';
+import {RouteRuleForm} from './_components/route-rule-form';
 import {RouteRuleTable} from './_components/route-rule-table';
-
-type RouteRuleValidationPayload = {
-  priority: number;
-  matchType: string;
-  matchValue: string;
-  actionType: string;
-  chainId: string;
-  destinationScope: string;
-};
-
-function routeRuleValidationPayload(values: RouteRuleFormValues): RouteRuleValidationPayload {
-  return {
-    priority: Number(values.priority) || 0,
-    matchType: values.matchType,
-    matchValue: values.matchValue.trim(),
-    actionType: values.actionType,
-    chainId: values.chainId.trim(),
-    destinationScope: values.destinationScope.trim()
-  };
-}
-
-function validateMatchValue(matchType: string, value: string, t: (key: string) => string): string | true {
-  const trimmed = value.trim();
-  if (!trimmed) return t('matchValueRequired');
-
-  switch (matchType) {
-    case 'domain':
-      if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(trimmed)) {
-        return t('invalidDomain');
-      }
-      break;
-    case 'domain_suffix':
-      if (!/^\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(trimmed)) {
-        return t('invalidDomainSuffix');
-      }
-      break;
-    case 'ip_cidr':
-      if (!/^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(trimmed)) {
-        return t('invalidCidr');
-      }
-      break;
-    case 'ip_range':
-      if (!/^(\d{1,3}\.){3}\d{1,3}-(\d{1,3}\.){3}\d{1,3}$/.test(trimmed)) {
-        return t('invalidIpRange');
-      }
-      break;
-    case 'port':
-      const port = Number(trimmed);
-      if (isNaN(port) || port < 1 || port > 65535) {
-        return t('invalidPort');
-      }
-      break;
-    case 'url_regex':
-      try {
-        new RegExp(trimmed);
-      } catch {
-        return t('invalidRegex');
-      }
-      break;
-  }
-  return true;
-}
+import {defaultRouteRuleFormValues, routeRuleFormValues, routeRuleSubmitPayload, routeRuleValidationPayload, RouteRuleFormValues, RouteRuleSubmitPayload, RouteRuleValidationPayload} from './_lib/form';
+import {validateMatchValue} from './_lib/validation';
 
 export default function RoutesPage() {
   const t = useTranslations();
@@ -93,15 +33,7 @@ export default function RoutesPage() {
   const DEFAULT_MATCH_TYPE = matchTypeKeys.find(k => k === 'domain') || 'domain';
   const DEFAULT_ACTION_TYPE = actionTypeKeys.find(k => k === 'chain') || 'chain';
   const form = useForm<RouteRuleFormValues>({
-    defaultValues: {
-      priority: '100',
-      matchType: DEFAULT_MATCH_TYPE,
-      matchValue: '',
-      actionType: DEFAULT_ACTION_TYPE,
-      chainId: '',
-      destinationScope: '',
-      enabled: true
-    }
+    defaultValues: {...defaultRouteRuleFormValues(), matchType: DEFAULT_MATCH_TYPE, actionType: DEFAULT_ACTION_TYPE}
   });
   const actionType = form.watch('actionType');
   const matchType = form.watch('matchType');
@@ -207,42 +139,18 @@ export default function RoutesPage() {
     enabled: !!accessToken
   });
   const createRuleMutation = useMutation({
-    mutationFn: (payload: {
-      priority: number;
-      matchType: string;
-      matchValue: string;
-      actionType: string;
-      chainId: string;
-      destinationScope: string;
-    }) => createRouteRule(accessToken, payload),
+    mutationFn: (payload: RouteRuleSubmitPayload) => createRouteRule(accessToken, payload),
     onSuccess: () => {
       toast.success(routesT('createSuccess'));
       queryClient.invalidateQueries({queryKey: ['route-rules']});
-      form.reset({
-        priority: '100',
-        matchType: 'domain',
-        matchValue: '',
-        actionType: 'chain',
-        chainId: '',
-        destinationScope: '',
-        enabled: true
-      });
+      form.reset(defaultRouteRuleFormValues());
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
     }
   });
   const updateRuleMutation = useMutation({
-    mutationFn: (payload: {
-      id: string;
-      priority: number;
-      matchType: string;
-      matchValue: string;
-      actionType: string;
-      chainId: string;
-      destinationScope: string;
-      enabled: boolean;
-    }) => updateRouteRule(accessToken, payload.id, {
+    mutationFn: (payload: RouteRuleSubmitPayload & {id: string}) => updateRouteRule(accessToken, payload.id, {
       priority: payload.priority,
       matchType: payload.matchType,
       matchValue: payload.matchValue,
@@ -255,15 +163,7 @@ export default function RoutesPage() {
       toast.success(routesT('updateSuccess'));
       queryClient.invalidateQueries({queryKey: ['route-rules']});
       setEditingRuleId('');
-      form.reset({
-        priority: '100',
-        matchType: 'domain',
-        matchValue: '',
-        actionType: 'chain',
-        chainId: '',
-        destinationScope: '',
-        enabled: true
-      });
+      form.reset(defaultRouteRuleFormValues());
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -276,15 +176,7 @@ export default function RoutesPage() {
       queryClient.invalidateQueries({queryKey: ['route-rules']});
       if (editingRuleId) {
         setEditingRuleId('');
-        form.reset({
-          priority: '100',
-          matchType: 'domain',
-          matchValue: '',
-          actionType: 'chain',
-          chainId: '',
-          destinationScope: '',
-          enabled: true
-        });
+        form.reset(defaultRouteRuleFormValues());
       }
     },
     onError: (error) => {
@@ -314,43 +206,16 @@ export default function RoutesPage() {
 
   const resetForm = useCallback(() => {
     setEditingRuleId('');
-    form.reset({
-      priority: '100',
-      matchType: 'domain',
-      matchValue: '',
-      actionType: 'chain',
-      chainId: '',
-      destinationScope: '',
-      enabled: true
-    });
+    form.reset(defaultRouteRuleFormValues());
   }, [form]);
 
   const startEdit = useCallback((rule: RouteRule) => {
     setEditingRuleId(rule.id);
-    form.reset({
-      priority: String(rule.priority),
-      matchType: rule.matchType,
-      matchValue: rule.matchValue,
-      actionType: rule.actionType,
-      chainId: rule.chainId || '',
-      destinationScope: rule.destinationScope || '',
-      enabled: rule.enabled
-    });
+    form.reset(routeRuleFormValues(rule));
   }, [form]);
 
   const submitRouteRule = useCallback((values: RouteRuleFormValues) => {
-    const chainDestinationScope = values.actionType === 'chain'
-      ? chains.find((chain) => chain.id === values.chainId)?.destinationScope || ''
-      : values.destinationScope.trim();
-    const payload = {
-      priority: Number(values.priority),
-      matchType: values.matchType.trim(),
-      matchValue: values.matchValue.trim(),
-      actionType: values.actionType,
-      chainId: values.chainId.trim(),
-      destinationScope: chainDestinationScope,
-      enabled: values.enabled
-    };
+    const payload = routeRuleSubmitPayload(values, chains);
     if (editingRuleId) {
       updateRuleMutation.mutate({id: editingRuleId, ...payload});
     } else {
