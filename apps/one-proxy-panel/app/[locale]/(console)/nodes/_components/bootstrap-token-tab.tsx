@@ -61,9 +61,15 @@ export function BootstrapTokenTab({
     if (!latestToken) {
       return '';
     }
-    const controlURLLine = parentReachableUrl.trim()
-      ? `  -e NODE_PARENT_URL=${shellQuote(parentReachableUrl.trim())} \\`
-      : `  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`;
+    const parentUrl = parentReachableUrl.trim();
+    const parentID = selectedParentNodeId.trim();
+    const endpointLines = parentUrl
+      ? [
+        `  -e NODE_PARENT_URL=${shellQuote(parentUrl)} \\`,
+        `  -e NODE_PARENT_TUNNEL_URL=${shellQuote(parentUrl)} \\`
+      ]
+      : [`  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`];
+    const parentLines = parentID ? [`  -e NODE_PARENT_ID=${shellQuote(parentID)} \\`] : [];
     return [
       'docker rm -f one-proxy-node >/dev/null 2>&1 || true',
       'docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true',
@@ -71,12 +77,13 @@ export function BootstrapTokenTab({
       '  -p 2988:2988 \\',
       '  -p 2989:2989 \\',
       '  -v one-proxy-node-runtime:/app/runtime \\',
-      controlURLLine,
+      ...endpointLines,
+      ...parentLines,
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
       "  -e TZ='Asia/Shanghai' \\",
       '  ghcr.io/stanleysun233/one-proxy-node:latest'
     ].join('\n');
-  }, [controlPlaneURL, latestToken, parentReachableUrl]);
+  }, [controlPlaneURL, latestToken, parentReachableUrl, selectedParentNodeId]);
   const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);
   const needsParentReachableUrl = selectedNodeMode === 'relay' && selectedParentNodeId.trim() !== '';
 
