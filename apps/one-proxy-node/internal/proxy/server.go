@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strconv"
 	"strings"
@@ -54,25 +53,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) forwardDirect(w http.ResponseWriter, req *http.Request) {
-	target := &url.URL{
-		Scheme: req.URL.Scheme,
-		Host:   req.URL.Host,
-	}
-	if target.Scheme == "" {
-		target.Scheme = "http"
-	}
-	if target.Host == "" {
-		target.Host = req.Host
-	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	originalDirector := proxy.Director
-	proxy.Director = func(out *http.Request) {
-		originalDirector(out)
-		out.Host = target.Host
-		out.URL.Path = req.URL.Path
-		out.URL.RawQuery = req.URL.RawQuery
-	}
-	proxy.ServeHTTP(w, req)
+	s.forwardHTTP(w, req, nil)
 }
 
 func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot policystore.Snapshot, rule domain.RouteRule) {
@@ -117,28 +98,33 @@ func (s *Server) forwardViaProxy(w http.ResponseWriter, req *http.Request, nextH
 		Scheme: "http",
 		Host:   net.JoinHostPort(nextHop.PublicHost, strconv.Itoa(nextHop.PublicPort)),
 	}
-	target := &url.URL{
-		Scheme: req.URL.Scheme,
-		Host:   req.URL.Host,
+	s.forwardHTTP(w, req, proxyURL)
+}
+
+func (s *Server) forwardHTTP(w http.ResponseWriter, req *http.Request, proxyURL *url.URL) {
+	outbound := req.Clone(req.Context())
+	outbound.RequestURI = ""
+	outbound.URL = cloneTargetURL(req)
+	outbound.Host = outbound.URL.Host
+	removeHopByHopHeaders(outbound.Header)
+	transport := &http.Transport{}
+	if proxyURL != nil {
+		transport.Proxy = http.ProxyURL(proxyURL)
 	}
-	if target.Scheme == "" {
-		target.Scheme = "http"
+	resp, err := transport.RoundTrip(outbound)
+	if err != nil {
+		http.Error(w, "forward_failed", http.StatusBadGateway)
+		return
 	}
-	if target.Host == "" {
-		target.Host = req.Host
+	defer resp.Body.Close()
+	removeHopByHopHeaders(resp.Header)
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
 	}
-	reverseProxy := httputil.NewSingleHostReverseProxy(target)
-	originalDirector := reverseProxy.Director
-	reverseProxy.Transport = &http.Transport{
-		Proxy: http.ProxyURL(proxyURL),
-	}
-	reverseProxy.Director = func(out *http.Request) {
-		originalDirector(out)
-		out.Host = target.Host
-		out.URL.Path = req.URL.Path
-		out.URL.RawQuery = req.URL.RawQuery
-	}
-	reverseProxy.ServeHTTP(w, req)
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
 }
 
 func (s *Server) forwardViaStream(w http.ResponseWriter, req *http.Request, hop chainHop) {
@@ -333,6 +319,34 @@ func targetAddress(req *http.Request) (string, int) {
 		return host, 443
 	}
 	return host, 80
+}
+
+func cloneTargetURL(req *http.Request) *url.URL {
+	target := *req.URL
+	if target.Scheme == "" {
+		target.Scheme = "http"
+	}
+	if target.Host == "" {
+		target.Host = req.Host
+	}
+	return &target
+}
+
+func removeHopByHopHeaders(header http.Header) {
+	for _, name := range strings.Split(header.Get("Connection"), ",") {
+		if trimmed := strings.TrimSpace(name); trimmed != "" {
+			header.Del(trimmed)
+		}
+	}
+	header.Del("Connection")
+	header.Del("Keep-Alive")
+	header.Del("Proxy-Authenticate")
+	header.Del("Proxy-Authorization")
+	header.Del("Proxy-Connection")
+	header.Del("Te")
+	header.Del("Trailer")
+	header.Del("Transfer-Encoding")
+	header.Del("Upgrade")
 }
 
 func bridgeTunnel(left net.Conn, right net.Conn) {
