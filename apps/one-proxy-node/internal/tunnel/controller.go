@@ -161,6 +161,9 @@ func (c *Controller) connect(current runtime.Binding) error {
 
 func (c *Controller) handleProbeRequest(message Message) Message {
 	if len(message.RemainingHopNodeIDs) == 0 {
+		if message.TargetHost != "" && message.TargetPort > 0 {
+			return probeTarget(message.Protocol, message.TargetHost, message.TargetPort)
+		}
 		return Message{Status: "connected", Message: "chain_reachable"}
 	}
 	nextNodeID := message.RemainingHopNodeIDs[0]
@@ -169,6 +172,64 @@ func (c *Controller) handleProbeRequest(message Message) Message {
 		return Message{Status: "failed", Message: "next_hop_unreachable"}
 	}
 	return response
+}
+
+func probeTarget(protocol string, host string, port int) Message {
+	switch strings.ToLower(strings.TrimSpace(protocol)) {
+	case "http", "https":
+		return probeHTTP(protocol, host, port)
+	case "ws", "wss":
+		return probeWebSocket(protocol, host, port)
+	case "udp":
+		return probeUDP(host, port)
+	default:
+		return probeTCP(host, port)
+	}
+}
+
+func probeHTTP(protocol string, host string, port int) Message {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(strings.ToLower(protocol) + "://" + host + ":" + strconv.Itoa(port) + "/")
+	if err != nil {
+		return Message{Status: "failed", Message: "target_unreachable"}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= http.StatusInternalServerError {
+		return Message{Status: "failed", Message: "target_unhealthy"}
+	}
+	return Message{Status: "connected", Message: "target_reachable"}
+}
+
+func probeWebSocket(protocol string, host string, port int) Message {
+	conn, resp, err := websocket.DefaultDialer.Dial(strings.ToLower(protocol)+"://"+host+":"+strconv.Itoa(port)+"/", nil)
+	if err == nil {
+		_ = conn.Close()
+		return Message{Status: "connected", Message: "target_reachable"}
+	}
+	if resp != nil && resp.StatusCode < http.StatusInternalServerError {
+		return Message{Status: "connected", Message: "target_reachable"}
+	}
+	return Message{Status: "failed", Message: "target_unreachable"}
+}
+
+func probeTCP(host string, port int) Message {
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), 3*time.Second)
+	if err != nil {
+		return Message{Status: "failed", Message: "target_unreachable"}
+	}
+	_ = conn.Close()
+	return Message{Status: "connected", Message: "target_reachable"}
+}
+
+func probeUDP(host string, port int) Message {
+	conn, err := net.DialTimeout("udp", net.JoinHostPort(host, strconv.Itoa(port)), 3*time.Second)
+	if err != nil {
+		return Message{Status: "failed", Message: "target_unreachable"}
+	}
+	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+	_, _ = conn.Write([]byte{0})
+	_ = conn.Close()
+	return Message{Status: "connected", Message: "target_packet_sent"}
 }
 
 func (c *Controller) handleOpenStream(wsConn *websocket.Conn, message Message) error {

@@ -88,7 +88,7 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 				}
 				topology = extensionTopology(nodesByID, chain.Hops)
 			}
-			if rule.ActionType == domain.ActionTypeDirect && rule.DestinationScope != node.ScopeKey {
+			if rule.ActionType == domain.ActionTypeDirect && rule.MatchType != domain.MatchTypeDefault && rule.DestinationScope != node.ScopeKey {
 				continue
 			}
 			group.Routes = append(group.Routes, domain.ExtensionRoute{
