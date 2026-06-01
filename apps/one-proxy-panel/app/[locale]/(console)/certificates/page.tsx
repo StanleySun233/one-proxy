@@ -28,7 +28,7 @@ export default function CertificatesPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={certT('title')} title={t('certificatesTitle')} description={t('certificatesDesc')} />
+        <PageHero eyebrow={certT('title')} title={t('certificatesTitle')} />
         <article className="panel-card">
           {certificatesQuery.isPending ? (
             <AsyncState detail={certT('loadingDetail')} title={certT('loading')} />

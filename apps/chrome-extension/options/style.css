@@ -142,6 +142,10 @@ h1 {
   align-items: start;
 }
 
+.panel-diagnostics {
+  grid-column: 1 / -1;
+}
+
 .panel {
   padding: 18px;
 }
@@ -272,6 +276,55 @@ textarea {
 .feedback.is-idle {
   background: var(--warning-soft);
   color: var(--warning);
+}
+
+.diagnostic-log {
+  display: grid;
+  gap: 10px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.log-row {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.log-row.is-error {
+  border-color: rgba(177, 68, 68, 0.32);
+  background: var(--danger-soft);
+}
+
+.log-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.log-meta strong {
+  color: var(--ink);
+  text-transform: uppercase;
+}
+
+.log-meta code {
+  color: var(--accent);
+}
+
+.log-row pre {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.log-empty {
+  color: var(--muted);
 }
 
 .pill {

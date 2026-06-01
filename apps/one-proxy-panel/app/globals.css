@@ -230,12 +230,6 @@ button:disabled {
   font-family: var(--font-mono), "SFMono-Regular", monospace;
 }
 
-.section-copy {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.65;
-}
-
 .nav-panel {
   gap: 12px;
 }
@@ -1195,12 +1189,6 @@ button:disabled {
 .node-mode-title {
   font-weight: 750;
   color: var(--text);
-}
-
-.node-mode-copy {
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.45;
 }
 
 .command-block {

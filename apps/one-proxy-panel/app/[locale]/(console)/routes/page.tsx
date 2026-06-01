@@ -271,7 +271,7 @@ export default function RoutesPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={t('nav.routes')} title={pageT('routesTitle')} description={pageT('routesDesc')} />
+        <PageHero eyebrow={t('nav.routes')} title={pageT('routesTitle')} />
 
         <section className="forms-grid">
           <article className="panel-card">

@@ -36,7 +36,6 @@ export function NodeBootstrapPageContent() {
           <div>
             <p className="section-kicker">{nodesT('bootstrap')}</p>
             <h3>{nodesT('bootstrapToken')}</h3>
-            <p className="section-copy">{nodesT('bootstrapDesc')}</p>
           </div>
           <BootstrapTokenTab
             form={nodeConsole.bootstrapForm}

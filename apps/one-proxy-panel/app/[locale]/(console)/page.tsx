@@ -74,7 +74,6 @@ export default function OverviewPage() {
               </article>
             </div>
           }
-          description={t('overview.subtitle')}
           eyebrow={t('overview.eyebrow')}
           title={t('overview.title')}
         />
@@ -85,7 +84,6 @@ export default function OverviewPage() {
               <div>
                 <p className="section-kicker">{t('overview.topology')}</p>
                 <h3>{t('overview.pathDesigner')}</h3>
-                <p className="section-copy">{t('overview.topologyHint')}</p>
               </div>
               <span className="badge">{t('overview.nodesCount', {count: nodes.length})}</span>
             </div>
@@ -109,7 +107,6 @@ export default function OverviewPage() {
             <div>
               <p className="section-kicker">{t('overview.pendingEnrollments')}</p>
               <h3>{t('shell.nodeApprovals')}</h3>
-              <p className="section-copy">{t('overview.pendingApproval', {count: pendingNodes.length})}</p>
             </div>
             {pendingQuery.isPending ? (
               <AsyncState detail={t('common.loading')} title={t('overview.loadingQueue')} />
@@ -124,7 +121,6 @@ export default function OverviewPage() {
               <div className="queue-list">
                 <div className="queue-item">
                   <strong>{t('common.empty')}</strong>
-                  <span className="section-copy">{t('overview.queueMuted')}</span>
                 </div>
               </div>
             ) : (
@@ -132,7 +128,7 @@ export default function OverviewPage() {
                 {pendingNodes.slice(0, 3).map((node) => (
                   <div className="queue-item" key={node.id}>
                     <NameTag kind="node">{node.name}</NameTag>
-                    <span className="section-copy">
+                    <span className="muted-text">
                       {node.mode} · {node.scopeKey} · {node.status}
                     </span>
                   </div>

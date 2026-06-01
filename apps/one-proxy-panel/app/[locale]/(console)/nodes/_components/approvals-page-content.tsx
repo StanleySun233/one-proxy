@@ -30,7 +30,6 @@ export function NodeApprovalsPageContent() {
             <div>
               <p className="section-kicker">{nodesT('approvals')}</p>
               <h3>{nodesT('pendingEnrollments')}</h3>
-              <p className="section-copy">{nodesT('approvalsDesc')}</p>
             </div>
             <span className="badge">{combinedCount}</span>
           </div>

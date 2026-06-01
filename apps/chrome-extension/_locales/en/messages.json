@@ -179,6 +179,18 @@
   "statusIdle": {
     "message": "Remote groups are ready when you sign in."
   },
+  "diagnostics": {
+    "message": "Diagnostics"
+  },
+  "refreshLogs": {
+    "message": "Refresh"
+  },
+  "clearLogs": {
+    "message": "Clear"
+  },
+  "noLogs": {
+    "message": "No diagnostic logs yet."
+  },
   "themeVivid": {
     "message": "Vivid"
   },

@@ -86,14 +86,13 @@ export default function CertificatesPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={healthT('eyebrow')} title={pageT('healthTitle')} description={pageT('healthDesc')} />
+        <PageHero eyebrow={healthT('eyebrow')} title={pageT('healthTitle')} />
 
         <section className="panel-card">
           <div className="panel-toolbar">
             <div>
               <p className="section-kicker">{healthT('certificateRegistry')}</p>
               <h3>{healthT('certificateStatus')}</h3>
-              <p className="section-copy">{healthT('certificateDesc')}</p>
             </div>
             <div className="inline-cluster">
               <span className="badge">{filteredCertificates.length} {common('shown')}</span>

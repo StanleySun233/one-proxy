@@ -256,28 +256,24 @@ export default function HealthOverviewPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={healthT('eyebrow')} title={pageT('healthTitle')} description={pageT('healthDesc')} />
+        <PageHero eyebrow={healthT('eyebrow')} title={pageT('healthTitle')} />
 
         <section className="metrics-grid">
           <article className="metric-card panel-card">
             <span className="metric-label">{healthT('healthyHeartbeats')}</span>
             <strong>{summary.healthy}</strong>
-            <span className="metric-foot">{healthT('healthyHeartbeatsDesc')}</span>
           </article>
           <article className="metric-card panel-card soft-card">
             <span className="metric-label">{healthT('staleHeartbeats')}</span>
             <strong>{summary.stale}</strong>
-            <span className="metric-foot">{healthT('staleHeartbeatsDesc')}</span>
           </article>
           <article className="metric-card panel-card warm-card">
             <span className="metric-label">{healthT('unreportedNodes')}</span>
             <strong>{summary.unreported}</strong>
-            <span className="metric-foot">{healthT('unreportedNodesDesc')}</span>
           </article>
           <article className="metric-card panel-card warm-card">
             <span className="metric-label">{healthT('certificatePressure')}</span>
             <strong>{summary.certPressure}</strong>
-            <span className="metric-foot">{healthT('certificatePressureDesc')}</span>
           </article>
         </section>
 
@@ -313,11 +309,6 @@ export default function HealthOverviewPage() {
             <div>
               <p className="section-kicker">{healthT('trend')}</p>
               <h3>{healthT('healthTrend')}</h3>
-              <p className="section-copy">
-                {selectedNodeId
-                  ? healthT('historySelected')
-                  : healthT('historySelectPrompt')}
-              </p>
             </div>
             <label className="field-stack registry-filter registry-filter-short">
               <span>{common('name')}</span>
@@ -353,9 +344,6 @@ export default function HealthOverviewPage() {
                   <span>{healthT('unreported')}</span>
                 </div>
               </div>
-              <p className="muted-text" style={{textAlign: 'center', marginTop: 16}}>
-                {healthT('selectNodeTrend')}
-              </p>
             </div>
           ) : historyQuery.isPending ? (
             <AsyncState detail={healthT('loadingHistoryDetail')} title={healthT('loadingHistory')} />

@@ -47,7 +47,7 @@ export default function AccountListPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={accountsT('listTitle')} title={pageT('accountsTitle')} description={pageT('accountsDesc')} />
+        <PageHero eyebrow={accountsT('listTitle')} title={pageT('accountsTitle')} />
         <article className="panel-card soft-card">
           <h3>{accountsT('listTitle')}</h3>
           {accountsQuery.isPending ? (

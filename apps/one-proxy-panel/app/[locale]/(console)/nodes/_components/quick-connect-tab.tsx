@@ -34,7 +34,6 @@ export function QuickConnectTab({
       <div className="field-stack">
         <span>{t('nodes.quickConnect.newJoinPassword')}</span>
         <input className="field-input" type="password" placeholder={t('nodes.quickConnect.newJoinPasswordHint')} {...form.register('newPassword')} />
-        <p className="field-hint">{t('nodesConsole.defaultPasswordHint')}</p>
       </div>
       <div className="field-stack">
         <span>{t('nodes.quickConnect.name')}</span>
@@ -75,7 +74,6 @@ export function QuickConnectTab({
         <button className="primary-button" disabled={submitting} type="submit">
           {submitting ? t('nodes.quickConnect.submitting') : t('nodes.quickConnect.connectNode')}
         </button>
-        <p className="field-hint">{t('nodes.quickConnect.nodeDefaultPasswordHint')}</p>
       </div>
     </form>
   );

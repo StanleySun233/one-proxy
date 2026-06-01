@@ -19,6 +19,9 @@ const directHosts = document.getElementById('directHosts');
 const proxyHosts = document.getElementById('proxyHosts');
 const saveOverrides = document.getElementById('saveOverrides');
 const themeMode = document.getElementById('themeMode');
+const diagnosticLogs = document.getElementById('diagnosticLogs');
+const refreshLogs = document.getElementById('refreshLogs');
+const clearLogs = document.getElementById('clearLogs');
 
 let bundle = null;
 
@@ -53,6 +56,47 @@ function linesToArray(value) {
 
 function arrayToLines(value) {
   return (value || []).join('\n');
+}
+
+function formatLogDetails(details) {
+  if (!details || Object.keys(details).length === 0) {
+    return '';
+  }
+  return JSON.stringify(details);
+}
+
+function renderLogs(logs) {
+  diagnosticLogs.innerHTML = '';
+  const items = Array.isArray(logs) ? [...logs].reverse() : [];
+  if (items.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'log-empty';
+    empty.textContent = text('noLogs');
+    diagnosticLogs.appendChild(empty);
+    return;
+  }
+  for (const item of items) {
+    const row = document.createElement('div');
+    row.className = `log-row is-${item.level || 'info'}`;
+    const meta = document.createElement('div');
+    meta.className = 'log-meta';
+    const time = document.createElement('span');
+    time.textContent = item.at ? new Date(item.at).toLocaleString() : '-';
+    const level = document.createElement('strong');
+    level.textContent = item.level || 'info';
+    const event = document.createElement('code');
+    event.textContent = item.event || '-';
+    const details = document.createElement('pre');
+    details.textContent = formatLogDetails(item.details);
+    meta.append(time, level, event);
+    row.append(meta, details);
+    diagnosticLogs.appendChild(row);
+  }
+}
+
+async function refreshDiagnosticLogs() {
+  const logs = await sendMessage({ type: 'get-diagnostic-logs' });
+  renderLogs(logs);
 }
 
 function renderGroupList() {
@@ -108,6 +152,7 @@ function render(nextBundle) {
   renderSession();
   renderGroupList();
   renderGroupDetail();
+  refreshDiagnosticLogs();
 }
 
 loginButton.addEventListener('click', async () => {
@@ -170,6 +215,15 @@ saveOverrides.addEventListener('click', async () => {
   }
   render(result);
   setFeedback('ok', text('statusOverridesSaved'));
+});
+
+refreshLogs.addEventListener('click', async () => {
+  await refreshDiagnosticLogs();
+});
+
+clearLogs.addEventListener('click', async () => {
+  const logs = await sendMessage({ type: 'clear-diagnostic-logs' });
+  renderLogs(logs);
 });
 
 bindThemeMode(themeMode, async (mode) => {

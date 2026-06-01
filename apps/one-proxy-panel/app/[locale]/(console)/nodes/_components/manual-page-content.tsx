@@ -34,7 +34,6 @@ export function NodeManualPageContent() {
           <div>
             <p className="section-kicker">{nodesT('nodeRecord')}</p>
             <h3>{nodesT('manualRecord')}</h3>
-            <p className="section-copy">{nodesT('manualDesc')}</p>
           </div>
           <ManualNodeTab
             form={nodeConsole.nodeForm}

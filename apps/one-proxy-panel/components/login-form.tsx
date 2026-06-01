@@ -36,7 +36,6 @@ export function LoginForm() {
       <div className="panel-card">
         <p className="section-kicker">{t('shell.product')}</p>
         <h3>{t('auth.title')}</h3>
-        <p className="section-copy">{t('auth.description')}</p>
 
         <label className="field-stack">
           <span>{t('auth.account')}</span>

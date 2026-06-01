@@ -46,7 +46,6 @@ export function PasswordRotationForm() {
       <div className="panel-card">
         <p className="section-kicker">{t('shell.product')}</p>
         <h3>{t('auth.rotateTitle')}</h3>
-        <p className="section-copy">{t('auth.rotateDescription')}</p>
 
         <label className="field-stack">
           <span>{t('auth.newPassword')}</span>

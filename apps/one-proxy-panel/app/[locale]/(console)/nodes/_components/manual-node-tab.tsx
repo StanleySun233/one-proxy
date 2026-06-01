@@ -68,7 +68,6 @@ export function ManualNodeTab({
         <button className="primary-button" disabled={submitting} type="submit">
           {submitting ? t('nodes.manual.submitting') : t('nodes.manual.createNodeRecord')}
         </button>
-        <p className="field-hint">{t('nodes.manual.manualHint')}</p>
       </div>
     </form>
   );

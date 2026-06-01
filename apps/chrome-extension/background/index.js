@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'oneProxyState';
+const LOG_KEY = 'oneProxyDiagnostics';
+const MAX_LOG_ENTRIES = 120;
 
 const DEFAULT_STATE = {
   enabled: false,
@@ -26,6 +28,31 @@ const DEFAULT_STATE = {
 };
 
 let stateCache = null;
+
+async function appendLog(level, event, details = {}) {
+  const entry = {
+    at: new Date().toISOString(),
+    level,
+    event,
+    details
+  };
+  const stored = await chrome.storage.local.get(LOG_KEY);
+  const logs = Array.isArray(stored[LOG_KEY]) ? stored[LOG_KEY] : [];
+  const nextLogs = [...logs, entry].slice(-MAX_LOG_ENTRIES);
+  await chrome.storage.local.set({ [LOG_KEY]: nextLogs });
+  return entry;
+}
+
+async function diagnosticLogs() {
+  const stored = await chrome.storage.local.get(LOG_KEY);
+  return Array.isArray(stored[LOG_KEY]) ? stored[LOG_KEY] : [];
+}
+
+async function clearDiagnosticLogs() {
+  await chrome.storage.local.set({ [LOG_KEY]: [] });
+  await appendLog('info', 'diagnostics_cleared');
+  return diagnosticLogs();
+}
 
 function uniqueStrings(items) {
   return [...new Set((items || []).map((item) => String(item || '').trim()).filter(Boolean))];
@@ -218,6 +245,22 @@ function FindProxyForURL(url, host) {
 `;
 }
 
+function pacSummary(state) {
+  const group = activeGroupFrom(state);
+  return {
+    enabled: Boolean(state.enabled),
+    activeGroupId: group ? group.id : '',
+    activeGroupName: group ? group.name : '',
+    proxyTarget: group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT',
+    remoteProxyHosts: group ? uniqueStrings(group.proxyHosts).length : 0,
+    remoteProxyCidrs: group ? uniqueStrings(group.proxyCidrs).length : 0,
+    remoteDirectHosts: group ? uniqueStrings(group.directHosts).length : 0,
+    remoteDirectCidrs: group ? uniqueStrings(group.directCidrs).length : 0,
+    localProxyHosts: uniqueStrings(state.localOverrides.proxyHosts).length,
+    localDirectHosts: uniqueStrings(state.localOverrides.directHosts).length
+  };
+}
+
 async function applyProxy(state) {
   await chrome.proxy.settings.set({
     value: {
@@ -228,6 +271,7 @@ async function applyProxy(state) {
     },
     scope: 'regular'
   });
+  await appendLog('info', 'proxy_applied', pacSummary(state));
 }
 
 async function getCurrentTabInfo() {
@@ -304,8 +348,10 @@ async function apiRequest(state, path, options = {}) {
   } catch (_error) {
   }
   if (!response.ok) {
+    await appendLog('error', 'api_request_failed', { path, status: response.status, message: (payload && payload.message) || 'request_failed' });
     throw new Error((payload && payload.message) || 'request_failed');
   }
+  await appendLog('info', 'api_request_ok', { path, status: response.status });
   return payload ? payload.data : null;
 }
 
@@ -317,6 +363,7 @@ async function login(controlPlaneUrl, account, password) {
   });
   const payload = await response.json();
   if (!response.ok) {
+    await appendLog('error', 'login_failed', { status: response.status, message: (payload && payload.message) || 'login_failed' });
     throw new Error((payload && payload.message) || 'login_failed');
   }
   const nextState = mergeState({
@@ -331,6 +378,7 @@ async function login(controlPlaneUrl, account, password) {
     }
   });
   await persistState(nextState);
+  await appendLog('info', 'login_ok', { account: nextState.session.account, controlPlaneUrl: nextState.controlPlaneUrl });
   return syncRemoteConfig(nextState);
 }
 
@@ -342,7 +390,8 @@ async function testConnection(controlPlaneUrl) {
   let response;
   try {
     response = await fetch(`${baseUrl}/healthz`);
-  } catch (_error) {
+  } catch (error) {
+    await appendLog('error', 'test_connection_failed', { controlPlaneUrl: baseUrl, message: error.message || 'connection_failed' });
     throw new Error('connection_failed');
   }
   let payload = null;
@@ -351,8 +400,10 @@ async function testConnection(controlPlaneUrl) {
   } catch (_error) {
   }
   if (!response.ok) {
+    await appendLog('error', 'test_connection_failed', { controlPlaneUrl: baseUrl, status: response.status, message: (payload && payload.message) || 'connection_failed' });
     throw new Error((payload && payload.message) || 'connection_failed');
   }
+  await appendLog('info', 'test_connection_ok', { controlPlaneUrl: baseUrl });
   return payload ? payload.data : null;
 }
 
@@ -368,6 +419,7 @@ async function refreshSession(sourceState) {
   });
   const payload = await response.json();
   if (!response.ok) {
+    await appendLog('error', 'refresh_failed', { status: response.status, message: (payload && payload.message) || 'refresh_failed' });
     throw new Error((payload && payload.message) || 'refresh_failed');
   }
   const nextState = mergeState({
@@ -381,6 +433,7 @@ async function refreshSession(sourceState) {
     }
   });
   await persistState(nextState);
+  await appendLog('info', 'refresh_ok', { account: nextState.session.account });
   return nextState;
 }
 
@@ -401,6 +454,10 @@ async function syncRemoteConfig(sourceState) {
     }
   });
   await persistState(nextState);
+  await appendLog('info', 'remote_config_synced', {
+    policyRevision: nextState.remote.policyRevision,
+    groups: nextState.remote.groups.length
+  });
   return getComputedState();
 }
 
@@ -423,6 +480,7 @@ async function logout() {
     selection: DEFAULT_STATE.selection
   });
   await persistState(nextState);
+  await appendLog('info', 'logout_ok');
   return getComputedState();
 }
 
@@ -441,6 +499,7 @@ async function addHostToRule(kind, host) {
     [kind]: uniqueStrings([...(state.localOverrides[kind] || []), clean])
   };
   await persistState({ ...state, localOverrides: overrides });
+  await appendLog('info', 'local_override_added', { kind, host: clean });
   return getComputedState();
 }
 
@@ -453,11 +512,19 @@ async function setPartialState(mutator) {
 
 chrome.runtime.onInstalled.addListener(async () => {
   await persistState(await getState());
+  await appendLog('info', 'extension_installed');
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await applyProxy(await getState());
+  await appendLog('info', 'extension_startup');
 });
+
+if (chrome.proxy && chrome.proxy.onProxyError) {
+  chrome.proxy.onProxyError.addListener((details) => {
+    appendLog('error', 'proxy_error', details).catch(() => {});
+  });
+}
 
 chrome.storage.onChanged.addListener(async (changes, areaName) => {
   if (areaName !== 'local' || !changes[STORAGE_KEY]) {
@@ -477,6 +544,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     switch (message.type) {
       case 'get-state':
         sendResponse(await getComputedState());
+        return;
+      case 'get-diagnostic-logs':
+        sendResponse(await diagnosticLogs());
+        return;
+      case 'clear-diagnostic-logs':
+        sendResponse(await clearDiagnosticLogs());
         return;
       case 'set-enabled':
         sendResponse(await setPartialState((state) => ({ ...state, enabled: Boolean(message.enabled) })));
@@ -531,6 +604,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse(null);
     }
   })().catch((error) => {
+    appendLog('error', 'runtime_message_failed', {
+      type: message && message.type ? message.type : '',
+      message: error.message || 'unexpected_error'
+    }).catch(() => {});
     sendResponse({ error: error.message || 'unexpected_error' });
   });
   return true;

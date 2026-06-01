@@ -154,7 +154,7 @@ export default function ChainsPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={chainsT('eyebrow')} title={pageT('chainsTitle')} description={pageT('chainsDesc')} />
+        <PageHero eyebrow={chainsT('eyebrow')} title={pageT('chainsTitle')} />
 
         {editorOpen ? (
           <section className="panel-card">
@@ -180,7 +180,6 @@ export default function ChainsPage() {
               <div>
                 <p className="section-kicker">{chainsT('management')}</p>
                 <h3>{chainsT('listTitle')}</h3>
-                <p className="section-copy">{chainsT('listDesc')}</p>
               </div>
               <button className="primary-button" onClick={() => handleOpenEditor()} type="button">
                 {chainsT('createChain')}

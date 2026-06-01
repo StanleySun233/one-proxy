@@ -132,14 +132,13 @@ export default function HeartbeatPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={healthT('eyebrow')} title={pageT('healthTitle')} description={pageT('healthDesc')} />
+        <PageHero eyebrow={healthT('eyebrow')} title={pageT('healthTitle')} />
 
         <section className="panel-card">
           <div className="panel-toolbar">
             <div>
               <p className="section-kicker">{healthT('heartbeatRegistry')}</p>
               <h3>{healthT('nodeHealth')}</h3>
-              <p className="section-copy">{healthT('heartbeatDesc')}</p>
             </div>
             <div className="inline-cluster">
               <span className="badge">{filteredHealth.length} {common('shown')}</span>

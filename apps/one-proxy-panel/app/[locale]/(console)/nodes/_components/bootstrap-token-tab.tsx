@@ -139,7 +139,6 @@ export function BootstrapTokenTab({
                 {...form.register('nodeMode', {required: t('nodes.bootstrap.nodeModeRequired')})}
               />
               <span className="node-mode-title">{t(`nodes.bootstrap.nodeModeOptions.${mode}.label`)}</span>
-              <span className="node-mode-copy">{t(`nodes.bootstrap.nodeModeOptions.${mode}.hint`)}</span>
             </label>
           ))}
         </div>
@@ -154,7 +153,6 @@ export function BootstrapTokenTab({
           placeholder={t('nodes.bootstrap.scopeKeyPlaceholder')}
           {...form.register('scopeKey', {required: t('nodes.bootstrap.scopeKeyRequired')})}
         />
-        <p className="field-hint">{t('nodes.bootstrap.scopeKeyHint')}</p>
       </div>
       <div className="field-stack">
         <span>{t('nodes.bootstrap.parentNodeId')}</span>
@@ -164,7 +162,6 @@ export function BootstrapTokenTab({
             <option key={node.id} value={node.id}>{node.id} - {node.name}</option>
           ))}
         </select>
-        <p className="field-hint">{t('nodes.bootstrap.parentNodeIdHint')}</p>
       </div>
       {needsParentReachableUrl ? (
         <div className="field-stack nodes-form-full">
@@ -179,7 +176,6 @@ export function BootstrapTokenTab({
               }
             })}
           />
-          <p className="field-hint">{t('nodes.bootstrap.parentReachableUrlHint')}</p>
           {form.formState.errors.parentReachableUrl ? (
             <p className="field-error">{form.formState.errors.parentReachableUrl.message}</p>
           ) : null}
@@ -188,7 +184,6 @@ export function BootstrapTokenTab({
       <div className="field-stack">
         <span>{t('nodes.bootstrap.publicHost')}</span>
         <input className="field-input" placeholder={t('nodes.bootstrap.publicHostPlaceholder')} {...form.register('publicHost')} />
-        <p className="field-hint">{t('nodes.bootstrap.publicHostHint')}</p>
       </div>
       <div className="field-stack">
         <span>{t('nodes.bootstrap.publicPort')}</span>
@@ -204,7 +199,6 @@ export function BootstrapTokenTab({
             }
           })}
         />
-        <p className="field-hint">{t('nodes.bootstrap.publicPortHint')}</p>
         {form.formState.errors.publicPort ? (
           <p className="field-error">{form.formState.errors.publicPort.message}</p>
         ) : null}
@@ -212,13 +206,11 @@ export function BootstrapTokenTab({
       <div className="field-stack nodes-form-full">
         <span>{t('nodes.bootstrap.targetNodeId')}</span>
         <input className="field-input" placeholder={t('nodes.bootstrap.targetNodeIdHint')} {...form.register('targetId')} />
-        <p className="field-hint">{t('nodes.bootstrap.targetNodeIdHint')}</p>
       </div>
       <div className="submit-row nodes-form-full">
         <button className="primary-button" disabled={submitting} onClick={() => void form.handleSubmit(onSubmit)()} type="button">
           {submitting ? t('nodes.bootstrap.submitting') : t('nodes.bootstrap.generateToken')}
         </button>
-        <p className="field-hint">{t('nodes.bootstrap.bootstrapHint')}</p>
       </div>
       {latestToken ? (
         <div className="bootstrap-result-stack nodes-form-full">
@@ -253,11 +245,10 @@ export function BootstrapTokenTab({
                 ))}
               </code>
             </div>
-            <span className="field-hint">{t('nodes.bootstrap.dockerScopeHint')}</span>
           </div>
         </div>
       ) : (
-        <p className="field-hint nodes-form-full">{t('nodes.bootstrap.generateOnDemand')}</p>
+        null
       )}
     </div>
   );

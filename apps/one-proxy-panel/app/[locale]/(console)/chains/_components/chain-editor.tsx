@@ -156,7 +156,6 @@ export function ChainEditor({
               </span>
             )}
           </div>
-          <p className="section-copy">{chainsT('editorDesc')}</p>
         </div>
       </div>
 

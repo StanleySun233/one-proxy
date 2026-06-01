@@ -47,17 +47,14 @@ export function NodeTopologyPageContent() {
           <article className="metric-card panel-card">
             <span className="metric-label">{nodesT('publicTransports')}</span>
             <strong>{transportSummary.publicEndpoints}</strong>
-            <span className="metric-foot">{nodesT('publicTransportsDesc')}</span>
           </article>
           <article className="metric-card panel-card soft-card">
             <span className="metric-label">{nodesT('reverseTunnelsUp')}</span>
             <strong>{transportSummary.reverseConnected}</strong>
-            <span className="metric-foot">{nodesT('reverseTunnelsUpDesc')}</span>
           </article>
           <article className="metric-card panel-card warm-card">
             <span className="metric-label">{nodesT('reverseTunnelsBlocked')}</span>
             <strong>{transportSummary.reverseBlocked}</strong>
-            <span className="metric-foot">{nodesT('reverseTunnelsBlockedDesc')}</span>
           </article>
         </section>
 
@@ -66,7 +63,6 @@ export function NodeTopologyPageContent() {
             <div>
               <p className="section-kicker">{nodesT('topology')}</p>
               <h3>{nodesT('topologyTitle')}</h3>
-              <p className="section-copy">{nodesT('topologyDesc')}</p>
             </div>
             <span className="badge">{links.length}</span>
           </div>

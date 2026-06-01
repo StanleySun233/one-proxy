@@ -6,20 +6,19 @@ export function PlaceholderPage({titleKey, descriptionKey}: {titleKey: string; d
   const t = useTranslations('pages');
   const shell = useTranslations('shell');
   const common = useTranslations('common');
+  void descriptionKey;
 
   return (
     <div className="page-stack">
-      <PageHero eyebrow={shell('product')} title={t(titleKey)} description={t(descriptionKey)} />
+      <PageHero eyebrow={shell('product')} title={t(titleKey)} />
       <section className="two-column-grid">
         <article className="panel-card soft-card">
           <p className="section-kicker">{shell('name')}</p>
           <h3>{t(titleKey)}</h3>
-          <p className="section-copy">{t(descriptionKey)}</p>
         </article>
         <article className="panel-card warm-card">
           <p className="section-kicker">{t('healthTitle')}</p>
           <h3>{common('serverDrivenTitle')}</h3>
-          <p className="section-copy">{common('serverDrivenDesc')}</p>
         </article>
       </section>
     </div>

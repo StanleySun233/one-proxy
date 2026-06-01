@@ -38,7 +38,6 @@ export function NodeConnectPageContent() {
           <div>
             <p className="section-kicker">{nodesT('nodeEntry')}</p>
             <h3>{nodesT('quickConnect')}</h3>
-            <p className="section-copy">{nodesT('quickConnectDesc')}</p>
           </div>
           <QuickConnectTab
             form={nodeConsole.quickConnectForm}

@@ -63,7 +63,7 @@ export default function GroupListPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={t('accounts.listTitle')} title={t('shell.groupList')} description={t('shell.groupList')} />
+        <PageHero eyebrow={t('accounts.listTitle')} title={t('shell.groupList')} />
         <article className="panel-card soft-card">
           <div className="stack-head">
             <h3>{t('shell.groupList')}</h3>

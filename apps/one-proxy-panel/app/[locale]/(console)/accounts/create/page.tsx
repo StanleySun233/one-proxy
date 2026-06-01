@@ -51,7 +51,7 @@ export default function CreateAccountPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={accountsT('listTitle')} title={pageT('accountsTitle')} description={pageT('accountsDesc')} />
+        <PageHero eyebrow={accountsT('listTitle')} title={pageT('accountsTitle')} />
         <article className="panel-card">
           <h3>{accountsT('createTitle')}</h3>
           <form

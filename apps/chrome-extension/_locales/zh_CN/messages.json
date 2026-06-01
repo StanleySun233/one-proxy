@@ -179,6 +179,18 @@
   "statusIdle": {
     "message": "登录后即可使用远程分组。"
   },
+  "diagnostics": {
+    "message": "诊断日志"
+  },
+  "refreshLogs": {
+    "message": "刷新"
+  },
+  "clearLogs": {
+    "message": "清空"
+  },
+  "noLogs": {
+    "message": "暂无诊断日志。"
+  },
   "themeVivid": {
     "message": "灵动"
   },

@@ -113,22 +113,18 @@ export function NodeRegistryPageContent() {
           <article className="metric-card panel-card">
             <span className="metric-label">{nodesT('healthyNodes')}</span>
             <strong>{summary.healthy}</strong>
-            <span className="metric-foot">{nodesT('healthyNodesDesc')}</span>
           </article>
           <article className="metric-card panel-card soft-card">
             <span className="metric-label">{nodesT('degradedNodes')}</span>
             <strong>{summary.degraded}</strong>
-            <span className="metric-foot">{nodesT('degradedNodesDesc')}</span>
           </article>
           <article className="metric-card panel-card warm-card">
             <span className="metric-label">{nodesT('staleNodes')}</span>
             <strong>{summary.stale}</strong>
-            <span className="metric-foot">{nodesT('staleNodesDesc')}</span>
           </article>
           <article className="metric-card panel-card">
             <span className="metric-label">{nodesT('unreportedNodes')}</span>
             <strong>{summary.unreported}</strong>
-            <span className="metric-foot">{nodesT('unreportedNodesDesc')}</span>
           </article>
         </section>
 
@@ -137,7 +133,6 @@ export function NodeRegistryPageContent() {
             <div>
               <p className="section-kicker">{nodesT('registry')}</p>
               <h3>{nodesT('registryTitle')}</h3>
-              <p className="section-copy">{nodesT('registryDesc')}</p>
             </div>
             <div className="inline-cluster">
               <span className="badge">{filteredNodes.length} {t('common.shown')}</span>
@@ -283,7 +278,6 @@ export function NodeRegistryPageContent() {
                     <div>
                       <p className="section-kicker">{t('common.update')}</p>
                       <h3>{nodesT('editNode')}</h3>
-                      <p className="section-copy">{nodesT('editNodeDesc')}</p>
                     </div>
                     <span className="badge mono">{editingNode.id}</span>
                   </div>
