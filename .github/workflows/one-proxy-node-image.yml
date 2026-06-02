@@ -96,7 +96,11 @@ jobs:
           docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest
 
       - name: Pull proxy-node base image
-        run: docker pull ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest
+        run: |
+          docker pull ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest || {
+            docker build -f docker/one-proxy-node-base.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest .
+            docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest
+          }
 
       - name: Build proxy-node image
         run: docker build -f docker/one-proxy-node.Dockerfile --build-arg NODE_BASE_IMAGE=ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-node:latest .

@@ -100,7 +100,11 @@ jobs:
           docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
 
       - name: Pull panel base image
-        run: docker pull ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
+        run: |
+          docker pull ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest || {
+            docker build -f docker/one-proxy-panel-base.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest .
+            docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
+          }
 
       - name: Build control-plane image
         run: docker build -f docker/one-proxy-panel.Dockerfile --build-arg PANEL_BASE_IMAGE=ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:latest .
