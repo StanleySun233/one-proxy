@@ -21,6 +21,19 @@ type SessionStore interface {
 	Logout(accessToken string) bool
 }
 
+type TenantStore interface {
+	ListTenants(account domain.Account) []domain.Tenant
+	GetTenant(tenantID string) (domain.Tenant, bool)
+	CreateTenant(name string, initialAdminAccountID string, createID string) (domain.Tenant, error)
+	UpdateTenant(tenantID string, name string) (domain.Tenant, error)
+	DeleteTenant(tenantID string) error
+	ListTenantMemberships(accountID string) []domain.TenantMembership
+	ListTenantMembers(tenantID string) []domain.TenantMembership
+	GetTenantMembership(accountID string, tenantID string) (domain.TenantMembership, bool)
+	UpsertTenantMembership(tenantID string, accountID string, role domain.TenantRole, createID string) (domain.TenantMembership, error)
+	DeleteTenantMembership(tenantID string, accountID string) error
+}
+
 type NodeStore interface {
 	ListNodes() []domain.Node
 	CreateNode(input domain.CreateNodeInput) (domain.Node, error)
@@ -121,6 +134,7 @@ type Store interface {
 
 	AccountStore
 	SessionStore
+	TenantStore
 	NodeStore
 	ChainStore
 	RouteStore
