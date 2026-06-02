@@ -16,6 +16,12 @@ type Snapshot struct {
 	RouteRules []domain.RouteRule `json:"routeRules"`
 }
 
+type tenantPayload struct {
+	Snapshots []struct {
+		Payload Snapshot `json:"payload"`
+	} `json:"snapshots"`
+}
+
 type Store struct {
 	mu       sync.RWMutex
 	path     string
@@ -35,8 +41,8 @@ func New(path string) *Store {
 }
 
 func (s *Store) Update(revision string, payload string) error {
-	var snapshot Snapshot
-	if err := json.Unmarshal([]byte(payload), &snapshot); err != nil {
+	snapshot, err := decodeSnapshot(payload)
+	if err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -44,6 +50,34 @@ func (s *Store) Update(revision string, payload string) error {
 	s.revision = revision
 	s.snapshot = snapshot
 	return s.persist()
+}
+
+func decodeSnapshot(payload string) (Snapshot, error) {
+	var wrapped tenantPayload
+	if err := json.Unmarshal([]byte(payload), &wrapped); err != nil {
+		return Snapshot{}, err
+	}
+	if len(wrapped.Snapshots) > 0 {
+		return mergeSnapshots(wrapped.Snapshots), nil
+	}
+	var snapshot Snapshot
+	if err := json.Unmarshal([]byte(payload), &snapshot); err != nil {
+		return Snapshot{}, err
+	}
+	return snapshot, nil
+}
+
+func mergeSnapshots(items []struct {
+	Payload Snapshot `json:"payload"`
+}) Snapshot {
+	merged := Snapshot{}
+	for _, item := range items {
+		merged.Nodes = append(merged.Nodes, item.Payload.Nodes...)
+		merged.Links = append(merged.Links, item.Payload.Links...)
+		merged.Chains = append(merged.Chains, item.Payload.Chains...)
+		merged.RouteRules = append(merged.RouteRules, item.Payload.RouteRules...)
+	}
+	return merged
 }
 
 func (s *Store) Current() (string, Snapshot) {
