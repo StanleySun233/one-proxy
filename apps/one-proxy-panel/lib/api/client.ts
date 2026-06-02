@@ -62,7 +62,7 @@ function getStoredActiveTenantId() {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers();
-  const tenantId = options.tenantId ?? getStoredActiveTenantId();
+  const tenantId = options.tenantId !== undefined ? options.tenantId : options.accessToken ? getStoredActiveTenantId() : null;
 
   if (options.accessToken) {
     headers.set('Authorization', `Bearer ${options.accessToken}`);
