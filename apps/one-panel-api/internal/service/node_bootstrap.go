@@ -10,7 +10,7 @@ func (c *ControlPlane) CreateBootstrapToken(input domain.CreateBootstrapTokenInp
 		if err := validateNodeInput(input.NodeName, input.NodeMode, input.ScopeKey); err != nil {
 			return domain.BootstrapToken{}, err
 		}
-		if !c.scopeExists(input.ScopeKey) {
+		if !c.ScopeExists(input.ScopeKey) {
 			return domain.BootstrapToken{}, invalidInput("scope_not_found")
 		}
 	}

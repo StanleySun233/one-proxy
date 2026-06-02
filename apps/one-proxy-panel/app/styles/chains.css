@@ -117,7 +117,6 @@
   font-weight: 600;
 }
 
-.nodes-list-grid,
 .nodes-link-grid {
   display: grid;
   gap: 14px;
@@ -129,12 +128,6 @@
   gap: 10px;
 }
 
-.inline-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 .node-record-card {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -142,47 +135,4 @@
   background: color-mix(in srgb, var(--panel-2) 86%, var(--panel) 14%);
   display: grid;
   gap: 10px;
-}
-
-.forms-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.sub-grid {
-  display: grid;
-  gap: 12px;
-}
-
-.submit-row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.toggle-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text);
-  font-size: 13px;
-}
-
-.token-box {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 14px;
-  background: color-mix(in srgb, var(--panel-2) 88%, var(--panel) 12%);
-  display: grid;
-  gap: 8px;
-}
-
-.token-box strong {
-  font-size: 13px;
-}
-
-.token-box .mono {
-  overflow-wrap: anywhere;
 }

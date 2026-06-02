@@ -1,4 +1,4 @@
-package service
+package linkservice
 
 import (
 	"fmt"
@@ -10,13 +10,13 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
 
-func (c *ControlPlane) Chains() []link.Chain {
-	return c.store.ListChains()
+func (s *Service) Chains() []link.Chain {
+	return s.store.ListChains()
 }
 
-func (c *ControlPlane) ChainsWithDetails() []link.ChainWithDetails {
-	chains := c.store.ListChains()
-	nodes := c.store.ListNodes()
+func (s *Service) ChainsWithDetails() []link.ChainWithDetails {
+	chains := s.store.ListChains()
+	nodes := s.store.ListNodes()
 	result := make([]link.ChainWithDetails, 0, len(chains))
 
 	for _, chain := range chains {
@@ -45,18 +45,18 @@ func (c *ControlPlane) ChainsWithDetails() []link.ChainWithDetails {
 	return result
 }
 
-func (c *ControlPlane) GetChain(chainID string) (link.ChainWithDetails, error) {
+func (s *Service) GetChain(chainID string) (link.ChainWithDetails, error) {
 	if chainID == "" {
 		return link.ChainWithDetails{}, invalidInput("missing_chain_id")
 	}
 
-	chains := c.store.ListChains()
+	chains := s.store.ListChains()
 	chain, ok := chainByID(chains, chainID)
 	if !ok {
 		return link.ChainWithDetails{}, invalidInput("chain_not_found")
 	}
 
-	nodes := c.store.ListNodes()
+	nodes := s.store.ListNodes()
 	hopDetails := make([]link.ChainHopDetail, 0, len(chain.Hops))
 	for _, hopID := range chain.Hops {
 		node, ok := nodeByID(nodes, hopID)
@@ -79,23 +79,23 @@ func (c *ControlPlane) GetChain(chainID string) (link.ChainWithDetails, error) {
 	}, nil
 }
 
-func (c *ControlPlane) LatestChainProbe(chainID string) (link.ChainProbeResult, bool) {
+func (s *Service) LatestChainProbe(chainID string) (link.ChainProbeResult, bool) {
 	if chainID == "" {
 		return link.ChainProbeResult{}, false
 	}
-	return c.store.GetChainProbeResult(chainID)
+	return s.store.GetChainProbeResult(chainID)
 }
 
-func (c *ControlPlane) ProbeChain(chainID string) (link.ChainProbeResult, error) {
+func (s *Service) ProbeChain(chainID string) (link.ChainProbeResult, error) {
 	if chainID == "" {
 		return link.ChainProbeResult{}, invalidInput("missing_chain_id")
 	}
-	chain, ok := chainByID(c.store.ListChains(), chainID)
+	chain, ok := chainByID(s.store.ListChains(), chainID)
 	if !ok {
 		return link.ChainProbeResult{}, invalidInput("invalid_chain_id")
 	}
-	nodes := c.store.ListNodes()
-	transports := c.store.ListNodeTransports()
+	nodes := s.store.ListNodes()
+	transports := s.store.ListNodeTransports()
 	result := link.ChainProbeResult{
 		ChainID:      chainID,
 		Status:       domain.ProbeResultStatusConnected,
@@ -111,7 +111,7 @@ func (c *ControlPlane) ProbeChain(chainID string) (link.ChainProbeResult, error)
 			result.Message = "chain_blocked"
 			result.BlockingNodeID = hopID
 			result.BlockingReason = "unknown_or_disabled_node"
-			return c.store.SaveChainProbeResult(toChainProbeInput(result))
+			return s.store.SaveChainProbeResult(toChainProbeInput(result))
 		}
 		transport, ok := resolveProbeTransport(node, prevHopID, transports)
 		if !ok {
@@ -123,7 +123,7 @@ func (c *ControlPlane) ProbeChain(chainID string) (link.ChainProbeResult, error)
 			} else {
 				result.BlockingReason = "missing_parent_transport"
 			}
-			return c.store.SaveChainProbeResult(toChainProbeInput(result))
+			return s.store.SaveChainProbeResult(toChainProbeInput(result))
 		}
 		result.ResolvedHops = append(result.ResolvedHops, link.ChainProbeHop{
 			NodeID:        node.ID,
@@ -143,7 +143,7 @@ func (c *ControlPlane) ProbeChain(chainID string) (link.ChainProbeResult, error)
 			result.Message = "chain_probe_failed"
 			result.BlockingNodeID = chain.Hops[0]
 			result.BlockingReason = "probe_dispatch_failed"
-			return c.store.SaveChainProbeResult(toChainProbeInput(result))
+			return s.store.SaveChainProbeResult(toChainProbeInput(result))
 		}
 		result.Status = probeResult.Status
 		result.Message = probeResult.Message
@@ -152,34 +152,34 @@ func (c *ControlPlane) ProbeChain(chainID string) (link.ChainProbeResult, error)
 			result.BlockingReason = probeResult.Message
 		}
 	}
-	return c.store.SaveChainProbeResult(toChainProbeInput(result))
+	return s.store.SaveChainProbeResult(toChainProbeInput(result))
 }
 
-func (c *ControlPlane) CreateChain(input link.CreateChainInput) (link.Chain, error) {
+func (s *Service) CreateChain(input link.CreateChainInput) (link.Chain, error) {
 	if input.Name == "" || input.DestinationScope == "" || len(input.Hops) == 0 {
 		return link.Chain{}, invalidInput("invalid_chain_payload")
 	}
-	if !c.scopeExists(input.DestinationScope) {
+	if !s.scopeExists(input.DestinationScope) {
 		return link.Chain{}, invalidInput("scope_not_found")
 	}
-	return c.store.CreateChain(input)
+	return s.store.CreateChain(input)
 }
 
-func (c *ControlPlane) UpdateChain(chainID string, input link.UpdateChainInput) (link.Chain, error) {
+func (s *Service) UpdateChain(chainID string, input link.UpdateChainInput) (link.Chain, error) {
 	if chainID == "" || input.Name == "" || input.DestinationScope == "" || len(input.Hops) == 0 {
 		return link.Chain{}, invalidInput("invalid_chain_payload")
 	}
-	if !c.scopeExists(input.DestinationScope) {
+	if !s.scopeExists(input.DestinationScope) {
 		return link.Chain{}, invalidInput("scope_not_found")
 	}
-	return c.store.UpdateChain(chainID, input)
+	return s.store.UpdateChain(chainID, input)
 }
 
-func (c *ControlPlane) DeleteChain(chainID string) error {
-	return c.store.DeleteChain(chainID)
+func (s *Service) DeleteChain(chainID string) error {
+	return s.store.DeleteChain(chainID)
 }
 
-func (c *ControlPlane) ValidateChain(input link.ValidateChainInput) (link.ChainValidationResult, error) {
+func (s *Service) ValidateChain(input link.ValidateChainInput) (link.ChainValidationResult, error) {
 	result := link.ChainValidationResult{
 		Valid:           true,
 		Errors:          []string{},
@@ -193,8 +193,8 @@ func (c *ControlPlane) ValidateChain(input link.ValidateChainInput) (link.ChainV
 		return result, nil
 	}
 
-	nodes := c.store.ListNodes()
-	links := c.store.ListNodeLinks()
+	nodes := s.store.ListNodes()
+	links := s.store.ListNodeLinks()
 
 	firstHopNode, ok := nodeByID(nodes, input.Hops[0])
 	if !ok {
@@ -255,8 +255,8 @@ func (c *ControlPlane) ValidateChain(input link.ValidateChainInput) (link.ChainV
 	return result, nil
 }
 
-func (c *ControlPlane) PreviewChain(input link.PreviewChainInput) (link.ChainPreviewResult, error) {
-	nodes := c.store.ListNodes()
+func (s *Service) PreviewChain(input link.PreviewChainInput) (link.ChainPreviewResult, error) {
+	nodes := s.store.ListNodes()
 	hopDetails := make([]link.ChainHopDetail, 0, len(input.Hops))
 	routingPath := "user"
 

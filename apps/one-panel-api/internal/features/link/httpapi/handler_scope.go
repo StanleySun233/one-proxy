@@ -1,4 +1,4 @@
-package httpapi
+package linkhttpapi
 
 import (
 	"encoding/json"
@@ -30,7 +30,7 @@ func (r *Router) handleScopes(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleScopeByID(w http.ResponseWriter, req *http.Request) {
-	scopeID := strings.TrimPrefix(req.URL.Path, "/api/v1/scopes/")
+	scopeID := strings.TrimPrefix(req.URL.Path, "/api/v1/chains/scopes/")
 	if scopeID == "" {
 		writeError(w, http.StatusNotFound, "scope_not_found")
 		return

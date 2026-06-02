@@ -1,4 +1,4 @@
-package service
+package linkservice
 
 import (
 	"encoding/json"
@@ -14,13 +14,13 @@ type matchTypeMeta struct {
 	ValidationRegex string `json:"validationRegex"`
 }
 
-func (c *ControlPlane) RouteRules() []link.RouteRule {
-	return c.store.ListRouteRules()
+func (s *Service) RouteRules() []link.RouteRule {
+	return s.store.ListRouteRules()
 }
 
-func (c *ControlPlane) RouteRulesWithDetails() []link.RouteRuleWithDetails {
-	rules := c.store.ListRouteRules()
-	chains := c.ChainsWithDetails()
+func (s *Service) RouteRulesWithDetails() []link.RouteRuleWithDetails {
+	rules := s.store.ListRouteRules()
+	chains := s.ChainsWithDetails()
 	chainMap := make(map[string]link.ChainWithDetails)
 	for _, chain := range chains {
 		chainMap[chain.ID] = chain
@@ -48,12 +48,12 @@ func (c *ControlPlane) RouteRulesWithDetails() []link.RouteRuleWithDetails {
 	return result
 }
 
-func (c *ControlPlane) GetRouteRule(ruleID string) (link.RouteRuleWithDetails, error) {
+func (s *Service) GetRouteRule(ruleID string) (link.RouteRuleWithDetails, error) {
 	if ruleID == "" {
 		return link.RouteRuleWithDetails{}, invalidInput("missing_rule_id")
 	}
 
-	rules := c.RouteRulesWithDetails()
+	rules := s.RouteRulesWithDetails()
 	for _, rule := range rules {
 		if rule.ID == ruleID {
 			return rule, nil
@@ -62,8 +62,8 @@ func (c *ControlPlane) GetRouteRule(ruleID string) (link.RouteRuleWithDetails, e
 	return link.RouteRuleWithDetails{}, invalidInput("route_rule_not_found")
 }
 
-func (c *ControlPlane) MatchTypes() []link.MatchType {
-	items, _ := c.store.ListFieldEnumsByField("match_type")
+func (s *Service) MatchTypes() []link.MatchType {
+	items, _ := s.store.ListFieldEnumsByField("match_type")
 	result := make([]link.MatchType, 0, len(items))
 	for _, item := range items {
 		mt := link.MatchType{
@@ -86,47 +86,47 @@ func (c *ControlPlane) MatchTypes() []link.MatchType {
 	return result
 }
 
-func (c *ControlPlane) CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error) {
-	if err := c.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
+func (s *Service) CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error) {
+	if err := s.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return link.RouteRule{}, err
 	}
-	return c.store.CreateRouteRule(input)
+	return s.store.CreateRouteRule(input)
 }
 
-func (c *ControlPlane) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
+func (s *Service) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
 	if ruleID == "" {
 		return link.RouteRule{}, invalidInput("missing_rule_id")
 	}
-	if err := c.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
+	if err := s.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return link.RouteRule{}, err
 	}
-	return c.store.UpdateRouteRule(ruleID, input)
+	return s.store.UpdateRouteRule(ruleID, input)
 }
 
-func (c *ControlPlane) DeleteRouteRule(ruleID string) error {
-	return c.store.DeleteRouteRule(ruleID)
+func (s *Service) DeleteRouteRule(ruleID string) error {
+	return s.store.DeleteRouteRule(ruleID)
 }
 
-func (c *ControlPlane) ValidateRouteRule(input link.ValidateRouteRuleInput) (link.RouteRuleValidationResult, error) {
+func (s *Service) ValidateRouteRule(input link.ValidateRouteRuleInput) (link.RouteRuleValidationResult, error) {
 	result := link.RouteRuleValidationResult{
 		Valid:    true,
 		Errors:   []string{},
 		Warnings: []string{},
 	}
 
-	result.MatchValueValidation = c.validateMatchValue(input.MatchType, input.MatchValue)
+	result.MatchValueValidation = s.validateMatchValue(input.MatchType, input.MatchValue)
 	if !result.MatchValueValidation.Valid {
 		result.Valid = false
 		result.Errors = append(result.Errors, result.MatchValueValidation.Message)
 	}
-	if !c.isValidEnum("action_type", input.ActionType) {
+	if !s.isValidEnum("action_type", input.ActionType) {
 		result.Valid = false
 		result.Errors = append(result.Errors, "invalid_action_type")
 	}
 
 	var matchedChain *link.Chain
 	if input.ActionType == domain.ActionTypeChain {
-		chains := c.store.ListChains()
+		chains := s.store.ListChains()
 		for _, chain := range chains {
 			if chain.ID == input.ChainID {
 				c := chain
@@ -162,7 +162,7 @@ func (c *ControlPlane) ValidateRouteRule(input link.ValidateRouteRuleInput) (lin
 		result.Errors = append(result.Errors, "scope_not_found")
 	} else if input.DestinationScope == "" {
 		result.ScopeValidation = link.ScopeValidation{Valid: true}
-	} else if !c.scopeExists(input.DestinationScope) {
+	} else if !s.scopeExists(input.DestinationScope) {
 		result.ScopeValidation = link.ScopeValidation{
 			Valid:       false,
 			ScopeExists: false,
@@ -175,7 +175,7 @@ func (c *ControlPlane) ValidateRouteRule(input link.ValidateRouteRuleInput) (lin
 		if matchedChain != nil && len(matchedChain.Hops) > 0 {
 			finalHopID := matchedChain.Hops[len(matchedChain.Hops)-1]
 			ownerNodeID = finalHopID
-			for _, node := range c.store.ListNodes() {
+			for _, node := range s.store.ListNodes() {
 				if node.ID == finalHopID {
 					matchesFinalHop = node.ScopeKey == input.DestinationScope
 					break
@@ -193,7 +193,7 @@ func (c *ControlPlane) ValidateRouteRule(input link.ValidateRouteRuleInput) (lin
 		}
 	}
 
-	rules := c.store.ListRouteRules()
+	rules := s.store.ListRouteRules()
 	for _, rule := range rules {
 		if rule.Priority == input.Priority {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("Priority %d conflicts with existing rule", input.Priority))
@@ -204,8 +204,8 @@ func (c *ControlPlane) ValidateRouteRule(input link.ValidateRouteRuleInput) (lin
 	return result, nil
 }
 
-func (c *ControlPlane) RouteRuleSuggestions(matchType string, query string) link.RouteRuleSuggestionResult {
-	rules := c.store.ListRouteRules()
+func (s *Service) RouteRuleSuggestions(matchType string, query string) link.RouteRuleSuggestionResult {
+	rules := s.store.ListRouteRules()
 	seen := make(map[string]struct{})
 	var suggestions []string
 

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 
+	linkhttpapi "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/httpapi"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/service"
 )
 
@@ -40,10 +41,6 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/accounts/", r.requireAccount(r.handleAccountByID))
 	r.mux.HandleFunc("/api/v1/groups", r.requireAccount(r.handleGroups))
 	r.mux.HandleFunc("/api/v1/groups/", r.requireAccount(r.handleGroupByID))
-	r.mux.HandleFunc("/api/v1/scopes", r.requireAccount(r.handleScopes))
-	r.mux.HandleFunc("/api/v1/scopes/", r.requireAccount(r.handleScopeByID))
-	r.mux.HandleFunc("/api/v1/node-links", r.requireAccount(r.handleNodeLinks))
-	r.mux.HandleFunc("/api/v1/node-links/", r.requireAccount(r.handleNodeLinkByID))
 	r.mux.HandleFunc("/api/v1/node-access-paths", r.requireAccount(r.handleNodeAccessPaths))
 	r.mux.HandleFunc("/api/v1/node-access-paths/", r.requireAccount(r.handleNodeAccessPathByID))
 	r.mux.HandleFunc("/api/v1/nodes", r.requireAccount(r.handleNodes))
@@ -56,14 +53,6 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/nodes/enroll", r.handleNodeEnroll)
 	r.mux.HandleFunc("/api/v1/nodes/exchange", r.handleNodeExchange)
 	r.mux.HandleFunc("/api/v1/nodes/pending", r.requireAccount(r.handlePendingNodes))
-	r.mux.HandleFunc("/api/v1/chains", r.requireAccount(r.handleChains))
-	r.mux.HandleFunc("/api/v1/chains/validate", r.requireAccount(r.handleChainValidate))
-	r.mux.HandleFunc("/api/v1/chains/preview", r.requireAccount(r.handleChainPreview))
-	r.mux.HandleFunc("/api/v1/chains/", r.requireAccount(r.handleChainByID))
-	r.mux.HandleFunc("/api/v1/route-rules", r.requireAccount(r.handleRouteRules))
-	r.mux.HandleFunc("/api/v1/route-rules/validate", r.requireAccount(r.handleRouteRuleValidate))
-	r.mux.HandleFunc("/api/v1/route-rules/suggestions", r.requireAccount(r.handleRouteRuleSuggestions))
-	r.mux.HandleFunc("/api/v1/route-rules/", r.requireAccount(r.handleRouteRuleByID))
 	r.mux.HandleFunc("/api/v1/policies/revisions", r.requireAccount(r.handlePolicyRevisions))
 	r.mux.HandleFunc("/api/v1/policies/publish", r.requireAccount(r.handlePolicyPublish))
 	r.mux.HandleFunc("/api/v1/nodes/health", r.requireAccount(r.handleNodeHealth))
@@ -73,4 +62,5 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/node-agent/cert/renew", r.requireNode(r.handleNodeAgentCertRenew))
 	r.mux.HandleFunc("/api/v1/node-agent/transports", r.requireNode(r.handleNodeAgentTransport))
 	r.mux.HandleFunc("/api/v1/node-agent/proxy-token/validate", r.requireNode(r.handleProxyTokenValidate))
+	linkhttpapi.Register(r.mux, r.requireAccount, r.service.Link())
 }

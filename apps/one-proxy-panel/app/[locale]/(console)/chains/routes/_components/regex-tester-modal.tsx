@@ -11,7 +11,7 @@ type RegexTesterModalProps = {
 
 export function RegexTesterModal({initialPattern, onClose}: RegexTesterModalProps) {
   const t = useTranslations();
-  const routesT = useTranslations('routes');
+  const routesT = useTranslations('chainsRoutes');
   const [pattern, setPattern] = useState(initialPattern);
   const [testString, setTestString] = useState('');
   const [result, setResult] = useState<{valid: boolean; matches: boolean; groups: string[]; error: string} | null>(null);

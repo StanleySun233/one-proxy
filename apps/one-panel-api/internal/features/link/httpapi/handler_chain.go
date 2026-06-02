@@ -1,4 +1,4 @@
-package httpapi
+package linkhttpapi
 
 import (
 	"encoding/json"

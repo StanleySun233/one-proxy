@@ -23,7 +23,7 @@ import {validateMatchValue} from './_lib/validation';
 export default function RoutesPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
-  const routesT = useTranslations('routes');
+  const routesT = useTranslations('chainsRoutes');
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
@@ -129,7 +129,7 @@ export default function RoutesPage() {
     enabled: !!accessToken
   });
   const scopesQuery = useQuery({
-    queryKey: ['scopes', accessToken],
+    queryKey: ['chains-scopes', accessToken],
     queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
@@ -242,7 +242,7 @@ export default function RoutesPage() {
   return (
     <AuthGate>
       <div className="page-stack">
-        <PageHero eyebrow={t('nav.routes')} title={pageT('routesTitle')} />
+        <PageHero eyebrow={t('shell.routeBoard')} title={pageT('routesTitle')} />
 
         <section className="forms-grid">
           <RouteRuleForm

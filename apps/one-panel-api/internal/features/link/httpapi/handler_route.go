@@ -1,4 +1,4 @@
-package httpapi
+package linkhttpapi
 
 import (
 	"encoding/json"
@@ -33,7 +33,7 @@ func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
-	ruleID := resourceID(req.URL.Path, "/api/v1/route-rules/")
+	ruleID := resourceID(req.URL.Path, "/api/v1/chains/routes/")
 	if ruleID == "" {
 		writeError(w, http.StatusBadRequest, "missing_rule_id")
 		return

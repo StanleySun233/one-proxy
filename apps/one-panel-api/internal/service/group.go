@@ -62,7 +62,7 @@ func (c *ControlPlane) SetGroupScopes(groupID string, input domain.SetGroupScope
 		return invalidInput("missing_group_id")
 	}
 	for _, scopeID := range input.ScopeKeys {
-		if !c.scopeExists(scopeID) {
+		if !c.ScopeExists(scopeID) {
 			return invalidInput("scope_not_found")
 		}
 	}

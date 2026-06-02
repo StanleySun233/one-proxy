@@ -13,7 +13,7 @@ func (c *ControlPlane) UpdateNode(nodeID string, input domain.UpdateNodeInput) (
 	if err := validateNodeInput(input.Name, input.Mode, input.ScopeKey); err != nil {
 		return domain.Node{}, err
 	}
-	if !c.scopeExists(input.ScopeKey) {
+	if !c.ScopeExists(input.ScopeKey) {
 		return domain.Node{}, invalidInput("scope_not_found")
 	}
 	return c.store.UpdateNode(nodeID, input)

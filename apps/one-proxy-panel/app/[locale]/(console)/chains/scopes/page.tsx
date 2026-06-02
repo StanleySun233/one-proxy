@@ -28,7 +28,7 @@ const emptyForm: ScopeFormState = {
 export default function ScopesPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
-  const scopesT = useTranslations('scopes');
+  const scopesT = useTranslations('chainsScopes');
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
@@ -36,7 +36,7 @@ export default function ScopesPage() {
   const [formState, setFormState] = useState<ScopeFormState>(emptyForm);
 
   const scopesQuery = useQuery({
-    queryKey: ['scopes', accessToken],
+    queryKey: ['chains-scopes', accessToken],
     queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
@@ -46,7 +46,7 @@ export default function ScopesPage() {
     onSuccess: () => {
       toast.success(scopesT('createSuccess'));
       setFormState(emptyForm);
-      queryClient.invalidateQueries({queryKey: ['scopes']});
+      queryClient.invalidateQueries({queryKey: ['chains-scopes']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -59,7 +59,7 @@ export default function ScopesPage() {
       toast.success(scopesT('updateSuccess'));
       setEditingScope(null);
       setFormState(emptyForm);
-      queryClient.invalidateQueries({queryKey: ['scopes']});
+      queryClient.invalidateQueries({queryKey: ['chains-scopes']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -70,7 +70,7 @@ export default function ScopesPage() {
     mutationFn: (scopeID: string) => deleteScope(accessToken, scopeID),
     onSuccess: () => {
       toast.success(scopesT('deleteSuccess'));
-      queryClient.invalidateQueries({queryKey: ['scopes']});
+      queryClient.invalidateQueries({queryKey: ['chains-scopes']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));

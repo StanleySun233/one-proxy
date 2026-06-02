@@ -58,7 +58,7 @@ export default function ChainsPage() {
   });
 
   const scopesQuery = useQuery({
-    queryKey: ['scopes', accessToken],
+    queryKey: ['chains-scopes', accessToken],
     queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });

@@ -6,6 +6,7 @@ import (
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/config"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	linkservice "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/service"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/proxytoken"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/store"
 )
@@ -19,6 +20,7 @@ type ControlPlane struct {
 	nodeHeartbeatTTL   time.Duration
 	publicRenewWindow  time.Duration
 	enumsByField       map[string]map[string]domain.FieldEnum
+	link               *linkservice.Service
 }
 
 func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
@@ -30,7 +32,7 @@ func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
 			log.Printf("warn: redis proxy token store unavailable: %v", err)
 		}
 	}
-	return &ControlPlane{
+	controlPlane := &ControlPlane{
 		store:              store,
 		proxyTokens:        proxyTokens,
 		sessionTTL:         parseDuration(cfg.SessionTTL, 30*24*time.Hour),
@@ -39,6 +41,8 @@ func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
 		nodeHeartbeatTTL:   parseDuration(cfg.NodeHeartbeatTTL, 2*time.Minute),
 		publicRenewWindow:  parseDuration(cfg.PublicCertRenewWindow, 7*24*time.Hour),
 	}
+	controlPlane.link = linkservice.New(store)
+	return controlPlane
 }
 
 func (c *ControlPlane) IsInitialized() bool {
@@ -47,6 +51,14 @@ func (c *ControlPlane) IsInitialized() bool {
 
 func (c *ControlPlane) ReinitializeStore(adminPassword string) error {
 	return c.store.ReinitializeStore(adminPassword)
+}
+
+func (c *ControlPlane) Link() *linkservice.Service {
+	return c.link
+}
+
+func (c *ControlPlane) ScopeExists(scopeID string) bool {
+	return c.link.ScopeExists(scopeID)
 }
 
 func (c *ControlPlane) RunMaintenance() error {

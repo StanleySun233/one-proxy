@@ -18,16 +18,14 @@ export type {
   CompiledChainHop,
   CompiledChainConfig,
   ChainPreviewResult,
-} from './chains';
-export type {
   RouteRule,
   MatchValueValidation,
   ChainValidation,
   ScopeValidation,
   RouteRuleValidationResult,
-} from './routes';
+  Scope,
+} from './chains';
 export type { Group, GroupDetail } from './groups';
-export type { Scope } from './scopes';
 export type {
   APIResponse,
   AccountRole,

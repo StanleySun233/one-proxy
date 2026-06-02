@@ -24,10 +24,8 @@ export {
   getNodeHealth,
   getNodeHealthHistory,
 } from './nodes';
-export { getChains, createChain, updateChain, probeChain, validateChain, previewChain } from './chains';
-export { getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule } from './routes';
+export { getChains, createChain, updateChain, probeChain, validateChain, previewChain, getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule, getScopes, createScope, updateScope, deleteScope } from './chains';
 export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAccounts, setGroupScopes } from './groups';
-export { getScopes, createScope, updateScope, deleteScope } from './scopes';
 export { getAccounts, createAccount, updateAccount, deleteAccount } from './accounts';
 export { getPolicyRevisions, publishPolicy } from './policies';
 export { getSetupStatus, testSetupConnection, generateSetupKey, submitSetupInit } from './setup';

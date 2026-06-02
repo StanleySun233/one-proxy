@@ -1,9 +1,7 @@
 {
   "overview": "Overview",
   "nodes": "Nodes",
-  "scopes": "Scopes",
   "chains": "Chains",
-  "routes": "Routes",
   "accessPaths": "Access Paths",
   "health": "Health",
   "accounts": "Accounts"

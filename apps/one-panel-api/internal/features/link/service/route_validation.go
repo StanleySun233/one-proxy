@@ -1,4 +1,4 @@
-package service
+package linkservice
 
 import (
 	"fmt"
@@ -11,8 +11,8 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
 
-func (c *ControlPlane) validateMatchValue(matchType, matchValue string) link.MatchValueValidation {
-	if !c.isValidEnum("match_type", matchType) {
+func (s *Service) validateMatchValue(matchType, matchValue string) link.MatchValueValidation {
+	if !s.isValidEnum("match_type", matchType) {
 		return link.MatchValueValidation{Valid: false, Format: matchType, Message: "Unknown match type"}
 	}
 	switch matchType {
@@ -58,14 +58,14 @@ func (c *ControlPlane) validateMatchValue(matchType, matchValue string) link.Mat
 	return link.MatchValueValidation{Valid: false, Format: matchType, Message: "Unknown match type"}
 }
 
-func (c *ControlPlane) validateRouteRule(actionType string, chainID string, destinationScope string, matchType string, matchValue string) error {
+func (s *Service) validateRouteRule(actionType string, chainID string, destinationScope string, matchType string, matchValue string) error {
 	if matchType == "" || matchValue == "" || actionType == "" {
 		return invalidInput("invalid_route_rule_payload")
 	}
-	if !c.isValidEnum("action_type", actionType) {
+	if !s.isValidEnum("action_type", actionType) {
 		return invalidInput("invalid_route_rule_payload")
 	}
-	if !c.validateMatchValue(matchType, matchValue).Valid {
+	if !s.validateMatchValue(matchType, matchValue).Valid {
 		return invalidInput("invalid_route_rule_payload")
 	}
 	switch actionType {
@@ -74,7 +74,7 @@ func (c *ControlPlane) validateRouteRule(actionType string, chainID string, dest
 			return invalidInput("invalid_route_rule_payload")
 		}
 		found := false
-		for _, chain := range c.store.ListChains() {
+		for _, chain := range s.store.ListChains() {
 			if chain.ID == chainID {
 				found = true
 				break
@@ -87,7 +87,7 @@ func (c *ControlPlane) validateRouteRule(actionType string, chainID string, dest
 		if destinationScope == "" {
 			return invalidInput("invalid_route_rule_payload")
 		}
-		if !c.scopeExists(destinationScope) {
+		if !s.scopeExists(destinationScope) {
 			return invalidInput("invalid_route_rule_payload")
 		}
 	}
