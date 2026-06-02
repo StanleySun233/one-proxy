@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"log"
 	"net"
 	"net/http"
@@ -100,11 +101,17 @@ func main() {
 			}
 		}
 	}
+	proxyAuth := proxy.AuthConfig{CacheTTL: parseDurationOrDefault(cfg.NodeProxyTokenCacheTTL, 24*time.Hour)}
+	if manager.Bound() {
+		current := manager.Current()
+		proxyAuth.Validator = proxyTokenValidator(
+			agentconfig.FirstNonEmpty(cfg.NodeProxyTokenControlPlaneURL, current.ControlPlaneURL),
+			current.NodeAccessToken,
+		)
+	}
 	proxyHandler, err := proxy.NewServerWithOptions(store, manager.NodeID, tunnelRegistry, cfg.NodeReverseTargetURL, proxy.AuthConfig{
-		ReverseUser:     cfg.NodeReverseAuthUser,
-		ReversePassword: cfg.NodeReverseAuthPassword,
-		ForwardUser:     cfg.NodeForwardProxyUser,
-		ForwardPassword: cfg.NodeForwardProxyPassword,
+		Validator: proxyAuth.Validator,
+		CacheTTL:  proxyAuth.CacheTTL,
 	})
 	if err != nil {
 		log.Fatalf("init proxy server failed: %v", err)
@@ -164,6 +171,41 @@ func main() {
 	}
 	log.Printf("proxy-node listening on http=%s https=%s localIPs=%v", cfg.ListenAddr, cfg.HTTPSListenAddr, network.LocalIPs())
 	log.Fatal(server.ListenAndServe())
+}
+
+type panelProxyTokenValidator struct {
+	client *controlplane.Client
+}
+
+func proxyTokenValidator(controlPlaneURL string, nodeAccessToken string) proxy.TokenValidator {
+	if controlPlaneURL == "" || nodeAccessToken == "" {
+		return nil
+	}
+	return panelProxyTokenValidator{client: controlplane.New(controlPlaneURL, nodeAccessToken)}
+}
+
+func (v panelProxyTokenValidator) ValidateProxyToken(ctx context.Context, tokenHash string) (proxy.TokenValidation, error) {
+	result, err := v.client.ValidateProxyToken(ctx, tokenHash)
+	if err != nil {
+		return proxy.TokenValidation{}, err
+	}
+	expiresAt, err := time.Parse(time.RFC3339, result.ExpiresAt)
+	if err != nil {
+		return proxy.TokenValidation{Valid: result.Valid}, nil
+	}
+	return proxy.TokenValidation{
+		Valid:     result.Valid,
+		ExpiresAt: expiresAt,
+		CacheTTL:  time.Duration(result.CacheTTLSeconds) * time.Second,
+	}, nil
+}
+
+func parseDurationOrDefault(value string, fallback time.Duration) time.Duration {
+	duration, err := time.ParseDuration(value)
+	if err != nil || duration <= 0 {
+		return fallback
+	}
+	return duration
 }
 
 type statusWriter struct {

@@ -140,15 +140,6 @@ export function registerMessageHandler() {
             }
           }))));
           return;
-        case 'set-proxy-auth':
-          sendResponse(await computedAfter(() => setPartialState((state) => ({
-            ...state,
-            proxyAuth: {
-              username: String(message.username || '').trim(),
-              password: String(message.password || '')
-            }
-          }))));
-          return;
         case 'add-current-host-to-direct': {
           const info = await getCurrentTabInfo();
           sendResponse(await addHostToRule('directHosts', (info && info.host) || ''));

@@ -248,23 +248,22 @@
   "statusOverridesSaved": {
     "message": "Local overrides saved."
   },
-  "statusProxyAuthSaved": {
-    "message": "Proxy authentication saved."
-  },
   "statusIdle": {
     "message": "Remote groups are ready when you sign in."
   },
-  "proxyAuth": {
-    "message": "Proxy authentication"
+  "proxyToken": {
+    "message": "Proxy token"
   },
-  "proxyAuthUsername": {
-    "message": "Proxy user"
+  "proxyTokenSummary": {
+    "message": "Token cached · expires $EXPIRES$",
+    "placeholders": {
+      "expires": {
+        "content": "$1"
+      }
+    }
   },
-  "proxyAuthPassword": {
-    "message": "Proxy password"
-  },
-  "saveProxyAuth": {
-    "message": "Save proxy auth"
+  "proxyTokenMissing": {
+    "message": "No proxy token cached. Sign in or sync after the control plane is upgraded."
   },
   "diagnostics": {
     "message": "Diagnostics"

@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -21,6 +22,12 @@ type responseEnvelope[T any] struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    T      `json:"data"`
+}
+
+type ProxyTokenValidation struct {
+	Valid           bool   `json:"valid"`
+	ExpiresAt       string `json:"expiresAt"`
+	CacheTTLSeconds int    `json:"cacheTtlSeconds"`
 }
 
 func New(baseURL string, token string) *Client {
@@ -123,6 +130,24 @@ func (c *Client) UpsertTransport(input domain.UpsertNodeTransportInput) (domain.
 	var envelope responseEnvelope[domain.NodeTransport]
 	if err := c.do(req, &envelope); err != nil {
 		return domain.NodeTransport{}, err
+	}
+	return envelope.Data, nil
+}
+
+func (c *Client) ValidateProxyToken(ctx context.Context, tokenHash string) (ProxyTokenValidation, error) {
+	body, err := json.Marshal(map[string]string{"tokenHash": tokenHash})
+	if err != nil {
+		return ProxyTokenValidation{}, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/node-agent/proxy-token/validate", bytes.NewReader(body))
+	if err != nil {
+		return ProxyTokenValidation{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+	var envelope responseEnvelope[ProxyTokenValidation]
+	if err := c.do(req, &envelope); err != nil {
+		return ProxyTokenValidation{}, err
 	}
 	return envelope.Data, nil
 }

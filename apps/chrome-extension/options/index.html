@@ -111,21 +111,9 @@
         </article>
         <article class="panel panel-proxy-auth">
           <div class="panel-head">
-            <h2 data-lang="proxyAuth">Proxy authentication</h2>
+            <h2 data-lang="proxyToken">Proxy token</h2>
           </div>
-          <div class="form-grid">
-            <label>
-              <span data-lang="proxyAuthUsername">Proxy user</span>
-              <input id="proxyAuthUsername" type="text" autocomplete="username" />
-            </label>
-            <label>
-              <span data-lang="proxyAuthPassword">Proxy password</span>
-              <input id="proxyAuthPassword" type="password" autocomplete="current-password" />
-            </label>
-          </div>
-          <div class="action-row top-gap">
-            <button id="saveProxyAuth" class="primary" type="button" data-lang="saveProxyAuth">Save proxy auth</button>
-          </div>
+          <div id="proxyTokenStatus" class="meta-card"></div>
         </article>
         <article class="panel panel-diagnostics">
           <div class="panel-head">

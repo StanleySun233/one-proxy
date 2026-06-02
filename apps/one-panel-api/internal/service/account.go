@@ -1,6 +1,12 @@
 package service
 
-import "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+import (
+	"context"
+	"time"
+
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/auth"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+)
 
 func (c *ControlPlane) Accounts() []domain.Account {
 	return c.store.ListAccounts()
@@ -28,7 +34,11 @@ func (c *ControlPlane) DeleteAccount(accountID string) error {
 }
 
 func (c *ControlPlane) Login(account string, password string) (domain.LoginResult, bool) {
-	return c.store.Authenticate(account, password)
+	result, ok := c.store.Authenticate(account, password)
+	if !ok {
+		return domain.LoginResult{}, false
+	}
+	return c.attachProxyToken(result)
 }
 
 func (c *ControlPlane) AuthenticateAccessToken(accessToken string) (domain.Account, bool) {
@@ -36,9 +46,59 @@ func (c *ControlPlane) AuthenticateAccessToken(accessToken string) (domain.Accou
 }
 
 func (c *ControlPlane) RefreshSession(refreshToken string) (domain.LoginResult, bool) {
-	return c.store.RefreshSession(refreshToken)
+	result, ok := c.store.RefreshSession(refreshToken)
+	if !ok {
+		return domain.LoginResult{}, false
+	}
+	return c.attachProxyToken(result)
 }
 
 func (c *ControlPlane) Logout(accessToken string) bool {
 	return c.store.Logout(accessToken)
+}
+
+func (c *ControlPlane) attachProxyToken(result domain.LoginResult) (domain.LoginResult, bool) {
+	token, err := auth.RandomToken()
+	if err != nil {
+		return domain.LoginResult{}, false
+	}
+	expiresAt := time.Now().UTC().Add(c.sessionTTL).Format(time.RFC3339)
+	record := domain.ProxyTokenRecord{
+		Account:   result.Account,
+		ExpiresAt: expiresAt,
+	}
+	if err := c.proxyTokens.Put(context.Background(), auth.TokenHash(token), record, c.sessionTTL); err != nil {
+		return domain.LoginResult{}, false
+	}
+	result.ProxyToken = token
+	result.ProxyTokenExpiresAt = expiresAt
+	return result, true
+}
+
+func (c *ControlPlane) ValidateProxyTokenHash(tokenHash string) domain.ProxyTokenValidation {
+	if tokenHash == "" {
+		return domain.ProxyTokenValidation{}
+	}
+	record, ok := c.proxyTokens.Get(context.Background(), tokenHash)
+	if !ok {
+		return domain.ProxyTokenValidation{}
+	}
+	expiresAt, err := time.Parse(time.RFC3339, record.ExpiresAt)
+	if err != nil || time.Now().UTC().After(expiresAt) {
+		return domain.ProxyTokenValidation{}
+	}
+	cacheTTL := c.proxyTokenCacheTTL
+	remaining := time.Until(expiresAt)
+	if remaining < cacheTTL {
+		cacheTTL = remaining
+	}
+	if cacheTTL < time.Second {
+		return domain.ProxyTokenValidation{}
+	}
+	return domain.ProxyTokenValidation{
+		Valid:           true,
+		Account:         record.Account,
+		ExpiresAt:       record.ExpiresAt,
+		CacheTTLSeconds: int(cacheTTL.Seconds()),
+	}
 }

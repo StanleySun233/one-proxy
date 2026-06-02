@@ -1,17 +1,32 @@
 package proxy
 
 import (
+	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/policystore"
 	"github.com/gorilla/websocket"
 )
+
+type recordingTokenValidator struct {
+	validations []string
+	valid       bool
+	expiresAt   time.Time
+}
+
+func (v *recordingTokenValidator) ValidateProxyToken(_ context.Context, tokenHash string) (TokenValidation, error) {
+	v.validations = append(v.validations, tokenHash)
+	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt}, nil
+}
 
 func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -56,7 +71,7 @@ func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
 	}
 }
 
-func TestForwardProxyRequiresProxyAuthorization(t *testing.T) {
+func TestForwardProxyRequiresProxyAuthorizationToken(t *testing.T) {
 	store := policystore.New("")
 	payload, err := json.Marshal(policystore.Snapshot{
 		RouteRules: []domain.RouteRule{
@@ -70,8 +85,7 @@ func TestForwardProxyRequiresProxyAuthorization(t *testing.T) {
 		t.Fatal(err)
 	}
 	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
-		ForwardUser:     "agent",
-		ForwardPassword: "secret",
+		Validator: &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour)},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -84,6 +98,52 @@ func TestForwardProxyRequiresProxyAuthorization(t *testing.T) {
 	}
 	if resp.Header().Get("Proxy-Authenticate") == "" {
 		t.Fatal("missing Proxy-Authenticate")
+	}
+}
+
+func TestForwardProxyAcceptsBearerAndChromeBasicToken(t *testing.T) {
+	store := policystore.New("")
+	payload, err := json.Marshal(policystore.Snapshot{
+		RouteRules: []domain.RouteRule{
+			{ID: "default", MatchType: domain.MatchTypeDefault, ActionType: domain.ActionTypeDirect, Enabled: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update("test", string(payload)); err != nil {
+		t.Fatal(err)
+	}
+	validator := &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour)}
+	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
+		Validator: validator,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.invalid/", nil)
+	req.Header.Set("Proxy-Authorization", "Bearer proxy-token")
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusBadGateway {
+		t.Fatalf("bearer authorized status = %d", resp.Code)
+	}
+	expectedHash := sha256Hex("proxy-token")
+	if len(validator.validations) != 1 || validator.validations[0] != expectedHash {
+		t.Fatalf("validation hashes = %v, want %s", validator.validations, expectedHash)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "http://example.invalid/", nil)
+	req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("token:chrome-token")))
+	resp = httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusBadGateway {
+		t.Fatalf("chrome basic authorized status = %d", resp.Code)
+	}
+	expectedHash = sha256Hex("chrome-token")
+	if len(validator.validations) != 2 || validator.validations[1] != expectedHash {
+		t.Fatalf("validation hashes = %v, want second %s", validator.validations, expectedHash)
 	}
 }
 
@@ -203,14 +263,14 @@ func TestReverseTargetForwardsOriginFormHTTP(t *testing.T) {
 	}
 }
 
-func TestReverseTargetRequiresAuthorization(t *testing.T) {
+func TestReverseTargetRequiresAuthorizationToken(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 	defer origin.Close()
+	validator := &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour)}
 	server, err := NewServerWithOptions(policystore.New(""), func() string { return "node-1" }, nil, origin.URL, AuthConfig{
-		ReverseUser:     "viewer",
-		ReversePassword: "secret",
+		Validator: validator,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -224,14 +284,96 @@ func TestReverseTargetRequiresAuthorization(t *testing.T) {
 		t.Fatalf("status = %d", resp.Code)
 	}
 	if resp.Header().Get("WWW-Authenticate") == "" {
-		t.Fatal("missing WWW-Authenticate")
+		t.Fatal("missing challenge")
 	}
-	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("viewer:secret")))
+	req.Header.Set("Authorization", "Bearer reverse-token")
 	resp = httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK {
 		t.Fatalf("authorized status = %d body=%q", resp.Code, resp.Body.String())
 	}
+	if len(validator.validations) != 1 || validator.validations[0] != sha256Hex("reverse-token") {
+		t.Fatalf("validation hashes = %v", validator.validations)
+	}
+}
+
+func TestReverseQueryTokenSetsCookieAndStripsCredentials(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Query().Get(reverseQueryTokenKey) != "" {
+			t.Fatal("proxy token leaked in query")
+		}
+		if req.Header.Get("Authorization") != "" {
+			t.Fatal("authorization leaked")
+		}
+		if _, err := req.Cookie(reverseCookieName); err == nil {
+			t.Fatal("proxy cookie leaked")
+		}
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer origin.Close()
+	validator := &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour)}
+	server, err := NewServerWithOptions(policystore.New(""), func() string { return "node-1" }, nil, origin.URL, AuthConfig{
+		Validator: validator,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "http://proxy.local/api?proxy_token=query-token&x=1", nil)
+	req.URL.Scheme = ""
+	req.URL.Host = ""
+	req.AddCookie(&http.Cookie{Name: reverseCookieName, Value: "cookie-token"})
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%q", resp.Code, resp.Body.String())
+	}
+	cookies := resp.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != reverseCookieName {
+		t.Fatalf("cookies = %v", cookies)
+	}
+	if len(validator.validations) != 1 || validator.validations[0] != sha256Hex("query-token") {
+		t.Fatalf("validation hashes = %v", validator.validations)
+	}
+}
+
+func TestTokenValidationCache(t *testing.T) {
+	store := policystore.New("")
+	payload, err := json.Marshal(policystore.Snapshot{
+		RouteRules: []domain.RouteRule{
+			{ID: "default", MatchType: domain.MatchTypeDefault, ActionType: domain.ActionTypeDirect, Enabled: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update("test", string(payload)); err != nil {
+		t.Fatal(err)
+	}
+	validator := &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour)}
+	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
+		Validator: validator,
+		CacheTTL:  time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest(http.MethodGet, "http://example.invalid/", nil)
+		req.Header.Set("Proxy-Authorization", "Bearer cached-token")
+		resp := httptest.NewRecorder()
+		server.ServeHTTP(resp, req)
+		if resp.Code != http.StatusBadGateway {
+			t.Fatalf("status[%d] = %d", i, resp.Code)
+		}
+	}
+	if len(validator.validations) != 1 {
+		t.Fatalf("validation count = %d", len(validator.validations))
+	}
+}
+
+func sha256Hex(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
 }
 
 func TestReverseTargetForwardsOriginFormWebSocket(t *testing.T) {

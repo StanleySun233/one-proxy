@@ -22,9 +22,7 @@ const remoteRuleSummary = document.getElementById('remoteRuleSummary');
 const directHosts = document.getElementById('directHosts');
 const proxyHosts = document.getElementById('proxyHosts');
 const saveOverrides = document.getElementById('saveOverrides');
-const proxyAuthUsername = document.getElementById('proxyAuthUsername');
-const proxyAuthPassword = document.getElementById('proxyAuthPassword');
-const saveProxyAuth = document.getElementById('saveProxyAuth');
+const proxyTokenStatus = document.getElementById('proxyTokenStatus');
 const themeMode = document.getElementById('themeMode');
 const diagnosticLogs = document.getElementById('diagnosticLogs');
 const refreshLogs = document.getElementById('refreshLogs');
@@ -162,8 +160,9 @@ function renderSession() {
   groupCountMeta.textContent = String((remote.groups || []).length);
   overrideCountMeta.textContent = String((state.localOverrides.directHosts || []).length + (state.localOverrides.proxyHosts || []).length);
   syncTimeMeta.textContent = remote.fetchedAt ? new Date(remote.fetchedAt).toLocaleString() : text('notSynced');
-  proxyAuthUsername.value = state.proxyAuth.username || '';
-  proxyAuthPassword.value = state.proxyAuth.password || '';
+  proxyTokenStatus.textContent = session.proxyToken
+    ? text('proxyTokenSummary', [session.proxyTokenExpiresAt ? new Date(session.proxyTokenExpiresAt).toLocaleString() : '-'])
+    : text('proxyTokenMissing');
   sessionMeta.textContent = session.accessToken
     ? text('sessionSummary', [session.account || '-', session.expiresAt ? new Date(session.expiresAt).toLocaleString() : '-'])
     : text('statusLoginRequired');
@@ -239,20 +238,6 @@ saveOverrides.addEventListener('click', async () => {
   }
   render(result);
   setFeedback('ok', text('statusOverridesSaved'));
-});
-
-saveProxyAuth.addEventListener('click', async () => {
-  const result = await sendMessage({
-    type: 'set-proxy-auth',
-    username: proxyAuthUsername.value,
-    password: proxyAuthPassword.value
-  });
-  if (result && result.error) {
-    setFeedback('error', formatError(result.error));
-    return;
-  }
-  render(result);
-  setFeedback('ok', text('statusProxyAuthSaved'));
 });
 
 refreshLogs.addEventListener('click', async () => {

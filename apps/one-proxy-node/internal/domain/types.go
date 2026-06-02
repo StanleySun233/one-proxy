@@ -69,11 +69,12 @@ type NodeHeartbeatInput struct {
 }
 
 type NodeHealth struct {
-	NodeID           string            `json:"nodeId"`
-	HeartbeatAt      string            `json:"heartbeatAt"`
-	PolicyRevisionID string            `json:"policyRevisionId"`
-	ListenerStatus   map[string]string `json:"listenerStatus"`
-	CertStatus       map[string]string `json:"certStatus"`
+	NodeID                    string            `json:"nodeId"`
+	HeartbeatAt               string            `json:"heartbeatAt"`
+	PolicyRevisionID          string            `json:"policyRevisionId"`
+	ListenerStatus            map[string]string `json:"listenerStatus"`
+	CertStatus                map[string]string `json:"certStatus"`
+	ProxyTokenCacheTTLSeconds int               `json:"proxyTokenCacheTtlSeconds"`
 }
 
 type NodeTransport struct {

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: One Proxy Control Plane API
-  version: 0.2.0
+  version: 0.3.0
 components:
   securitySchemes:
     controlPlaneBearer:
@@ -237,6 +237,15 @@ paths:
           description: Envelope node health updated response
         "401":
           description: Invalid node token
+  /api/v1/node-agent/proxy-token/validate:
+    post:
+      security:
+        - nodeBearer: []
+      responses:
+        "200":
+          description: Envelope proxy token validation response
+        "401":
+          description: Invalid node token or proxy token
   /api/v1/node-agent/cert/renew:
     post:
       security:

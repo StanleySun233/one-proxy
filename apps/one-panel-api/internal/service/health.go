@@ -24,7 +24,9 @@ func (c *ControlPlane) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (dom
 	if input.NodeID == "" {
 		return domain.NodeHealth{}, invalidInput("missing_node_id")
 	}
-	return c.store.UpsertNodeHeartbeat(input)
+	item, err := c.store.UpsertNodeHeartbeat(input)
+	item.ProxyTokenCacheTTLSeconds = int(c.proxyTokenCacheTTL.Seconds())
+	return item, err
 }
 
 func (c *ControlPlane) RenewNodeCertificate(input domain.NodeCertRenewInput) (domain.NodeCertRenewResult, error) {

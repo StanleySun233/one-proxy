@@ -47,7 +47,7 @@ func (s *MySQLStore) createSession(accountID string, account string, role string
 		return domain.LoginResult{}, false
 	}
 	now := time.Now().UTC()
-	expiresAt := now.Add(12 * time.Hour).Format(time.RFC3339)
+	expiresAt := now.Add(30 * 24 * time.Hour).Format(time.RFC3339)
 	_, _ = s.db.Exec(
 		`INSERT INTO sessions (id, account_id, access_token_hash, refresh_token_hash, expires_at, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,

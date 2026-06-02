@@ -6,25 +6,38 @@ import (
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/config"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/proxytoken"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/store"
 )
 
 type ControlPlane struct {
-	store             store.Store
-	sessionTTL        time.Duration
-	bootstrapTokenTTL time.Duration
-	nodeHeartbeatTTL  time.Duration
-	publicRenewWindow time.Duration
-	enumsByField      map[string]map[string]domain.FieldEnum
+	store              store.Store
+	proxyTokens        proxytoken.Store
+	sessionTTL         time.Duration
+	proxyTokenCacheTTL time.Duration
+	bootstrapTokenTTL  time.Duration
+	nodeHeartbeatTTL   time.Duration
+	publicRenewWindow  time.Duration
+	enumsByField       map[string]map[string]domain.FieldEnum
 }
 
 func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
+	proxyTokens := proxytoken.Store(proxytoken.NewMemoryStore())
+	if cfg.RedisURL != "" {
+		if redisStore, err := proxytoken.NewRedisStore(cfg.RedisURL); err == nil {
+			proxyTokens = redisStore
+		} else {
+			log.Printf("warn: redis proxy token store unavailable: %v", err)
+		}
+	}
 	return &ControlPlane{
-		store:             store,
-		sessionTTL:        parseDuration(cfg.SessionTTL, 12*time.Hour),
-		bootstrapTokenTTL: parseDuration(cfg.BootstrapTokenTTL, 15*time.Minute),
-		nodeHeartbeatTTL:  parseDuration(cfg.NodeHeartbeatTTL, 2*time.Minute),
-		publicRenewWindow: parseDuration(cfg.PublicCertRenewWindow, 7*24*time.Hour),
+		store:              store,
+		proxyTokens:        proxyTokens,
+		sessionTTL:         parseDuration(cfg.SessionTTL, 30*24*time.Hour),
+		proxyTokenCacheTTL: parseDuration(cfg.ProxyTokenCacheTTL, 24*time.Hour),
+		bootstrapTokenTTL:  parseDuration(cfg.BootstrapTokenTTL, 15*time.Minute),
+		nodeHeartbeatTTL:   parseDuration(cfg.NodeHeartbeatTTL, 2*time.Minute),
+		publicRenewWindow:  parseDuration(cfg.PublicCertRenewWindow, 7*24*time.Hour),
 	}
 }
 

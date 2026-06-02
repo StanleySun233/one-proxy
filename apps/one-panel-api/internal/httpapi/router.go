@@ -215,4 +215,5 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/node-agent/heartbeat", r.requireNode(r.handleNodeAgentHeartbeat))
 	r.mux.HandleFunc("/api/v1/node-agent/cert/renew", r.requireNode(r.handleNodeAgentCertRenew))
 	r.mux.HandleFunc("/api/v1/node-agent/transports", r.requireNode(r.handleNodeAgentTransport))
+	r.mux.HandleFunc("/api/v1/node-agent/proxy-token/validate", r.requireNode(r.handleProxyTokenValidate))
 }

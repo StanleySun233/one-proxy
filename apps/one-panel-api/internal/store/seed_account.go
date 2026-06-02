@@ -68,7 +68,7 @@ func (s *SeedStore) Authenticate(account string, password string) (domain.LoginR
 		},
 		AccessToken:        "seed-access-token",
 		RefreshToken:       "seed-refresh-token",
-		ExpiresAt:          "2026-04-25T14:00:00Z",
+		ExpiresAt:          "2026-07-02T14:00:00Z",
 		MustRotatePassword: true,
 	}, true
 }
@@ -89,7 +89,7 @@ func (s *SeedStore) RefreshSession(refreshToken string) (domain.LoginResult, boo
 		},
 		AccessToken:        accessToken,
 		RefreshToken:       nextRefresh,
-		ExpiresAt:          "2026-04-25T16:00:00Z",
+		ExpiresAt:          "2026-07-02T16:00:00Z",
 		MustRotatePassword: true,
 	}, true
 }

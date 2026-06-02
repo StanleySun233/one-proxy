@@ -248,23 +248,22 @@
   "statusOverridesSaved": {
     "message": "本地覆盖已保存。"
   },
-  "statusProxyAuthSaved": {
-    "message": "代理认证已保存。"
-  },
   "statusIdle": {
     "message": "登录后即可使用远程分组。"
   },
-  "proxyAuth": {
-    "message": "代理认证"
+  "proxyToken": {
+    "message": "代理 Token"
   },
-  "proxyAuthUsername": {
-    "message": "代理用户"
+  "proxyTokenSummary": {
+    "message": "Token 已缓存 · 过期时间 $EXPIRES$",
+    "placeholders": {
+      "expires": {
+        "content": "$1"
+      }
+    }
   },
-  "proxyAuthPassword": {
-    "message": "代理密码"
-  },
-  "saveProxyAuth": {
-    "message": "保存代理认证"
+  "proxyTokenMissing": {
+    "message": "暂无代理 Token。请在控制面升级后登录或同步。"
   },
   "diagnostics": {
     "message": "诊断日志"

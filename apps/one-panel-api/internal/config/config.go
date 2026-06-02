@@ -18,6 +18,8 @@ type Config struct {
 	SessionTTL            string
 	NodeHeartbeatTTL      string
 	PublicCertProvider    string
+	RedisURL              string
+	ProxyTokenCacheTTL    string
 }
 
 func envOrDefault(key string, fallback string) string {
@@ -75,8 +77,10 @@ func Load() Config {
 		NodeCertTTL:           envOrDefault("NODE_CERT_TTL", "720h"),
 		PublicCertRenewWindow: envOrDefault("PUBLIC_CERT_RENEW_WINDOW", "168h"),
 		SchedulerInterval:     envOrDefault("SCHEDULER_INTERVAL", "1m"),
-		SessionTTL:            envOrDefault("SESSION_TTL", "12h"),
+		SessionTTL:            envOrDefault("SESSION_TTL", "720h"),
 		NodeHeartbeatTTL:      envOrDefault("NODE_HEARTBEAT_TTL", "2m"),
 		PublicCertProvider:    envOrDefault("PUBLIC_CERT_PROVIDER", "lets_encrypt"),
+		RedisURL:              os.Getenv("REDIS_URL"),
+		ProxyTokenCacheTTL:    envOrDefault("PROXY_TOKEN_CACHE_TTL", "24h"),
 	}
 }

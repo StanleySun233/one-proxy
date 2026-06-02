@@ -11,10 +11,12 @@ import (
 
 func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request) {
 	outbound := req.Clone(req.Context())
+	outbound.Header = req.Header.Clone()
 	outbound.RequestURI = ""
 	outbound.URL = s.reverseURL(req)
 	outbound.Host = outbound.URL.Host
 	removeHopByHopHeaders(outbound.Header)
+	removeReverseAuthCredentials(outbound)
 	setForwardedHeaders(outbound, req)
 
 	transport := &http.Transport{}
@@ -49,6 +51,7 @@ func (s *Server) upgradeReverse(w http.ResponseWriter, req *http.Request) {
 	outbound.URL.Host = ""
 	outbound.Host = s.reverseTarget.Host
 	outbound.Header.Del("Proxy-Connection")
+	removeReverseAuthCredentials(outbound)
 	setForwardedHeaders(outbound, req)
 	rewriteOrigin(outbound, s.reverseTarget)
 	if err := outbound.Write(targetConn); err != nil {
@@ -66,9 +69,35 @@ func (s *Server) reverseURL(req *http.Request) *url.URL {
 	}
 	target.Path = joinURLPath(s.reverseTarget.Path, req.URL.Path)
 	target.RawPath = ""
-	target.RawQuery = joinRawQuery(s.reverseTarget.RawQuery, req.URL.RawQuery)
+	target.RawQuery = joinRawQuery(s.reverseTarget.RawQuery, reverseRawQuery(req.URL))
 	target.Fragment = ""
 	return &target
+}
+
+func reverseRawQuery(url *url.URL) string {
+	query := url.Query()
+	query.Del(reverseQueryTokenKey)
+	return query.Encode()
+}
+
+func removeReverseAuthCredentials(req *http.Request) {
+	if bearerToken(req.Header.Get("Authorization")) != "" {
+		req.Header.Del("Authorization")
+	}
+	cookies := req.Cookies()
+	if len(cookies) == 0 {
+		return
+	}
+	values := make([]string, 0, len(cookies))
+	for _, cookie := range cookies {
+		if cookie.Name != reverseCookieName {
+			values = append(values, cookie.String())
+		}
+	}
+	req.Header.Del("Cookie")
+	for _, value := range values {
+		req.Header.Add("Cookie", value)
+	}
 }
 
 func dialReverseTarget(target *url.URL) (net.Conn, error) {

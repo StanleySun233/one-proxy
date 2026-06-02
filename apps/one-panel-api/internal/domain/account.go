@@ -21,11 +21,25 @@ type UpdateAccountInput struct {
 }
 
 type LoginResult struct {
-	Account            Account `json:"account"`
-	AccessToken        string  `json:"accessToken"`
-	RefreshToken       string  `json:"refreshToken"`
-	ExpiresAt          string  `json:"expiresAt"`
-	MustRotatePassword bool    `json:"mustRotatePassword"`
+	Account             Account `json:"account"`
+	AccessToken         string  `json:"accessToken"`
+	RefreshToken        string  `json:"refreshToken"`
+	ExpiresAt           string  `json:"expiresAt"`
+	ProxyToken          string  `json:"proxyToken"`
+	ProxyTokenExpiresAt string  `json:"proxyTokenExpiresAt"`
+	MustRotatePassword  bool    `json:"mustRotatePassword"`
+}
+
+type ProxyTokenRecord struct {
+	Account   Account `json:"account"`
+	ExpiresAt string  `json:"expiresAt"`
+}
+
+type ProxyTokenValidation struct {
+	Valid           bool    `json:"valid"`
+	Account         Account `json:"account"`
+	ExpiresAt       string  `json:"expiresAt"`
+	CacheTTLSeconds int     `json:"cacheTtlSeconds"`
 }
 
 type RefreshSessionInput struct {

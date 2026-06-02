@@ -58,6 +58,8 @@ export async function login(controlPlaneUrl, account, password) {
       accessToken: payload.data.accessToken,
       refreshToken: payload.data.refreshToken,
       expiresAt: payload.data.expiresAt,
+      proxyToken: payload.data.proxyToken || '',
+      proxyTokenExpiresAt: payload.data.proxyTokenExpiresAt || '',
       mustRotatePassword: Boolean(payload.data.mustRotatePassword)
     }
   });
@@ -113,6 +115,8 @@ export async function refreshSession(sourceState) {
       accessToken: payload.data.accessToken,
       refreshToken: payload.data.refreshToken,
       expiresAt: payload.data.expiresAt,
+      proxyToken: payload.data.proxyToken || '',
+      proxyTokenExpiresAt: payload.data.proxyTokenExpiresAt || '',
       mustRotatePassword: Boolean(payload.data.mustRotatePassword)
     }
   });

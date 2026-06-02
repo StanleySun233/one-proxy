@@ -3,6 +3,7 @@ package proxy
 import (
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/policystore"
@@ -15,13 +16,12 @@ type Server struct {
 	tunnelRegistry *tunnel.Registry
 	reverseTarget  *url.URL
 	auth           AuthConfig
+	authCache      *tokenCache
 }
 
 type AuthConfig struct {
-	ReverseUser     string
-	ReversePassword string
-	ForwardUser     string
-	ForwardPassword string
+	Validator TokenValidator
+	CacheTTL  time.Duration
 }
 
 type chainHop struct {
@@ -41,6 +41,7 @@ func NewServerWithReverseTarget(store *policystore.Store, nodeIDGetter func() st
 func NewServerWithOptions(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry, reverseTargetURL string, auth AuthConfig) (*Server, error) {
 	server := NewServer(store, nodeIDGetter, tunnelRegistry)
 	server.auth = auth
+	server.authCache = &tokenCache{items: map[string]cachedTokenValidation{}}
 	if reverseTargetURL == "" {
 		return server, nil
 	}

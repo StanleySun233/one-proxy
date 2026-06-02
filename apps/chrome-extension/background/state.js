@@ -9,6 +9,8 @@ export const DEFAULT_STATE = {
     accessToken: '',
     refreshToken: '',
     expiresAt: '',
+    proxyToken: '',
+    proxyTokenExpiresAt: '',
     mustRotatePassword: false
   },
   remote: {
@@ -22,10 +24,6 @@ export const DEFAULT_STATE = {
   localOverrides: {
     directHosts: [],
     proxyHosts: []
-  },
-  proxyAuth: {
-    username: '',
-    password: ''
   },
   monitor: {
     targetUrl: '',
@@ -101,32 +99,29 @@ function normalizeTopologyNode(node) {
 }
 
 export function mergeState(raw) {
+  const { proxyAuth: _proxyAuth, ...rest } = raw || {};
   const state = {
     ...DEFAULT_STATE,
-    ...raw,
+    ...rest,
     session: {
       ...DEFAULT_STATE.session,
-      ...(raw.session || {})
+      ...(rest.session || {})
     },
     remote: {
       ...DEFAULT_STATE.remote,
-      ...(raw.remote || {})
+      ...(rest.remote || {})
     },
     selection: {
       ...DEFAULT_STATE.selection,
-      ...(raw.selection || {})
+      ...(rest.selection || {})
     },
     localOverrides: {
       ...DEFAULT_STATE.localOverrides,
-      ...(raw.localOverrides || {})
-    },
-    proxyAuth: {
-      ...DEFAULT_STATE.proxyAuth,
-      ...(raw.proxyAuth || {})
+      ...(rest.localOverrides || {})
     },
     monitor: {
       ...DEFAULT_STATE.monitor,
-      ...(raw.monitor || {})
+      ...(rest.monitor || {})
     }
   };
   state.remote.groups = Array.isArray(state.remote.groups) ? state.remote.groups.map(normalizeGroup) : [];

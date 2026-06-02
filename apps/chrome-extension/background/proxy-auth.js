@@ -4,8 +4,7 @@ import { activeGroupFrom } from './state.js';
 let proxyAuthCache = {
   host: '',
   port: 0,
-  username: '',
-  password: ''
+  token: ''
 };
 
 export function updateProxyAuthCache(state) {
@@ -13,13 +12,12 @@ export function updateProxyAuthCache(state) {
   proxyAuthCache = {
     host: group && group.proxyHost ? String(group.proxyHost) : '',
     port: group && group.proxyPort ? Number(group.proxyPort) : 0,
-    username: state.proxyAuth && state.proxyAuth.username ? String(state.proxyAuth.username) : '',
-    password: state.proxyAuth && state.proxyAuth.password ? String(state.proxyAuth.password) : ''
+    token: state.session && state.session.proxyToken ? String(state.session.proxyToken) : ''
   };
 }
 
 function matchesProxyChallenge(details) {
-  if (!details || !details.isProxy || !proxyAuthCache.username || !proxyAuthCache.password) {
+  if (!details || !details.isProxy || !proxyAuthCache.token) {
     return false;
   }
   const challenger = details.challenger || {};
@@ -41,8 +39,8 @@ export function registerProxyAuthHandler() {
       }).catch(() => {});
       return {
         authCredentials: {
-          username: proxyAuthCache.username,
-          password: proxyAuthCache.password
+          username: 'token',
+          password: proxyAuthCache.token
         }
       };
     },
