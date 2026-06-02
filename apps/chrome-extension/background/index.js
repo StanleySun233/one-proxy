@@ -62,6 +62,12 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
   await broadcastState();
 });
 
-updateProxyAuthCache(await getState());
-registerProxyAuthHandler();
-registerMessageHandler();
+async function bootstrap() {
+  updateProxyAuthCache(await getState());
+  registerProxyAuthHandler();
+  registerMessageHandler();
+}
+
+bootstrap().catch((error) => {
+  appendLog('error', 'service_worker_bootstrap_failed', { message: error.message || 'bootstrap_failed' }).catch(() => {});
+});
