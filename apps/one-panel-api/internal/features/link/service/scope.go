@@ -1,38 +1,65 @@
 package linkservice
 
 import (
+	maindomain "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	"net/http"
 	"strings"
 )
 
-func (s *Service) Scopes() []link.Scope {
-	return s.store.ListScopes()
+func (s *Service) Scopes(tenantCtx maindomain.TenantAuthContext) []link.Scope {
+	return s.store.ListScopesForTenant(tenantCtx)
 }
 
-func (s *Service) CreateScope(input link.CreateScopeInput) (link.Scope, error) {
+func (s *Service) CreateScope(tenantCtx maindomain.TenantAuthContext, input link.CreateScopeInput) (link.Scope, error) {
+	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != maindomain.TenantRoleAdmin {
+		return link.Scope{}, newError(http.StatusForbidden, "tenant_role_forbidden")
+	}
 	input.ID = ""
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" {
 		return link.Scope{}, invalidInput("invalid_scope_payload")
 	}
-	return s.store.CreateScope(input)
+	return s.store.CreateScopeForTenant(tenantCtx, input)
 }
 
-func (s *Service) UpdateScope(scopeID string, input link.UpdateScopeInput) (link.Scope, error) {
+func (s *Service) UpdateScope(tenantCtx maindomain.TenantAuthContext, scopeID string, input link.UpdateScopeInput) (link.Scope, error) {
 	if scopeID == "" || strings.TrimSpace(input.Name) == "" {
 		return link.Scope{}, invalidInput("invalid_scope_payload")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (maindomain.BindingPermission, bool) {
+		return s.store.ScopeBindingPermission(tenantCtx, scopeID)
+	}); err != nil {
+		return link.Scope{}, err
 	}
 	return s.store.UpdateScope(scopeID, input)
 }
 
-func (s *Service) DeleteScope(scopeID string) error {
+func (s *Service) DeleteScope(tenantCtx maindomain.TenantAuthContext, scopeID string) error {
 	if scopeID == "" {
 		return invalidInput("missing_scope_id")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (maindomain.BindingPermission, bool) {
+		return s.store.ScopeBindingPermission(tenantCtx, scopeID)
+	}); err != nil {
+		return err
+	}
+	if !tenantCtx.SuperAdmin && s.store.CountScopeBindings(scopeID) > 1 {
+		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	if s.scopeInUse(scopeID) {
 		return invalidInput("scope_in_use")
 	}
 	return s.store.DeleteScope(scopeID)
+}
+
+func (s *Service) tenantScopeExists(tenantCtx maindomain.TenantAuthContext, scopeID string) bool {
+	for _, scope := range s.store.ListScopesForTenant(tenantCtx) {
+		if scope.ID == scopeID {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) scopeExists(scopeID string) bool {

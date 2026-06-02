@@ -2,6 +2,7 @@ package linkservice
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -10,13 +11,13 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
 
-func (s *Service) Chains() []link.Chain {
-	return s.store.ListChains()
+func (s *Service) Chains(tenantCtx domain.TenantAuthContext) []link.Chain {
+	return s.store.ListChainsForTenant(tenantCtx)
 }
 
-func (s *Service) ChainsWithDetails() []link.ChainWithDetails {
-	chains := s.store.ListChains()
-	nodes := s.store.ListNodes()
+func (s *Service) ChainsWithDetails(tenantCtx domain.TenantAuthContext) []link.ChainWithDetails {
+	chains := s.store.ListChainsForTenant(tenantCtx)
+	nodes := s.store.ListNodesForTenant(tenantCtx)
 	result := make([]link.ChainWithDetails, 0, len(chains))
 
 	for _, chain := range chains {
@@ -34,6 +35,8 @@ func (s *Service) ChainsWithDetails() []link.ChainWithDetails {
 
 		result = append(result, link.ChainWithDetails{
 			ID:               chain.ID,
+			CreateID:         chain.CreateID,
+			OwnerID:          chain.OwnerID,
 			Name:             chain.Name,
 			DestinationScope: chain.DestinationScope,
 			Enabled:          chain.Enabled,
@@ -45,18 +48,18 @@ func (s *Service) ChainsWithDetails() []link.ChainWithDetails {
 	return result
 }
 
-func (s *Service) GetChain(chainID string) (link.ChainWithDetails, error) {
+func (s *Service) GetChain(tenantCtx domain.TenantAuthContext, chainID string) (link.ChainWithDetails, error) {
 	if chainID == "" {
 		return link.ChainWithDetails{}, invalidInput("missing_chain_id")
 	}
 
-	chains := s.store.ListChains()
+	chains := s.store.ListChainsForTenant(tenantCtx)
 	chain, ok := chainByID(chains, chainID)
 	if !ok {
 		return link.ChainWithDetails{}, invalidInput("chain_not_found")
 	}
 
-	nodes := s.store.ListNodes()
+	nodes := s.store.ListNodesForTenant(tenantCtx)
 	hopDetails := make([]link.ChainHopDetail, 0, len(chain.Hops))
 	for _, hopID := range chain.Hops {
 		node, ok := nodeByID(nodes, hopID)
@@ -71,6 +74,8 @@ func (s *Service) GetChain(chainID string) (link.ChainWithDetails, error) {
 
 	return link.ChainWithDetails{
 		ID:               chain.ID,
+		CreateID:         chain.CreateID,
+		OwnerID:          chain.OwnerID,
 		Name:             chain.Name,
 		DestinationScope: chain.DestinationScope,
 		Enabled:          chain.Enabled,
@@ -79,22 +84,25 @@ func (s *Service) GetChain(chainID string) (link.ChainWithDetails, error) {
 	}, nil
 }
 
-func (s *Service) LatestChainProbe(chainID string) (link.ChainProbeResult, bool) {
+func (s *Service) LatestChainProbe(tenantCtx domain.TenantAuthContext, chainID string) (link.ChainProbeResult, bool) {
 	if chainID == "" {
+		return link.ChainProbeResult{}, false
+	}
+	if _, ok := s.store.ChainBindingPermission(tenantCtx, chainID); !ok {
 		return link.ChainProbeResult{}, false
 	}
 	return s.store.GetChainProbeResult(chainID)
 }
 
-func (s *Service) ProbeChain(chainID string) (link.ChainProbeResult, error) {
+func (s *Service) ProbeChain(tenantCtx domain.TenantAuthContext, chainID string) (link.ChainProbeResult, error) {
 	if chainID == "" {
 		return link.ChainProbeResult{}, invalidInput("missing_chain_id")
 	}
-	chain, ok := chainByID(s.store.ListChains(), chainID)
+	chain, ok := chainByID(s.store.ListChainsForTenant(tenantCtx), chainID)
 	if !ok {
 		return link.ChainProbeResult{}, invalidInput("invalid_chain_id")
 	}
-	nodes := s.store.ListNodes()
+	nodes := s.store.ListNodesForTenant(tenantCtx)
 	transports := s.store.ListNodeTransports()
 	result := link.ChainProbeResult{
 		ChainID:      chainID,
@@ -155,31 +163,47 @@ func (s *Service) ProbeChain(chainID string) (link.ChainProbeResult, error) {
 	return s.store.SaveChainProbeResult(toChainProbeInput(result))
 }
 
-func (s *Service) CreateChain(input link.CreateChainInput) (link.Chain, error) {
+func (s *Service) CreateChain(tenantCtx domain.TenantAuthContext, input link.CreateChainInput) (link.Chain, error) {
+	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
+		return link.Chain{}, newError(http.StatusForbidden, "tenant_role_forbidden")
+	}
 	if input.Name == "" || input.DestinationScope == "" || len(input.Hops) == 0 {
 		return link.Chain{}, invalidInput("invalid_chain_payload")
 	}
-	if !s.scopeExists(input.DestinationScope) {
+	if !s.tenantScopeExists(tenantCtx, input.DestinationScope) {
 		return link.Chain{}, invalidInput("scope_not_found")
 	}
-	return s.store.CreateChain(input)
+	return s.store.CreateChainForTenant(tenantCtx, input)
 }
 
-func (s *Service) UpdateChain(chainID string, input link.UpdateChainInput) (link.Chain, error) {
+func (s *Service) UpdateChain(tenantCtx domain.TenantAuthContext, chainID string, input link.UpdateChainInput) (link.Chain, error) {
 	if chainID == "" || input.Name == "" || input.DestinationScope == "" || len(input.Hops) == 0 {
 		return link.Chain{}, invalidInput("invalid_chain_payload")
 	}
-	if !s.scopeExists(input.DestinationScope) {
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.ChainBindingPermission(tenantCtx, chainID)
+	}); err != nil {
+		return link.Chain{}, err
+	}
+	if !s.tenantScopeExists(tenantCtx, input.DestinationScope) {
 		return link.Chain{}, invalidInput("scope_not_found")
 	}
 	return s.store.UpdateChain(chainID, input)
 }
 
-func (s *Service) DeleteChain(chainID string) error {
+func (s *Service) DeleteChain(tenantCtx domain.TenantAuthContext, chainID string) error {
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.ChainBindingPermission(tenantCtx, chainID)
+	}); err != nil {
+		return err
+	}
+	if !tenantCtx.SuperAdmin && s.store.CountChainBindings(chainID) > 1 {
+		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
+	}
 	return s.store.DeleteChain(chainID)
 }
 
-func (s *Service) ValidateChain(input link.ValidateChainInput) (link.ChainValidationResult, error) {
+func (s *Service) ValidateChain(tenantCtx domain.TenantAuthContext, input link.ValidateChainInput) (link.ChainValidationResult, error) {
 	result := link.ChainValidationResult{
 		Valid:           true,
 		Errors:          []string{},
@@ -193,8 +217,8 @@ func (s *Service) ValidateChain(input link.ValidateChainInput) (link.ChainValida
 		return result, nil
 	}
 
-	nodes := s.store.ListNodes()
-	links := s.store.ListNodeLinks()
+	nodes := s.store.ListNodesForTenant(tenantCtx)
+	links := s.store.ListNodeLinksForTenant(tenantCtx)
 
 	firstHopNode, ok := nodeByID(nodes, input.Hops[0])
 	if !ok {
@@ -255,8 +279,8 @@ func (s *Service) ValidateChain(input link.ValidateChainInput) (link.ChainValida
 	return result, nil
 }
 
-func (s *Service) PreviewChain(input link.PreviewChainInput) (link.ChainPreviewResult, error) {
-	nodes := s.store.ListNodes()
+func (s *Service) PreviewChain(tenantCtx domain.TenantAuthContext, input link.PreviewChainInput) (link.ChainPreviewResult, error) {
+	nodes := s.store.ListNodesForTenant(tenantCtx)
 	hopDetails := make([]link.ChainHopDetail, 0, len(input.Hops))
 	routingPath := "user"
 

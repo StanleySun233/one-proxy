@@ -29,6 +29,24 @@ func invalidInput(code string) *Error {
 	return &Error{Status: http.StatusBadRequest, Code: code, Message: code}
 }
 
+func newError(status int, code string) *Error {
+	return &Error{Status: status, Code: code, Message: code}
+}
+
+func (s *Service) requireTenantResourceManage(tenantCtx domain.TenantAuthContext, permission func() (domain.BindingPermission, bool)) error {
+	if tenantCtx.SuperAdmin {
+		return nil
+	}
+	if tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
+		return newError(http.StatusForbidden, "tenant_role_forbidden")
+	}
+	bindingPermission, ok := permission()
+	if !ok || bindingPermission != domain.BindingPermissionManage {
+		return newError(http.StatusForbidden, "resource_binding_forbidden")
+	}
+	return nil
+}
+
 func (s *Service) isValidEnum(field, value string) bool {
 	items, err := s.store.ListFieldEnumsByField(field)
 	if err != nil {

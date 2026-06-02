@@ -3,6 +3,7 @@ package linkservice
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
@@ -14,13 +15,13 @@ type matchTypeMeta struct {
 	ValidationRegex string `json:"validationRegex"`
 }
 
-func (s *Service) RouteRules() []link.RouteRule {
-	return s.store.ListRouteRules()
+func (s *Service) RouteRules(tenantCtx domain.TenantAuthContext) []link.RouteRule {
+	return s.store.ListRouteRulesForTenant(tenantCtx)
 }
 
-func (s *Service) RouteRulesWithDetails() []link.RouteRuleWithDetails {
-	rules := s.store.ListRouteRules()
-	chains := s.ChainsWithDetails()
+func (s *Service) RouteRulesWithDetails(tenantCtx domain.TenantAuthContext) []link.RouteRuleWithDetails {
+	rules := s.store.ListRouteRulesForTenant(tenantCtx)
+	chains := s.ChainsWithDetails(tenantCtx)
 	chainMap := make(map[string]link.ChainWithDetails)
 	for _, chain := range chains {
 		chainMap[chain.ID] = chain
@@ -30,6 +31,8 @@ func (s *Service) RouteRulesWithDetails() []link.RouteRuleWithDetails {
 	for _, rule := range rules {
 		item := link.RouteRuleWithDetails{
 			ID:               rule.ID,
+			CreateID:         rule.CreateID,
+			OwnerID:          rule.OwnerID,
 			Priority:         rule.Priority,
 			MatchType:        rule.MatchType,
 			MatchValue:       rule.MatchValue,
@@ -48,12 +51,12 @@ func (s *Service) RouteRulesWithDetails() []link.RouteRuleWithDetails {
 	return result
 }
 
-func (s *Service) GetRouteRule(ruleID string) (link.RouteRuleWithDetails, error) {
+func (s *Service) GetRouteRule(tenantCtx domain.TenantAuthContext, ruleID string) (link.RouteRuleWithDetails, error) {
 	if ruleID == "" {
 		return link.RouteRuleWithDetails{}, invalidInput("missing_rule_id")
 	}
 
-	rules := s.RouteRulesWithDetails()
+	rules := s.RouteRulesWithDetails(tenantCtx)
 	for _, rule := range rules {
 		if rule.ID == ruleID {
 			return rule, nil
@@ -86,16 +89,24 @@ func (s *Service) MatchTypes() []link.MatchType {
 	return result
 }
 
-func (s *Service) CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error) {
+func (s *Service) CreateRouteRule(tenantCtx domain.TenantAuthContext, input link.CreateRouteRuleInput) (link.RouteRule, error) {
+	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
+		return link.RouteRule{}, newError(http.StatusForbidden, "tenant_role_forbidden")
+	}
 	if err := s.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return link.RouteRule{}, err
 	}
-	return s.store.CreateRouteRule(input)
+	return s.store.CreateRouteRuleForTenant(tenantCtx, input)
 }
 
-func (s *Service) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
+func (s *Service) UpdateRouteRule(tenantCtx domain.TenantAuthContext, ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
 	if ruleID == "" {
 		return link.RouteRule{}, invalidInput("missing_rule_id")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.RouteRuleBindingPermission(tenantCtx, ruleID)
+	}); err != nil {
+		return link.RouteRule{}, err
 	}
 	if err := s.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return link.RouteRule{}, err
@@ -103,11 +114,19 @@ func (s *Service) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput
 	return s.store.UpdateRouteRule(ruleID, input)
 }
 
-func (s *Service) DeleteRouteRule(ruleID string) error {
+func (s *Service) DeleteRouteRule(tenantCtx domain.TenantAuthContext, ruleID string) error {
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.RouteRuleBindingPermission(tenantCtx, ruleID)
+	}); err != nil {
+		return err
+	}
+	if !tenantCtx.SuperAdmin && s.store.CountRouteRuleBindings(ruleID) > 1 {
+		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
+	}
 	return s.store.DeleteRouteRule(ruleID)
 }
 
-func (s *Service) ValidateRouteRule(input link.ValidateRouteRuleInput) (link.RouteRuleValidationResult, error) {
+func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input link.ValidateRouteRuleInput) (link.RouteRuleValidationResult, error) {
 	result := link.RouteRuleValidationResult{
 		Valid:    true,
 		Errors:   []string{},
@@ -126,7 +145,7 @@ func (s *Service) ValidateRouteRule(input link.ValidateRouteRuleInput) (link.Rou
 
 	var matchedChain *link.Chain
 	if input.ActionType == domain.ActionTypeChain {
-		chains := s.store.ListChains()
+		chains := s.store.ListChainsForTenant(tenantCtx)
 		for _, chain := range chains {
 			if chain.ID == input.ChainID {
 				c := chain
@@ -162,7 +181,7 @@ func (s *Service) ValidateRouteRule(input link.ValidateRouteRuleInput) (link.Rou
 		result.Errors = append(result.Errors, "scope_not_found")
 	} else if input.DestinationScope == "" {
 		result.ScopeValidation = link.ScopeValidation{Valid: true}
-	} else if !s.scopeExists(input.DestinationScope) {
+	} else if !s.tenantScopeExists(tenantCtx, input.DestinationScope) {
 		result.ScopeValidation = link.ScopeValidation{
 			Valid:       false,
 			ScopeExists: false,
@@ -175,7 +194,7 @@ func (s *Service) ValidateRouteRule(input link.ValidateRouteRuleInput) (link.Rou
 		if matchedChain != nil && len(matchedChain.Hops) > 0 {
 			finalHopID := matchedChain.Hops[len(matchedChain.Hops)-1]
 			ownerNodeID = finalHopID
-			for _, node := range s.store.ListNodes() {
+			for _, node := range s.store.ListNodesForTenant(tenantCtx) {
 				if node.ID == finalHopID {
 					matchesFinalHop = node.ScopeKey == input.DestinationScope
 					break
@@ -193,7 +212,7 @@ func (s *Service) ValidateRouteRule(input link.ValidateRouteRuleInput) (link.Rou
 		}
 	}
 
-	rules := s.store.ListRouteRules()
+	rules := s.store.ListRouteRulesForTenant(tenantCtx)
 	for _, rule := range rules {
 		if rule.Priority == input.Priority {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("Priority %d conflicts with existing rule", input.Priority))
@@ -204,8 +223,8 @@ func (s *Service) ValidateRouteRule(input link.ValidateRouteRuleInput) (link.Rou
 	return result, nil
 }
 
-func (s *Service) RouteRuleSuggestions(matchType string, query string) link.RouteRuleSuggestionResult {
-	rules := s.store.ListRouteRules()
+func (s *Service) RouteRuleSuggestions(tenantCtx domain.TenantAuthContext, matchType string, query string) link.RouteRuleSuggestionResult {
+	rules := s.store.ListRouteRulesForTenant(tenantCtx)
 	seen := make(map[string]struct{})
 	var suggestions []string
 

@@ -3,17 +3,23 @@ package linkhttpapi
 import (
 	"encoding/json"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/httpctx"
 	"net/http"
 )
 
 func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
+	tenantCtx, ok := httpctx.TenantAuth(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
 	switch req.Method {
 	case http.MethodGet:
 		includeDetails := req.URL.Query().Get("details") == "true"
 		if includeDetails {
-			writeSuccess(w, http.StatusOK, r.service.RouteRulesWithDetails())
+			writeSuccess(w, http.StatusOK, r.service.RouteRulesWithDetails(tenantCtx))
 		} else {
-			writeSuccess(w, http.StatusOK, r.service.RouteRules())
+			writeSuccess(w, http.StatusOK, r.service.RouteRules(tenantCtx))
 		}
 	case http.MethodPost:
 		var payload link.CreateRouteRuleInput
@@ -21,7 +27,7 @@ func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
-		item, err := r.service.CreateRouteRule(payload)
+		item, err := r.service.CreateRouteRule(tenantCtx, payload)
 		if err != nil {
 			writeServiceError(w, req, err, "create_failed")
 			return
@@ -38,9 +44,14 @@ func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing_rule_id")
 		return
 	}
+	tenantCtx, ok := httpctx.TenantAuth(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
 	switch req.Method {
 	case http.MethodGet:
-		item, err := r.service.GetRouteRule(ruleID)
+		item, err := r.service.GetRouteRule(tenantCtx, ruleID)
 		if err != nil {
 			writeServiceError(w, req, err, "get_failed")
 			return
@@ -52,14 +63,14 @@ func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
-		item, err := r.service.UpdateRouteRule(ruleID, payload)
+		item, err := r.service.UpdateRouteRule(tenantCtx, ruleID, payload)
 		if err != nil {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
-		if err := r.service.DeleteRouteRule(ruleID); err != nil {
+		if err := r.service.DeleteRouteRule(tenantCtx, ruleID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
@@ -74,12 +85,17 @@ func (r *Router) handleRouteRuleValidate(w http.ResponseWriter, req *http.Reques
 		writeMethodNotAllowed(w, "POST")
 		return
 	}
+	tenantCtx, ok := httpctx.TenantAuth(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
 	var payload link.ValidateRouteRuleInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	result, err := r.service.ValidateRouteRule(payload)
+	result, err := r.service.ValidateRouteRule(tenantCtx, payload)
 	if err != nil {
 		writeServiceError(w, req, err, "validation_failed")
 		return
@@ -92,12 +108,17 @@ func (r *Router) handleRouteRuleSuggestions(w http.ResponseWriter, req *http.Req
 		writeMethodNotAllowed(w, "GET")
 		return
 	}
+	tenantCtx, ok := httpctx.TenantAuth(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
 	matchType := req.URL.Query().Get("match_type")
 	if matchType == "" {
 		writeError(w, http.StatusBadRequest, "missing_match_type")
 		return
 	}
 	query := req.URL.Query().Get("query")
-	result := r.service.RouteRuleSuggestions(matchType, query)
+	result := r.service.RouteRuleSuggestions(tenantCtx, matchType, query)
 	writeSuccess(w, http.StatusOK, result)
 }
