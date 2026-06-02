@@ -24,6 +24,7 @@ type APIResponse[T any] struct {
 type contextKey string
 
 const accountContextKey contextKey = "account"
+const tenantContextKey contextKey = "tenant"
 const nodeContextKey contextKey = "node"
 
 func writeSuccess[T any](w http.ResponseWriter, status int, data T) {
@@ -103,13 +104,41 @@ func (r *Router) requireAccount(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 		ctx := context.WithValue(req.Context(), accountContextKey, account)
+		if requiresTenantContext(req) {
+			tenantID := strings.TrimSpace(req.Header.Get("X-Tenant-ID"))
+			tenantCtx, err := r.service.ResolveTenantAuthContext(account, tenantID, allowsSuperAdminTenantBypass(req))
+			if err != nil {
+				writeServiceError(w, req, err, "tenant_context_failed")
+				return
+			}
+			ctx = context.WithValue(ctx, tenantContextKey, tenantCtx)
+		}
 		next(w, req.WithContext(ctx))
 	}
+}
+
+func requiresTenantContext(req *http.Request) bool {
+	if req.URL.Path == "/api/v1/auth/logout" {
+		return false
+	}
+	if req.URL.Path == "/api/v1/tenants" && (req.Method == http.MethodGet || req.Method == http.MethodPost) {
+		return false
+	}
+	return strings.HasPrefix(req.URL.Path, "/api/v1/")
+}
+
+func allowsSuperAdminTenantBypass(req *http.Request) bool {
+	return req.URL.Path != "/api/v1/extension/bootstrap"
 }
 
 func accountFromContext(ctx context.Context) (domain.Account, bool) {
 	account, ok := ctx.Value(accountContextKey).(domain.Account)
 	return account, ok
+}
+
+func tenantAuthContextFromContext(ctx context.Context) (domain.TenantAuthContext, bool) {
+	tenantCtx, ok := ctx.Value(tenantContextKey).(domain.TenantAuthContext)
+	return tenantCtx, ok
 }
 
 func (r *Router) requireNode(next http.HandlerFunc) http.HandlerFunc {
