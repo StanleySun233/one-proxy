@@ -19,6 +19,11 @@ func (c *ControlPlane) CreateBootstrapToken(tenantCtx domain.TenantAuthContext, 
 		if !c.tenantScopeExists(tenantCtx, input.ScopeKey) {
 			return domain.BootstrapToken{}, invalidInput("scope_not_found")
 		}
+		if input.ParentNodeID != "" && !c.tenantNodeExists(tenantCtx, input.ParentNodeID) {
+			return domain.BootstrapToken{}, invalidInput("node_not_found")
+		}
+	} else if !c.tenantNodeExists(tenantCtx, input.TargetID) {
+		return domain.BootstrapToken{}, invalidInput("node_not_found")
 	}
 	if input.NodeMode != "" && !c.isValidEnum("node_mode", input.NodeMode) {
 		return domain.BootstrapToken{}, invalidInput("invalid_node_payload")

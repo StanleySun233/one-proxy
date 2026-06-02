@@ -33,7 +33,19 @@ func (c *ControlPlane) UpdateNode(tenantCtx domain.TenantAuthContext, nodeID str
 	if !c.tenantScopeExists(tenantCtx, input.ScopeKey) {
 		return domain.Node{}, invalidInput("scope_not_found")
 	}
+	if input.ParentNodeID != "" && !c.tenantNodeExists(tenantCtx, input.ParentNodeID) {
+		return domain.Node{}, invalidInput("node_not_found")
+	}
 	return c.store.UpdateNode(nodeID, input)
+}
+
+func (c *ControlPlane) tenantNodeExists(tenantCtx domain.TenantAuthContext, nodeID string) bool {
+	for _, node := range c.store.ListNodesForTenant(tenantCtx) {
+		if node.ID == nodeID {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *ControlPlane) tenantScopeExists(tenantCtx domain.TenantAuthContext, scopeID string) bool {

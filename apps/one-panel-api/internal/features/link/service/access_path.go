@@ -21,6 +21,9 @@ func (s *Service) CreateAccessPath(tenantCtx domain.TenantAuthContext, input dom
 	if err := s.validateAccessPath(tenantCtx, input.ChainID, input.Name, input.Mode, input.Protocol, input.ServiceType, input.TargetHost, input.TargetPort, input.ListenPort, input.TLSMode, input.AuthMode); err != nil {
 		return domain.NodeAccessPath{}, err
 	}
+	if !s.tenantNodesExist(tenantCtx, accessPathNodeIDs(input.TargetNodeID, input.EntryNodeID, input.RelayNodeIDs)) {
+		return domain.NodeAccessPath{}, invalidInput("node_not_found")
+	}
 	return s.store.CreateNodeAccessPathForTenant(tenantCtx, input)
 }
 
@@ -36,6 +39,9 @@ func (s *Service) UpdateAccessPath(tenantCtx domain.TenantAuthContext, pathID st
 	input = normalizeUpdateAccessPathInput(input)
 	if err := s.validateAccessPath(tenantCtx, input.ChainID, input.Name, input.Mode, input.Protocol, input.ServiceType, input.TargetHost, input.TargetPort, input.ListenPort, input.TLSMode, input.AuthMode); err != nil {
 		return domain.NodeAccessPath{}, err
+	}
+	if !s.tenantNodesExist(tenantCtx, accessPathNodeIDs(input.TargetNodeID, input.EntryNodeID, input.RelayNodeIDs)) {
+		return domain.NodeAccessPath{}, invalidInput("node_not_found")
 	}
 	return s.store.UpdateNodeAccessPath(pathID, input)
 }
@@ -91,6 +97,22 @@ func normalizeUpdateAccessPathInput(input domain.UpdateNodeAccessPathInput) doma
 		input.AuthMode = domain.AccessAuthProxyToken
 	}
 	return input
+}
+
+func accessPathNodeIDs(targetNodeID string, entryNodeID string, relayNodeIDs []string) []string {
+	nodeIDs := make([]string, 0, len(relayNodeIDs)+2)
+	if targetNodeID != "" {
+		nodeIDs = append(nodeIDs, targetNodeID)
+	}
+	if entryNodeID != "" {
+		nodeIDs = append(nodeIDs, entryNodeID)
+	}
+	for _, nodeID := range relayNodeIDs {
+		if nodeID != "" {
+			nodeIDs = append(nodeIDs, nodeID)
+		}
+	}
+	return nodeIDs
 }
 
 func (s *Service) validateAccessPath(tenantCtx domain.TenantAuthContext, chainID string, name string, mode string, protocol string, serviceType string, targetHost string, targetPort int, listenPort int, tlsMode string, authMode string) error {
