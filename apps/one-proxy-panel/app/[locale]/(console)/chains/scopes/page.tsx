@@ -29,14 +29,16 @@ export default function ScopesPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
   const scopesT = useTranslations('chainsScopes');
-  const {session} = useAuth();
+  const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
+  const activeTenantId = session?.activeTenantId || null;
+  const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
   const [editingScope, setEditingScope] = useState<Scope | null>(null);
   const [formState, setFormState] = useState<ScopeFormState>(emptyForm);
 
   const scopesQuery = useQuery({
-    queryKey: ['chains-scopes', accessToken],
+    queryKey: ['chains-scopes', accessToken, activeTenantId],
     queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
@@ -114,47 +116,49 @@ export default function ScopesPage() {
       <div className="page-stack">
         <PageHero eyebrow={scopesT('eyebrow')} title={pageT('scopesTitle')} />
 
-        <section className="panel-card">
-          <div className="panel-toolbar">
-            <div>
-              <p className="section-kicker">{scopesT('formEyebrow')}</p>
-              <h3>{editingScope ? scopesT('editTitle') : scopesT('createTitle')}</h3>
+        {canWrite ? (
+          <section className="panel-card">
+            <div className="panel-toolbar">
+              <div>
+                <p className="section-kicker">{scopesT('formEyebrow')}</p>
+                <h3>{editingScope ? scopesT('editTitle') : scopesT('createTitle')}</h3>
+              </div>
+              {editingScope ? (
+                <button className="secondary-button" onClick={handleCancelEdit} type="button">
+                  {t('common.cancel')}
+                </button>
+              ) : null}
             </div>
-            {editingScope ? (
-              <button className="secondary-button" onClick={handleCancelEdit} type="button">
-                {t('common.cancel')}
+
+            <div className="forms-grid">
+              <label className="field-stack">
+                <span>{t('common.name')}</span>
+                <input
+                  className="field-input"
+                  onChange={(event) => setFormState((current) => ({...current, name: event.target.value}))}
+                  placeholder={scopesT('namePlaceholder')}
+                  value={formState.name}
+                />
+              </label>
+              <label className="field-stack" style={{gridColumn: '1 / -1'}}>
+                <span>{scopesT('description')}</span>
+                <textarea
+                  className="field-textarea"
+                  onChange={(event) => setFormState((current) => ({...current, description: event.target.value}))}
+                  placeholder={scopesT('descriptionPlaceholder')}
+                  rows={3}
+                  value={formState.description}
+                />
+              </label>
+            </div>
+
+            <div className="submit-row">
+              <button className="primary-button" disabled={saving} onClick={handleSubmit} type="button">
+                {editingScope ? scopesT('save') : scopesT('create')}
               </button>
-            ) : null}
-          </div>
-
-          <div className="forms-grid">
-            <label className="field-stack">
-              <span>{t('common.name')}</span>
-              <input
-                className="field-input"
-                onChange={(event) => setFormState((current) => ({...current, name: event.target.value}))}
-                placeholder={scopesT('namePlaceholder')}
-                value={formState.name}
-              />
-            </label>
-            <label className="field-stack" style={{gridColumn: '1 / -1'}}>
-              <span>{scopesT('description')}</span>
-              <textarea
-                className="field-textarea"
-                onChange={(event) => setFormState((current) => ({...current, description: event.target.value}))}
-                placeholder={scopesT('descriptionPlaceholder')}
-                rows={3}
-                value={formState.description}
-              />
-            </label>
-          </div>
-
-          <div className="submit-row">
-            <button className="primary-button" disabled={saving} onClick={handleSubmit} type="button">
-              {editingScope ? scopesT('save') : scopesT('create')}
-            </button>
-          </div>
-        </section>
+            </div>
+          </section>
+        ) : null}
 
         <section className="panel-card">
           <div className="panel-toolbar">
@@ -185,7 +189,7 @@ export default function ScopesPage() {
                     <th>{t('common.name')}</th>
                     <th>{scopesT('description')}</th>
                     <th>{scopesT('updatedAt')}</th>
-                    <th>{t('common.actions')}</th>
+                    {canWrite ? <th>{t('common.actions')}</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -195,27 +199,29 @@ export default function ScopesPage() {
                       <td><NameTag kind="scope">{scope.name}</NameTag></td>
                       <td>{scope.description || <span className="muted-text">-</span>}</td>
                       <td className="mono">{scope.updatedAt}</td>
-                      <td>
-                        <div className="chain-list-actions">
-                          <button className="secondary-button" onClick={() => handleEdit(scope)} type="button">
-                            <Edit size={14} />
-                            {t('common.edit')}
-                          </button>
-                          <button
-                            className="danger-button"
-                            disabled={deleteScopeMutation.isPending}
-                            onClick={() => {
-                              if (window.confirm(scopesT('deleteConfirm'))) {
-                                deleteScopeMutation.mutate(scope.id);
-                              }
-                            }}
-                            type="button"
-                          >
-                            <Trash2 size={14} />
-                            {t('common.delete')}
-                          </button>
-                        </div>
-                      </td>
+                      {canWrite ? (
+                        <td>
+                          <div className="chain-list-actions">
+                            <button className="secondary-button" onClick={() => handleEdit(scope)} type="button">
+                              <Edit size={14} />
+                              {t('common.edit')}
+                            </button>
+                            <button
+                              className="danger-button"
+                              disabled={deleteScopeMutation.isPending}
+                              onClick={() => {
+                                if (window.confirm(scopesT('deleteConfirm'))) {
+                                  deleteScopeMutation.mutate(scope.id);
+                                }
+                              }}
+                              type="button"
+                            >
+                              <Trash2 size={14} />
+                              {t('common.delete')}
+                            </button>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
