@@ -10,9 +10,13 @@ async function proxy(request: NextRequest, params: {path: string[]}) {
 
   const authorization = request.headers.get('authorization');
   const contentType = request.headers.get('content-type');
+  const tenantId = request.headers.get('x-tenant-id');
 
   if (authorization) {
     headers.set('authorization', authorization);
+  }
+  if (tenantId) {
+    headers.set('x-tenant-id', tenantId);
   }
   if (contentType) {
     headers.set('content-type', contentType);
