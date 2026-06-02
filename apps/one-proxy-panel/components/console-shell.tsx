@@ -1,13 +1,11 @@
 'use client';
 
 import {
-  BadgeCheck,
   ChevronRight,
   GitBranch,
   LayoutDashboard,
   Languages,
   Network,
-  Route,
   ShieldCheck,
   Shirt,
   Users,
@@ -49,7 +47,8 @@ export function ConsoleShell({children}: {children: ReactNode}) {
       items: [
         {label: t('shell.scopeBoard'), href: '/scopes'},
         {label: t('shell.nodeTopology'), href: '/nodes/topology'},
-        {label: t('shell.chainStudio'), href: '/chains'}
+        {label: t('shell.chainStudio'), href: '/chains'},
+        {label: t('shell.routeBoard'), href: '/routes'}
       ]
     },
     {
@@ -71,13 +70,6 @@ export function ConsoleShell({children}: {children: ReactNode}) {
       items: [{label: t('shell.summary'), href: '/'}]
     },
     {
-      key: 'routes',
-      label: t('nav.routes'),
-      href: '/routes',
-      icon: Route,
-      items: [{label: t('shell.routeBoard'), href: '/routes'}]
-    },
-    {
       key: 'accessPaths',
       label: t('nav.accessPaths'),
       href: '/access-paths',
@@ -91,8 +83,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
       icon: ShieldCheck,
       items: [
         {label: t('shell.healthOverview'), href: '/health/overview'},
-        {label: t('shell.healthHeartbeat'), href: '/health/heartbeat'},
-        {label: t('shell.healthCertificates'), href: '/health/certificates'}
+        {label: t('shell.healthHeartbeat'), href: '/health/heartbeat'}
       ]
     },
     {
@@ -105,13 +96,6 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         {label: t('shell.accountList'), href: '/accounts/list'},
         {label: t('shell.groupList'), href: '/accounts/groups'}
       ]
-    },
-    {
-      key: 'certificates',
-      label: t('nav.certificates'),
-      href: '/certificates',
-      icon: BadgeCheck,
-      items: [{label: t('shell.certificateBoard'), href: '/certificates'}]
     }
   ];
   const activeSection =

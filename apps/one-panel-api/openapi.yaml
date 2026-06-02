@@ -205,13 +205,6 @@ paths:
           description: Envelope policy publish response
         "400":
           description: Invalid policy graph
-  /api/v1/certificates:
-    get:
-      security:
-        - controlPlaneBearer: []
-      responses:
-        "200":
-          description: Envelope certificate list response
   /api/v1/nodes/health:
     get:
       security:

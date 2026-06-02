@@ -7,7 +7,6 @@ const messageNamespaces = [
   'overview',
   'pages',
   'routes',
-  'certificates',
   'scopes',
   'accounts',
   'common',

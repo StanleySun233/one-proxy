@@ -9,7 +9,7 @@ import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {fetchEnums, getCertificates, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/api';
+import {fetchEnums, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/api';
 import {NodeHealthHistory} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
@@ -35,12 +35,6 @@ export default function HealthOverviewPage() {
     enabled: !!accessToken,
     refetchInterval: 5000
   });
-  const certificatesQuery = useQuery({
-    queryKey: ['certificates', accessToken],
-    queryFn: () => getCertificates(accessToken),
-    enabled: !!accessToken,
-    refetchInterval: 10000
-  });
   const enumsQuery = useQuery({
     queryKey: ['enums'],
     queryFn: () => fetchEnums()
@@ -49,30 +43,22 @@ export default function HealthOverviewPage() {
 
   const nodes = nodesQuery.data || [];
   const health = healthQuery.data || [];
-  const certificates = certificatesQuery.data || [];
-
-  const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
 
   const healthRows = useMemo(() => buildHealthRows(nodes, health, enums), [health, nodes, enums]);
-
-  const certificateRows = useMemo(() => {
-    return certificates.map((item) => ({
-      ...item,
-      ownerName: nodesByID.get(item.ownerId)?.name || item.ownerId
-    }));
-  }, [certificates, nodesByID]);
 
   const summary = useMemo(() => {
     const healthy = healthRows.filter((item) => item.derivedStatus === 'healthy').length;
     const stale = healthRows.filter((item) => item.derivedStatus === 'stale').length;
     const degraded = healthRows.filter((item) => item.derivedStatus === 'degraded').length;
     const unreported = healthRows.filter((item) => item.derivedStatus === 'unreported').length;
-    const certPressure = certificateRows.filter((item) => {
-      const entry = enums?.cert_status?.[item.status];
-      return entry ? entry.meta?.className !== 'is-good' : (item.status !== 'healthy' && item.status !== 'renewed');
-    }).length;
+    const certPressure = healthRows.filter((item) =>
+      Object.values(item.certStatus || {}).some((status) => {
+        const entry = enums?.cert_status?.[status];
+        return entry ? entry.meta?.className !== 'is-good' : (status !== 'healthy' && status !== 'renewed');
+      })
+    ).length;
     return {healthy, stale, degraded, unreported, certPressure};
-  }, [certificateRows, healthRows, enums]);
+  }, [healthRows, enums]);
 
   const historyQuery = useQuery({
     queryKey: ['node-health-history', accessToken, selectedNodeId],
@@ -110,46 +96,6 @@ export default function HealthOverviewPage() {
       }]
     };
   }, [summary, enums]);
-
-  const certStatusCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    certificateRows.forEach((cert) => {
-      counts[cert.status] = (counts[cert.status] || 0) + 1;
-    });
-    return counts;
-  }, [certificateRows]);
-
-  const barOption = useMemo(() => {
-    const statuses = Object.keys(certStatusCounts).sort();
-    return {
-      tooltip: {trigger: 'axis' as const},
-      grid: {left: 40, right: 20, top: 10, bottom: 40},
-      xAxis: {
-        type: 'category' as const,
-        data: statuses,
-        axisLabel: {color: '#94a3b8'},
-        axisLine: {lineStyle: {color: '#334155'}}
-      },
-      yAxis: {
-        type: 'value' as const,
-        minInterval: 1,
-        axisLabel: {color: '#94a3b8'},
-        splitLine: {lineStyle: {color: '#1e293b'}}
-      },
-      series: [{
-        type: 'bar' as const,
-        barWidth: '60%',
-        itemStyle: {
-          borderRadius: [4, 4, 0, 0],
-          color: (params: {dataIndex: number}) => {
-            const status = statuses[params.dataIndex];
-            return enums?.cert_status?.[status]?.meta?.color || '#6b7280';
-          }
-        },
-        data: statuses.map((s) => certStatusCounts[s])
-      }]
-    };
-  }, [certStatusCounts, enums]);
 
   const trendChartData = useMemo(() => {
     if (!selectedNodeId) return null;
@@ -245,8 +191,8 @@ export default function HealthOverviewPage() {
           </article>
         </section>
 
-        <section className="charts-row">
-          <article className="panel-card chart-col">
+        <section>
+          <article className="panel-card">
             <h3 className="section-title">{healthT('nodeHealthDistribution')}</h3>
             {isLoading ? (
               <AsyncState detail={healthT('loadingDistributionDetail')} title={common('loadingTitle')} />
@@ -256,18 +202,6 @@ export default function HealthOverviewPage() {
               <AsyncState detail={healthT('emptyDistributionDetail')} title={common('noData')} />
             ) : (
               <ReactECharts option={pieOption} style={{height: 300}} />
-            )}
-          </article>
-          <article className="panel-card chart-col">
-            <h3 className="section-title">{healthT('certificateStatusChart')}</h3>
-            {certificatesQuery.isPending ? (
-              <AsyncState detail={healthT('loadingCertificateData')} title={common('loadingTitle')} />
-            ) : certificatesQuery.isError ? (
-              <AsyncState title={healthT('failedCertificates')} detail={formatControlPlaneError(certificatesQuery.error)} />
-            ) : certificateRows.length === 0 ? (
-              <AsyncState detail={healthT('noCertificateData')} title={common('noData')} />
-            ) : (
-              <ReactECharts option={barOption} style={{height: 300}} />
             )}
           </article>
         </section>

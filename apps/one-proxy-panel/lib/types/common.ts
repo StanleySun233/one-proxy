@@ -44,7 +44,6 @@ export type TrustState = 'trusted' | 'active';
 export type TransportType = 'public_http' | 'public_https' | 'reverse_ws_parent' | 'child_ws' | 'reverse_ws';
 export type TransportStatus = 'connected' | 'available' | 'degraded' | 'failed' | 'pending';
 export type CertStatus = 'healthy' | 'degraded' | 'renew-soon' | 'expired' | 'renewed';
-export type CertType = 'public' | 'internal';
 export type BootstrapTargetType = 'node';
 export type TrustMaterialStatus = 'active' | 'rotated' | 'pending' | 'consumed';
 export type ProbeResultStatus = 'connected' | 'failed';
@@ -99,15 +98,4 @@ export type PolicyRevision = {
   status: PolicyStatus;
   createdAt: string;
   assignedNodes: number;
-};
-
-export type Certificate = {
-  id: string;
-  ownerType: string;
-  ownerId: string;
-  certType: CertType;
-  provider: string;
-  status: CertStatus;
-  notBefore: string;
-  notAfter: string;
 };

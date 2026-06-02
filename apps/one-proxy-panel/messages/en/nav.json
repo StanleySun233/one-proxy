@@ -6,6 +6,5 @@
   "routes": "Routes",
   "accessPaths": "Access Paths",
   "health": "Health",
-  "accounts": "Accounts",
-  "certificates": "Certificates"
+  "accounts": "Accounts"
 }

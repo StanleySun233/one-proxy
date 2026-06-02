@@ -12,7 +12,5 @@
   "healthTitle": "Health and alerts",
   "healthDesc": "Node heartbeats and certificate state.",
   "accountsTitle": "Accounts and roles",
-  "accountsDesc": "Account, role and operator permissions.",
-  "certificatesTitle": "Certificates",
-  "certificatesDesc": "Let’s Encrypt and internal certificate status."
+  "accountsDesc": "Account, role and operator permissions."
 }

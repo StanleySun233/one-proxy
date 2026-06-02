@@ -210,7 +210,6 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/route-rules/", r.requireAccount(r.handleRouteRuleByID))
 	r.mux.HandleFunc("/api/v1/policies/revisions", r.requireAccount(r.handlePolicyRevisions))
 	r.mux.HandleFunc("/api/v1/policies/publish", r.requireAccount(r.handlePolicyPublish))
-	r.mux.HandleFunc("/api/v1/certificates", r.requireAccount(r.handleCertificates))
 	r.mux.HandleFunc("/api/v1/nodes/health", r.requireAccount(r.handleNodeHealth))
 	r.mux.HandleFunc("/api/v1/nodes/health/history", r.requireAccount(r.handleNodeHealthHistory))
 	r.mux.HandleFunc("/api/v1/node-agent/policy", r.requireNode(r.handleNodeAgentPolicy))

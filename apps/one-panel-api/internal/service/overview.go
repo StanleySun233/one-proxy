@@ -172,7 +172,3 @@ func extensionTopology(nodesByID map[string]domain.Node, nodeIDs []string) []dom
 	}
 	return result
 }
-
-func (c *ControlPlane) Certificates() []domain.Certificate {
-	return c.store.ListCertificates()
-}

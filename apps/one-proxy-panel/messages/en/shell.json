@@ -20,7 +20,6 @@
   "accessPathBoard": "Access paths",
   "healthOverview": "Health overview",
   "healthHeartbeat": "Heartbeat monitor",
-  "healthCertificates": "Certificate monitor",
   "accountCreate": "Create account",
   "accountList": "Account list",
   "groupList": "User groups",
@@ -35,6 +34,5 @@
   "groupDeleteConfirm": "Are you sure you want to delete this group?",
   "groupCreateSuccess": "Group created",
   "groupUpdateSuccess": "Group updated",
-  "groupDeleteSuccess": "Group deleted",
-  "certificateBoard": "Certificate status"
+  "groupDeleteSuccess": "Group deleted"
 }

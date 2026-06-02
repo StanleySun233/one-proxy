@@ -30,6 +30,5 @@ export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAc
 export { getScopes, createScope, updateScope, deleteScope } from './scopes';
 export { getAccounts, createAccount, updateAccount, deleteAccount } from './accounts';
 export { getPolicyRevisions, publishPolicy } from './policies';
-export { getCertificates } from './certificates';
 export { getSetupStatus, testSetupConnection, generateSetupKey, submitSetupInit } from './setup';
 export { fetchEnums } from './enums';

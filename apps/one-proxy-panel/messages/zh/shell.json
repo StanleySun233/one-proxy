@@ -20,7 +20,6 @@
   "accessPathBoard": "访问路径",
   "healthOverview": "健康总览",
   "healthHeartbeat": "心跳监控",
-  "healthCertificates": "证书监控",
   "accountCreate": "创建账号",
   "accountList": "账号查询",
   "groupList": "用户组",
@@ -35,6 +34,5 @@
   "groupDeleteConfirm": "确定要删除此用户组吗？",
   "groupCreateSuccess": "用户组已创建",
   "groupUpdateSuccess": "用户组已更新",
-  "groupDeleteSuccess": "用户组已删除",
-  "certificateBoard": "证书状态"
+  "groupDeleteSuccess": "用户组已删除"
 }

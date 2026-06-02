@@ -33,14 +33,6 @@ func (r *Router) handleExtensionBootstrap(w http.ResponseWriter, req *http.Reque
 	writeSuccess(w, http.StatusOK, r.service.ExtensionBootstrap(account))
 }
 
-func (r *Router) handleCertificates(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		writeMethodNotAllowed(w, "GET")
-		return
-	}
-	writeSuccess(w, http.StatusOK, r.service.Certificates())
-}
-
 func (r *Router) handleEnums(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		writeMethodNotAllowed(w, "GET")
