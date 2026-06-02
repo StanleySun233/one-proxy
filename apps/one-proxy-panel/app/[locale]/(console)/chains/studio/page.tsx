@@ -33,9 +33,11 @@ export default function ChainsPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
   const chainsT = useTranslations('chains');
-  const {session} = useAuth();
+  const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
+  const activeTenantId = session?.activeTenantId || null;
+  const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingChain, setEditingChain] = useState<Chain | null>(null);
@@ -47,19 +49,19 @@ export default function ChainsPage() {
   const [previewConfig, setPreviewConfig] = useState<CompiledChainConfig | null>(null);
 
   const chainsQuery = useQuery({
-    queryKey: ['chains', accessToken],
+    queryKey: ['chains', accessToken, activeTenantId],
     queryFn: () => getChains(accessToken),
     enabled: !!accessToken
   });
 
   const nodesQuery = useQuery({
-    queryKey: ['nodes', accessToken],
+    queryKey: ['nodes', accessToken, activeTenantId],
     queryFn: () => getNodes(accessToken),
     enabled: !!accessToken
   });
 
   const scopesQuery = useQuery({
-    queryKey: ['chains-scopes', accessToken],
+    queryKey: ['chains-scopes', accessToken, activeTenantId],
     queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
@@ -200,9 +202,11 @@ export default function ChainsPage() {
                 <p className="section-kicker">{chainsT('management')}</p>
                 <h3>{chainsT('listTitle')}</h3>
               </div>
-              <button className="primary-button" onClick={() => handleOpenEditor()} type="button">
-                {chainsT('createChain')}
-              </button>
+              {canWrite ? (
+                <button className="primary-button" onClick={() => handleOpenEditor()} type="button">
+                  {chainsT('createChain')}
+                </button>
+              ) : null}
             </div>
 
             {chainsQuery.isPending ? (
@@ -243,10 +247,12 @@ export default function ChainsPage() {
                         </td>
                         <td>
                           <div className="chain-list-actions">
-                            <button className="secondary-button" onClick={() => handleOpenEditor(chain)} type="button">
-                              <Edit size={14} />
-                              {t('common.edit')}
-                            </button>
+                            {canWrite ? (
+                              <button className="secondary-button" onClick={() => handleOpenEditor(chain)} type="button">
+                                <Edit size={14} />
+                                {t('common.edit')}
+                              </button>
+                            ) : null}
                             <button
                               className="secondary-button"
                               disabled={probeChainMutation.isPending}
@@ -286,7 +292,7 @@ export default function ChainsPage() {
           <CompilationPreviewModal config={previewConfig} onClose={() => setPreviewOpen(false)} />
         )}
 
-        <AccessPathPanel accessToken={accessToken} chains={chains} nodes={nodes} />
+        {canWrite ? <AccessPathPanel accessToken={accessToken} chains={chains} nodes={nodes} /> : null}
       </div>
     </AuthGate>
   );
