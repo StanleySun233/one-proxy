@@ -31,9 +31,11 @@ import {formatControlPlaneError} from '@/lib/presentation';
 import {BootstrapFormValues} from './types';
 
 export function useNodeConsole() {
-  const {session} = useAuth();
+  const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
+  const activeTenantId = session?.activeTenantId || null;
+  const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
 
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodeModeKeys = Object.keys(enums?.node_mode || {});
@@ -57,46 +59,46 @@ export function useNodeConsole() {
   });
 
   const nodesQuery = useQuery({
-    queryKey: ['nodes', accessToken],
+    queryKey: ['nodes', accessToken, activeTenantId],
     queryFn: () => getNodes(accessToken),
     enabled: !!accessToken
   });
 
   const scopesQuery = useQuery({
-    queryKey: ['scopes', accessToken],
+    queryKey: ['scopes', accessToken, activeTenantId],
     queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
 
   const linksQuery = useQuery({
-    queryKey: ['node-links', accessToken],
+    queryKey: ['node-links', accessToken, activeTenantId],
     queryFn: () => getNodeLinks(accessToken),
     enabled: !!accessToken
   });
 
   const healthQuery = useQuery({
-    queryKey: ['node-health', accessToken],
+    queryKey: ['node-health', accessToken, activeTenantId],
     queryFn: () => getNodeHealth(accessToken),
     enabled: !!accessToken,
     refetchInterval: 5000
   });
 
   const transportsQuery = useQuery({
-    queryKey: ['node-transports', accessToken],
+    queryKey: ['node-transports', accessToken, activeTenantId],
     queryFn: () => getNodeTransports(accessToken),
     enabled: !!accessToken,
     refetchInterval: 5000
   });
 
   const pendingNodesQuery = useQuery({
-    queryKey: ['pending-nodes', accessToken],
+    queryKey: ['pending-nodes', accessToken, activeTenantId],
     queryFn: () => getPendingNodes(accessToken),
     enabled: !!accessToken,
     refetchInterval: 30000
   });
 
   const unconsumedTokensQuery = useQuery({
-    queryKey: ['unconsumed-bootstrap-tokens', accessToken],
+    queryKey: ['unconsumed-bootstrap-tokens', accessToken, activeTenantId],
     queryFn: () => getUnconsumedBootstrapTokens(accessToken),
     enabled: !!accessToken,
     refetchInterval: 30000
@@ -253,6 +255,8 @@ export function useNodeConsole() {
 
   return {
     accessToken,
+    activeTenantId,
+    canWrite,
     bootstrapForm,
     nodesQuery,
     scopesQuery,

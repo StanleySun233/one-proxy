@@ -68,24 +68,26 @@ export function NodeTopologyPageContent() {
             </div>
             <span className="badge">{links.length}</span>
           </div>
-          <CreateNodeLinkForm
-            nodes={nodes}
-            pending={nodeConsole.createNodeLink.isPending || nodeConsole.updateNodeLink.isPending}
-            editingLink={editingLink}
-            onCancelEdit={() => setEditingLinkID(null)}
-            onSubmit={(payload) => {
-              if (editingLink) {
-                nodeConsole.updateNodeLink.mutate(
-                  {linkID: editingLink.id, ...payload},
-                  {onSuccess: () => setEditingLinkID(null)}
-                );
-                return;
-              }
-              nodeConsole.createNodeLink.mutate(payload);
-            }}
-            defaultLinkType={LINK_TYPE_RELAY}
-            defaultTrustState={TRUST_STATE_TRUSTED}
-          />
+          {nodeConsole.canWrite ? (
+            <CreateNodeLinkForm
+              nodes={nodes}
+              pending={nodeConsole.createNodeLink.isPending || nodeConsole.updateNodeLink.isPending}
+              editingLink={editingLink}
+              onCancelEdit={() => setEditingLinkID(null)}
+              onSubmit={(payload) => {
+                if (editingLink) {
+                  nodeConsole.updateNodeLink.mutate(
+                    {linkID: editingLink.id, ...payload},
+                    {onSuccess: () => setEditingLinkID(null)}
+                  );
+                  return;
+                }
+                nodeConsole.createNodeLink.mutate(payload);
+              }}
+              defaultLinkType={LINK_TYPE_RELAY}
+              defaultTrustState={TRUST_STATE_TRUSTED}
+            />
+          ) : null}
           {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending || nodeConsole.transportsQuery.isPending ? (
             <AsyncState detail={t('common.loading')} title={nodesT('loadingTopology')} />
           ) : nodeConsole.nodesQuery.error ? (
@@ -117,23 +119,25 @@ export function NodeTopologyPageContent() {
                 {links.map((link) => (
                   <div key={link.id} className="topology-link-item">
                     <NodeLinkCard link={link} nodesByID={nodesByID} transports={transports} reverseWsType={REVERSE_WS_PARENT} />
-                    <div className="inline-actions">
-                      <button className="ghost-button" onClick={() => setEditingLinkID(link.id)} type="button">
-                        {t('common.edit')}
-                      </button>
-                      <button
-                        className="danger-button"
-                        disabled={nodeConsole.deleteNodeLink.isPending}
-                        onClick={() => {
-                          if (window.confirm(nodesT('deleteLinkConfirm', {id: link.id}))) {
-                            nodeConsole.deleteNodeLink.mutate(link.id);
-                          }
-                        }}
-                        type="button"
-                      >
-                        {t('common.delete')}
-                      </button>
-                    </div>
+                    {nodeConsole.canWrite ? (
+                      <div className="inline-actions">
+                        <button className="ghost-button" onClick={() => setEditingLinkID(link.id)} type="button">
+                          {t('common.edit')}
+                        </button>
+                        <button
+                          className="danger-button"
+                          disabled={nodeConsole.deleteNodeLink.isPending}
+                          onClick={() => {
+                            if (window.confirm(nodesT('deleteLinkConfirm', {id: link.id}))) {
+                              nodeConsole.deleteNodeLink.mutate(link.id);
+                            }
+                          }}
+                          type="button"
+                        >
+                          {t('common.delete')}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
