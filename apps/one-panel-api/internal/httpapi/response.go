@@ -145,6 +145,10 @@ func accountFromContext(ctx context.Context) (domain.Account, bool) {
 }
 
 func tenantAuthContextFromContext(ctx context.Context) (domain.TenantAuthContext, bool) {
+	return TenantAuthContextFromContext(ctx)
+}
+
+func TenantAuthContextFromContext(ctx context.Context) (domain.TenantAuthContext, bool) {
 	tenantCtx, ok := ctx.Value(tenantContextKey).(domain.TenantAuthContext)
 	return tenantCtx, ok
 }
