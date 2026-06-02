@@ -18,6 +18,10 @@ type fallbackStreamOpener interface {
 	OpenStream(nextNodeID string, remaining []string, targetHost string, targetPort int) (net.Conn, error)
 }
 
+type directPeerAvailability interface {
+	HasDirectPeer(peerNodeID string) bool
+}
+
 func openDirectFirstStream(ctx context.Context, direct directPeerStreamOpener, fallback fallbackStreamOpener, hop chainHop, targetHost string, targetPort int) (net.Conn, error) {
 	if direct != nil {
 		conn, err := direct.OpenDirectStream(ctx, hop.node, append([]string(nil), hop.remainingHops...), targetHost, targetPort)

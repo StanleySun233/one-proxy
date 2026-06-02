@@ -19,12 +19,12 @@ func TestPunchMessageRoundTrip(t *testing.T) {
 	}
 	defer right.Close()
 	message := NewPunchMessage("link-1", "node-a", "node-b", "token", "nonce", time.Unix(1, 0))
-	if err := SendPunch(left, right.LocalAddr().(*net.UDPAddr), message); err != nil {
+	if err := SendPunch(UDPConnPacketIO{Conn: left}, right.LocalAddr().(*net.UDPAddr), message); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	result, err := AwaitPunch(ctx, right, func(candidate PunchMessage, addr *net.UDPAddr) bool {
+	result, err := AwaitPunch(ctx, UDPConnPacketIO{Conn: right}, func(candidate PunchMessage, addr *net.UDPAddr) bool {
 		return candidate.LinkID == "link-1" && candidate.PunchToken == "token"
 	})
 	if err != nil {

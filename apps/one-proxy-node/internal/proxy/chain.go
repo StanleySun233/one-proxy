@@ -25,7 +25,7 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 		s.forwardDirect(w, req)
 		return
 	}
-	if s.shouldUseTunnel(hop.node) {
+	if s.shouldUseStream(hop.node) {
 		if isWebSocketUpgrade(req) {
 			s.upgradeViaStream(w, req, hop)
 			return
@@ -52,8 +52,17 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 	s.forwardViaProxy(w, req, hop.node)
 }
 
+func (s *Server) shouldUseStream(nextHop domain.Node) bool {
+	return s.shouldUseTunnel(nextHop) || (s.hasDirectPeer(nextHop.ID) && (nextHop.PublicHost == "" || nextHop.PublicPort <= 0))
+}
+
 func (s *Server) shouldUseTunnel(nextHop domain.Node) bool {
 	return s.tunnelRegistry != nil && s.tunnelRegistry.HasChild(nextHop.ID)
+}
+
+func (s *Server) hasDirectPeer(nodeID string) bool {
+	available, ok := s.directStream.(directPeerAvailability)
+	return ok && available.HasDirectPeer(nodeID)
 }
 
 func (s *Server) resolveChainHop(snapshot policystore.Snapshot, chainID string) (chainHop, bool) {

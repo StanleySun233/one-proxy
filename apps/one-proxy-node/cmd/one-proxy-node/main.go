@@ -26,6 +26,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/tcpaccess"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/tunnel"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/udpaccess"
+	"github.com/quic-go/quic-go"
 )
 
 func main() {
@@ -44,6 +45,7 @@ func main() {
 		tunnelInterval = 15 * time.Second
 	}
 	tunnelRegistry := tunnel.NewRegistry()
+	directRegistry := direct.NewRegistry()
 	if cfg.ControlPlaneURL != "" && cfg.NodeAccessToken != "" && cfg.NodeID != "" {
 		current := manager.Current()
 		if err := manager.Attach(runtime.Binding{
@@ -120,6 +122,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("init proxy server failed: %v", err)
 	}
+	proxyHandler.SetDirectStreamOpener(directRegistry)
 	mux := http.NewServeMux()
 	mux.Handle("/", proxyHandler)
 	httpHandler := proxyAwareHandler(proxyHandler, mux)
@@ -171,7 +174,7 @@ func main() {
 	}
 	tunnelController := tunnel.NewController(manager, tunnelRegistry, cfg.NodeParentTunnelURL, cfg.NodeTunnelPath, tunnelInterval)
 	go tunnelController.Run()
-	startDirectManager(cfg, manager)
+	startDirectManager(cfg, manager, directRegistry)
 	go manager.Run()
 	if cfg.TCPAccessListenAddr != "" {
 		go tcpaccess.ListenAndServe(cfg.TCPAccessListenAddr, tcpaccess.New(proxyAuthorizer, tunnelRegistry))
@@ -187,7 +190,7 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
-func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager) {
+func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager, registry *direct.Registry) {
 	if cfg.NodeDirectListenAddr == "" || !manager.Bound() {
 		return
 	}
@@ -201,14 +204,20 @@ func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager) {
 		log.Printf("direct transport disabled: listen failed: %v", err)
 		return
 	}
+	quicTransport := &quic.Transport{Conn: conn}
+	if err := registry.AttachQUICTransport(quicTransport); err != nil {
+		log.Printf("direct transport disabled: quic listen failed: %v", err)
+		return
+	}
 	interval := parseDurationOrDefault(cfg.NodeDirectRefreshInterval, 30*time.Second)
 	current := manager.Current()
 	client := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken)
-	directManager := direct.NewManager(conn, direct.CandidateGatherer{
+	directManager := direct.NewManager(direct.QUICPacketIO{Transport: quicTransport}, direct.CandidateGatherer{
 		STUNServers: splitCSV(cfg.NodeDirectSTUNServers),
 		Timeout:     3 * time.Second,
-	}, client, nil)
+	}, client, registry)
 	log.Printf("direct transport listening on udp=%s stun=%s", conn.LocalAddr().String(), cfg.NodeDirectSTUNServers)
+	go registry.RunQUICServer(context.Background())
 	go directManager.Run(context.Background(), interval, func(err error) {
 		log.Printf("direct transport refresh failed: %v", err)
 	})

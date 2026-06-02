@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
+	"github.com/quic-go/quic-go"
 )
 
 type PeerState struct {
@@ -19,8 +20,10 @@ type PeerState struct {
 }
 
 type Registry struct {
-	mu    sync.RWMutex
-	peers map[string]PeerState
+	mu        sync.RWMutex
+	peers     map[string]PeerState
+	transport *quic.Transport
+	listener  *quic.Listener
 }
 
 func NewRegistry() *Registry {
@@ -44,6 +47,11 @@ func (r *Registry) Remove(peerNodeID string) {
 	r.mu.Lock()
 	delete(r.peers, peerNodeID)
 	r.mu.Unlock()
+}
+
+func (r *Registry) HasDirectPeer(peerNodeID string) bool {
+	state, ok := r.Get(peerNodeID)
+	return ok && state.Status == domain.DirectStatusConnected
 }
 
 func (r *Registry) OpenStream(peerNodeID string) error {

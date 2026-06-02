@@ -26,10 +26,10 @@ type CandidateGatherer struct {
 	Timeout     time.Duration
 }
 
-func (g CandidateGatherer) Gather(ctx context.Context, conn *net.UDPConn) ([]domain.DirectCandidate, error) {
-	candidates := gatherHostCandidates(conn)
+func (g CandidateGatherer) Gather(ctx context.Context, packetIO PacketIO) ([]domain.DirectCandidate, error) {
+	candidates := gatherHostCandidates(packetIO)
 	for _, server := range g.STUNServers {
-		candidate, err := querySTUN(ctx, conn, server, g.Timeout)
+		candidate, err := querySTUN(ctx, packetIO, server, g.Timeout)
 		if err == nil {
 			candidates = append(candidates, candidate)
 		}
@@ -40,8 +40,8 @@ func (g CandidateGatherer) Gather(ctx context.Context, conn *net.UDPConn) ([]dom
 	return candidates, nil
 }
 
-func gatherHostCandidates(conn *net.UDPConn) []domain.DirectCandidate {
-	port := localUDPPort(conn)
+func gatherHostCandidates(packetIO PacketIO) []domain.DirectCandidate {
+	port := localUDPPort(packetIO)
 	candidates := make([]domain.DirectCandidate, 0)
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -72,7 +72,7 @@ func gatherHostCandidates(conn *net.UDPConn) []domain.DirectCandidate {
 	return candidates
 }
 
-func querySTUN(ctx context.Context, conn *net.UDPConn, server string, timeout time.Duration) (domain.DirectCandidate, error) {
+func querySTUN(ctx context.Context, packetIO PacketIO, server string, timeout time.Duration) (domain.DirectCandidate, error) {
 	if timeout <= 0 {
 		timeout = defaultSTUNRoundTripTTL
 	}
@@ -92,15 +92,14 @@ func querySTUN(ctx context.Context, conn *net.UDPConn, server string, timeout ti
 	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
 		deadline = ctxDeadline
 	}
-	if err := conn.SetDeadline(deadline); err != nil {
-		return domain.DirectCandidate{}, err
-	}
-	if _, err := conn.WriteToUDP(request, addr); err != nil {
+	queryCtx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
+	if _, err := packetIO.WriteTo(request, addr); err != nil {
 		return domain.DirectCandidate{}, err
 	}
 	buffer := make([]byte, 1500)
 	for {
-		n, _, err := conn.ReadFromUDP(buffer)
+		n, _, err := packetIO.ReadNonQUICPacket(queryCtx, buffer)
 		if err != nil {
 			return domain.DirectCandidate{}, err
 		}
@@ -177,8 +176,8 @@ func interfaceIP(addr net.Addr) net.IP {
 	}
 }
 
-func localUDPPort(conn *net.UDPConn) int {
-	addr, ok := conn.LocalAddr().(*net.UDPAddr)
+func localUDPPort(packetIO PacketIO) int {
+	addr, ok := packetIO.LocalAddr().(*net.UDPAddr)
 	if !ok {
 		return 0
 	}

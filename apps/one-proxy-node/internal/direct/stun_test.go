@@ -30,7 +30,7 @@ func TestGatherSTUNCandidate(t *testing.T) {
 	}
 	defer conn.Close()
 	gatherer := CandidateGatherer{STUNServers: []string{server.LocalAddr().String()}}
-	candidates, err := gatherer.Gather(context.Background(), conn)
+	candidates, err := gatherer.Gather(context.Background(), UDPConnPacketIO{Conn: conn})
 	if err != nil {
 		t.Fatal(err)
 	}

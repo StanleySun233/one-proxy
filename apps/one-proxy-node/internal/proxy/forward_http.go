@@ -51,7 +51,7 @@ func (s *Server) forwardHTTP(w http.ResponseWriter, req *http.Request, proxyURL 
 
 func (s *Server) forwardViaStream(w http.ResponseWriter, req *http.Request, hop chainHop) {
 	targetHost, targetPort := targetAddress(req)
-	streamConn, err := s.tunnelRegistry.OpenStream(hop.node.ID, hop.remainingHops, targetHost, targetPort)
+	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.tunnelRegistry, hop, targetHost, targetPort)
 	if err != nil {
 		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
 		return

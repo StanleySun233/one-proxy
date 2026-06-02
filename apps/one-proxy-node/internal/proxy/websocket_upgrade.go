@@ -42,7 +42,7 @@ func (s *Server) upgradeViaProxy(w http.ResponseWriter, req *http.Request, nextH
 
 func (s *Server) upgradeViaStream(w http.ResponseWriter, req *http.Request, hop chainHop) {
 	targetHost, targetPort := targetAddress(req)
-	streamConn, err := s.tunnelRegistry.OpenStream(hop.node.ID, hop.remainingHops, targetHost, targetPort)
+	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.tunnelRegistry, hop, targetHost, targetPort)
 	if err != nil {
 		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
 		return

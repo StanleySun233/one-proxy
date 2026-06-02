@@ -52,7 +52,7 @@ func TestManagerRefreshReportsCandidatesAndAppliesPlan(t *testing.T) {
 			Links:  []domain.DirectLinkItem{{LinkID: "link-1", PeerNodeID: "node-b"}},
 		},
 	}
-	manager := NewManager(conn, CandidateGatherer{STUNServers: []string{server.LocalAddr().String()}}, client, nil)
+	manager := NewManager(UDPConnPacketIO{Conn: conn}, CandidateGatherer{STUNServers: []string{server.LocalAddr().String()}}, client, nil)
 	manager.now = func() time.Time { return time.Unix(1, 0) }
 	if err := manager.RefreshOnce(context.Background()); err != nil {
 		t.Fatal(err)

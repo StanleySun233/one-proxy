@@ -14,6 +14,7 @@ type Server struct {
 	store          *policystore.Store
 	nodeIDGetter   func() string
 	tunnelRegistry *tunnel.Registry
+	directStream   directPeerStreamOpener
 	reverseTarget  *url.URL
 	auth           AuthConfig
 	authorizer     *TokenAuthorizer
@@ -32,6 +33,10 @@ type chainHop struct {
 
 func NewServer(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry) *Server {
 	return &Server{store: store, nodeIDGetter: nodeIDGetter, tunnelRegistry: tunnelRegistry}
+}
+
+func (s *Server) SetDirectStreamOpener(opener directPeerStreamOpener) {
+	s.directStream = opener
 }
 
 func NewServerWithReverseTarget(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry, reverseTargetURL string) (*Server, error) {

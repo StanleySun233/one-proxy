@@ -8,6 +8,7 @@ import (
 )
 
 const PunchMessageType = "direct_punch"
+const punchPacketPrefix byte = 0
 
 type PunchMessage struct {
 	Type       string `json:"type"`
@@ -37,39 +38,43 @@ func NewPunchMessage(linkID string, nodeID string, peerNodeID string, punchToken
 	}
 }
 
-func SendPunch(conn *net.UDPConn, addr *net.UDPAddr, message PunchMessage) error {
+func SendPunch(packetIO PacketIO, addr *net.UDPAddr, message PunchMessage) error {
 	payload, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
-	_, err = conn.WriteToUDP(payload, addr)
+	packet := make([]byte, 0, len(payload)+1)
+	packet = append(packet, punchPacketPrefix)
+	packet = append(packet, payload...)
+	_, err = packetIO.WriteTo(packet, addr)
 	return err
 }
 
-func AwaitPunch(ctx context.Context, conn *net.UDPConn, accept func(PunchMessage, *net.UDPAddr) bool) (PunchResult, error) {
-	deadline, ok := ctx.Deadline()
-	if ok {
-		if err := conn.SetReadDeadline(deadline); err != nil {
-			return PunchResult{}, err
-		}
-	}
+func AwaitPunch(ctx context.Context, packetIO PacketIO, accept func(PunchMessage, *net.UDPAddr) bool) (PunchResult, error) {
 	buffer := make([]byte, 2048)
 	for {
 		startedAt := time.Now()
-		n, addr, err := conn.ReadFromUDP(buffer)
+		n, addr, err := packetIO.ReadNonQUICPacket(ctx, buffer)
 		if err != nil {
 			return PunchResult{}, err
 		}
+		if n == 0 || buffer[0] != punchPacketPrefix {
+			continue
+		}
 		var message PunchMessage
-		if err := json.Unmarshal(buffer[:n], &message); err != nil {
+		if err := json.Unmarshal(buffer[1:n], &message); err != nil {
 			continue
 		}
 		if message.Type != PunchMessageType {
 			continue
 		}
-		if accept != nil && !accept(message, addr) {
+		udpAddr, ok := addr.(*net.UDPAddr)
+		if !ok {
 			continue
 		}
-		return PunchResult{Message: message, Addr: addr, RTT: time.Since(startedAt)}, nil
+		if accept != nil && !accept(message, udpAddr) {
+			continue
+		}
+		return PunchResult{Message: message, Addr: udpAddr, RTT: time.Since(startedAt)}, nil
 	}
 }
