@@ -1,18 +1,40 @@
 'use client';
 
-import {createContext, ReactNode, useContext, useEffect, useMemo, useState} from 'react';
+import {createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 
 import {AUTH_INVALID_EVENT, login as loginRequest, logout as logoutRequest, Session, SESSION_STORAGE_KEY, updateAccount} from '@/lib/api';
+import type {ActiveTenant, TenantMembership} from '@/lib/types/auth';
 
 type AuthContextValue = {
   session: Session | null;
+  tenantMemberships: TenantMembership[];
+  activeTenant: ActiveTenant;
   ready: boolean;
   login: (account: string, password: string) => Promise<Session>;
   rotatePassword: (password: string) => Promise<Session>;
+  switchTenant: (tenantId: string | null) => Session | null;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function resolveActiveTenantId(tenantMemberships: TenantMembership[], activeTenantId: string | null | undefined) {
+  if (activeTenantId) {
+    return activeTenantId;
+  }
+
+  return tenantMemberships.length === 1 ? tenantMemberships[0].tenantId : null;
+}
+
+function normalizeSession(session: Session): Session {
+  const tenantMemberships = session.tenantMemberships || [];
+
+  return {
+    ...session,
+    tenantMemberships,
+    activeTenantId: resolveActiveTenantId(tenantMemberships, session.activeTenantId)
+  };
+}
 
 export function AuthProvider({children}: {children: ReactNode}) {
   const [session, setSession] = useState<Session | null>(null);
@@ -23,9 +45,10 @@ export function AuthProvider({children}: {children: ReactNode}) {
 
     if (stored) {
       try {
-        const parsed = JSON.parse(stored) as Session;
+        const parsed = normalizeSession(JSON.parse(stored) as Session);
         if (Date.parse(parsed.expiresAt) > Date.now()) {
           setSession(parsed);
+          window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsed));
         } else {
           window.localStorage.removeItem(SESSION_STORAGE_KEY);
         }
@@ -49,22 +72,35 @@ export function AuthProvider({children}: {children: ReactNode}) {
     };
   }, []);
 
+  const persistSession = useCallback((nextSession: Session | null) => {
+    setSession(nextSession);
+
+    if (nextSession) {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
+    } else {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
+      tenantMemberships: session?.tenantMemberships || [],
+      activeTenant: session?.tenantMemberships.find((membership) => membership.tenantId === session.activeTenantId) || null,
       ready,
       async login(account: string, password: string) {
         const result = await loginRequest(account, password);
-        const nextSession: Session = {
+        const nextSession = normalizeSession({
           account: result.account,
           accessToken: result.accessToken,
           refreshToken: result.refreshToken,
           expiresAt: result.expiresAt,
-          mustRotatePassword: result.mustRotatePassword
-        };
+          mustRotatePassword: result.mustRotatePassword,
+          tenantMemberships: result.tenantMemberships,
+          activeTenantId: result.activeTenantId
+        });
 
-        setSession(nextSession);
-        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
+        persistSession(nextSession);
         return nextSession;
       },
       async rotatePassword(password: string) {
@@ -77,8 +113,19 @@ export function AuthProvider({children}: {children: ReactNode}) {
           account,
           mustRotatePassword: account.mustRotatePassword
         };
-        setSession(nextSession);
-        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
+        persistSession(nextSession);
+        return nextSession;
+      },
+      switchTenant(tenantId: string | null) {
+        if (!session) {
+          return null;
+        }
+
+        const nextSession: Session = {
+          ...session,
+          activeTenantId: tenantId
+        };
+        persistSession(nextSession);
         return nextSession;
       },
       async logout() {
@@ -88,11 +135,10 @@ export function AuthProvider({children}: {children: ReactNode}) {
           } catch {}
         }
 
-        setSession(null);
-        window.localStorage.removeItem(SESSION_STORAGE_KEY);
+        persistSession(null);
       }
     }),
-    [ready, session]
+    [persistSession, ready, session]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
