@@ -24,6 +24,7 @@ type Config struct {
 	NodeTunnelHeartbeat           string
 	NodeDirectListenAddr          string
 	NodeDirectSTUNServers         string
+	NodeDirectExtraCandidates     string
 	NodeDirectRefreshInterval     string
 	ListenAddr                    string
 	HTTPSListenAddr               string
@@ -68,6 +69,7 @@ func Load() Config {
 		NodeTunnelHeartbeat:           envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),
 		NodeDirectListenAddr:          envOrDefault("NODE_DIRECT_LISTEN_ADDR", ""),
 		NodeDirectSTUNServers:         envOrDefault("NODE_DIRECT_STUN_SERVERS", "stun.cloudflare.com:3478"),
+		NodeDirectExtraCandidates:     envOrDefault("NODE_DIRECT_EXTRA_CANDIDATES", ""),
 		NodeDirectRefreshInterval:     envOrDefault("NODE_DIRECT_REFRESH_INTERVAL", "30s"),
 		ListenAddr:                    envOrDefault("NODE_LISTEN_ADDR", ":2988"),
 		HTTPSListenAddr:               envOrDefault("NODE_HTTPS_LISTEN_ADDR", ":2989"),

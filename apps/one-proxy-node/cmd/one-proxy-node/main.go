@@ -213,8 +213,9 @@ func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager, regist
 	current := manager.Current()
 	client := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken)
 	directManager := direct.NewManager(direct.QUICPacketIO{Transport: quicTransport}, direct.CandidateGatherer{
-		STUNServers: splitCSV(cfg.NodeDirectSTUNServers),
-		Timeout:     3 * time.Second,
+		STUNServers:     splitCSV(cfg.NodeDirectSTUNServers),
+		ExtraCandidates: parseDirectExtraCandidates(cfg.NodeDirectExtraCandidates),
+		Timeout:         3 * time.Second,
 	}, client, registry)
 	log.Printf("direct transport listening on udp=%s stun=%s", conn.LocalAddr().String(), cfg.NodeDirectSTUNServers)
 	go registry.RunQUICServer(context.Background())
@@ -233,6 +234,29 @@ func splitCSV(value string) []string {
 		}
 	}
 	return items
+}
+
+func parseDirectExtraCandidates(value string) []domain.DirectCandidate {
+	items := splitCSV(value)
+	candidates := make([]domain.DirectCandidate, 0, len(items))
+	for _, item := range items {
+		host, portText, err := net.SplitHostPort(item)
+		if err != nil {
+			continue
+		}
+		port, err := strconv.Atoi(portText)
+		if err != nil || port <= 0 || port > 65535 {
+			continue
+		}
+		candidates = append(candidates, domain.DirectCandidate{
+			Type:     domain.CandidateTypeServerReflexive,
+			Address:  host,
+			Port:     port,
+			Protocol: domain.CandidateProtocolUDP,
+			Priority: 250,
+		})
+	}
+	return candidates
 }
 
 type panelProxyTokenValidator struct {

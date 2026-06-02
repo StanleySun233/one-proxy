@@ -22,12 +22,14 @@ const (
 )
 
 type CandidateGatherer struct {
-	STUNServers []string
-	Timeout     time.Duration
+	STUNServers     []string
+	ExtraCandidates []domain.DirectCandidate
+	Timeout         time.Duration
 }
 
 func (g CandidateGatherer) Gather(ctx context.Context, packetIO PacketIO) ([]domain.DirectCandidate, error) {
 	candidates := gatherHostCandidates(packetIO)
+	candidates = append(candidates, g.ExtraCandidates...)
 	for _, server := range g.STUNServers {
 		candidate, err := querySTUN(ctx, packetIO, server, g.Timeout)
 		if err == nil {
