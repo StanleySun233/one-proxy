@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	link "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
 
 type AccountStore interface {
@@ -36,20 +36,32 @@ type TenantStore interface {
 
 type NodeStore interface {
 	ListNodes() []domain.Node
+	ListNodesForTenant(tenantCtx domain.TenantAuthContext) []domain.Node
 	CreateNode(input domain.CreateNodeInput) (domain.Node, error)
+	CreateNodeForTenant(tenantCtx domain.TenantAuthContext, input domain.CreateNodeInput) (domain.Node, error)
 	UpdateNode(nodeID string, input domain.UpdateNodeInput) (domain.Node, error)
 	DeleteNode(nodeID string) error
+	NodeBindingPermission(tenantCtx domain.TenantAuthContext, nodeID string) (domain.BindingPermission, bool)
+	CountNodeBindings(nodeID string) int
 	ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrollmentResult, error)
 	ListNodeTransports() []domain.NodeTransport
 	UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error)
 	ListNodeLinks() []domain.NodeLink
+	ListNodeLinksForTenant(tenantCtx domain.TenantAuthContext) []domain.NodeLink
 	CreateNodeLink(input domain.CreateNodeLinkInput) (domain.NodeLink, error)
+	CreateNodeLinkForTenant(tenantCtx domain.TenantAuthContext, input domain.CreateNodeLinkInput) (domain.NodeLink, error)
 	UpdateNodeLink(linkID string, input domain.UpdateNodeLinkInput) (domain.NodeLink, error)
 	DeleteNodeLink(linkID string) error
+	NodeLinkBindingPermission(tenantCtx domain.TenantAuthContext, linkID string) (domain.BindingPermission, bool)
+	CountNodeLinkBindings(linkID string) int
 	ListNodeAccessPaths() []domain.NodeAccessPath
+	ListNodeAccessPathsForTenant(tenantCtx domain.TenantAuthContext) []domain.NodeAccessPath
 	CreateNodeAccessPath(input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error)
+	CreateNodeAccessPathForTenant(tenantCtx domain.TenantAuthContext, input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error)
 	UpdateNodeAccessPath(pathID string, input domain.UpdateNodeAccessPathInput) (domain.NodeAccessPath, error)
 	DeleteNodeAccessPath(pathID string) error
+	NodeAccessPathBindingPermission(tenantCtx domain.TenantAuthContext, pathID string) (domain.BindingPermission, bool)
+	CountNodeAccessPathBindings(pathID string) int
 	ListNodeOnboardingTasks() []domain.NodeOnboardingTask
 	CreateNodeOnboardingTask(accountID string, input domain.CreateNodeOnboardingTaskInput) (domain.NodeOnboardingTask, error)
 	UpdateNodeOnboardingTaskStatus(taskID string, status string, statusMessage string) (domain.NodeOnboardingTask, error)
@@ -66,18 +78,26 @@ type NodeStore interface {
 
 type ChainStore interface {
 	ListChains() []link.Chain
+	ListChainsForTenant(tenantCtx domain.TenantAuthContext) []link.Chain
 	CreateChain(input link.CreateChainInput) (link.Chain, error)
+	CreateChainForTenant(tenantCtx domain.TenantAuthContext, input link.CreateChainInput) (link.Chain, error)
 	UpdateChain(chainID string, input link.UpdateChainInput) (link.Chain, error)
 	DeleteChain(chainID string) error
+	ChainBindingPermission(tenantCtx domain.TenantAuthContext, chainID string) (domain.BindingPermission, bool)
+	CountChainBindings(chainID string) int
 	GetChainProbeResult(chainID string) (link.ChainProbeResult, bool)
 	SaveChainProbeResult(input link.SaveChainProbeResultInput) (link.ChainProbeResult, error)
 }
 
 type RouteStore interface {
 	ListRouteRules() []link.RouteRule
+	ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext) []link.RouteRule
 	CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error)
+	CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext, input link.CreateRouteRuleInput) (link.RouteRule, error)
 	UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error)
 	DeleteRouteRule(ruleID string) error
+	RouteRuleBindingPermission(tenantCtx domain.TenantAuthContext, ruleID string) (domain.BindingPermission, bool)
+	CountRouteRuleBindings(ruleID string) int
 }
 
 type HealthStore interface {
@@ -104,9 +124,13 @@ type GroupStore interface {
 
 type ScopeStore interface {
 	ListScopes() []link.Scope
+	ListScopesForTenant(tenantCtx domain.TenantAuthContext) []link.Scope
 	CreateScope(input link.CreateScopeInput) (link.Scope, error)
+	CreateScopeForTenant(tenantCtx domain.TenantAuthContext, input link.CreateScopeInput) (link.Scope, error)
 	UpdateScope(scopeID string, input link.UpdateScopeInput) (link.Scope, error)
 	DeleteScope(scopeID string) error
+	ScopeBindingPermission(tenantCtx domain.TenantAuthContext, scopeID string) (domain.BindingPermission, bool)
+	CountScopeBindings(scopeID string) int
 }
 
 type PolicyStore interface {

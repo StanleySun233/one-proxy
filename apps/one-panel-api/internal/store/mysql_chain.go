@@ -3,7 +3,9 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	link "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
 
 func (s *MySQLStore) loadChainHops(chainID string) []string {
@@ -24,7 +26,26 @@ func (s *MySQLStore) loadChainHops(chainID string) []string {
 }
 
 func (s *MySQLStore) ListChains() []link.Chain {
-	rows, err := s.db.Query("SELECT id, name, destination_scope, enabled FROM chains ORDER BY name")
+	rows, err := s.db.Query("SELECT id, create_id, owner_id, name, destination_scope, enabled FROM chains ORDER BY name")
+	return s.scanChains(rows, err)
+}
+
+func (s *MySQLStore) ListChainsForTenant(tenantCtx domain.TenantAuthContext) []link.Chain {
+	if tenantCtx.SuperAdmin {
+		return s.ListChains()
+	}
+	rows, err := s.db.Query(
+		`SELECT c.id, c.create_id, c.owner_id, c.name, c.destination_scope, c.enabled
+		 FROM chains c
+		 JOIN tenant_chains tc ON tc.chain_id = c.id
+		 WHERE tc.tenant_id = ?
+		 ORDER BY c.name`,
+		tenantCtx.ActiveTenant.TenantID,
+	)
+	return s.scanChains(rows, err)
+}
+
+func (s *MySQLStore) scanChains(rows *sql.Rows, err error) []link.Chain {
 	if err != nil {
 		return nil
 	}
@@ -33,7 +54,7 @@ func (s *MySQLStore) ListChains() []link.Chain {
 	for rows.Next() {
 		var item link.Chain
 		var enabled int
-		if err := rows.Scan(&item.ID, &item.Name, &item.DestinationScope, &enabled); err != nil {
+		if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.DestinationScope, &enabled); err != nil {
 			continue
 		}
 		item.Enabled = enabled == 1
@@ -122,6 +143,40 @@ func (s *MySQLStore) CreateChain(input link.CreateChainInput) (link.Chain, error
 	return item, nil
 }
 
+func (s *MySQLStore) CreateChainForTenant(tenantCtx domain.TenantAuthContext, input link.CreateChainInput) (link.Chain, error) {
+	chainID, err := s.nextID("chain")
+	if err != nil {
+		return link.Chain{}, err
+	}
+	item := link.Chain{ID: chainID, CreateID: tenantCtx.Account.ID, OwnerID: tenantCtx.Account.ID, Name: input.Name, DestinationScope: input.DestinationScope, Enabled: true, Hops: input.Hops}
+	now := nowRFC3339()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return link.Chain{}, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(
+		`INSERT INTO chains (id, create_id, owner_id, name, destination_scope, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.CreateID, item.OwnerID, item.Name, item.DestinationScope, 1, now, now,
+	); err != nil {
+		return link.Chain{}, err
+	}
+	for index, hop := range item.Hops {
+		if _, err := tx.Exec("INSERT INTO chain_hops (chain_id, hop_index, node_id) VALUES (?, ?, ?)", item.ID, index, hop); err != nil {
+			return link.Chain{}, err
+		}
+	}
+	if !tenantCtx.SuperAdmin {
+		if err := bindTenantResource(tx, "tenant_chains", "chain_id", tenantCtx.ActiveTenant.TenantID, item.ID, tenantCtx.Account.ID); err != nil {
+			return link.Chain{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return link.Chain{}, err
+	}
+	return item, nil
+}
+
 func (s *MySQLStore) UpdateChain(chainID string, input link.UpdateChainInput) (link.Chain, error) {
 	now := nowRFC3339()
 	tx, err := s.db.Begin()
@@ -170,4 +225,12 @@ func (s *MySQLStore) DeleteChain(chainID string) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *MySQLStore) ChainBindingPermission(tenantCtx domain.TenantAuthContext, chainID string) (domain.BindingPermission, bool) {
+	return s.tenantResourcePermission(tenantCtx, "tenant_chains", "chain_id", chainID)
+}
+
+func (s *MySQLStore) CountChainBindings(chainID string) int {
+	return s.countTenantResourceBindings("tenant_chains", "chain_id", chainID)
 }

@@ -2,14 +2,35 @@ package store
 
 import (
 	"database/sql"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	link "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
 
 func (s *MySQLStore) ListRouteRules() []link.RouteRule {
 	rows, err := s.db.Query(
-		`SELECT id, priority, match_type, match_value, action_type, COALESCE(chain_id, ''), COALESCE(destination_scope, ''), enabled
+		`SELECT id, create_id, owner_id, priority, match_type, match_value, action_type, COALESCE(chain_id, ''), COALESCE(destination_scope, ''), enabled
 		 FROM route_rules ORDER BY priority ASC`,
 	)
+	return s.scanRouteRules(rows, err)
+}
+
+func (s *MySQLStore) ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext) []link.RouteRule {
+	if tenantCtx.SuperAdmin {
+		return s.ListRouteRules()
+	}
+	rows, err := s.db.Query(
+		`SELECT rr.id, rr.create_id, rr.owner_id, rr.priority, rr.match_type, rr.match_value, rr.action_type, COALESCE(rr.chain_id, ''), COALESCE(rr.destination_scope, ''), rr.enabled
+		 FROM route_rules rr
+		 JOIN tenant_route_rules trr ON trr.route_rule_id = rr.id
+		 WHERE trr.tenant_id = ?
+		 ORDER BY rr.priority ASC`,
+		tenantCtx.ActiveTenant.TenantID,
+	)
+	return s.scanRouteRules(rows, err)
+}
+
+func (s *MySQLStore) scanRouteRules(rows *sql.Rows, err error) []link.RouteRule {
 	if err != nil {
 		return nil
 	}
@@ -18,7 +39,7 @@ func (s *MySQLStore) ListRouteRules() []link.RouteRule {
 	for rows.Next() {
 		var item link.RouteRule
 		var enabled int
-		if err := rows.Scan(&item.ID, &item.Priority, &item.MatchType, &item.MatchValue, &item.ActionType, &item.ChainID, &item.DestinationScope, &enabled); err != nil {
+		if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Priority, &item.MatchType, &item.MatchValue, &item.ActionType, &item.ChainID, &item.DestinationScope, &enabled); err != nil {
 			continue
 		}
 		item.Enabled = enabled == 1
@@ -51,6 +72,44 @@ func (s *MySQLStore) CreateRouteRule(input link.CreateRouteRuleInput) (link.Rout
 	return item, err
 }
 
+func (s *MySQLStore) CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext, input link.CreateRouteRuleInput) (link.RouteRule, error) {
+	ruleID, err := s.nextID("route_rule")
+	if err != nil {
+		return link.RouteRule{}, err
+	}
+	item := link.RouteRule{
+		ID:               ruleID,
+		CreateID:         tenantCtx.Account.ID,
+		OwnerID:          tenantCtx.Account.ID,
+		Priority:         input.Priority,
+		MatchType:        input.MatchType,
+		MatchValue:       input.MatchValue,
+		ActionType:       input.ActionType,
+		ChainID:          input.ChainID,
+		DestinationScope: input.DestinationScope,
+		Enabled:          true,
+	}
+	now := nowRFC3339()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return link.RouteRule{}, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(
+		`INSERT INTO route_rules (id, create_id, owner_id, priority, match_type, match_value, action_type, chain_id, destination_scope, enabled, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?)`,
+		item.ID, item.CreateID, item.OwnerID, item.Priority, item.MatchType, item.MatchValue, item.ActionType, item.ChainID, item.DestinationScope, 1, now, now,
+	); err != nil {
+		return link.RouteRule{}, err
+	}
+	if !tenantCtx.SuperAdmin {
+		if err := bindTenantResource(tx, "tenant_route_rules", "route_rule_id", tenantCtx.ActiveTenant.TenantID, item.ID, tenantCtx.Account.ID); err != nil {
+			return link.RouteRule{}, err
+		}
+	}
+	return item, tx.Commit()
+}
+
 func (s *MySQLStore) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
 	now := nowRFC3339()
 	_, err := s.db.Exec(
@@ -73,4 +132,12 @@ func (s *MySQLStore) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleIn
 func (s *MySQLStore) DeleteRouteRule(ruleID string) error {
 	_, err := s.db.Exec("DELETE FROM route_rules WHERE id = ?", ruleID)
 	return err
+}
+
+func (s *MySQLStore) RouteRuleBindingPermission(tenantCtx domain.TenantAuthContext, ruleID string) (domain.BindingPermission, bool) {
+	return s.tenantResourcePermission(tenantCtx, "tenant_route_rules", "route_rule_id", ruleID)
+}
+
+func (s *MySQLStore) CountRouteRuleBindings(ruleID string) int {
+	return s.countTenantResourceBindings("tenant_route_rules", "route_rule_id", ruleID)
 }
