@@ -3,7 +3,6 @@ import type {
   Node,
   NodeAccessPath,
   NodeAccessPathPayload,
-  NodeLink,
   NodeTransport,
   BootstrapToken,
   UnconsumedBootstrapToken,
@@ -44,10 +43,6 @@ export function deleteNode(accessToken: string, nodeID: string) {
   });
 }
 
-export function getNodeLinks(accessToken: string) {
-  return request<NodeLink[]>('/chains/node-links', {accessToken});
-}
-
 export function getNodeAccessPaths(accessToken: string) {
   return request<NodeAccessPath[]>('/node-access-paths', {accessToken});
 }
@@ -62,18 +57,6 @@ export function updateNodeAccessPath(accessToken: string, pathID: string, payloa
 
 export function deleteNodeAccessPath(accessToken: string, pathID: string) {
   return request<{status: string}>(`/node-access-paths/${pathID}`, {method: 'DELETE', accessToken});
-}
-
-export function createNodeLink(accessToken: string, payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) {
-  return request<NodeLink>('/chains/node-links', {method: 'POST', accessToken, body: payload});
-}
-
-export function updateNodeLink(accessToken: string, linkID: string, payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) {
-  return request<NodeLink>(`/chains/node-links/${linkID}`, {method: 'PATCH', accessToken, body: payload});
-}
-
-export function deleteNodeLink(accessToken: string, linkID: string) {
-  return request<{status: string}>(`/chains/node-links/${linkID}`, {method: 'DELETE', accessToken});
 }
 
 export function getNodeTransports(accessToken: string) {

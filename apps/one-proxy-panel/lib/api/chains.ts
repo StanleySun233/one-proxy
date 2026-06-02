@@ -1,5 +1,6 @@
 import { request } from './client';
 import type { Chain, ChainProbeResult, ChainValidationResult, ChainPreviewResult, RouteRule, RouteRuleValidationResult, Scope } from '@/lib/types/chains';
+import type { NodeLink } from '@/lib/types/nodes';
 
 export function getChains(accessToken: string) {
   return request<Chain[]>('/chains', {accessToken});
@@ -42,6 +43,22 @@ export function previewChain(accessToken: string, payload: {name: string; destin
     accessToken,
     body: payload
   });
+}
+
+export function getNodeLinks(accessToken: string) {
+  return request<NodeLink[]>('/chains/node-links', {accessToken});
+}
+
+export function createNodeLink(accessToken: string, payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) {
+  return request<NodeLink>('/chains/node-links', {method: 'POST', accessToken, body: payload});
+}
+
+export function updateNodeLink(accessToken: string, linkID: string, payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) {
+  return request<NodeLink>(`/chains/node-links/${linkID}`, {method: 'PATCH', accessToken, body: payload});
+}
+
+export function deleteNodeLink(accessToken: string, linkID: string) {
+  return request<{status: string}>(`/chains/node-links/${linkID}`, {method: 'DELETE', accessToken});
 }
 
 export function getRouteRules(accessToken: string) {

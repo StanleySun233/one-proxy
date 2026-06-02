@@ -12,10 +12,6 @@ export {
   approveNode,
   rejectNode,
   getPendingNodes,
-  getNodeLinks,
-  createNodeLink,
-  updateNodeLink,
-  deleteNodeLink,
   getNodeTransports,
   createBootstrapToken,
   getUnconsumedBootstrapTokens,
@@ -24,7 +20,7 @@ export {
   getNodeHealth,
   getNodeHealthHistory,
 } from './nodes';
-export { getChains, createChain, updateChain, probeChain, validateChain, previewChain, getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule, getScopes, createScope, updateScope, deleteScope } from './chains';
+export { getChains, createChain, updateChain, probeChain, validateChain, previewChain, getNodeLinks, createNodeLink, updateNodeLink, deleteNodeLink, getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule, getScopes, createScope, updateScope, deleteScope } from './chains';
 export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAccounts, setGroupScopes } from './groups';
 export { getAccounts, createAccount, updateAccount, deleteAccount } from './accounts';
 export { getPolicyRevisions, publishPolicy } from './policies';
