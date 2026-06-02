@@ -6,12 +6,14 @@ import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
+import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
+import {NameTag} from '@/components/common/name-tag';
 import {PageHero} from '@/components/page-hero';
 import {createRouteRule, deleteRouteRule, fetchEnums, getChains, getPolicyRevisions, getRouteRules, getScopes, publishPolicy, updateRouteRule, validateRouteRule} from '@/lib/api';
 import {RouteRule, RouteRuleValidationResult} from '@/lib/types';
-import {formatControlPlaneError} from '@/lib/presentation';
+import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {PolicyPanel} from './_components/policy-panel';
 import {RegexTesterModal} from './_components/regex-tester-modal';
@@ -24,9 +26,11 @@ export default function RoutesPage() {
   const t = useTranslations();
   const pageT = useTranslations('pages');
   const routesT = useTranslations('chainsRoutes');
-  const {session} = useAuth();
+  const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
+  const activeTenantId = session?.activeTenantId || null;
+  const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const matchTypeKeys = Object.keys(enums?.match_type || {});
   const actionTypeKeys = Object.keys(enums?.action_type || {});
@@ -78,7 +82,7 @@ export default function RoutesPage() {
 
   useEffect(() => {
     const payload = routeRuleValidationPayload(formValues);
-    const validationKey = `${accessToken}:${JSON.stringify(payload)}`;
+    const validationKey = `${accessToken}:${activeTenantId}:${JSON.stringify(payload)}`;
 
     if (!accessToken || !payload.matchValue) {
       if (debounceRef.current) {
@@ -116,25 +120,25 @@ export default function RoutesPage() {
         debounceRef.current = null;
       }
     };
-  }, [accessToken, formValues, runValidation]);
+  }, [accessToken, activeTenantId, formValues, runValidation]);
 
   const routeRulesQuery = useQuery({
-    queryKey: ['route-rules', accessToken],
+    queryKey: ['route-rules', accessToken, activeTenantId],
     queryFn: () => getRouteRules(accessToken),
     enabled: !!accessToken
   });
   const chainsQuery = useQuery({
-    queryKey: ['chains', accessToken],
+    queryKey: ['chains', accessToken, activeTenantId],
     queryFn: () => getChains(accessToken),
     enabled: !!accessToken
   });
   const scopesQuery = useQuery({
-    queryKey: ['chains-scopes', accessToken],
+    queryKey: ['chains-scopes', accessToken, activeTenantId],
     queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
   const policiesQuery = useQuery({
-    queryKey: ['policies-revisions', accessToken],
+    queryKey: ['policies-revisions', accessToken, activeTenantId],
     queryFn: () => getPolicyRevisions(accessToken),
     enabled: !!accessToken
   });
@@ -244,50 +248,141 @@ export default function RoutesPage() {
       <div className="page-stack">
         <PageHero eyebrow={t('shell.routeBoard')} title={pageT('routesTitle')} />
 
-        <section className="forms-grid">
-          <RouteRuleForm
-            actionType={actionType}
-            actionTypeOptions={actionTypeOptions}
+        {canWrite ? (
+          <section className="forms-grid">
+            <RouteRuleForm
+              actionType={actionType}
+              actionTypeOptions={actionTypeOptions}
+              chains={chains}
+              createPending={createRuleMutation.isPending}
+              editingRule={!!editingRule}
+              form={form}
+              matchType={matchType}
+              matchTypeOptions={matchTypeOptions}
+              matchValuePlaceholder={matchValuePlaceholder}
+              onCancel={resetForm}
+              onOpenRegexTester={() => setRegexTesterOpen(true)}
+              onSubmit={submitRouteRule}
+              routesT={routesT}
+              scopes={scopes}
+              selectedChain={selectedChain}
+              t={t}
+              updatePending={updateRuleMutation.isPending}
+              validateMatchValue={(type, value) => validateMatchValue(type, value, routesT)}
+              validationPending={validationPending}
+              validationResult={validationResult}
+            />
+
+            <PolicyPanel
+              onPublish={() => publishMutation.mutate()}
+              policies={policies}
+              policiesQuery={policiesQuery}
+              publishPending={publishMutation.isPending}
+              routesT={routesT}
+              t={t}
+            />
+          </section>
+        ) : (
+          <section className="panel-card soft-card">
+            <div className="panel-toolbar">
+              <h3>{routesT('policies')}</h3>
+            </div>
+            {policiesQuery.isPending ? (
+              <AsyncState detail={t('common.loading')} title={routesT('loadingPolicies')} />
+            ) : policiesQuery.isError ? (
+              <AsyncState
+                actionLabel={t('common.retry')}
+                detail={formatControlPlaneError(policiesQuery.error)}
+                onAction={() => void policiesQuery.refetch()}
+                title={routesT('failedPolicies')}
+              />
+            ) : policies.length === 0 ? (
+              <AsyncState detail={routesT('emptyPolicies')} title={t('common.empty')} />
+            ) : (
+              <div className="stack-list">
+                {policies.map((policy) => (
+                  <div className="stack-item" key={policy.id}>
+                    <strong>{policy.version}</strong>
+                    <span className="muted-text">
+                      {policy.status} · {routesT('nodesCount', {count: policy.assignedNodes})}
+                    </span>
+                    <span className="mono">{formatISODateTime(policy.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {canWrite ? (
+          <RouteRuleTable
             chains={chains}
-            createPending={createRuleMutation.isPending}
-            editingRule={!!editingRule}
-            form={form}
-            matchType={matchType}
-            matchTypeOptions={matchTypeOptions}
-            matchValuePlaceholder={matchValuePlaceholder}
-            onCancel={resetForm}
-            onOpenRegexTester={() => setRegexTesterOpen(true)}
-            onSubmit={submitRouteRule}
-            routesT={routesT}
-            scopes={scopes}
-            selectedChain={selectedChain}
-            t={t}
-            updatePending={updateRuleMutation.isPending}
-            validateMatchValue={(type, value) => validateMatchValue(type, value, routesT)}
-            validationPending={validationPending}
-            validationResult={validationResult}
-          />
-
-          <PolicyPanel
-            onPublish={() => publishMutation.mutate()}
-            policies={policies}
-            policiesQuery={policiesQuery}
-            publishPending={publishMutation.isPending}
+            deletePending={deleteRuleMutation.isPending}
+            onDelete={deleteRoute}
+            onEdit={startEdit}
+            routeRules={routeRules}
+            routeRulesQuery={routeRulesQuery}
             routesT={routesT}
             t={t}
           />
-        </section>
-
-        <RouteRuleTable
-          chains={chains}
-          deletePending={deleteRuleMutation.isPending}
-          onDelete={deleteRoute}
-          onEdit={startEdit}
-          routeRules={routeRules}
-          routeRulesQuery={routeRulesQuery}
-          routesT={routesT}
-          t={t}
-        />
+        ) : (
+          <article className="panel-card">
+            <div className="panel-toolbar">
+              <h3>{routesT('routeRules')}</h3>
+              <span className="badge">{routeRules.length}</span>
+            </div>
+            {routeRulesQuery.isPending ? (
+              <AsyncState detail={t('common.loading')} title={routesT('loadingRules')} />
+            ) : routeRulesQuery.isError ? (
+              <AsyncState
+                actionLabel={t('common.retry')}
+                detail={formatControlPlaneError(routeRulesQuery.error)}
+                onAction={() => void routeRulesQuery.refetch()}
+                title={routesT('failedRules')}
+              />
+            ) : routeRules.length === 0 ? (
+              <AsyncState detail={routesT('emptyRules')} title={t('common.empty')} />
+            ) : (
+              <div className="table-card">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>{routesT('priority')}</th>
+                      <th>{routesT('match')}</th>
+                      <th>{routesT('action')}</th>
+                      <th>{routesT('chain')}</th>
+                      <th>{routesT('scope')}</th>
+                      <th>{routesT('status')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {routeRules.map((rule) => {
+                      const chain = chains.find((c) => c.id === rule.chainId);
+                      const chainName = chain?.name || rule.chainId;
+                      return (
+                        <tr key={rule.id}>
+                          <td>{rule.priority}</td>
+                          <td>
+                            <strong>{rule.matchType}</strong>
+                            <div className="muted-text mono">{rule.matchValue}</div>
+                          </td>
+                          <td>{rule.actionType}</td>
+                          <td>{chainName ? <NameTag kind="chain">{chainName}</NameTag> : '-'}</td>
+                          <td>{rule.destinationScope ? <NameTag kind="scope">{rule.destinationScope}</NameTag> : '-'}</td>
+                          <td>
+                            <span className={rule.enabled ? 'badge is-good' : 'badge'}>
+                              {rule.enabled ? t('common.enabled') : t('common.disabled')}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+        )}
 
         {regexTesterOpen && (
           <RegexTesterModal initialPattern={form.getValues('matchValue')} onClose={() => setRegexTesterOpen(false)} />
