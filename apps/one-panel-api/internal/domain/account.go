@@ -21,25 +21,31 @@ type UpdateAccountInput struct {
 }
 
 type LoginResult struct {
-	Account             Account `json:"account"`
-	AccessToken         string  `json:"accessToken"`
-	RefreshToken        string  `json:"refreshToken"`
-	ExpiresAt           string  `json:"expiresAt"`
-	ProxyToken          string  `json:"proxyToken"`
-	ProxyTokenExpiresAt string  `json:"proxyTokenExpiresAt"`
-	MustRotatePassword  bool    `json:"mustRotatePassword"`
+	Account             Account            `json:"account"`
+	AccessToken         string             `json:"accessToken"`
+	RefreshToken        string             `json:"refreshToken"`
+	ExpiresAt           string             `json:"expiresAt"`
+	ProxyToken          string             `json:"proxyToken"`
+	ProxyTokenExpiresAt string             `json:"proxyTokenExpiresAt"`
+	MustRotatePassword  bool               `json:"mustRotatePassword"`
+	TenantMemberships   []TenantMembership `json:"tenantMemberships"`
+	ActiveTenantID      *string            `json:"activeTenantId"`
 }
 
 type ProxyTokenRecord struct {
-	Account   Account `json:"account"`
-	ExpiresAt string  `json:"expiresAt"`
+	Account           Account            `json:"account"`
+	ExpiresAt         string             `json:"expiresAt"`
+	TenantMemberships []TenantMembership `json:"tenantMemberships"`
+	ActiveTenantID    *string            `json:"activeTenantId"`
 }
 
 type ProxyTokenValidation struct {
-	Valid           bool    `json:"valid"`
-	Account         Account `json:"account"`
-	ExpiresAt       string  `json:"expiresAt"`
-	CacheTTLSeconds int     `json:"cacheTtlSeconds"`
+	Valid             bool               `json:"valid"`
+	Account           Account            `json:"account"`
+	ExpiresAt         string             `json:"expiresAt"`
+	CacheTTLSeconds   int                `json:"cacheTtlSeconds"`
+	TenantMemberships []TenantMembership `json:"tenantMemberships"`
+	ActiveTenantID    *string            `json:"activeTenantId"`
 }
 
 type RefreshSessionInput struct {
