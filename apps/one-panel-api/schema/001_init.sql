@@ -140,19 +140,24 @@ CREATE TABLE IF NOT EXISTS route_rules (
 
 CREATE TABLE IF NOT EXISTS policy_revisions (
   id VARCHAR(191) PRIMARY KEY,
+  tenant_id VARCHAR(191) NOT NULL,
   version VARCHAR(191) NOT NULL UNIQUE,
   payload_json LONGTEXT NOT NULL,
   status VARCHAR(64) NOT NULL,
   created_by_account_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_policy_revisions_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id),
   CONSTRAINT fk_policy_revisions_created_by_account_id FOREIGN KEY (created_by_account_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS node_policy_assignments (
-  node_id VARCHAR(191) PRIMARY KEY,
+  tenant_id VARCHAR(191) NOT NULL,
+  node_id VARCHAR(191) NOT NULL,
   policy_revision_id VARCHAR(191) NOT NULL,
   snapshot_json LONGTEXT NOT NULL,
   assigned_at VARCHAR(64) NOT NULL,
+  PRIMARY KEY (tenant_id, node_id),
+  CONSTRAINT fk_node_policy_assignments_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
   CONSTRAINT fk_node_policy_assignments_node_id FOREIGN KEY (node_id) REFERENCES nodes(id),
   CONSTRAINT fk_node_policy_assignments_policy_revision_id FOREIGN KEY (policy_revision_id) REFERENCES policy_revisions(id)
 );
