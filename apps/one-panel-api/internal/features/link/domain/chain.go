@@ -2,6 +2,8 @@ package link
 
 type Chain struct {
 	ID               string   `json:"id"`
+	CreateID         string   `json:"createId"`
+	OwnerID          string   `json:"ownerId"`
 	Name             string   `json:"name"`
 	DestinationScope string   `json:"destinationScope"`
 	Enabled          bool     `json:"enabled"`
@@ -10,6 +12,8 @@ type Chain struct {
 
 type ChainWithDetails struct {
 	ID               string           `json:"id"`
+	CreateID         string           `json:"createId"`
+	OwnerID          string           `json:"ownerId"`
 	Name             string           `json:"name"`
 	DestinationScope string           `json:"destinationScope"`
 	Enabled          bool             `json:"enabled"`
