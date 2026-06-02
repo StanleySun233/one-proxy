@@ -1,5 +1,5 @@
 import { clearDiagnosticLogs, diagnosticLogs, appendLog } from './diagnostics.js';
-import { login, logout, syncRemoteConfig, testConnection } from './api.js';
+import { login, logout, selectTenant, syncRemoteConfig, testConnection } from './api.js';
 import { activeGroupFrom, getState, persistState, setPartialState, uniqueStrings } from './state.js';
 import { pacSummary } from './pac.js';
 import { routePreviewForUrl, sanitizeHost } from './routing.js';
@@ -118,6 +118,9 @@ export function registerMessageHandler() {
           return;
         case 'sync-remote-config':
           sendResponse(await computedAfter(() => syncRemoteConfig()));
+          return;
+        case 'select-tenant':
+          sendResponse(await computedAfter(() => selectTenant(message.tenantId)));
           return;
         case 'test-url-route':
           sendResponse(await testUrlRoute(message.url, { saveMonitorTarget: Boolean(message.saveMonitorTarget) }));

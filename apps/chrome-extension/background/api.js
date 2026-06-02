@@ -5,6 +5,10 @@ function authHeaders(token) {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function tenantHeaders(state) {
+  return state.session && state.session.activeTenantId ? { 'X-Tenant-ID': state.session.activeTenantId } : {};
+}
+
 async function apiRequest(state, path, options = {}) {
   const controlPlaneUrl = String(state.controlPlaneUrl || '').trim().replace(/\/$/, '');
   if (!controlPlaneUrl) {
@@ -16,6 +20,9 @@ async function apiRequest(state, path, options = {}) {
   };
   if (options.auth !== false && state.session.accessToken) {
     Object.assign(headers, authHeaders(state.session.accessToken));
+  }
+  if (options.tenant !== false) {
+    Object.assign(headers, tenantHeaders(state));
   }
   const response = await fetch(`${controlPlaneUrl}${path}`, {
     method: options.method || 'GET',
@@ -50,6 +57,8 @@ export async function login(controlPlaneUrl, account, password) {
     await appendLog('error', 'login_failed', { status: response.status, message: (payload && payload.message) || 'login_failed' });
     throw new Error((payload && payload.message) || 'login_failed');
   }
+  const memberships = Array.isArray(payload.data.tenantMemberships) ? payload.data.tenantMemberships : [];
+  const activeTenantId = payload.data.activeTenantId || (memberships.length === 1 ? memberships[0].tenantId : '');
   const nextState = mergeState({
     ...(await getState()),
     controlPlaneUrl: String(controlPlaneUrl || '').trim(),
@@ -58,14 +67,16 @@ export async function login(controlPlaneUrl, account, password) {
       accessToken: payload.data.accessToken,
       refreshToken: payload.data.refreshToken,
       expiresAt: payload.data.expiresAt,
-      proxyToken: payload.data.proxyToken || '',
-      proxyTokenExpiresAt: payload.data.proxyTokenExpiresAt || '',
-      mustRotatePassword: Boolean(payload.data.mustRotatePassword)
+      proxyToken: '',
+      proxyTokenExpiresAt: '',
+      mustRotatePassword: Boolean(payload.data.mustRotatePassword),
+      tenantMemberships: memberships,
+      activeTenantId
     }
   });
   await persistState(nextState);
   await appendLog('info', 'login_ok', { account: nextState.session.account, controlPlaneUrl: nextState.controlPlaneUrl });
-  return syncRemoteConfig(nextState);
+  return nextState.session.activeTenantId ? syncRemoteConfig(nextState) : null;
 }
 
 export async function testConnection(controlPlaneUrl) {
@@ -108,6 +119,8 @@ export async function refreshSession(sourceState) {
     await appendLog('error', 'refresh_failed', { status: response.status, message: (payload && payload.message) || 'refresh_failed' });
     throw new Error((payload && payload.message) || 'refresh_failed');
   }
+  const memberships = Array.isArray(payload.data.tenantMemberships) ? payload.data.tenantMemberships : state.session.tenantMemberships;
+  const activeTenantId = state.session.activeTenantId || payload.data.activeTenantId || (memberships.length === 1 ? memberships[0].tenantId : '');
   const nextState = mergeState({
     ...state,
     session: {
@@ -115,9 +128,11 @@ export async function refreshSession(sourceState) {
       accessToken: payload.data.accessToken,
       refreshToken: payload.data.refreshToken,
       expiresAt: payload.data.expiresAt,
-      proxyToken: payload.data.proxyToken || '',
-      proxyTokenExpiresAt: payload.data.proxyTokenExpiresAt || '',
-      mustRotatePassword: Boolean(payload.data.mustRotatePassword)
+      proxyToken: state.session.proxyToken,
+      proxyTokenExpiresAt: state.session.proxyTokenExpiresAt,
+      mustRotatePassword: Boolean(payload.data.mustRotatePassword),
+      tenantMemberships: memberships,
+      activeTenantId
     }
   });
   await persistState(nextState);
@@ -127,6 +142,9 @@ export async function refreshSession(sourceState) {
 
 export async function syncRemoteConfig(sourceState) {
   const state = mergeState(sourceState || (await getState()));
+  if (!state.session.activeTenantId) {
+    throw new Error('tenant_required');
+  }
   const data = await apiRequest(state, '/api/v1/extension/bootstrap');
   const nextState = mergeState({
     ...state,
@@ -138,7 +156,9 @@ export async function syncRemoteConfig(sourceState) {
     session: {
       ...state.session,
       account: data.account ? data.account.account : state.session.account,
-      mustRotatePassword: Boolean(data.account && data.account.mustRotatePassword)
+      mustRotatePassword: Boolean(data.account && data.account.mustRotatePassword),
+      proxyToken: data.proxyToken || '',
+      proxyTokenExpiresAt: data.proxyTokenExpiresAt || ''
     }
   });
   await persistState(nextState);
@@ -147,6 +167,26 @@ export async function syncRemoteConfig(sourceState) {
     groups: nextState.remote.groups.length
   });
   return null;
+}
+
+export async function selectTenant(tenantId) {
+  const state = await getState();
+  const activeTenantId = String(tenantId || '').trim();
+  const nextState = mergeState({
+    ...state,
+    enabled: false,
+    session: {
+      ...state.session,
+      activeTenantId,
+      proxyToken: '',
+      proxyTokenExpiresAt: ''
+    },
+    remote: DEFAULT_STATE.remote,
+    selection: DEFAULT_STATE.selection
+  });
+  await persistState(nextState);
+  await appendLog('info', 'tenant_selected', { tenantId: activeTenantId });
+  return syncRemoteConfig(nextState);
 }
 
 export async function logout() {

@@ -40,7 +40,12 @@ func (r *Router) handleExtensionBootstrap(w http.ResponseWriter, req *http.Reque
 		writeError(w, http.StatusBadRequest, "tenant_required")
 		return
 	}
-	writeSuccess(w, http.StatusOK, r.service.ExtensionBootstrapForTenant(account, tenantCtx))
+	result, ok := r.service.ExtensionBootstrapForTenant(account, tenantCtx)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "proxy_token_issue_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, result)
 }
 
 func (r *Router) handleEnums(w http.ResponseWriter, req *http.Request) {

@@ -119,6 +119,12 @@
   "password": {
     "message": "Password"
   },
+  "tenant": {
+    "message": "Tenant"
+  },
+  "tenantSelectPlaceholder": {
+    "message": "Select a tenant"
+  },
   "testConnection": {
     "message": "Test Connection"
   },
@@ -228,7 +234,10 @@
     "message": "Enter a test target."
   },
   "statusLoggedIn": {
-    "message": "Login succeeded and remote groups were loaded."
+    "message": "Login succeeded and tenant rules were loaded."
+  },
+  "statusTenantRequired": {
+    "message": "Login succeeded. Select a tenant to sync rules."
   },
   "statusConnectionOk": {
     "message": "Server reachable. You can try signing in now."

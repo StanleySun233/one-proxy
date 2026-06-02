@@ -11,7 +11,9 @@ export const DEFAULT_STATE = {
     expiresAt: '',
     proxyToken: '',
     proxyTokenExpiresAt: '',
-    mustRotatePassword: false
+    mustRotatePassword: false,
+    tenantMemberships: [],
+    activeTenantId: ''
   },
   remote: {
     policyRevision: '',
@@ -98,6 +100,16 @@ function normalizeTopologyNode(node) {
   };
 }
 
+function normalizeTenantMembership(membership) {
+  return {
+    tenantId: '',
+    tenantName: '',
+    role: '',
+    joinedAt: '',
+    ...membership
+  };
+}
+
 export function mergeState(raw) {
   const { proxyAuth: _proxyAuth, ...rest } = raw || {};
   const state = {
@@ -125,6 +137,10 @@ export function mergeState(raw) {
     }
   };
   state.remote.groups = Array.isArray(state.remote.groups) ? state.remote.groups.map(normalizeGroup) : [];
+  state.session.tenantMemberships = Array.isArray(state.session.tenantMemberships) ? state.session.tenantMemberships.map(normalizeTenantMembership) : [];
+  if (!state.session.tenantMemberships.find((membership) => membership.tenantId === state.session.activeTenantId)) {
+    state.session.activeTenantId = state.session.tenantMemberships.length === 1 ? state.session.tenantMemberships[0].tenantId : '';
+  }
   state.localOverrides.directHosts = uniqueStrings(state.localOverrides.directHosts);
   state.localOverrides.proxyHosts = uniqueStrings(state.localOverrides.proxyHosts);
   if (!state.remote.groups.find((group) => group.id === state.selection.activeGroupId)) {

@@ -57,10 +57,12 @@ type LogoutInput struct {
 }
 
 type ExtensionBootstrap struct {
-	Account        Account          `json:"account"`
-	PolicyRevision string           `json:"policyRevision"`
-	FetchedAt      string           `json:"fetchedAt"`
-	Groups         []ExtensionGroup `json:"groups"`
+	Account             Account          `json:"account"`
+	PolicyRevision      string           `json:"policyRevision"`
+	FetchedAt           string           `json:"fetchedAt"`
+	ProxyToken          string           `json:"proxyToken"`
+	ProxyTokenExpiresAt string           `json:"proxyTokenExpiresAt"`
+	Groups              []ExtensionGroup `json:"groups"`
 }
 
 type ExtensionGroup struct {

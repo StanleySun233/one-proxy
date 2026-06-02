@@ -7,6 +7,16 @@ type LoginResponse = {
   account: { account: string };
   accessToken: string;
   refreshToken: string;
+  tenantMemberships: TenantMembership[];
+  activeTenantId: string | null;
+};
+
+type TenantMembership = {
+  tenantId: string;
+  tenantName: string;
+};
+
+type BootstrapResponse = {
   proxyToken: string;
   proxyTokenExpiresAt: string;
 };
@@ -16,6 +26,7 @@ type Session = {
   account: string;
   accessToken: string;
   refreshToken: string;
+  tenantId: string;
   proxyToken: string;
   proxyTokenExpiresAt: string;
 };
@@ -45,16 +56,19 @@ async function login(context: vscode.ExtensionContext) {
   if (!response.ok || !payload.data) {
     throw new Error(payload.message || 'login_failed');
   }
+  const tenantId = await selectTenant(payload.data);
+  const bootstrap = await extensionBootstrap(trimUrl(panelUrl), payload.data.accessToken, tenantId);
   const session: Session = {
     panelUrl: trimUrl(panelUrl),
     account: payload.data.account.account,
     accessToken: payload.data.accessToken,
     refreshToken: payload.data.refreshToken,
-    proxyToken: payload.data.proxyToken,
-    proxyTokenExpiresAt: payload.data.proxyTokenExpiresAt
+    tenantId,
+    proxyToken: bootstrap.proxyToken,
+    proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt
   };
   await context.secrets.store(sessionKey, JSON.stringify(session));
-  vscode.window.showInformationMessage(`Logged in as ${session.account}`);
+  vscode.window.showInformationMessage(`Logged in as ${session.account} tenant ${session.tenantId}`);
 }
 
 async function writeSshConfig(context: vscode.ExtensionContext) {
@@ -86,6 +100,41 @@ async function readSession(context: vscode.ExtensionContext): Promise<Session> {
     throw new Error('not_logged_in');
   }
   return JSON.parse(raw) as Session;
+}
+
+async function selectTenant(session: LoginResponse): Promise<string> {
+  if (session.activeTenantId) {
+    return session.activeTenantId;
+  }
+  if (session.tenantMemberships.length === 1) {
+    return session.tenantMemberships[0].tenantId;
+  }
+  const selected = await vscode.window.showQuickPick(
+    session.tenantMemberships.map((membership) => ({
+      label: membership.tenantName || membership.tenantId,
+      description: membership.tenantId,
+      tenantId: membership.tenantId
+    })),
+    { title: 'Tenant', ignoreFocusOut: true }
+  );
+  if (!selected) {
+    throw new Error('tenant_required');
+  }
+  return selected.tenantId;
+}
+
+async function extensionBootstrap(panelUrl: string, accessToken: string, tenantId: string): Promise<BootstrapResponse> {
+  const response = await fetch(`${panelUrl}/api/v1/extension/bootstrap`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'X-Tenant-ID': tenantId
+    }
+  });
+  const payload = await response.json() as { data?: BootstrapResponse; message?: string };
+  if (!response.ok || !payload.data) {
+    throw new Error(payload.message || 'bootstrap_failed');
+  }
+  return payload.data;
 }
 
 async function ensureRemoteSshInstalled() {

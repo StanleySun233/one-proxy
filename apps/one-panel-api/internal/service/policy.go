@@ -40,7 +40,11 @@ func (c *ControlPlane) NodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, b
 	return c.store.GetNodeAgentPolicy(nodeID)
 }
 
-func (c *ControlPlane) ExtensionBootstrapForTenant(account domain.Account, tenantCtx domain.TenantAuthContext) domain.ExtensionBootstrap {
+func (c *ControlPlane) ExtensionBootstrapForTenant(account domain.Account, tenantCtx domain.TenantAuthContext) (domain.ExtensionBootstrap, bool) {
+	proxyToken, proxyTokenExpiresAt, ok := c.IssueProxyToken(account, tenantCtx)
+	if !ok {
+		return domain.ExtensionBootstrap{}, false
+	}
 	scopedTenantCtx := tenantCtx
 	scopedTenantCtx.SuperAdmin = false
 	nodes := c.store.ListNodesForTenant(scopedTenantCtx)
@@ -183,9 +187,11 @@ func (c *ControlPlane) ExtensionBootstrapForTenant(account domain.Account, tenan
 		groups = append(groups, group)
 	}
 	return domain.ExtensionBootstrap{
-		Account:        account,
-		PolicyRevision: overview.Policies.ActiveRevision,
-		FetchedAt:      fetchedAt,
-		Groups:         groups,
-	}
+		Account:             account,
+		PolicyRevision:      overview.Policies.ActiveRevision,
+		FetchedAt:           fetchedAt,
+		ProxyToken:          proxyToken,
+		ProxyTokenExpiresAt: proxyTokenExpiresAt,
+		Groups:              groups,
+	}, true
 }

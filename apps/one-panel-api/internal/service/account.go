@@ -50,11 +50,7 @@ func (c *ControlPlane) DeleteAccount(accountID string) error {
 }
 
 func (c *ControlPlane) Login(account string, password string) (domain.LoginResult, bool) {
-	result, ok := c.store.Authenticate(account, password)
-	if !ok {
-		return domain.LoginResult{}, false
-	}
-	return c.attachProxyToken(result)
+	return c.store.Authenticate(account, password)
 }
 
 func (c *ControlPlane) AuthenticateAccessToken(accessToken string) (domain.Account, bool) {
@@ -62,11 +58,7 @@ func (c *ControlPlane) AuthenticateAccessToken(accessToken string) (domain.Accou
 }
 
 func (c *ControlPlane) RefreshSession(refreshToken string) (domain.LoginResult, bool) {
-	result, ok := c.store.RefreshSession(refreshToken)
-	if !ok {
-		return domain.LoginResult{}, false
-	}
-	return c.attachProxyToken(result)
+	return c.store.RefreshSession(refreshToken)
 }
 
 func (c *ControlPlane) Logout(accessToken string) bool {
@@ -110,24 +102,23 @@ func (c *ControlPlane) ResolveTenantAuthContext(account domain.Account, tenantID
 	}, nil
 }
 
-func (c *ControlPlane) attachProxyToken(result domain.LoginResult) (domain.LoginResult, bool) {
+func (c *ControlPlane) IssueProxyToken(account domain.Account, tenantCtx domain.TenantAuthContext) (string, string, bool) {
 	token, err := auth.RandomToken()
 	if err != nil {
-		return domain.LoginResult{}, false
+		return "", "", false
 	}
 	expiresAt := time.Now().UTC().Add(c.sessionTTL).Format(time.RFC3339)
+	activeTenantID := tenantCtx.ActiveTenant.TenantID
 	record := domain.ProxyTokenRecord{
-		Account:           result.Account,
+		Account:           account,
 		ExpiresAt:         expiresAt,
-		TenantMemberships: result.TenantMemberships,
-		ActiveTenantID:    result.ActiveTenantID,
+		TenantMemberships: []domain.TenantMembership{tenantCtx.ActiveTenant},
+		ActiveTenantID:    &activeTenantID,
 	}
 	if err := c.proxyTokens.Put(context.Background(), auth.TokenHash(token), record, c.sessionTTL); err != nil {
-		return domain.LoginResult{}, false
+		return "", "", false
 	}
-	result.ProxyToken = token
-	result.ProxyTokenExpiresAt = expiresAt
-	return result, true
+	return token, expiresAt, true
 }
 
 func (c *ControlPlane) ValidateProxyTokenHash(tokenHash string) domain.ProxyTokenValidation {

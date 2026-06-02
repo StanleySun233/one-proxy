@@ -83,11 +83,6 @@ components:
         expiresAt:
           type: string
           format: date-time
-        proxyToken:
-          type: string
-        proxyTokenExpiresAt:
-          type: string
-          format: date-time
         mustRotatePassword:
           type: boolean
         tenantMemberships:
@@ -134,6 +129,15 @@ paths:
       responses:
         "200":
           description: Envelope overview response
+  /api/v1/extension/bootstrap:
+    get:
+      security:
+        - controlPlaneBearer: []
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: Envelope tenant-scoped extension bootstrap response including proxyToken
   /api/v1/accounts:
     get:
       security:

@@ -4,6 +4,7 @@ import { applyThemeMode, bindThemeMode } from '../shared/theme.js';
 const controlPlaneUrl = document.getElementById('controlPlaneUrl');
 const account = document.getElementById('account');
 const password = document.getElementById('password');
+const tenantSelect = document.getElementById('tenantSelect');
 const testConnectionButton = document.getElementById('testConnectionButton');
 const loginButton = document.getElementById('loginButton');
 const logoutButton = document.getElementById('logoutButton');
@@ -48,6 +49,9 @@ function formatError(message) {
   }
   if (message === 'connection_failed') {
     return text('statusConnectionFailed');
+  }
+  if (message === 'tenant_required') {
+    return text('statusTenantRequired');
   }
   return message;
 }
@@ -155,6 +159,19 @@ function renderSession() {
   applyThemeMode(state.themeMode);
   controlPlaneUrl.value = state.controlPlaneUrl || '';
   account.value = session.account || '';
+  tenantSelect.innerHTML = '';
+  const emptyTenant = document.createElement('option');
+  emptyTenant.value = '';
+  emptyTenant.textContent = text('tenantSelectPlaceholder');
+  tenantSelect.appendChild(emptyTenant);
+  for (const membership of session.tenantMemberships || []) {
+    const option = document.createElement('option');
+    option.value = membership.tenantId;
+    option.textContent = membership.tenantName || membership.tenantId;
+    tenantSelect.appendChild(option);
+  }
+  tenantSelect.value = session.activeTenantId || '';
+  tenantSelect.disabled = !session.accessToken || (session.tenantMemberships || []).length === 0;
   policyMeta.textContent = remote.policyRevision ? `${text('policyShort')} ${remote.policyRevision}` : text('notSynced');
   enabledMeta.textContent = state.enabled ? text('on') : text('off');
   groupCountMeta.textContent = String((remote.groups || []).length);
@@ -167,7 +184,7 @@ function renderSession() {
     ? text('sessionSummary', [session.account || '-', session.expiresAt ? new Date(session.expiresAt).toLocaleString() : '-'])
     : text('statusLoginRequired');
   logoutButton.disabled = !session.accessToken;
-  syncRemote.disabled = !session.accessToken;
+  syncRemote.disabled = !session.accessToken || !session.activeTenantId;
 }
 
 function render(nextBundle) {
@@ -191,7 +208,20 @@ loginButton.addEventListener('click', async () => {
   }
   password.value = '';
   render(result);
-  setFeedback('ok', text('statusLoggedIn'));
+  setFeedback('ok', result.session.activeTenantId ? text('statusLoggedIn') : text('statusTenantRequired'));
+});
+
+tenantSelect.addEventListener('change', async () => {
+  const result = await sendMessage({
+    type: 'select-tenant',
+    tenantId: tenantSelect.value
+  });
+  if (result && result.error) {
+    setFeedback('error', formatError(result.error));
+    return;
+  }
+  render(result);
+  setFeedback('ok', text('statusSynced'));
 });
 
 testConnectionButton.addEventListener('click', async () => {
