@@ -3,7 +3,7 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
 
 func (s *MySQLStore) loadChainHops(chainID string) []string {

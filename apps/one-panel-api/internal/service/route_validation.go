@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
 
 func (c *ControlPlane) validateMatchValue(matchType, matchValue string) link.MatchValueValidation {

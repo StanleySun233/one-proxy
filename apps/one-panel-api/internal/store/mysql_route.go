@@ -2,7 +2,7 @@ package store
 
 import (
 	"database/sql"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
 
 func (s *MySQLStore) ListRouteRules() []link.RouteRule {

@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 	"net/http"
 	"strings"
 )
