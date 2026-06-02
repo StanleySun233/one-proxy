@@ -3,10 +3,14 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/auth"
 )
 
 type proxyTokenValidateRequest struct {
-	TokenHash string `json:"tokenHash"`
+	TokenHash    string `json:"tokenHash"`
+	Token        string `json:"token"`
+	AccessPathID string `json:"accessPathId"`
 }
 
 func (r *Router) handleProxyTokenValidate(w http.ResponseWriter, req *http.Request) {
@@ -19,8 +23,19 @@ func (r *Router) handleProxyTokenValidate(w http.ResponseWriter, req *http.Reque
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	result := r.service.ValidateProxyTokenHash(payload.TokenHash)
+	tokenHash := payload.TokenHash
+	if tokenHash == "" && payload.Token != "" {
+		tokenHash = auth.TokenHash(payload.Token)
+	}
+	result := r.service.ValidateProxyTokenHash(tokenHash)
 	if !result.Valid {
+		writeError(w, http.StatusUnauthorized, "invalid_proxy_token")
+		return
+	}
+	if result.ActiveTenantID == nil && len(result.TenantMemberships) == 1 {
+		result.ActiveTenantID = &result.TenantMemberships[0].TenantID
+	}
+	if result.ActiveTenantID == nil {
 		writeError(w, http.StatusUnauthorized, "invalid_proxy_token")
 		return
 	}

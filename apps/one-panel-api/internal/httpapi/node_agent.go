@@ -22,6 +22,13 @@ func (r *Router) handleNodeAgentPolicy(w http.ResponseWriter, req *http.Request)
 		writeError(w, http.StatusNotFound, "policy_not_found")
 		return
 	}
+	var payload struct {
+		Snapshots []json.RawMessage `json:"snapshots"`
+	}
+	if err := json.Unmarshal([]byte(item.PayloadJSON), &payload); err != nil || len(payload.Snapshots) == 0 {
+		writeError(w, http.StatusNotFound, "policy_not_found")
+		return
+	}
 	writeSuccess(w, http.StatusOK, item)
 }
 

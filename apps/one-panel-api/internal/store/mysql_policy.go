@@ -1,15 +1,25 @@
 package store
 
 import (
-	"context"
-	"database/sql"
+	"encoding/json"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	link "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/policy"
 )
 
-func (s *MySQLStore) policyNodes() []domain.Node {
-	all := s.ListNodes()
+func tenantPolicyContext(tenantCtx domain.TenantAuthContext) domain.TenantAuthContext {
+	tenantCtx.SuperAdmin = false
+	return tenantCtx
+}
+
+func (s *MySQLStore) tenantPolicyInputs(tenantCtx domain.TenantAuthContext) ([]domain.Node, []domain.NodeLink, []link.Chain, []link.RouteRule) {
+	scoped := tenantPolicyContext(tenantCtx)
+	return s.policyNodesForTenant(scoped), s.ListNodeLinksForTenant(scoped), s.ListChainsForTenant(scoped), s.ListRouteRulesForTenant(scoped)
+}
+
+func (s *MySQLStore) policyNodesForTenant(tenantCtx domain.TenantAuthContext) []domain.Node {
+	all := s.ListNodesForTenant(tenantCtx)
 	items := make([]domain.Node, 0, len(all))
 	for _, node := range all {
 		if !node.Enabled || node.Status == domain.NodeStatusPending {
@@ -18,81 +28,6 @@ func (s *MySQLStore) policyNodes() []domain.Node {
 		items = append(items, node)
 	}
 	return items
-}
-
-func (s *MySQLStore) buildGroupEntries() []policy.GroupScopeEntry {
-	groupRows, err := s.db.Query("SELECT id, name FROM `groups` WHERE enabled = 1")
-	if err != nil {
-		return nil
-	}
-	defer groupRows.Close()
-	type rawEntry struct {
-		id    string
-		entry policy.GroupScopeEntry
-	}
-	var rawEntries []rawEntry
-	for groupRows.Next() {
-		var id, name string
-		if err := groupRows.Scan(&id, &name); err != nil {
-			continue
-		}
-		rawEntries = append(rawEntries, rawEntry{id: id, entry: policy.GroupScopeEntry{GroupName: name}})
-	}
-	for i, re := range rawEntries {
-		scopeRows, err := s.db.Query("SELECT scope_key FROM group_scopes WHERE group_id = ?", re.id)
-		if err != nil {
-			continue
-		}
-		var scopes []string
-		for scopeRows.Next() {
-			var sk string
-			if err := scopeRows.Scan(&sk); err == nil {
-				scopes = append(scopes, sk)
-			}
-		}
-		scopeRows.Close()
-		rawEntries[i].entry.ScopeKeys = scopes
-
-		acctRows, err := s.db.Query("SELECT account_id FROM account_groups WHERE group_id = ?", re.id)
-		if err != nil {
-			continue
-		}
-		var accts []string
-		for acctRows.Next() {
-			var aid string
-			if err := acctRows.Scan(&aid); err == nil {
-				accts = append(accts, aid)
-			}
-		}
-		acctRows.Close()
-		rawEntries[i].entry.AccountIDs = accts
-	}
-	entries := make([]policy.GroupScopeEntry, 0, len(rawEntries))
-	for _, re := range rawEntries {
-		entries = append(entries, re.entry)
-	}
-	return entries
-}
-
-func (s *MySQLStore) compileLatestPolicyForNode(nodeID string) (string, string, bool) {
-	exists, err := s.exists(context.Background(), "SELECT 1 FROM nodes WHERE id = ? AND enabled = 1 AND status != 'pending'", nodeID)
-	if err != nil || !exists {
-		return "", "", false
-	}
-	var revisionID string
-	var version string
-	err = s.db.QueryRow(
-		`SELECT id, version FROM policy_revisions ORDER BY created_at DESC LIMIT 1`,
-	).Scan(&revisionID, &version)
-	if err != nil {
-		return "", "", false
-	}
-	snapshotJSON, err := policy.CompileForNode(nodeID, s.policyNodes(), s.ListNodeLinks(), s.ListChains(), s.ListRouteRules(), s.buildGroupEntries())
-	if err != nil {
-		return "", "", false
-	}
-	_ = revisionID
-	return version, snapshotJSON, true
 }
 
 func (s *MySQLStore) ListPolicyRevisions() []domain.PolicyRevision {
@@ -118,13 +53,36 @@ func (s *MySQLStore) ListPolicyRevisions() []domain.PolicyRevision {
 	return items
 }
 
-func (s *MySQLStore) PublishPolicy(accountID string) (domain.PolicyRevision, error) {
-	nodes := s.policyNodes()
-	links := s.ListNodeLinks()
-	chains := s.ListChains()
-	rules := s.ListRouteRules()
-	groupEntries := s.buildGroupEntries()
-	raw, err := policy.Compile(nodes, links, chains, rules, groupEntries)
+func (s *MySQLStore) ListPolicyRevisionsForTenant(tenantCtx domain.TenantAuthContext) []domain.PolicyRevision {
+	scoped := tenantPolicyContext(tenantCtx)
+	rows, err := s.db.Query(
+		`SELECT p.id, p.version, p.status, p.created_at, COUNT(DISTINCT a.node_id)
+		 FROM policy_revisions p
+		 JOIN node_policy_assignments a ON a.policy_revision_id = p.id
+		 JOIN tenant_nodes tn ON tn.node_id = a.node_id
+		 WHERE tn.tenant_id = ?
+		 GROUP BY p.id, p.version, p.status, p.created_at
+		 ORDER BY p.created_at DESC`,
+		scoped.ActiveTenant.TenantID,
+	)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	items := make([]domain.PolicyRevision, 0)
+	for rows.Next() {
+		var item domain.PolicyRevision
+		if err := rows.Scan(&item.ID, &item.Version, &item.Status, &item.CreatedAt, &item.AssignedNodes); err != nil {
+			continue
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func (s *MySQLStore) PublishPolicy(tenantCtx domain.TenantAuthContext, accountID string) (domain.PolicyRevision, error) {
+	nodes, links, chains, rules := s.tenantPolicyInputs(tenantCtx)
+	raw, err := policy.CompileForTenant(tenantCtx.ActiveTenant.TenantID, nodes, links, chains, rules, nil)
 	if err != nil {
 		return domain.PolicyRevision{}, err
 	}
@@ -151,17 +109,21 @@ func (s *MySQLStore) PublishPolicy(accountID string) (domain.PolicyRevision, err
 	); err != nil {
 		return domain.PolicyRevision{}, err
 	}
-	if _, err := tx.Exec("DELETE FROM node_policy_assignments"); err != nil {
-		return domain.PolicyRevision{}, err
-	}
 	for _, node := range nodes {
-		snapshotJSON, err := policy.CompileForNode(node.ID, nodes, links, chains, rules, groupEntries)
+		if _, err := tx.Exec("DELETE FROM node_policy_assignments WHERE node_id = ?", node.ID); err != nil {
+			return domain.PolicyRevision{}, err
+		}
+		snapshotJSON, err := policy.CompileForNode(node.ID, nodes, links, chains, rules, nil)
+		if err != nil {
+			return domain.PolicyRevision{}, err
+		}
+		wrapped, err := tenantNodePolicyPayload(tenantCtx.ActiveTenant.TenantID, item.Version, snapshotJSON)
 		if err != nil {
 			return domain.PolicyRevision{}, err
 		}
 		if _, err := tx.Exec(
 			`INSERT INTO node_policy_assignments (node_id, policy_revision_id, snapshot_json, assigned_at) VALUES (?, ?, ?, ?)`,
-			node.ID, item.ID, snapshotJSON, item.CreatedAt,
+			node.ID, item.ID, wrapped, item.CreatedAt,
 		); err != nil {
 			return domain.PolicyRevision{}, err
 		}
@@ -172,43 +134,100 @@ func (s *MySQLStore) PublishPolicy(accountID string) (domain.PolicyRevision, err
 	return item, nil
 }
 
-func (s *MySQLStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
-	var (
-		policyID string
-		payload  string
-		version  string
+type tenantNodePolicySnapshot struct {
+	TenantID         string          `json:"tenantId"`
+	PolicyRevisionID string          `json:"policyRevisionId"`
+	Payload          json.RawMessage `json:"payload"`
+}
+
+type tenantNodePolicyPayloadResult struct {
+	Snapshots []tenantNodePolicySnapshot `json:"snapshots"`
+}
+
+func tenantNodePolicyPayload(tenantID string, policyRevisionID string, snapshotJSON string) (string, error) {
+	payload, err := json.Marshal(tenantNodePolicyPayloadResult{
+		Snapshots: []tenantNodePolicySnapshot{
+			{
+				TenantID:         tenantID,
+				PolicyRevisionID: policyRevisionID,
+				Payload:          json.RawMessage(snapshotJSON),
+			},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	return string(payload), nil
+}
+
+func (s *MySQLStore) nodePolicyTenantContexts(nodeID string) []domain.TenantAuthContext {
+	rows, err := s.db.Query(
+		`SELECT t.id, t.name, tn.permission, t.created_at
+		 FROM tenant_nodes tn
+		 JOIN tenants t ON t.id = tn.tenant_id
+		 WHERE tn.node_id = ? AND tn.permission IN (?, ?)
+		 ORDER BY t.id`,
+		nodeID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 	)
-	err := s.db.QueryRow(
-		`SELECT p.id, p.version, a.snapshot_json
-		 FROM node_policy_assignments a
-		 JOIN policy_revisions p ON p.id = a.policy_revision_id
-		WHERE a.node_id = ?
-		 ORDER BY a.assigned_at DESC
-		 LIMIT 1`,
-		nodeID,
-	).Scan(&policyID, &version, &payload)
-	if err == nil {
-		return domain.NodeAgentPolicy{
-			NodeID:           nodeID,
-			PolicyRevisionID: version,
-			PayloadJSON:      payload,
-		}, true
+	if err != nil {
+		return nil
 	}
-	if err != sql.ErrNoRows {
-		return domain.NodeAgentPolicy{}, false
+	defer rows.Close()
+	items := make([]domain.TenantAuthContext, 0)
+	for rows.Next() {
+		var tenantID string
+		var tenantName string
+		var permission domain.BindingPermission
+		var joinedAt string
+		if err := rows.Scan(&tenantID, &tenantName, &permission, &joinedAt); err != nil {
+			continue
+		}
+		items = append(items, domain.TenantAuthContext{
+			ActiveTenant: domain.TenantMembership{
+				TenantID:   tenantID,
+				TenantName: tenantName,
+				Role:       domain.TenantRoleAdmin,
+				JoinedAt:   joinedAt,
+			},
+		})
 	}
-	latestPolicyVersion, snapshotJSON, ok := s.compileLatestPolicyForNode(nodeID)
+	return items
+}
+
+func (s *MySQLStore) latestPolicyVersion() (string, bool) {
+	var version string
+	err := s.db.QueryRow(`SELECT version FROM policy_revisions ORDER BY created_at DESC LIMIT 1`).Scan(&version)
+	return version, err == nil
+}
+
+func (s *MySQLStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
+	version, ok := s.latestPolicyVersion()
 	if !ok {
 		return domain.NodeAgentPolicy{}, false
 	}
-	_, _ = s.db.Exec(
-		`INSERT INTO node_policy_assignments (node_id, policy_revision_id, snapshot_json, assigned_at)
-		 SELECT ?, id, ?, ? FROM policy_revisions ORDER BY created_at DESC LIMIT 1`,
-		nodeID, snapshotJSON, nowRFC3339(),
-	)
+	snapshots := make([]tenantNodePolicySnapshot, 0)
+	for _, tenantCtx := range s.nodePolicyTenantContexts(nodeID) {
+		nodes, links, chains, rules := s.tenantPolicyInputs(tenantCtx)
+		snapshotJSON, err := policy.CompileForNode(nodeID, nodes, links, chains, rules, nil)
+		if err != nil {
+			continue
+		}
+		snapshots = append(snapshots, tenantNodePolicySnapshot{
+			TenantID:         tenantCtx.ActiveTenant.TenantID,
+			PolicyRevisionID: version,
+			Payload:          json.RawMessage(snapshotJSON),
+		})
+	}
+	if len(snapshots) == 0 {
+		return domain.NodeAgentPolicy{}, false
+	}
+	payload, err := json.Marshal(tenantNodePolicyPayloadResult{Snapshots: snapshots})
+	if err != nil {
+		return domain.NodeAgentPolicy{}, false
+	}
 	return domain.NodeAgentPolicy{
 		NodeID:           nodeID,
-		PolicyRevisionID: latestPolicyVersion,
-		PayloadJSON:      snapshotJSON,
+		PolicyRevisionID: version,
+		PayloadJSON:      string(payload),
 	}, true
 }

@@ -15,11 +15,29 @@ type GroupScopeEntry struct {
 }
 
 type Snapshot struct {
+	TenantID   string            `json:"tenantId,omitempty"`
 	Nodes      []domain.Node     `json:"nodes"`
 	Links      []domain.NodeLink `json:"links"`
 	Chains     []link.Chain      `json:"chains"`
 	RouteRules []link.RouteRule  `json:"routeRules"`
 	Groups     []GroupScopeEntry `json:"groups"`
+}
+
+func CompileForTenant(tenantID string, nodes []domain.Node, links []domain.NodeLink, chains []link.Chain, rules []link.RouteRule, groups []GroupScopeEntry) (string, error) {
+	raw, err := Compile(nodes, links, chains, rules, groups)
+	if err != nil {
+		return "", err
+	}
+	var snapshot Snapshot
+	if err := json.Unmarshal([]byte(raw), &snapshot); err != nil {
+		return "", err
+	}
+	snapshot.TenantID = tenantID
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		return "", err
+	}
+	return string(payload), nil
 }
 
 func Compile(nodes []domain.Node, links []domain.NodeLink, chains []link.Chain, rules []link.RouteRule, groups []GroupScopeEntry) (string, error) {

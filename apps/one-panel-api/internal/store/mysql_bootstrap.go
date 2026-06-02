@@ -7,7 +7,14 @@ import (
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/auth"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	link "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
 )
+
+func (s *MySQLStore) ExtensionBootstrapResourcesForTenant(tenantCtx domain.TenantAuthContext) ([]domain.Node, []link.Chain, []link.RouteRule) {
+	scopedTenantCtx := tenantCtx
+	scopedTenantCtx.SuperAdmin = false
+	return s.ListNodesForTenant(scopedTenantCtx), s.ListChainsForTenant(scopedTenantCtx), s.ListRouteRulesForTenant(scopedTenantCtx)
+}
 
 func (s *MySQLStore) ensureBootstrapTokenMetadataColumns(ctx context.Context) error {
 	columns := map[string]string{

@@ -30,7 +30,12 @@ func (r *Router) handleExtensionBootstrap(w http.ResponseWriter, req *http.Reque
 		writeError(w, http.StatusUnauthorized, "invalid_access_token")
 		return
 	}
-	writeSuccess(w, http.StatusOK, r.service.ExtensionBootstrap(account))
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.ExtensionBootstrapForTenant(account, tenantCtx))
 }
 
 func (r *Router) handleEnums(w http.ResponseWriter, req *http.Request) {
@@ -84,7 +89,12 @@ func (r *Router) handlePolicyRevisions(w http.ResponseWriter, req *http.Request)
 		writeMethodNotAllowed(w, "GET")
 		return
 	}
-	writeSuccess(w, http.StatusOK, r.service.PolicyRevisions())
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.PolicyRevisions(tenantCtx))
 }
 
 func (r *Router) handlePolicyPublish(w http.ResponseWriter, req *http.Request) {
@@ -97,7 +107,12 @@ func (r *Router) handlePolicyPublish(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid_access_token")
 		return
 	}
-	item, err := r.service.PublishPolicy(account.ID)
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	item, err := r.service.PublishPolicy(tenantCtx, account.ID)
 	if err != nil {
 		writeServiceError(w, req, err, "publish_failed")
 		return

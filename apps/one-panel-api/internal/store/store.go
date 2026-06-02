@@ -135,7 +135,8 @@ type ScopeStore interface {
 
 type PolicyStore interface {
 	ListPolicyRevisions() []domain.PolicyRevision
-	PublishPolicy(accountID string) (domain.PolicyRevision, error)
+	ListPolicyRevisionsForTenant(tenantCtx domain.TenantAuthContext) []domain.PolicyRevision
+	PublishPolicy(tenantCtx domain.TenantAuthContext, accountID string) (domain.PolicyRevision, error)
 	GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool)
 }
 
