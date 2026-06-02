@@ -26,7 +26,11 @@ try {
     throw new Error(`unexpected_service_worker:${serviceWorker.url()}`);
   }
 
-  const result = await serviceWorker.evaluate(async () => {
+  const extensionId = new URL(serviceWorker.url()).host;
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/options/index.html`);
+
+  const result = await page.evaluate(async () => {
     const manifest = chrome.runtime.getManifest();
     await chrome.storage.local.set({ oneProxyServiceWorkerSmoke: 'ok' });
     const stored = await chrome.storage.local.get('oneProxyServiceWorkerSmoke');
@@ -38,7 +42,7 @@ try {
     };
   });
 
-  if (!result.id || result.name !== 'One Proxy' || result.stored !== 'ok') {
+  if (result.id !== extensionId || result.name !== 'One Proxy' || result.stored !== 'ok') {
     throw new Error('service_worker_runtime_check_failed');
   }
 
