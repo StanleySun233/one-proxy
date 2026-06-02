@@ -28,6 +28,26 @@ CREATE TABLE IF NOT EXISTS sessions (
   CONSTRAINT fk_sessions_account_id FOREIGN KEY (account_id) REFERENCES accounts(id)
 );
 
+CREATE TABLE IF NOT EXISTS tenants (
+  id VARCHAR(191) PRIMARY KEY,
+  name VARCHAR(191) NOT NULL UNIQUE,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tenant_memberships (
+  tenant_id VARCHAR(191) NOT NULL,
+  account_id VARCHAR(191) NOT NULL,
+  role VARCHAR(64) NOT NULL,
+  create_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  PRIMARY KEY (tenant_id, account_id),
+  CONSTRAINT fk_tenant_memberships_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_memberships_account_id FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_memberships_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
+);
+
 CREATE TABLE IF NOT EXISTS nodes (
   id VARCHAR(191) PRIMARY KEY,
   name VARCHAR(191) NOT NULL,
@@ -41,9 +61,13 @@ CREATE TABLE IF NOT EXISTS nodes (
   reviewed_by VARCHAR(191),
   reviewed_at VARCHAR(64),
   reject_reason TEXT,
+  create_id VARCHAR(191) NOT NULL,
+  owner_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
   updated_at VARCHAR(64) NOT NULL,
-  CONSTRAINT fk_nodes_parent_node_id FOREIGN KEY (parent_node_id) REFERENCES nodes(id)
+  CONSTRAINT fk_nodes_parent_node_id FOREIGN KEY (parent_node_id) REFERENCES nodes(id),
+  CONSTRAINT fk_nodes_create_id FOREIGN KEY (create_id) REFERENCES accounts(id),
+  CONSTRAINT fk_nodes_owner_id FOREIGN KEY (owner_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS node_links (
@@ -52,18 +76,26 @@ CREATE TABLE IF NOT EXISTS node_links (
   target_node_id VARCHAR(191) NOT NULL,
   link_type VARCHAR(64) NOT NULL,
   trust_state VARCHAR(64) NOT NULL,
+  create_id VARCHAR(191) NOT NULL,
+  owner_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
   updated_at VARCHAR(64) NOT NULL,
   CONSTRAINT fk_node_links_source_node_id FOREIGN KEY (source_node_id) REFERENCES nodes(id),
-  CONSTRAINT fk_node_links_target_node_id FOREIGN KEY (target_node_id) REFERENCES nodes(id)
+  CONSTRAINT fk_node_links_target_node_id FOREIGN KEY (target_node_id) REFERENCES nodes(id),
+  CONSTRAINT fk_node_links_create_id FOREIGN KEY (create_id) REFERENCES accounts(id),
+  CONSTRAINT fk_node_links_owner_id FOREIGN KEY (owner_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS scopes (
   id VARCHAR(191) PRIMARY KEY,
   name VARCHAR(191) NOT NULL,
   description TEXT,
+  create_id VARCHAR(191) NOT NULL,
+  owner_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
-  updated_at VARCHAR(64) NOT NULL
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_scopes_create_id FOREIGN KEY (create_id) REFERENCES accounts(id),
+  CONSTRAINT fk_scopes_owner_id FOREIGN KEY (owner_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS chains (
@@ -71,8 +103,12 @@ CREATE TABLE IF NOT EXISTS chains (
   name VARCHAR(191) NOT NULL UNIQUE,
   destination_scope VARCHAR(191) NOT NULL,
   enabled TINYINT(1) NOT NULL DEFAULT 1,
+  create_id VARCHAR(191) NOT NULL,
+  owner_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
-  updated_at VARCHAR(64) NOT NULL
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_chains_create_id FOREIGN KEY (create_id) REFERENCES accounts(id),
+  CONSTRAINT fk_chains_owner_id FOREIGN KEY (owner_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS chain_hops (
@@ -93,9 +129,13 @@ CREATE TABLE IF NOT EXISTS route_rules (
   chain_id VARCHAR(191),
   destination_scope VARCHAR(191),
   enabled TINYINT(1) NOT NULL DEFAULT 1,
+  create_id VARCHAR(191) NOT NULL,
+  owner_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
   updated_at VARCHAR(64) NOT NULL,
-  CONSTRAINT fk_route_rules_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id)
+  CONSTRAINT fk_route_rules_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id),
+  CONSTRAINT fk_route_rules_create_id FOREIGN KEY (create_id) REFERENCES accounts(id),
+  CONSTRAINT fk_route_rules_owner_id FOREIGN KEY (owner_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS policy_revisions (
@@ -198,11 +238,87 @@ CREATE TABLE IF NOT EXISTS node_access_paths (
   auth_mode VARCHAR(64) NOT NULL DEFAULT 'proxy_token',
   options_json LONGTEXT NOT NULL,
   enabled TINYINT(1) NOT NULL DEFAULT 1,
+  create_id VARCHAR(191) NOT NULL,
+  owner_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
   updated_at VARCHAR(64) NOT NULL,
   CONSTRAINT fk_node_access_paths_target_node_id FOREIGN KEY (target_node_id) REFERENCES nodes(id),
   CONSTRAINT fk_node_access_paths_entry_node_id FOREIGN KEY (entry_node_id) REFERENCES nodes(id),
-  CONSTRAINT fk_node_access_paths_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id)
+  CONSTRAINT fk_node_access_paths_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id),
+  CONSTRAINT fk_node_access_paths_create_id FOREIGN KEY (create_id) REFERENCES accounts(id),
+  CONSTRAINT fk_node_access_paths_owner_id FOREIGN KEY (owner_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_nodes (
+  tenant_id VARCHAR(191) NOT NULL,
+  node_id VARCHAR(191) NOT NULL,
+  permission VARCHAR(64) NOT NULL,
+  create_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  PRIMARY KEY (tenant_id, node_id),
+  CONSTRAINT fk_tenant_nodes_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_nodes_node_id FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_nodes_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_node_links (
+  tenant_id VARCHAR(191) NOT NULL,
+  node_link_id VARCHAR(191) NOT NULL,
+  permission VARCHAR(64) NOT NULL,
+  create_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  PRIMARY KEY (tenant_id, node_link_id),
+  CONSTRAINT fk_tenant_node_links_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_node_links_node_link_id FOREIGN KEY (node_link_id) REFERENCES node_links(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_node_links_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_chains (
+  tenant_id VARCHAR(191) NOT NULL,
+  chain_id VARCHAR(191) NOT NULL,
+  permission VARCHAR(64) NOT NULL,
+  create_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  PRIMARY KEY (tenant_id, chain_id),
+  CONSTRAINT fk_tenant_chains_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_chains_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_chains_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_route_rules (
+  tenant_id VARCHAR(191) NOT NULL,
+  route_rule_id VARCHAR(191) NOT NULL,
+  permission VARCHAR(64) NOT NULL,
+  create_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  PRIMARY KEY (tenant_id, route_rule_id),
+  CONSTRAINT fk_tenant_route_rules_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_route_rules_route_rule_id FOREIGN KEY (route_rule_id) REFERENCES route_rules(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_route_rules_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_scopes (
+  tenant_id VARCHAR(191) NOT NULL,
+  scope_id VARCHAR(191) NOT NULL,
+  permission VARCHAR(64) NOT NULL,
+  create_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  PRIMARY KEY (tenant_id, scope_id),
+  CONSTRAINT fk_tenant_scopes_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_scopes_scope_id FOREIGN KEY (scope_id) REFERENCES scopes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_scopes_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_access_paths (
+  tenant_id VARCHAR(191) NOT NULL,
+  access_path_id VARCHAR(191) NOT NULL,
+  permission VARCHAR(64) NOT NULL,
+  create_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  PRIMARY KEY (tenant_id, access_path_id),
+  CONSTRAINT fk_tenant_access_paths_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_access_paths_access_path_id FOREIGN KEY (access_path_id) REFERENCES node_access_paths(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_access_paths_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS node_onboarding_tasks (
@@ -325,6 +441,11 @@ INSERT IGNORE INTO field_enum (id, field, value, name, meta) VALUES
 ('enum-node_status-pending', 'node_status', 'pending', 'Pending', '{"color":"#6b7280","className":"is-muted"}'),
 ('enum-node_status-inactive', 'node_status', 'inactive', 'Inactive', '{"color":"#9ca3af","className":"is-muted"}'),
 ('enum-account_role-super_admin', 'account_role', 'super_admin', 'Super Admin', '{}'),
+('enum-tenant_role-tenant_admin', 'tenant_role', 'tenant_admin', 'Tenant Admin', '{}'),
+('enum-tenant_role-user', 'tenant_role', 'user', 'User', '{}'),
+('enum-binding_permission-manage', 'binding_permission', 'manage', 'Manage', '{}'),
+('enum-binding_permission-use', 'binding_permission', 'use', 'Use', '{}'),
+('enum-binding_permission-view', 'binding_permission', 'view', 'View', '{}'),
 ('enum-account_status-active', 'account_status', 'active', 'Active', '{}'),
 ('enum-account_status-disabled', 'account_status', 'disabled', 'Disabled', '{}'),
 ('enum-path_mode-direct', 'path_mode', 'direct', 'Direct', '{}'),
