@@ -5,13 +5,21 @@ on:
     branches: [main]
     paths:
       - 'apps/one-proxy-node/**'
-      - 'docker/one-proxy-node*.Dockerfile'
+      - 'docker/one-proxy-node.Dockerfile'
       - '.github/workflows/one-proxy-node-image.yml'
+      - '!apps/one-proxy-node/go.mod'
+      - '!apps/one-proxy-node/go.sum'
   pull_request:
     paths:
       - 'apps/one-proxy-node/**'
-      - 'docker/one-proxy-node*.Dockerfile'
+      - 'docker/one-proxy-node.Dockerfile'
       - '.github/workflows/one-proxy-node-image.yml'
+      - '!apps/one-proxy-node/go.mod'
+      - '!apps/one-proxy-node/go.sum'
+  workflow_run:
+    workflows: ['one-proxy-node-base-image']
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,19 +27,22 @@ permissions:
   packages: write
 
 jobs:
-  detect:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    outputs:
-      base_changed: ${{ steps.diff.outputs.base_changed }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Detect base environment changes
-        id: diff
+      - name: Detect proxy-node base changes
+        id: base
         shell: bash
         run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "skip_final=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             git fetch origin "${{ github.base_ref }}" --depth=1
             RANGE="origin/${{ github.base_ref }}...HEAD"
@@ -41,69 +52,28 @@ jobs:
             RANGE="HEAD~1...HEAD"
           fi
           changed="$(git diff --name-only "$RANGE" || true)"
-          printf '%s\n' "$changed"
           if printf '%s\n' "$changed" | grep -Eq '^(docker/one-proxy-node-base\.Dockerfile|apps/one-proxy-node/go\.(mod|sum))$'; then
-            echo "base_changed=true" >> "$GITHUB_OUTPUT"
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "base_changed=true" >> "$GITHUB_OUTPUT"
+            echo "skip_final=true" >> "$GITHUB_OUTPUT"
           else
-            echo "base_changed=false" >> "$GITHUB_OUTPUT"
+            echo "skip_final=false" >> "$GITHUB_OUTPUT"
           fi
 
-  build:
-    needs: detect
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
       - name: Lowercase owner
+        if: steps.base.outputs.skip_final != 'true'
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Login to GHCR
-        if: github.event_name != 'pull_request'
+        if: steps.base.outputs.skip_final != 'true' && github.event_name != 'pull_request'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Prepare proxy-node base image
-        shell: bash
-        run: |
-          if [[ "${{ needs.detect.outputs.base_changed }}" == "true" ]]; then
-            docker build -f docker/one-proxy-node-base.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest .
-          else
-            docker pull ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest || \
-              docker build -f docker/one-proxy-node-base.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest .
-          fi
-
-      - name: Build proxy-node image
-        run: docker build -f docker/one-proxy-node.Dockerfile --build-arg NODE_BASE_IMAGE=ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest -t oneproxy-node:ci .
-
-  publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [detect, build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Lowercase owner
-        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
-
-      - name: Login to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Build and push proxy-node base image
-        if: needs.detect.outputs.base_changed == 'true'
-        run: |
-          docker build -f docker/one-proxy-node-base.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest .
-          docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest
 
       - name: Pull proxy-node base image
-        run: |
-          docker pull ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest || {
-            docker build -f docker/one-proxy-node-base.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest .
-            docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest
-          }
+        if: steps.base.outputs.skip_final != 'true'
+        run: docker pull ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest
 
       - name: Build proxy-node image
+        if: steps.base.outputs.skip_final != 'true'
         run: docker build -f docker/one-proxy-node.Dockerfile --build-arg NODE_BASE_IMAGE=ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-node:latest .
 
       - name: Push proxy-node image
+        if: steps.base.outputs.skip_final != 'true' && github.event_name != 'pull_request'
         run: docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-node:latest
