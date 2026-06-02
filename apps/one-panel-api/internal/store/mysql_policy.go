@@ -32,10 +32,10 @@ func (s *MySQLStore) policyNodesForTenant(tenantCtx domain.TenantAuthContext) []
 
 func (s *MySQLStore) ListPolicyRevisions() []domain.PolicyRevision {
 	rows, err := s.db.Query(
-		`SELECT p.id, p.version, p.status, p.created_at, COUNT(a.node_id)
+		`SELECT p.id, p.tenant_id, p.version, p.status, p.created_at, COUNT(a.node_id)
 		 FROM policy_revisions p
-		 LEFT JOIN node_policy_assignments a ON a.policy_revision_id = p.id
-		 GROUP BY p.id, p.version, p.status, p.created_at
+		 LEFT JOIN node_policy_assignments a ON a.policy_revision_id = p.id AND a.tenant_id = p.tenant_id
+		 GROUP BY p.id, p.tenant_id, p.version, p.status, p.created_at
 		 ORDER BY p.created_at DESC`,
 	)
 	if err != nil {
@@ -45,9 +45,10 @@ func (s *MySQLStore) ListPolicyRevisions() []domain.PolicyRevision {
 	items := make([]domain.PolicyRevision, 0)
 	for rows.Next() {
 		var item domain.PolicyRevision
-		if err := rows.Scan(&item.ID, &item.Version, &item.Status, &item.CreatedAt, &item.AssignedNodes); err != nil {
+		if err := rows.Scan(&item.ID, &item.TenantID, &item.Version, &item.Status, &item.CreatedAt, &item.AssignedNodes); err != nil {
 			continue
 		}
+		item.AffectedTenantIDs = []string{item.TenantID}
 		items = append(items, item)
 	}
 	return items
@@ -56,12 +57,11 @@ func (s *MySQLStore) ListPolicyRevisions() []domain.PolicyRevision {
 func (s *MySQLStore) ListPolicyRevisionsForTenant(tenantCtx domain.TenantAuthContext) []domain.PolicyRevision {
 	scoped := tenantPolicyContext(tenantCtx)
 	rows, err := s.db.Query(
-		`SELECT p.id, p.version, p.status, p.created_at, COUNT(DISTINCT a.node_id)
+		`SELECT p.id, p.tenant_id, p.version, p.status, p.created_at, COUNT(a.node_id)
 		 FROM policy_revisions p
-		 JOIN node_policy_assignments a ON a.policy_revision_id = p.id
-		 JOIN tenant_nodes tn ON tn.node_id = a.node_id
-		 WHERE tn.tenant_id = ?
-		 GROUP BY p.id, p.version, p.status, p.created_at
+		 LEFT JOIN node_policy_assignments a ON a.policy_revision_id = p.id AND a.tenant_id = p.tenant_id
+		 WHERE p.tenant_id = ?
+		 GROUP BY p.id, p.tenant_id, p.version, p.status, p.created_at
 		 ORDER BY p.created_at DESC`,
 		scoped.ActiveTenant.TenantID,
 	)
@@ -72,9 +72,10 @@ func (s *MySQLStore) ListPolicyRevisionsForTenant(tenantCtx domain.TenantAuthCon
 	items := make([]domain.PolicyRevision, 0)
 	for rows.Next() {
 		var item domain.PolicyRevision
-		if err := rows.Scan(&item.ID, &item.Version, &item.Status, &item.CreatedAt, &item.AssignedNodes); err != nil {
+		if err := rows.Scan(&item.ID, &item.TenantID, &item.Version, &item.Status, &item.CreatedAt, &item.AssignedNodes); err != nil {
 			continue
 		}
+		item.AffectedTenantIDs = []string{item.TenantID}
 		items = append(items, item)
 	}
 	return items
@@ -91,11 +92,13 @@ func (s *MySQLStore) PublishPolicy(tenantCtx domain.TenantAuthContext, accountID
 		return domain.PolicyRevision{}, err
 	}
 	item := domain.PolicyRevision{
-		ID:            policyID,
-		Version:       policyID,
-		Status:        domain.PolicyStatusPublished,
-		CreatedAt:     nowRFC3339(),
-		AssignedNodes: len(nodes),
+		ID:                policyID,
+		TenantID:          tenantCtx.ActiveTenant.TenantID,
+		Version:           policyID,
+		Status:            domain.PolicyStatusPublished,
+		CreatedAt:         nowRFC3339(),
+		AssignedNodes:     len(nodes),
+		AffectedTenantIDs: []string{tenantCtx.ActiveTenant.TenantID},
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -103,14 +106,14 @@ func (s *MySQLStore) PublishPolicy(tenantCtx domain.TenantAuthContext, accountID
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(
-		`INSERT INTO policy_revisions (id, version, payload_json, status, created_by_account_id, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		item.ID, item.Version, raw, item.Status, accountID, item.CreatedAt,
+		`INSERT INTO policy_revisions (id, tenant_id, version, payload_json, status, created_by_account_id, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.TenantID, item.Version, raw, item.Status, accountID, item.CreatedAt,
 	); err != nil {
 		return domain.PolicyRevision{}, err
 	}
 	for _, node := range nodes {
-		if _, err := tx.Exec("DELETE FROM node_policy_assignments WHERE node_id = ?", node.ID); err != nil {
+		if _, err := tx.Exec("DELETE FROM node_policy_assignments WHERE tenant_id = ? AND node_id = ?", item.TenantID, node.ID); err != nil {
 			return domain.PolicyRevision{}, err
 		}
 		snapshotJSON, err := policy.CompileForNode(node.ID, nodes, links, chains, rules, nil)
@@ -122,8 +125,8 @@ func (s *MySQLStore) PublishPolicy(tenantCtx domain.TenantAuthContext, accountID
 			return domain.PolicyRevision{}, err
 		}
 		if _, err := tx.Exec(
-			`INSERT INTO node_policy_assignments (node_id, policy_revision_id, snapshot_json, assigned_at) VALUES (?, ?, ?, ?)`,
-			node.ID, item.ID, wrapped, item.CreatedAt,
+			`INSERT INTO node_policy_assignments (tenant_id, node_id, policy_revision_id, snapshot_json, assigned_at) VALUES (?, ?, ?, ?, ?)`,
+			item.TenantID, node.ID, item.ID, wrapped, item.CreatedAt,
 		); err != nil {
 			return domain.PolicyRevision{}, err
 		}
@@ -194,29 +197,43 @@ func (s *MySQLStore) nodePolicyTenantContexts(nodeID string) []domain.TenantAuth
 	return items
 }
 
-func (s *MySQLStore) latestPolicyVersion() (string, bool) {
-	var version string
-	err := s.db.QueryRow(`SELECT version FROM policy_revisions ORDER BY created_at DESC LIMIT 1`).Scan(&version)
-	return version, err == nil
-}
-
 func (s *MySQLStore) GetNodeAgentPolicy(nodeID string) (domain.NodeAgentPolicy, bool) {
-	version, ok := s.latestPolicyVersion()
-	if !ok {
+	rows, err := s.db.Query(
+		`SELECT a.tenant_id, p.version, a.snapshot_json
+		 FROM node_policy_assignments a
+		 JOIN policy_revisions p ON p.id = a.policy_revision_id AND p.tenant_id = a.tenant_id
+		 JOIN tenant_nodes tn ON tn.tenant_id = a.tenant_id AND tn.node_id = a.node_id
+		 WHERE a.node_id = ? AND tn.permission IN (?, ?)
+		 ORDER BY a.assigned_at DESC, p.created_at DESC`,
+		nodeID, domain.BindingPermissionUse, domain.BindingPermissionManage,
+	)
+	if err != nil {
 		return domain.NodeAgentPolicy{}, false
 	}
+	defer rows.Close()
 	snapshots := make([]tenantNodePolicySnapshot, 0)
-	for _, tenantCtx := range s.nodePolicyTenantContexts(nodeID) {
-		nodes, links, chains, rules := s.tenantPolicyInputs(tenantCtx)
-		snapshotJSON, err := policy.CompileForNode(nodeID, nodes, links, chains, rules, nil)
-		if err != nil {
+	version := ""
+	for rows.Next() {
+		var tenantID string
+		var revisionVersion string
+		var snapshotJSON string
+		if err := rows.Scan(&tenantID, &revisionVersion, &snapshotJSON); err != nil {
 			continue
 		}
-		snapshots = append(snapshots, tenantNodePolicySnapshot{
-			TenantID:         tenantCtx.ActiveTenant.TenantID,
-			PolicyRevisionID: version,
-			Payload:          json.RawMessage(snapshotJSON),
-		})
+		var saved tenantNodePolicyPayloadResult
+		if err := json.Unmarshal([]byte(snapshotJSON), &saved); err != nil {
+			continue
+		}
+		for _, snapshot := range saved.Snapshots {
+			if snapshot.TenantID != tenantID {
+				continue
+			}
+			snapshot.PolicyRevisionID = revisionVersion
+			snapshots = append(snapshots, snapshot)
+			if version == "" {
+				version = revisionVersion
+			}
+		}
 	}
 	if len(snapshots) == 0 {
 		return domain.NodeAgentPolicy{}, false

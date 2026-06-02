@@ -30,6 +30,9 @@ func (c *ControlPlane) PublishPolicy(tenantCtx domain.TenantAuthContext, account
 	if err != nil {
 		return domain.PolicyRevision{}, invalidInput("invalid_policy_graph")
 	}
+	if len(item.AffectedTenantIDs) == 0 {
+		item.AffectedTenantIDs = []string{tenantCtx.ActiveTenant.TenantID}
+	}
 	return item, nil
 }
 
