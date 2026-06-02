@@ -1,0 +1,37 @@
+name: chrome-extension-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/chrome-extension/**'
+      - '.github/workflows/chrome-extension-ci.yml'
+  pull_request:
+    paths:
+      - 'apps/chrome-extension/**'
+      - '.github/workflows/chrome-extension-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Static extension checks
+        run: node apps/chrome-extension/tools/validate_extension.mjs
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Service worker smoke test
+        run: xvfb-run --auto-servernum node apps/chrome-extension/tools/service_worker_smoke.mjs
