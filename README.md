@@ -76,11 +76,11 @@ docker run --rm --name one-proxy-node \
 The node keeps its local runtime state in SQLite/JSON files inside the container. Mount `/app/runtime` if you want persistence.
 Set `NODE_REVERSE_TARGET_URL=http://172.20.116.91:2333` when a node should act as a reverse HTTP/WebSocket entry for a JupyterLab service.
 
-## Docker Hub
+## GHCR
 
 Pushes to `main` trigger the split image workflows and publish:
 
-- `stanleysun233/oneproxy-panel-base:latest`
-- `stanleysun233/oneproxy-panel:latest`
-- `stanleysun233/oneproxy-node-base:latest`
-- `stanleysun233/oneproxy-node:latest`
+- `ghcr.io/stanleysun233/oneproxy-panel-base:latest`
+- `ghcr.io/stanleysun233/oneproxy-panel:latest`
+- `ghcr.io/stanleysun233/oneproxy-node-base:latest`
+- `ghcr.io/stanleysun233/oneproxy-node:latest`
