@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/auth"
@@ -57,6 +58,43 @@ func (c *ControlPlane) Logout(accessToken string) bool {
 	return c.store.Logout(accessToken)
 }
 
+func (c *ControlPlane) ResolveTenantAuthContext(account domain.Account, tenantID string, allowSuperAdminBypass bool) (domain.TenantAuthContext, error) {
+	if account.Role == domain.AccountRoleSuperAdmin && allowSuperAdminBypass {
+		ctx := domain.TenantAuthContext{
+			Account:    account,
+			SuperAdmin: true,
+		}
+		if tenantID == "" {
+			return ctx, nil
+		}
+		tenant, ok := c.store.GetTenant(tenantID)
+		if !ok {
+			return domain.TenantAuthContext{}, newError(http.StatusBadRequest, "tenant_invalid")
+		}
+		ctx.ActiveTenant = domain.TenantMembership{
+			TenantID:   tenant.ID,
+			TenantName: tenant.Name,
+			Role:       domain.TenantRoleAdmin,
+			JoinedAt:   tenant.CreatedAt,
+		}
+		return ctx, nil
+	}
+	if tenantID == "" {
+		return domain.TenantAuthContext{}, newError(http.StatusBadRequest, "tenant_required")
+	}
+	if _, ok := c.store.GetTenant(tenantID); !ok {
+		return domain.TenantAuthContext{}, newError(http.StatusBadRequest, "tenant_invalid")
+	}
+	membership, ok := c.store.GetTenantMembership(account.ID, tenantID)
+	if !ok {
+		return domain.TenantAuthContext{}, newError(http.StatusForbidden, "tenant_forbidden")
+	}
+	return domain.TenantAuthContext{
+		Account:      account,
+		ActiveTenant: membership,
+	}, nil
+}
+
 func (c *ControlPlane) attachProxyToken(result domain.LoginResult) (domain.LoginResult, bool) {
 	token, err := auth.RandomToken()
 	if err != nil {
@@ -64,8 +102,10 @@ func (c *ControlPlane) attachProxyToken(result domain.LoginResult) (domain.Login
 	}
 	expiresAt := time.Now().UTC().Add(c.sessionTTL).Format(time.RFC3339)
 	record := domain.ProxyTokenRecord{
-		Account:   result.Account,
-		ExpiresAt: expiresAt,
+		Account:           result.Account,
+		ExpiresAt:         expiresAt,
+		TenantMemberships: result.TenantMemberships,
+		ActiveTenantID:    result.ActiveTenantID,
 	}
 	if err := c.proxyTokens.Put(context.Background(), auth.TokenHash(token), record, c.sessionTTL); err != nil {
 		return domain.LoginResult{}, false
@@ -96,9 +136,11 @@ func (c *ControlPlane) ValidateProxyTokenHash(tokenHash string) domain.ProxyToke
 		return domain.ProxyTokenValidation{}
 	}
 	return domain.ProxyTokenValidation{
-		Valid:           true,
-		Account:         record.Account,
-		ExpiresAt:       record.ExpiresAt,
-		CacheTTLSeconds: int(cacheTTL.Seconds()),
+		Valid:             true,
+		Account:           record.Account,
+		ExpiresAt:         record.ExpiresAt,
+		CacheTTLSeconds:   int(cacheTTL.Seconds()),
+		TenantMemberships: record.TenantMemberships,
+		ActiveTenantID:    record.ActiveTenantID,
 	}
 }
