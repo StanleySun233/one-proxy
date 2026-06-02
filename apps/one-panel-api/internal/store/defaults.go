@@ -83,6 +83,9 @@ func decodeJSONMap(raw string) map[string]string {
 }
 
 func encodeJSONMap(value map[string]string) string {
+	if value == nil {
+		return "{}"
+	}
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return "{}"

@@ -6,6 +6,7 @@ import {
   GitBranch,
   LayoutDashboard,
   Languages,
+  Network,
   Route,
   ShieldCheck,
   Shirt,
@@ -75,6 +76,13 @@ export function ConsoleShell({children}: {children: ReactNode}) {
       href: '/routes',
       icon: Route,
       items: [{label: t('shell.routeBoard'), href: '/routes'}]
+    },
+    {
+      key: 'accessPaths',
+      label: t('nav.accessPaths'),
+      href: '/access-paths',
+      icon: Network,
+      items: [{label: t('shell.accessPathBoard'), href: '/access-paths'}]
     },
     {
       key: 'health',

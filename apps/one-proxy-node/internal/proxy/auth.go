@@ -32,6 +32,52 @@ type cachedTokenValidation struct {
 	expiresAt time.Time
 }
 
+type TokenAuthorizer struct {
+	auth  AuthConfig
+	cache *tokenCache
+}
+
+func NewTokenAuthorizer(auth AuthConfig) *TokenAuthorizer {
+	return &TokenAuthorizer{
+		auth:  auth,
+		cache: &tokenCache{items: map[string]cachedTokenValidation{}},
+	}
+}
+
+func (a *TokenAuthorizer) Validate(ctx context.Context, token string) bool {
+	if a == nil || a.auth.Validator == nil {
+		return true
+	}
+	if token == "" {
+		return false
+	}
+	hash := proxyTokenHash(token)
+	now := time.Now().UTC()
+	if validation, ok := a.cache.get(hash, now); ok {
+		return validation.valid
+	}
+	result, err := a.auth.Validator.ValidateProxyToken(ctx, hash)
+	if err != nil {
+		return false
+	}
+	ttl := result.CacheTTL
+	if ttl <= 0 {
+		ttl = a.auth.CacheTTL
+	}
+	if ttl <= 0 {
+		ttl = defaultTokenCacheTTL
+	}
+	expiresAt := now.Add(ttl)
+	if !result.ExpiresAt.IsZero() && result.ExpiresAt.Before(expiresAt) {
+		expiresAt = result.ExpiresAt
+	}
+	a.cache.set(hash, cachedTokenValidation{
+		valid:     result.Valid,
+		expiresAt: expiresAt,
+	})
+	return result.Valid && now.Before(expiresAt)
+}
+
 func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) bool {
 	token, source := reverseToken(req)
 	if s.auth.Validator == nil {
@@ -62,31 +108,7 @@ func (s *Server) authorizeForward(w http.ResponseWriter, req *http.Request) bool
 }
 
 func (s *Server) validateToken(ctx context.Context, token string) bool {
-	hash := proxyTokenHash(token)
-	now := time.Now().UTC()
-	if validation, ok := s.tokenCache().get(hash, now); ok {
-		return validation.valid
-	}
-	result, err := s.auth.Validator.ValidateProxyToken(ctx, hash)
-	if err != nil {
-		return false
-	}
-	ttl := result.CacheTTL
-	if ttl <= 0 {
-		ttl = s.auth.CacheTTL
-	}
-	if ttl <= 0 {
-		ttl = defaultTokenCacheTTL
-	}
-	expiresAt := now.Add(ttl)
-	if !result.ExpiresAt.IsZero() && result.ExpiresAt.Before(expiresAt) {
-		expiresAt = result.ExpiresAt
-	}
-	s.tokenCache().set(hash, cachedTokenValidation{
-		valid:     result.Valid,
-		expiresAt: expiresAt,
-	})
-	return result.Valid && now.Before(expiresAt)
+	return s.authorizer.Validate(ctx, token)
 }
 
 func (s *Server) setReverseTokenCookie(w http.ResponseWriter, req *http.Request, token string) {
@@ -170,13 +192,6 @@ func bearerToken(header string) string {
 type tokenCache struct {
 	mu    sync.Mutex
 	items map[string]cachedTokenValidation
-}
-
-func (s *Server) tokenCache() *tokenCache {
-	if s.authCache == nil {
-		s.authCache = &tokenCache{items: map[string]cachedTokenValidation{}}
-	}
-	return s.authCache
 }
 
 func (c *tokenCache) get(tokenHash string, now time.Time) (cachedTokenValidation, bool) {

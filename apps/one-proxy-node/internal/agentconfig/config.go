@@ -24,6 +24,8 @@ type Config struct {
 	NodeTunnelHeartbeat           string
 	ListenAddr                    string
 	HTTPSListenAddr               string
+	TCPAccessListenAddr           string
+	UDPAccessListenAddr           string
 	HeartbeatInterval             string
 	PolicyStatePath               string
 	RuntimeConfigPath             string
@@ -57,6 +59,8 @@ func Load() Config {
 		NodeTunnelHeartbeat:           envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),
 		ListenAddr:                    envOrDefault("NODE_LISTEN_ADDR", ":2988"),
 		HTTPSListenAddr:               envOrDefault("NODE_HTTPS_LISTEN_ADDR", ":2989"),
+		TCPAccessListenAddr:           envOrDefault("NODE_TCP_ACCESS_LISTEN_ADDR", ""),
+		UDPAccessListenAddr:           envOrDefault("NODE_UDP_ACCESS_LISTEN_ADDR", ""),
 		HeartbeatInterval:             envOrDefault("NODE_HEARTBEAT_INTERVAL", "30s"),
 		PolicyStatePath:               envOrDefault("NODE_POLICY_STATE_PATH", "runtime/node-policy-state.json"),
 		RuntimeConfigPath:             envOrDefault("NODE_RUNTIME_CONFIG_PATH", "runtime/node-runtime.json"),

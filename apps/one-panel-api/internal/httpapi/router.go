@@ -188,6 +188,8 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/scopes/", r.requireAccount(r.handleScopeByID))
 	r.mux.HandleFunc("/api/v1/node-links", r.requireAccount(r.handleNodeLinks))
 	r.mux.HandleFunc("/api/v1/node-links/", r.requireAccount(r.handleNodeLinkByID))
+	r.mux.HandleFunc("/api/v1/node-access-paths", r.requireAccount(r.handleNodeAccessPaths))
+	r.mux.HandleFunc("/api/v1/node-access-paths/", r.requireAccount(r.handleNodeAccessPathByID))
 	r.mux.HandleFunc("/api/v1/nodes", r.requireAccount(r.handleNodes))
 	r.mux.HandleFunc("/api/v1/nodes/", r.requireAccount(r.handleNodeByID))
 	r.mux.HandleFunc("/api/v1/node-transports", r.requireAccount(r.handleNodeTransports))

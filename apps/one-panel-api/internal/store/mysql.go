@@ -73,6 +73,9 @@ func (s *MySQLStore) init(ctx context.Context) error {
 	if err := s.ensureBootstrapTokenMetadataColumns(ctx); err != nil {
 		return err
 	}
+	if err := s.ensureNodeAccessPathProtocolColumns(ctx); err != nil {
+		return err
+	}
 	if err := s.cleanupLegacyDemoTopology(ctx); err != nil {
 		return err
 	}

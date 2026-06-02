@@ -41,6 +41,43 @@ const (
 	PathModeUpstreamPull = "upstream_pull"
 )
 
+// Access protocol constants
+const (
+	AccessProtocolHTTP   = "http"
+	AccessProtocolTCP    = "tcp"
+	AccessProtocolTLS    = "tls"
+	AccessProtocolSSH    = "ssh"
+	AccessProtocolRDP    = "rdp"
+	AccessProtocolSocks5 = "socks5"
+	AccessProtocolSS5    = "ss5"
+	AccessProtocolUDP    = "udp"
+)
+
+// Access service type constants
+const (
+	AccessServiceHTTP           = "http"
+	AccessServiceHTTPS          = "https"
+	AccessServiceRawTCP         = "raw_tcp"
+	AccessServiceRawUDP         = "raw_udp"
+	AccessServiceSSH            = "ssh"
+	AccessServiceRDP            = "rdp"
+	AccessServiceSocks5         = "socks5"
+	AccessServiceSS5            = "ss5"
+	AccessServiceTLSPassthrough = "tls_passthrough"
+)
+
+// TLS mode constants
+const (
+	TLSModeNone        = "none"
+	TLSModePassthrough = "passthrough"
+	TLSModeTerminate   = "terminate"
+)
+
+// Access auth mode constants
+const (
+	AccessAuthProxyToken = "proxy_token"
+)
+
 // Task status constants
 const (
 	TaskStatusPlanned   = "planned"

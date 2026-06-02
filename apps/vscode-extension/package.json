@@ -1,0 +1,55 @@
+{
+  "name": "oneproxy-vscode",
+  "displayName": "OneProxy",
+  "description": "Connect VS Code Remote-SSH through OneProxy access paths.",
+  "version": "0.1.0",
+  "publisher": "oneproxy",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Remote"
+  ],
+  "activationEvents": [
+    "onCommand:oneproxy.login",
+    "onCommand:oneproxy.writeSshConfig",
+    "onCommand:oneproxy.connectRemoteSsh"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "oneproxy.login",
+        "title": "OneProxy: Login"
+      },
+      {
+        "command": "oneproxy.writeSshConfig",
+        "title": "OneProxy: Write SSH Config"
+      },
+      {
+        "command": "oneproxy.connectRemoteSsh",
+        "title": "OneProxy: Connect with Remote-SSH"
+      }
+    ],
+    "configuration": {
+      "title": "OneProxy",
+      "properties": {
+        "oneproxy.cliPath": {
+          "type": "string",
+          "default": "oneproxy",
+          "description": "Path to the oneproxy CLI."
+        },
+        "oneproxy.sshConfigHost": {
+          "type": "string",
+          "default": "oneproxy-remote",
+          "description": "SSH host alias managed by OneProxy."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,10 +1,15 @@
 import type {
+  AccessAuthMode,
+  AccessProtocol,
+  AccessServiceType,
   BootstrapTargetType,
   CertStatus,
   ListenerStatus,
   LinkType,
   NodeMode,
   NodeStatus,
+  PathMode,
+  TLSMode,
   TransportStatus,
   TransportType,
   TrustState
@@ -31,6 +36,31 @@ export type NodeLink = {
   targetNodeId: string;
   linkType: LinkType;
   trustState: TrustState;
+};
+
+export type NodeAccessPath = {
+  id: string;
+  name: string;
+  mode: PathMode;
+  protocol: AccessProtocol;
+  serviceType: AccessServiceType;
+  targetNodeId: string;
+  entryNodeId: string;
+  relayNodeIds: string[];
+  listenHost: string;
+  listenPort: number;
+  targetProtocol: string;
+  targetHost: string;
+  targetPort: number;
+  targetSni: string;
+  tlsMode: TLSMode;
+  authMode: AccessAuthMode;
+  options: Record<string, string>;
+  enabled: boolean;
+};
+
+export type NodeAccessPathPayload = Omit<NodeAccessPath, 'id' | 'enabled'> & {
+  enabled?: boolean;
 };
 
 export type NodeTransport = {

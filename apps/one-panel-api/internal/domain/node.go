@@ -58,36 +58,63 @@ type UpdateNodeLinkInput struct {
 }
 
 type NodeAccessPath struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Mode         string   `json:"mode"`
-	TargetNodeID string   `json:"targetNodeId"`
-	EntryNodeID  string   `json:"entryNodeId"`
-	RelayNodeIDs []string `json:"relayNodeIds"`
-	TargetHost   string   `json:"targetHost"`
-	TargetPort   int      `json:"targetPort"`
-	Enabled      bool     `json:"enabled"`
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Mode           string            `json:"mode"`
+	Protocol       string            `json:"protocol"`
+	ServiceType    string            `json:"serviceType"`
+	TargetNodeID   string            `json:"targetNodeId"`
+	EntryNodeID    string            `json:"entryNodeId"`
+	RelayNodeIDs   []string          `json:"relayNodeIds"`
+	ListenHost     string            `json:"listenHost"`
+	ListenPort     int               `json:"listenPort"`
+	TargetProtocol string            `json:"targetProtocol"`
+	TargetHost     string            `json:"targetHost"`
+	TargetPort     int               `json:"targetPort"`
+	TargetSNI      string            `json:"targetSni"`
+	TLSMode        string            `json:"tlsMode"`
+	AuthMode       string            `json:"authMode"`
+	Options        map[string]string `json:"options"`
+	Enabled        bool              `json:"enabled"`
 }
 
 type CreateNodeAccessPathInput struct {
-	Name         string   `json:"name"`
-	Mode         string   `json:"mode"`
-	TargetNodeID string   `json:"targetNodeId"`
-	EntryNodeID  string   `json:"entryNodeId"`
-	RelayNodeIDs []string `json:"relayNodeIds"`
-	TargetHost   string   `json:"targetHost"`
-	TargetPort   int      `json:"targetPort"`
+	Name           string            `json:"name"`
+	Mode           string            `json:"mode"`
+	Protocol       string            `json:"protocol"`
+	ServiceType    string            `json:"serviceType"`
+	TargetNodeID   string            `json:"targetNodeId"`
+	EntryNodeID    string            `json:"entryNodeId"`
+	RelayNodeIDs   []string          `json:"relayNodeIds"`
+	ListenHost     string            `json:"listenHost"`
+	ListenPort     int               `json:"listenPort"`
+	TargetProtocol string            `json:"targetProtocol"`
+	TargetHost     string            `json:"targetHost"`
+	TargetPort     int               `json:"targetPort"`
+	TargetSNI      string            `json:"targetSni"`
+	TLSMode        string            `json:"tlsMode"`
+	AuthMode       string            `json:"authMode"`
+	Options        map[string]string `json:"options"`
 }
 
 type UpdateNodeAccessPathInput struct {
-	Name         string   `json:"name"`
-	Mode         string   `json:"mode"`
-	TargetNodeID string   `json:"targetNodeId"`
-	EntryNodeID  string   `json:"entryNodeId"`
-	RelayNodeIDs []string `json:"relayNodeIds"`
-	TargetHost   string   `json:"targetHost"`
-	TargetPort   int      `json:"targetPort"`
-	Enabled      bool     `json:"enabled"`
+	Name           string            `json:"name"`
+	Mode           string            `json:"mode"`
+	Protocol       string            `json:"protocol"`
+	ServiceType    string            `json:"serviceType"`
+	TargetNodeID   string            `json:"targetNodeId"`
+	EntryNodeID    string            `json:"entryNodeId"`
+	RelayNodeIDs   []string          `json:"relayNodeIds"`
+	ListenHost     string            `json:"listenHost"`
+	ListenPort     int               `json:"listenPort"`
+	TargetProtocol string            `json:"targetProtocol"`
+	TargetHost     string            `json:"targetHost"`
+	TargetPort     int               `json:"targetPort"`
+	TargetSNI      string            `json:"targetSni"`
+	TLSMode        string            `json:"tlsMode"`
+	AuthMode       string            `json:"authMode"`
+	Options        map[string]string `json:"options"`
+	Enabled        bool              `json:"enabled"`
 }
 
 type NodeOnboardingTask struct {

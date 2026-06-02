@@ -1,6 +1,8 @@
 export type { Account, LoginResult } from './auth';
 export type {
   Node,
+  NodeAccessPath,
+  NodeAccessPathPayload,
   NodeLink,
   NodeTransport,
   NodeHealth,
@@ -31,6 +33,9 @@ export type {
   AccountRole,
   AccountStatus,
   ActionType,
+  AccessAuthMode,
+  AccessProtocol,
+  AccessServiceType,
   ApprovalState,
   BootstrapTargetType,
   CertStatus,
@@ -60,4 +65,5 @@ export type {
   TransportType,
   TrustMaterialStatus,
   TrustState,
+  TLSMode,
 } from './common';

@@ -16,7 +16,7 @@ type Server struct {
 	tunnelRegistry *tunnel.Registry
 	reverseTarget  *url.URL
 	auth           AuthConfig
-	authCache      *tokenCache
+	authorizer     *TokenAuthorizer
 }
 
 type AuthConfig struct {
@@ -39,9 +39,16 @@ func NewServerWithReverseTarget(store *policystore.Store, nodeIDGetter func() st
 }
 
 func NewServerWithOptions(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry, reverseTargetURL string, auth AuthConfig) (*Server, error) {
+	return NewServerWithAuthorizer(store, nodeIDGetter, tunnelRegistry, reverseTargetURL, auth, nil)
+}
+
+func NewServerWithAuthorizer(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry, reverseTargetURL string, auth AuthConfig, authorizer *TokenAuthorizer) (*Server, error) {
 	server := NewServer(store, nodeIDGetter, tunnelRegistry)
 	server.auth = auth
-	server.authCache = &tokenCache{items: map[string]cachedTokenValidation{}}
+	if authorizer == nil {
+		authorizer = NewTokenAuthorizer(auth)
+	}
+	server.authorizer = authorizer
 	if reverseTargetURL == "" {
 		return server, nil
 	}

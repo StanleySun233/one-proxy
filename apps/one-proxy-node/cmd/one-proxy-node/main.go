@@ -22,7 +22,9 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/policystore"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/proxy"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/runtime"
+	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/tcpaccess"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/tunnel"
+	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/udpaccess"
 )
 
 func main() {
@@ -109,10 +111,11 @@ func main() {
 			current.NodeAccessToken,
 		)
 	}
-	proxyHandler, err := proxy.NewServerWithOptions(store, manager.NodeID, tunnelRegistry, cfg.NodeReverseTargetURL, proxy.AuthConfig{
+	proxyAuthorizer := proxy.NewTokenAuthorizer(proxyAuth)
+	proxyHandler, err := proxy.NewServerWithAuthorizer(store, manager.NodeID, tunnelRegistry, cfg.NodeReverseTargetURL, proxy.AuthConfig{
 		Validator: proxyAuth.Validator,
 		CacheTTL:  proxyAuth.CacheTTL,
-	})
+	}, proxyAuthorizer)
 	if err != nil {
 		log.Fatalf("init proxy server failed: %v", err)
 	}
@@ -165,6 +168,12 @@ func main() {
 	tunnelController := tunnel.NewController(manager, tunnelRegistry, cfg.NodeParentTunnelURL, cfg.NodeTunnelPath, tunnelInterval)
 	go tunnelController.Run()
 	go manager.Run()
+	if cfg.TCPAccessListenAddr != "" {
+		go tcpaccess.ListenAndServe(cfg.TCPAccessListenAddr, tcpaccess.New(proxyAuthorizer, tunnelRegistry))
+	}
+	if cfg.UDPAccessListenAddr != "" {
+		go udpaccess.ListenAndServe(cfg.UDPAccessListenAddr, udpaccess.New(proxyAuthorizer))
+	}
 	server := &http.Server{
 		Addr:    cfg.ListenAddr,
 		Handler: withObservability(httpHandler),

@@ -4,6 +4,7 @@
   "scopes": "范围",
   "chains": "链路",
   "routes": "规则",
+  "accessPaths": "访问路径",
   "health": "健康",
   "accounts": "账号",
   "certificates": "证书"
