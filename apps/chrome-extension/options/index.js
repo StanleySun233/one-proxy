@@ -103,9 +103,8 @@ function renderLogs(logs) {
   }
 }
 
-async function refreshDiagnosticLogs() {
-  const logs = await sendMessage({ type: 'get-diagnostic-logs' });
-  renderLogs(logs);
+function refreshDiagnosticLogs() {
+  return sendMessage({ type: 'get-diagnostic-logs' }).then(renderLogs);
 }
 
 function renderGroupList() {
@@ -133,13 +132,14 @@ function renderGroupList() {
     meta.textContent = text('ruleSummary', [String((group.proxyHosts || []).length + (group.proxyCidrs || []).length), String((group.directHosts || []).length + (group.directCidrs || []).length)]);
     name.append(title, node);
     button.append(name, meta);
-    button.addEventListener('click', async () => {
-      const result = await sendMessage({ type: 'select-group', groupId: group.id });
+    button.addEventListener('click', () => {
+      sendMessage({ type: 'select-group', groupId: group.id }).then((result) => {
       if (result && result.error) {
         setFeedback('error', result.error);
         return;
       }
       render(result);
+      });
     });
     groupList.appendChild(button);
   }
@@ -195,13 +195,13 @@ function render(nextBundle) {
   refreshDiagnosticLogs();
 }
 
-loginButton.addEventListener('click', async () => {
-  const result = await sendMessage({
+loginButton.addEventListener('click', () => {
+  sendMessage({
     type: 'login',
     controlPlaneUrl: controlPlaneUrl.value.trim(),
     account: account.value.trim(),
     password: password.value
-  });
+  }).then((result) => {
   if (result && result.error) {
     setFeedback('error', formatError(result.error));
     return;
@@ -209,78 +209,82 @@ loginButton.addEventListener('click', async () => {
   password.value = '';
   render(result);
   setFeedback('ok', result.session.activeTenantId ? text('statusLoggedIn') : text('statusTenantRequired'));
+  });
 });
 
-tenantSelect.addEventListener('change', async () => {
-  const result = await sendMessage({
+tenantSelect.addEventListener('change', () => {
+  sendMessage({
     type: 'select-tenant',
     tenantId: tenantSelect.value
-  });
+  }).then((result) => {
   if (result && result.error) {
     setFeedback('error', formatError(result.error));
     return;
   }
   render(result);
   setFeedback('ok', text('statusSynced'));
+  });
 });
 
-testConnectionButton.addEventListener('click', async () => {
-  const result = await sendMessage({
+testConnectionButton.addEventListener('click', () => {
+  sendMessage({
     type: 'test-connection',
     controlPlaneUrl: controlPlaneUrl.value.trim()
-  });
+  }).then((result) => {
   if (result && result.error) {
     setFeedback('error', formatError(result.error));
     return;
   }
   setFeedback('ok', text('statusConnectionOk'));
+  });
 });
 
-logoutButton.addEventListener('click', async () => {
-  const result = await sendMessage({ type: 'logout' });
+logoutButton.addEventListener('click', () => {
+  sendMessage({ type: 'logout' }).then((result) => {
   if (result && result.error) {
     setFeedback('error', formatError(result.error));
     return;
   }
   render(result);
   setFeedback('idle', text('statusLoggedOut'));
+  });
 });
 
-syncRemote.addEventListener('click', async () => {
-  const result = await sendMessage({ type: 'sync-remote-config' });
+syncRemote.addEventListener('click', () => {
+  sendMessage({ type: 'sync-remote-config' }).then((result) => {
   if (result && result.error) {
     setFeedback('error', formatError(result.error));
     return;
   }
   render(result);
   setFeedback('ok', text('statusSynced'));
+  });
 });
 
-saveOverrides.addEventListener('click', async () => {
-  const result = await sendMessage({
+saveOverrides.addEventListener('click', () => {
+  sendMessage({
     type: 'set-local-overrides',
     directHosts: linesToArray(directHosts.value),
     proxyHosts: linesToArray(proxyHosts.value)
-  });
+  }).then((result) => {
   if (result && result.error) {
     setFeedback('error', formatError(result.error));
     return;
   }
   render(result);
   setFeedback('ok', text('statusOverridesSaved'));
+  });
 });
 
-refreshLogs.addEventListener('click', async () => {
-  await refreshDiagnosticLogs();
+refreshLogs.addEventListener('click', () => {
+  refreshDiagnosticLogs();
 });
 
-clearLogs.addEventListener('click', async () => {
-  const logs = await sendMessage({ type: 'clear-diagnostic-logs' });
-  renderLogs(logs);
+clearLogs.addEventListener('click', () => {
+  sendMessage({ type: 'clear-diagnostic-logs' }).then(renderLogs);
 });
 
-bindThemeMode(themeMode, async (mode) => {
-  const result = await sendMessage({ type: 'set-theme-mode', themeMode: mode });
+bindThemeMode(themeMode, (mode) => sendMessage({ type: 'set-theme-mode', themeMode: mode }).then((result) => {
   if (result && result.error) {
     setFeedback('error', formatError(result.error));
     if (bundle && bundle.state) {
@@ -289,7 +293,7 @@ bindThemeMode(themeMode, async (mode) => {
     return;
   }
   render(result);
-});
+}));
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message && message.type === 'state-updated') {
@@ -297,11 +301,15 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-async function init() {
+function init() {
   applyLanguage();
-  renderLogs(await sendMessage({ type: 'record-diagnostic-event', event: 'options_opened' }));
-  render(await sendMessage({ type: 'get-state' }));
-  setFeedback('idle', text('statusIdle'));
+  sendMessage({ type: 'record-diagnostic-event', event: 'options_opened' })
+    .then(renderLogs)
+    .then(() => sendMessage({ type: 'get-state' }))
+    .then((result) => {
+      render(result);
+      setFeedback('idle', text('statusIdle'));
+    });
 }
 
 init();

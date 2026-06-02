@@ -138,8 +138,8 @@ export function pacSummary(state) {
   };
 }
 
-export async function applyProxy(state) {
-  await chrome.proxy.settings.set({
+export function applyProxy(state) {
+  return chrome.proxy.settings.set({
     value: {
       mode: 'pac_script',
       pacScript: {
@@ -147,6 +147,5 @@ export async function applyProxy(state) {
       }
     },
     scope: 'regular'
-  });
-  await appendLog('info', 'proxy_applied', pacSummary(state));
+  }).then(() => appendLog('info', 'proxy_applied', pacSummary(state)));
 }

@@ -24,6 +24,10 @@ if (!existsSync(serviceWorkerPath)) {
   throw new Error(`missing_service_worker_file:${manifest.background.service_worker}`);
 }
 
+if (/\bawait\b/.test(readFileSync(serviceWorkerPath, 'utf8'))) {
+  throw new Error(`service_worker_entry_contains_await:${manifest.background.service_worker}`);
+}
+
 function stripLineForDepth(line) {
   return line
     .replace(/'([^'\\]|\\.)*'/g, "''")
@@ -97,6 +101,10 @@ for (const file of files(root)) {
     JSON.parse(readFileSync(file, 'utf8'));
   }
   if (file.endsWith('.js')) {
+    const relative = path.relative(root, file);
+    if (/^(background|shared|options|popup)\//.test(relative) && /\bawait\b/.test(readFileSync(file, 'utf8'))) {
+      throw new Error(`runtime_file_contains_await:${relative}`);
+    }
     execFileSync(process.execPath, ['--check', file], { stdio: 'inherit' });
   }
 }

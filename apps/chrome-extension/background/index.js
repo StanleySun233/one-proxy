@@ -5,11 +5,10 @@ import { getComputedState, registerMessageHandler } from './messages.js';
 import { runProxyMonitor } from './monitor.js';
 import { registerProxyAuthHandler, updateProxyAuthCache } from './proxy-auth.js';
 
-async function broadcastState() {
-  try {
-    await chrome.runtime.sendMessage({ type: 'state-updated', payload: await getComputedState() });
-  } catch (_error) {
-  }
+function broadcastState() {
+  return getComputedState()
+    .then((payload) => chrome.runtime.sendMessage({ type: 'state-updated', payload }))
+    .catch(() => {});
 }
 
 function ensureMonitorAlarm() {
@@ -18,24 +17,28 @@ function ensureMonitorAlarm() {
   }
 }
 
-configureStateEffects(async (state) => {
+configureStateEffects((state) => {
   updateProxyAuthCache(state);
-  await applyProxy(state);
-  await broadcastState();
+  return applyProxy(state).then(() => broadcastState());
 });
 
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(() => {
   ensureMonitorAlarm();
-  await persistState(await getState());
-  await appendLog('info', 'extension_installed');
+  getState()
+    .then((state) => persistState(state))
+    .then(() => appendLog('info', 'extension_installed'))
+    .catch((error) => appendLog('error', 'extension_installed_failed', { message: error.message || 'install_failed' }));
 });
 
-chrome.runtime.onStartup.addListener(async () => {
+chrome.runtime.onStartup.addListener(() => {
   ensureMonitorAlarm();
-  const state = await getState();
-  updateProxyAuthCache(state);
-  await applyProxy(state);
-  await appendLog('info', 'extension_startup');
+  getState()
+    .then((state) => {
+      updateProxyAuthCache(state);
+      return applyProxy(state);
+    })
+    .then(() => appendLog('info', 'extension_startup'))
+    .catch((error) => appendLog('error', 'extension_startup_failed', { message: error.message || 'startup_failed' }));
 });
 
 if (chrome.alarms) {
@@ -53,19 +56,20 @@ if (chrome.proxy && chrome.proxy.onProxyError) {
   });
 }
 
-chrome.storage.onChanged.addListener(async (changes, areaName) => {
+chrome.storage.onChanged.addListener((changes, areaName) => {
   const nextState = handleStateStorageChange(changes, areaName);
   if (!nextState) {
     return;
   }
-  await applyProxy(nextState);
-  await broadcastState();
+  applyProxy(nextState)
+    .then(() => broadcastState())
+    .catch((error) => appendLog('error', 'storage_change_apply_failed', { message: error.message || 'apply_failed' }));
 });
 
-async function bootstrap() {
-  updateProxyAuthCache(await getState());
+function bootstrap() {
   registerProxyAuthHandler();
   registerMessageHandler();
+  return getState().then((state) => updateProxyAuthCache(state));
 }
 
 bootstrap().catch((error) => {

@@ -17,9 +17,9 @@ export function bindThemeMode(container, onChange) {
     return;
   }
   container.querySelectorAll('[data-theme-mode]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    button.addEventListener('click', () => {
       const mode = applyThemeMode(button.dataset.themeMode);
-      await onChange(mode);
+      Promise.resolve(onChange(mode)).catch(() => {});
     });
   });
 }

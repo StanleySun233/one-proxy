@@ -35,10 +35,10 @@ export const DEFAULT_STATE = {
 };
 
 let stateCache = null;
-let persistEffects = async () => {};
+let persistEffects = () => Promise.resolve();
 
 export function configureStateEffects(effects) {
-  persistEffects = typeof effects === 'function' ? effects : async () => {};
+  persistEffects = typeof effects === 'function' ? effects : () => Promise.resolve();
 }
 
 export function uniqueStrings(items) {
@@ -149,30 +149,32 @@ export function mergeState(raw) {
   return state;
 }
 
-export async function getState() {
+export function getState() {
   if (stateCache) {
-    return structuredClone(stateCache);
+    return Promise.resolve(structuredClone(stateCache));
   }
-  const stored = await chrome.storage.local.get(STORAGE_KEY);
-  stateCache = mergeState(stored[STORAGE_KEY] || {});
-  return structuredClone(stateCache);
+  return chrome.storage.local.get(STORAGE_KEY)
+    .then((stored) => {
+      stateCache = mergeState(stored[STORAGE_KEY] || {});
+      return structuredClone(stateCache);
+    });
 }
 
 export function activeGroupFrom(state) {
   return state.remote.groups.find((group) => group.id === state.selection.activeGroupId) || state.remote.groups[0] || null;
 }
 
-export async function persistState(nextState) {
+export function persistState(nextState) {
   stateCache = mergeState(nextState);
-  await chrome.storage.local.set({ [STORAGE_KEY]: stateCache });
-  await persistEffects(stateCache);
-  return structuredClone(stateCache);
+  return chrome.storage.local.set({ [STORAGE_KEY]: stateCache })
+    .then(() => persistEffects(stateCache))
+    .then(() => structuredClone(stateCache));
 }
 
-export async function setPartialState(mutator) {
-  const current = await getState();
-  const next = await mutator(structuredClone(current));
-  await persistState(next);
+export function setPartialState(mutator) {
+  return getState()
+    .then((current) => mutator(structuredClone(current)))
+    .then((next) => persistState(next));
 }
 
 export function handleStateStorageChange(changes, areaName) {

@@ -5,13 +5,16 @@ import { pacSummary } from './pac.js';
 import { routePreviewForUrl, sanitizeHost } from './routing.js';
 import { testUrlRoute } from './monitor.js';
 
-export async function getCurrentTabInfo() {
+export function getCurrentTabInfo() {
   const queries = [{ active: true, currentWindow: true }, { active: true, lastFocusedWindow: true }];
-  for (const query of queries) {
-    const tabs = await chrome.tabs.query(query);
-    const tab = tabs[0];
+  function next(index) {
+    if (index >= queries.length) {
+      return Promise.resolve(null);
+    }
+    return chrome.tabs.query(queries[index]).then((tabs) => {
+      const tab = tabs[0];
     if (!tab || !tab.url) {
-      continue;
+        return next(index + 1);
     }
     try {
       const parsed = new URL(tab.url);
@@ -20,14 +23,15 @@ export async function getCurrentTabInfo() {
         host: parsed.hostname
       };
     } catch (_error) {
+        return next(index + 1);
     }
+    });
   }
-  return null;
+  return next(0);
 }
 
-export async function getComputedState() {
-  const state = await getState();
-  const currentTab = await getCurrentTabInfo();
+export function getComputedState() {
+  return Promise.all([getState(), getCurrentTabInfo()]).then(([state, currentTab]) => {
   return {
     state,
     session: state.session,
@@ -37,131 +41,111 @@ export async function getComputedState() {
     currentRoute: routePreviewForUrl(state, currentTab && currentTab.url),
     monitorRoute: routePreviewForUrl(state, state.monitor.targetUrl)
   };
+  });
 }
 
-async function addHostToRule(kind, host) {
+function addHostToRule(kind, host) {
   const clean = sanitizeHost(host);
   if (!clean) {
     return getComputedState();
   }
-  const state = await getState();
+  return getState().then((state) => {
   const overrides = {
     ...state.localOverrides,
     [kind]: uniqueStrings([...(state.localOverrides[kind] || []), clean])
   };
-  await persistState({ ...state, localOverrides: overrides });
-  await appendLog('info', 'local_override_added', { kind, host: clean });
-  return getComputedState();
+  return persistState({ ...state, localOverrides: overrides })
+    .then(() => appendLog('info', 'local_override_added', { kind, host: clean }))
+    .then(() => getComputedState());
+  });
 }
 
-async function removeHostFromRule(host) {
+function removeHostFromRule(host) {
   const clean = sanitizeHost(host);
   if (!clean) {
     return getComputedState();
   }
-  const state = await getState();
+  return getState().then((state) => {
   const overrides = {
     ...state.localOverrides,
     directHosts: uniqueStrings(state.localOverrides.directHosts).filter((item) => item !== clean),
     proxyHosts: uniqueStrings(state.localOverrides.proxyHosts).filter((item) => item !== clean)
   };
-  await persistState({ ...state, localOverrides: overrides });
-  await appendLog('info', 'local_override_removed', { host: clean });
-  return getComputedState();
+  return persistState({ ...state, localOverrides: overrides })
+    .then(() => appendLog('info', 'local_override_removed', { host: clean }))
+    .then(() => getComputedState());
+  });
 }
 
-async function computedAfter(operation) {
-  const result = await operation();
-  return result || getComputedState();
+function computedAfter(operation) {
+  return Promise.resolve()
+    .then(() => operation())
+    .then((result) => result || getComputedState());
+}
+
+function handleMessage(message) {
+  if (!message || !message.type) {
+    return Promise.resolve(null);
+  }
+  switch (message.type) {
+    case 'get-state':
+      return getComputedState();
+    case 'get-diagnostic-logs':
+      return diagnosticLogs();
+    case 'clear-diagnostic-logs':
+      return clearDiagnosticLogs();
+    case 'record-diagnostic-event':
+      return getState()
+        .then((state) => appendLog('info', message.event || 'diagnostic_event', pacSummary(state)))
+        .then(() => diagnosticLogs());
+    case 'set-enabled':
+      return computedAfter(() => setPartialState((state) => ({ ...state, enabled: Boolean(message.enabled) })));
+    case 'set-theme-mode':
+      return computedAfter(() => setPartialState((state) => ({ ...state, themeMode: message.themeMode === 'dark' ? 'dark' : 'vivid' })));
+    case 'set-control-plane-url':
+      return computedAfter(() => setPartialState((state) => ({ ...state, controlPlaneUrl: String(message.controlPlaneUrl || '').trim() })));
+    case 'login':
+      return computedAfter(() => login(message.controlPlaneUrl, message.account, message.password));
+    case 'test-connection':
+      return testConnection(message.controlPlaneUrl);
+    case 'logout':
+      return computedAfter(() => logout());
+    case 'sync-remote-config':
+      return computedAfter(() => syncRemoteConfig());
+    case 'select-tenant':
+      return computedAfter(() => selectTenant(message.tenantId));
+    case 'test-url-route':
+      return testUrlRoute(message.url, { saveMonitorTarget: Boolean(message.saveMonitorTarget) });
+    case 'select-group':
+      return computedAfter(() => setPartialState((state) => ({
+        ...state,
+        selection: {
+          ...state.selection,
+          activeGroupId: message.groupId || ''
+        }
+      })));
+    case 'set-local-overrides':
+      return computedAfter(() => setPartialState((state) => ({
+        ...state,
+        localOverrides: {
+          directHosts: uniqueStrings(message.directHosts),
+          proxyHosts: uniqueStrings(message.proxyHosts)
+        }
+      })));
+    case 'add-current-host-to-direct':
+      return getCurrentTabInfo().then((info) => addHostToRule('directHosts', (info && info.host) || ''));
+    case 'add-current-host-to-proxy':
+      return getCurrentTabInfo().then((info) => addHostToRule('proxyHosts', (info && info.host) || ''));
+    case 'remove-current-host-override':
+      return getCurrentTabInfo().then((info) => removeHostFromRule((info && info.host) || ''));
+    default:
+      return Promise.resolve(null);
+  }
 }
 
 export function registerMessageHandler() {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    (async () => {
-      if (!message || !message.type) {
-        sendResponse(null);
-        return;
-      }
-      switch (message.type) {
-        case 'get-state':
-          sendResponse(await getComputedState());
-          return;
-        case 'get-diagnostic-logs':
-          sendResponse(await diagnosticLogs());
-          return;
-        case 'clear-diagnostic-logs':
-          sendResponse(await clearDiagnosticLogs());
-          return;
-        case 'record-diagnostic-event': {
-          const state = await getState();
-          await appendLog('info', message.event || 'diagnostic_event', pacSummary(state));
-          sendResponse(await diagnosticLogs());
-          return;
-        }
-        case 'set-enabled':
-          sendResponse(await computedAfter(() => setPartialState((state) => ({ ...state, enabled: Boolean(message.enabled) }))));
-          return;
-        case 'set-theme-mode':
-          sendResponse(await computedAfter(() => setPartialState((state) => ({ ...state, themeMode: message.themeMode === 'dark' ? 'dark' : 'vivid' }))));
-          return;
-        case 'set-control-plane-url':
-          sendResponse(await computedAfter(() => setPartialState((state) => ({ ...state, controlPlaneUrl: String(message.controlPlaneUrl || '').trim() }))));
-          return;
-        case 'login':
-          sendResponse(await computedAfter(() => login(message.controlPlaneUrl, message.account, message.password)));
-          return;
-        case 'test-connection':
-          sendResponse(await testConnection(message.controlPlaneUrl));
-          return;
-        case 'logout':
-          sendResponse(await computedAfter(() => logout()));
-          return;
-        case 'sync-remote-config':
-          sendResponse(await computedAfter(() => syncRemoteConfig()));
-          return;
-        case 'select-tenant':
-          sendResponse(await computedAfter(() => selectTenant(message.tenantId)));
-          return;
-        case 'test-url-route':
-          sendResponse(await testUrlRoute(message.url, { saveMonitorTarget: Boolean(message.saveMonitorTarget) }));
-          return;
-        case 'select-group':
-          sendResponse(await computedAfter(() => setPartialState((state) => ({
-            ...state,
-            selection: {
-              ...state.selection,
-              activeGroupId: message.groupId || ''
-            }
-          }))));
-          return;
-        case 'set-local-overrides':
-          sendResponse(await computedAfter(() => setPartialState((state) => ({
-            ...state,
-            localOverrides: {
-              directHosts: uniqueStrings(message.directHosts),
-              proxyHosts: uniqueStrings(message.proxyHosts)
-            }
-          }))));
-          return;
-        case 'add-current-host-to-direct': {
-          const info = await getCurrentTabInfo();
-          sendResponse(await addHostToRule('directHosts', (info && info.host) || ''));
-          return;
-        }
-        case 'add-current-host-to-proxy': {
-          const info = await getCurrentTabInfo();
-          sendResponse(await addHostToRule('proxyHosts', (info && info.host) || ''));
-          return;
-        }
-        case 'remove-current-host-override': {
-          const info = await getCurrentTabInfo();
-          sendResponse(await removeHostFromRule((info && info.host) || ''));
-          return;
-        }
-        default:
-          sendResponse(null);
-      }
-    })().catch((error) => {
+    handleMessage(message).then(sendResponse).catch((error) => {
       appendLog('error', 'runtime_message_failed', {
         type: message && message.type ? message.type : '',
         message: error.message || 'unexpected_error'

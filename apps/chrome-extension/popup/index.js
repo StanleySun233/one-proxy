@@ -162,65 +162,71 @@ function render(bundle) {
   }
 }
 
-masterToggle.addEventListener('click', async () => {
+masterToggle.addEventListener('click', () => {
   if (!viewState || !viewState.activeGroup) {
     return;
   }
-  const result = await sendMessage({ type: 'set-enabled', enabled: !viewState.state.enabled });
+  sendMessage({ type: 'set-enabled', enabled: !viewState.state.enabled }).then((result) => {
   if (result && result.error) {
     setStatus('error', result.error);
     return;
   }
   render(result);
+  });
 });
 
-groupSelect.addEventListener('change', async (event) => {
-  const result = await sendMessage({ type: 'select-group', groupId: event.target.value });
+groupSelect.addEventListener('change', (event) => {
+  sendMessage({ type: 'select-group', groupId: event.target.value }).then((result) => {
   if (result && result.error) {
     setStatus('error', result.error);
     return;
   }
   render(result);
+  });
 });
 
-addDirect.addEventListener('click', async () => {
-  const result = await sendMessage({ type: 'add-current-host-to-direct' });
+addDirect.addEventListener('click', () => {
+  sendMessage({ type: 'add-current-host-to-direct' }).then((result) => {
   if (result && result.error) {
     setStatus('error', result.error);
     return;
   }
   render(result);
+  });
 });
 
-addProxy.addEventListener('click', async () => {
-  const result = await sendMessage({ type: 'add-current-host-to-proxy' });
+addProxy.addEventListener('click', () => {
+  sendMessage({ type: 'add-current-host-to-proxy' }).then((result) => {
   if (result && result.error) {
     setStatus('error', result.error);
     return;
   }
   render(result);
+  });
 });
 
-removeOverride.addEventListener('click', async () => {
-  const result = await sendMessage({ type: 'remove-current-host-override' });
+removeOverride.addEventListener('click', () => {
+  sendMessage({ type: 'remove-current-host-override' }).then((result) => {
   if (result && result.error) {
     setStatus('error', result.error);
     return;
   }
   render(result);
+  });
 });
 
-syncButton.addEventListener('click', async () => {
-  const result = await sendMessage({ type: 'sync-remote-config' });
+syncButton.addEventListener('click', () => {
+  sendMessage({ type: 'sync-remote-config' }).then((result) => {
   if (result && result.error) {
     setStatus('error', result.error);
     return;
   }
   render(result);
   setStatus('ok', text('statusSynced'));
+  });
 });
 
-testUrlButton.addEventListener('click', async () => {
+testUrlButton.addEventListener('click', () => {
   const targetUrl = testUrlInput.value.trim();
   if (!targetUrl) {
     setStatus('error', text('statusInvalidTarget'));
@@ -228,26 +234,27 @@ testUrlButton.addEventListener('click', async () => {
   }
   testUrlButton.disabled = true;
   setStatus('idle', text('statusTesting'));
-  try {
-    const result = await sendMessage({ type: 'test-url-route', url: targetUrl, saveMonitorTarget: true });
+  sendMessage({ type: 'test-url-route', url: targetUrl, saveMonitorTarget: true })
+    .then((result) => {
     if (result && result.error) {
       setStatus('error', result.error);
       return;
     }
     renderTopology(result.route);
     renderProbes(result.results);
-    const refreshed = await sendMessage({ type: 'get-state' });
-    render(refreshed);
-    setStatus('ok', text('statusTested'));
-  } catch (error) {
-    setStatus('error', error.message || 'test_failed');
-  } finally {
-    testUrlButton.disabled = !viewState || !viewState.activeGroup;
-  }
+      return sendMessage({ type: 'get-state' })
+        .then((refreshed) => {
+          render(refreshed);
+          setStatus('ok', text('statusTested'));
+        });
+    })
+    .catch((error) => setStatus('error', error.message || 'test_failed'))
+    .finally(() => {
+      testUrlButton.disabled = !viewState || !viewState.activeGroup;
+    });
 });
 
-bindThemeMode(themeMode, async (mode) => {
-  const result = await sendMessage({ type: 'set-theme-mode', themeMode: mode });
+bindThemeMode(themeMode, (mode) => sendMessage({ type: 'set-theme-mode', themeMode: mode }).then((result) => {
   if (result && result.error) {
     setStatus('error', result.error);
     if (viewState && viewState.state) {
@@ -256,7 +263,7 @@ bindThemeMode(themeMode, async (mode) => {
     return;
   }
   render(result);
-});
+}));
 
 openOptions.addEventListener('click', () => chrome.runtime.openOptionsPage());
 
@@ -266,9 +273,9 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-async function init() {
+function init() {
   applyLanguage();
-  render(await sendMessage({ type: 'get-state' }));
+  sendMessage({ type: 'get-state' }).then(render);
 }
 
 init();
