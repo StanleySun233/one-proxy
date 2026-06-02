@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/httpctx"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/service"
 )
 
@@ -20,12 +21,6 @@ type APIResponse[T any] struct {
 	Message string `json:"message"`
 	Data    T      `json:"data"`
 }
-
-type contextKey string
-
-const accountContextKey contextKey = "account"
-const tenantContextKey contextKey = "tenant"
-const nodeContextKey contextKey = "node"
 
 func writeSuccess[T any](w http.ResponseWriter, status int, data T) {
 	writeEnvelope(w, status, APIResponse[T]{
@@ -103,7 +98,7 @@ func (r *Router) requireAccount(next http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 		}
-		ctx := context.WithValue(req.Context(), accountContextKey, account)
+		ctx := httpctx.WithAccount(req.Context(), account)
 		if isPasswordRotationRequest(req, account) {
 			next(w, req.WithContext(ctx))
 			return
@@ -115,7 +110,7 @@ func (r *Router) requireAccount(next http.HandlerFunc) http.HandlerFunc {
 				writeServiceError(w, req, err, "tenant_context_failed")
 				return
 			}
-			ctx = context.WithValue(ctx, tenantContextKey, tenantCtx)
+			ctx = httpctx.WithTenantAuth(ctx, tenantCtx)
 		}
 		next(w, req.WithContext(ctx))
 	}
@@ -140,17 +135,11 @@ func allowsSuperAdminTenantBypass(req *http.Request) bool {
 }
 
 func accountFromContext(ctx context.Context) (domain.Account, bool) {
-	account, ok := ctx.Value(accountContextKey).(domain.Account)
-	return account, ok
+	return httpctx.Account(ctx)
 }
 
 func tenantAuthContextFromContext(ctx context.Context) (domain.TenantAuthContext, bool) {
-	return TenantAuthContextFromContext(ctx)
-}
-
-func TenantAuthContextFromContext(ctx context.Context) (domain.TenantAuthContext, bool) {
-	tenantCtx, ok := ctx.Value(tenantContextKey).(domain.TenantAuthContext)
-	return tenantCtx, ok
+	return httpctx.TenantAuth(ctx)
 }
 
 func (r *Router) requireNode(next http.HandlerFunc) http.HandlerFunc {
@@ -165,14 +154,13 @@ func (r *Router) requireNode(next http.HandlerFunc) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "invalid_node_token")
 			return
 		}
-		ctx := context.WithValue(req.Context(), nodeContextKey, nodeID)
+		ctx := httpctx.WithNodeID(req.Context(), nodeID)
 		next(w, req.WithContext(ctx))
 	}
 }
 
 func nodeIDFromContext(ctx context.Context) (string, bool) {
-	nodeID, ok := ctx.Value(nodeContextKey).(string)
-	return nodeID, ok
+	return httpctx.NodeID(ctx)
 }
 
 type statusWriter struct {
