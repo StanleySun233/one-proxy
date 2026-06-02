@@ -7,7 +7,7 @@ toolchain go1.23.12
 require golang.org/x/crypto v0.41.0
 
 require (
-	github.com/quic-go/quic-go v0.58.1 // indirect
+	github.com/quic-go/quic-go v0.54.1 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 )
 
