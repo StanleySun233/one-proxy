@@ -17,6 +17,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/controlplane"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/controlproxy"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/controlrelay"
+	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/direct"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/network"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/policystore"
@@ -137,6 +138,9 @@ func main() {
 		mux.Handle("/api/v1/node-agent/heartbeat", forwarder)
 		mux.Handle("/api/v1/node-agent/cert/renew", forwarder)
 		mux.Handle("/api/v1/node-agent/transports", forwarder)
+		mux.Handle("/api/v1/node-agent/direct/candidates", forwarder)
+		mux.Handle("/api/v1/node-agent/direct/link-plan", forwarder)
+		mux.Handle("/api/v1/node-agent/direct/status", forwarder)
 		log.Printf("proxy-node bound nodeID=%s controlPlaneURL=%s", current.NodeID, current.ControlPlaneURL)
 	} else {
 		log.Printf("proxy-node starting without control plane binding localIPs=%v", network.LocalIPs())
@@ -167,6 +171,7 @@ func main() {
 	}
 	tunnelController := tunnel.NewController(manager, tunnelRegistry, cfg.NodeParentTunnelURL, cfg.NodeTunnelPath, tunnelInterval)
 	go tunnelController.Run()
+	startDirectManager(cfg, manager)
 	go manager.Run()
 	if cfg.TCPAccessListenAddr != "" {
 		go tcpaccess.ListenAndServe(cfg.TCPAccessListenAddr, tcpaccess.New(proxyAuthorizer, tunnelRegistry))
@@ -180,6 +185,45 @@ func main() {
 	}
 	log.Printf("proxy-node listening on http=%s https=%s localIPs=%v", cfg.ListenAddr, cfg.HTTPSListenAddr, network.LocalIPs())
 	log.Fatal(server.ListenAndServe())
+}
+
+func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager) {
+	if cfg.NodeDirectListenAddr == "" || !manager.Bound() {
+		return
+	}
+	addr, err := net.ResolveUDPAddr("udp", cfg.NodeDirectListenAddr)
+	if err != nil {
+		log.Printf("direct transport disabled: resolve listen addr failed: %v", err)
+		return
+	}
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		log.Printf("direct transport disabled: listen failed: %v", err)
+		return
+	}
+	interval := parseDurationOrDefault(cfg.NodeDirectRefreshInterval, 30*time.Second)
+	current := manager.Current()
+	client := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken)
+	directManager := direct.NewManager(conn, direct.CandidateGatherer{
+		STUNServers: splitCSV(cfg.NodeDirectSTUNServers),
+		Timeout:     3 * time.Second,
+	}, client, nil)
+	log.Printf("direct transport listening on udp=%s stun=%s", conn.LocalAddr().String(), cfg.NodeDirectSTUNServers)
+	go directManager.Run(context.Background(), interval, func(err error) {
+		log.Printf("direct transport refresh failed: %v", err)
+	})
+}
+
+func splitCSV(value string) []string {
+	parts := strings.Split(value, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			items = append(items, part)
+		}
+	}
+	return items
 }
 
 type panelProxyTokenValidator struct {

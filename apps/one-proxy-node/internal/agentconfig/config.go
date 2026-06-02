@@ -22,6 +22,9 @@ type Config struct {
 	NodeParentTunnelURL           string
 	NodeTunnelPath                string
 	NodeTunnelHeartbeat           string
+	NodeDirectListenAddr          string
+	NodeDirectSTUNServers         string
+	NodeDirectRefreshInterval     string
 	ListenAddr                    string
 	HTTPSListenAddr               string
 	TCPAccessListenAddr           string
@@ -63,6 +66,9 @@ func Load() Config {
 		NodeParentTunnelURL:           FirstNonEmpty(envOrDefault("NODE_PARENT_TUNNEL_URL", ""), parentURL),
 		NodeTunnelPath:                envOrDefault("NODE_TUNNEL_PATH", "/api/v1/node-tunnel/connect"),
 		NodeTunnelHeartbeat:           envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),
+		NodeDirectListenAddr:          envOrDefault("NODE_DIRECT_LISTEN_ADDR", ""),
+		NodeDirectSTUNServers:         envOrDefault("NODE_DIRECT_STUN_SERVERS", "stun.cloudflare.com:3478"),
+		NodeDirectRefreshInterval:     envOrDefault("NODE_DIRECT_REFRESH_INTERVAL", "30s"),
 		ListenAddr:                    envOrDefault("NODE_LISTEN_ADDR", ":2988"),
 		HTTPSListenAddr:               envOrDefault("NODE_HTTPS_LISTEN_ADDR", ":2989"),
 		TCPAccessListenAddr:           envOrDefault("NODE_TCP_ACCESS_LISTEN_ADDR", ""),

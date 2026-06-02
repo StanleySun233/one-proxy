@@ -35,6 +35,27 @@ func NewManager(conn *net.UDPConn, gatherer CandidateGatherer, client SignalingC
 	}
 }
 
+func (m *Manager) Run(ctx context.Context, interval time.Duration, onError func(error)) {
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	if err := m.RefreshOnce(ctx); err != nil && onError != nil {
+		onError(err)
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := m.RefreshOnce(ctx); err != nil && onError != nil {
+				onError(err)
+			}
+		}
+	}
+}
+
 func (m *Manager) RefreshOnce(ctx context.Context) error {
 	candidates, err := m.gatherer.Gather(ctx, m.conn)
 	if err != nil {
