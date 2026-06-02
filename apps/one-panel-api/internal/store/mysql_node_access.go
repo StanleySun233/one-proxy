@@ -88,26 +88,37 @@ func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrol
 }
 
 func (s *MySQLStore) assignLatestPolicyTx(tx *sql.Tx, nodeID string, assignedAt string) error {
-	var latestRevisionID string
-	err := tx.QueryRow(
-		`SELECT id FROM policy_revisions ORDER BY created_at DESC LIMIT 1`,
-	).Scan(&latestRevisionID)
-	if err == sql.ErrNoRows {
-		return nil
+	for _, tenantCtx := range s.nodePolicyTenantContexts(nodeID) {
+		var latestRevisionID string
+		var latestVersion string
+		err := tx.QueryRow(
+			`SELECT id, version FROM policy_revisions WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1`,
+			tenantCtx.ActiveTenant.TenantID,
+		).Scan(&latestRevisionID, &latestVersion)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		nodes, links, chains, rules := s.tenantPolicyInputs(tenantCtx)
+		snapshotJSON, err := policy.CompileForNode(nodeID, nodes, links, chains, rules, nil)
+		if err != nil {
+			return err
+		}
+		wrapped, err := tenantNodePolicyPayload(tenantCtx.ActiveTenant.TenantID, latestVersion, snapshotJSON)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM node_policy_assignments WHERE tenant_id = ? AND node_id = ?`, tenantCtx.ActiveTenant.TenantID, nodeID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO node_policy_assignments (tenant_id, node_id, policy_revision_id, snapshot_json, assigned_at) VALUES (?, ?, ?, ?, ?)`,
+			tenantCtx.ActiveTenant.TenantID, nodeID, latestRevisionID, wrapped, assignedAt,
+		); err != nil {
+			return err
+		}
 	}
-	if err != nil {
-		return err
-	}
-	snapshotJSON, err := policy.CompileForNode(nodeID, s.policyNodes(), s.ListNodeLinks(), s.ListChains(), s.ListRouteRules(), s.buildGroupEntries())
-	if err != nil {
-		return err
-	}
-	if _, err := tx.Exec(`DELETE FROM node_policy_assignments WHERE node_id = ?`, nodeID); err != nil {
-		return err
-	}
-	_, err = tx.Exec(
-		`INSERT INTO node_policy_assignments (node_id, policy_revision_id, snapshot_json, assigned_at) VALUES (?, ?, ?, ?)`,
-		nodeID, latestRevisionID, snapshotJSON, assignedAt,
-	)
-	return err
+	return nil
 }
