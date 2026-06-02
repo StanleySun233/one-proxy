@@ -2,6 +2,8 @@ package domain
 
 type Node struct {
 	ID           string `json:"id"`
+	CreateID     string `json:"createId"`
+	OwnerID      string `json:"ownerId"`
 	Name         string `json:"name"`
 	Mode         string `json:"mode"`
 	ScopeKey     string `json:"scopeKey"`
@@ -37,6 +39,8 @@ type UpdateNodeInput struct {
 
 type NodeLink struct {
 	ID           string `json:"id"`
+	CreateID     string `json:"createId"`
+	OwnerID      string `json:"ownerId"`
 	SourceNodeID string `json:"sourceNodeId"`
 	TargetNodeID string `json:"targetNodeId"`
 	LinkType     string `json:"linkType"`
@@ -59,6 +63,8 @@ type UpdateNodeLinkInput struct {
 
 type NodeAccessPath struct {
 	ID             string            `json:"id"`
+	CreateID       string            `json:"createId"`
+	OwnerID        string            `json:"ownerId"`
 	ChainID        string            `json:"chainId"`
 	Name           string            `json:"name"`
 	Mode           string            `json:"mode"`
