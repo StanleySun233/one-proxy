@@ -36,9 +36,15 @@ type Config struct {
 
 func Load() Config {
 	joinPassword, joinPasswordProvided := lookupEnvOrDefault("NODE_JOIN_PASSWORD", "password")
+	parentID := envOrDefault("NODE_PARENT_ID", "")
 	parentURL := envOrDefault("NODE_PARENT_URL", "")
+	controlPlaneURL := resolveControlPlaneURL(envOrDefault("CONTROL_PLANE_URL", ""), parentURL, parentID)
+	proxyTokenControlPlaneURL := envOrDefault("NODE_PROXY_TOKEN_CONTROL_PLANE_URL", "")
+	if controlPlaneURL == parentURL && parentURL != "" {
+		proxyTokenControlPlaneURL = parentURL
+	}
 	return Config{
-		ControlPlaneURL:               FirstNonEmpty(envOrDefault("CONTROL_PLANE_URL", ""), parentURL),
+		ControlPlaneURL:               controlPlaneURL,
 		NodeParentURL:                 parentURL,
 		NodeBootstrapToken:            envOrDefault("NODE_BOOTSTRAP_TOKEN", ""),
 		NodeAccessToken:               envOrDefault("NODE_ACCESS_TOKEN", ""),
@@ -47,12 +53,12 @@ func Load() Config {
 		NodeName:                      envOrDefault("NODE_NAME", ""),
 		NodeMode:                      envOrDefault("NODE_MODE", ""),
 		NodeScopeKey:                  envOrDefault("NODE_SCOPE_KEY", ""),
-		NodeParentID:                  envOrDefault("NODE_PARENT_ID", ""),
+		NodeParentID:                  parentID,
 		NodePublicHost:                envOrDefault("NODE_PUBLIC_HOST", ""),
 		NodeJoinPassword:              joinPassword,
 		NodeJoinPasswordProvided:      joinPasswordProvided,
 		NodeReverseTargetURL:          envOrDefault("NODE_REVERSE_TARGET_URL", ""),
-		NodeProxyTokenControlPlaneURL: envOrDefault("NODE_PROXY_TOKEN_CONTROL_PLANE_URL", ""),
+		NodeProxyTokenControlPlaneURL: proxyTokenControlPlaneURL,
 		NodeProxyTokenCacheTTL:        envOrDefault("NODE_PROXY_TOKEN_CACHE_TTL", "24h"),
 		NodeParentTunnelURL:           FirstNonEmpty(envOrDefault("NODE_PARENT_TUNNEL_URL", ""), parentURL),
 		NodeTunnelPath:                envOrDefault("NODE_TUNNEL_PATH", "/api/v1/node-tunnel/connect"),
@@ -68,6 +74,13 @@ func Load() Config {
 		LetsEncryptEmail:              envOrDefault("LETSENCRYPT_EMAIL", ""),
 		LetsEncryptCacheDir:           envOrDefault("LETSENCRYPT_CACHE_DIR", "runtime/autocert"),
 	}
+}
+
+func resolveControlPlaneURL(panelURL string, parentURL string, parentID string) string {
+	if parentID != "" && parentURL != "" {
+		return parentURL
+	}
+	return FirstNonEmpty(panelURL, parentURL)
 }
 
 func FirstNonEmpty(values ...string) string {
