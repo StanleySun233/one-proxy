@@ -13,9 +13,14 @@ type rejectNodePayload struct {
 }
 
 func (r *Router) handleNodes(w http.ResponseWriter, req *http.Request) {
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
 	switch req.Method {
 	case http.MethodGet:
-		writeSuccess(w, http.StatusOK, r.service.Nodes())
+		writeSuccess(w, http.StatusOK, r.service.Nodes(tenantCtx))
 	default:
 		writeMethodNotAllowed(w, "GET")
 	}
@@ -31,6 +36,11 @@ func (r *Router) handleNodeByID(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing_node_id")
 		return
 	}
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
 	switch req.Method {
 	case http.MethodPatch:
 		var payload domain.UpdateNodeInput
@@ -38,14 +48,14 @@ func (r *Router) handleNodeByID(w http.ResponseWriter, req *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
-		item, err := r.service.UpdateNode(nodeID, payload)
+		item, err := r.service.UpdateNode(tenantCtx, nodeID, payload)
 		if err != nil {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
-		if err := r.service.DeleteNode(nodeID); err != nil {
+		if err := r.service.DeleteNode(tenantCtx, nodeID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
