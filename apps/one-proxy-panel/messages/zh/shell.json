@@ -6,6 +6,8 @@
   "themeLight": "浅色",
   "themeDark": "暗色",
   "themeLabel": "主题",
+  "tenantLabel": "租户",
+  "tenantPlaceholder": "选择租户",
   "languageLabel": "语言",
   "localeZh": "中文",
   "localeEn": "English",

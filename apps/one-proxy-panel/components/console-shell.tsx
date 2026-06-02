@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Building2,
   ChevronRight,
   GitBranch,
   LayoutDashboard,
@@ -26,8 +27,14 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const pathname = usePathname();
   const router = useRouter();
   const {resolvedTheme, setTheme} = useTheme();
-  const {session, logout} = useAuth();
+  const {session, tenantMemberships, activeTenant, switchTenant, logout} = useAuth();
   const accessToken = session?.accessToken || '';
+  const tenantOptions = tenantMemberships.map((membership) => ({
+    value: membership.tenantId,
+    label: membership.tenantName
+  }));
+  const showTenantSwitcher = tenantMemberships.length > 1;
+  const tenantSelectOptions = activeTenant ? tenantOptions : [{value: '', label: t('shell.tenantPlaceholder')}, ...tenantOptions];
 
   const pendingQuery = useQuery({
     queryKey: ['pending-nodes', accessToken],
@@ -123,6 +130,12 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     router.replace(pathname, {locale: value});
   };
 
+  const handleTenantChange = (value: string) => {
+    if (value) {
+      switchTenant(value);
+    }
+  };
+
   return (
     <div className="console-shell">
       <header className="console-topbar">
@@ -135,6 +148,16 @@ export function ConsoleShell({children}: {children: ReactNode}) {
 
         <div className="console-topbar-actions">
           <CapsuleSelectGroup>
+            {showTenantSwitcher ? (
+              <CapsuleSelect
+                aria-label={t('shell.tenantLabel')}
+                icon={<Building2 size={16} />}
+                onChange={handleTenantChange}
+                options={tenantSelectOptions}
+                value={activeTenant?.tenantId || ''}
+              />
+            ) : null}
+
             <CapsuleSelect
               aria-label={t('shell.themeLabel')}
               icon={<Shirt size={16} />}

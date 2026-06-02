@@ -6,6 +6,8 @@
   "themeLight": "Light",
   "themeDark": "Dark",
   "themeLabel": "Theme",
+  "tenantLabel": "Tenant",
+  "tenantPlaceholder": "Select tenant",
   "languageLabel": "Language",
   "localeZh": "中文",
   "localeEn": "English",
