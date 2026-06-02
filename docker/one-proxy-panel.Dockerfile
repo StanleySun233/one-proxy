@@ -1,21 +1,18 @@
-FROM node:22-bookworm-slim AS web-builder
+ARG PANEL_BASE_IMAGE=oneproxy-panel-base:latest
+
+FROM ${PANEL_BASE_IMAGE} AS web-builder
 WORKDIR /workspace/apps/one-proxy-panel
-COPY apps/one-proxy-panel/package.json ./
-RUN npm install
 COPY apps/one-proxy-panel ./
+RUN cp -a /base/apps/one-proxy-panel/node_modules ./node_modules
 RUN npm run build
 
-FROM golang:1.23-bookworm AS api-builder
+FROM ${PANEL_BASE_IMAGE} AS api-builder
 WORKDIR /workspace/apps/one-panel-api
-COPY apps/one-panel-api/go.mod apps/one-panel-api/go.sum ./
-RUN go mod download
 COPY apps/one-panel-api ./
-RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/one-proxy-panel ./cmd/one-proxy-panel
 
-FROM node:22-bookworm-slim
+FROM ${PANEL_BASE_IMAGE}
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 ENV TZ=Asia/Shanghai
 ENV PORT=2886

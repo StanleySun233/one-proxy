@@ -13,7 +13,7 @@ function shellQuote(value: string) {
 }
 
 function highlightedBash(line: string) {
-  const parts = line.split(/(docker|rm|run|true|ghcr\.io\/stanleysun233\/one-proxy-node:latest|--[a-z-]+|-e|-p|-v|\\|'[^']*'|\S+:[^\s]+)/g).filter(Boolean);
+  const parts = line.split(/(docker|rm|run|true|stanleysun233\/oneproxy-node:latest|--[a-z-]+|-e|-p|-v|\\|'[^']*'|\S+:[^\s]+)/g).filter(Boolean);
 
   return parts.map((part, index) => {
     let className = 'bash-plain';
@@ -23,7 +23,7 @@ function highlightedBash(line: string) {
       className = 'bash-flag';
     } else if (/^'/.test(part)) {
       className = 'bash-string';
-    } else if (part.includes(':') || part.startsWith('ghcr.io/')) {
+    } else if (part.includes(':') || part.includes('/')) {
       className = 'bash-target';
     } else if (part === '\\') {
       className = 'bash-continuation';
@@ -95,7 +95,7 @@ export function BootstrapTokenTab({
       ...parentLines,
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
       "  -e TZ='Asia/Shanghai' \\",
-      '  ghcr.io/stanleysun233/one-proxy-node:latest'
+      '  stanleysun233/oneproxy-node:latest'
     ].join('\n');
   }, [controlPlaneURL, latestToken, parentReachableUrl, publicPort, selectedParentNodeId]);
   const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);

@@ -40,12 +40,13 @@ Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.control-plane` if ne
 3. Build and run the single control-plane container:
 
 ```bash
-docker build -f docker/one-proxy-panel.Dockerfile -t one-proxy-panel .
+docker build -f docker/one-proxy-panel-base.Dockerfile -t oneproxy-panel-base:latest .
+docker build -f docker/one-proxy-panel.Dockerfile -t oneproxy-panel .
 docker run --rm --name one-proxy-panel \
   --add-host host.docker.internal:host-gateway \
   --env-file .env.control-plane \
   -p 2886:2886 \
-  one-proxy-panel
+  oneproxy-panel
 ```
 
 Open `http://127.0.0.1:2886`. The frontend is the only exposed port. `/api/v1/*` is proxied inside the same container to the backend on `127.0.0.1:2887`.
@@ -63,20 +64,23 @@ Default timezone is `Asia/Shanghai`. Override `TZ` in `.env.proxy-node` if neede
 2. Build and run:
 
 ```bash
-docker build -f docker/one-proxy-node.Dockerfile -t one-proxy-node .
+docker build -f docker/one-proxy-node-base.Dockerfile -t oneproxy-node-base:latest .
+docker build -f docker/one-proxy-node.Dockerfile -t oneproxy-node .
 docker run --rm --name one-proxy-node \
   --env-file .env.proxy-node \
   -p 2888:2888 \
   -p 2889:2889 \
-  one-proxy-node
+  oneproxy-node
 ```
 
 The node keeps its local runtime state in SQLite/JSON files inside the container. Mount `/app/runtime` if you want persistence.
 Set `NODE_REVERSE_TARGET_URL=http://172.20.116.91:2333` when a node should act as a reverse HTTP/WebSocket entry for a JupyterLab service.
 
-## GHCR
+## Docker Hub
 
 Pushes to `main` trigger the split image workflows and publish:
 
-- `ghcr.io/stanleysun233/one-proxy-panel:latest`
-- `ghcr.io/stanleysun233/one-proxy-node:latest`
+- `stanleysun233/oneproxy-panel-base:latest`
+- `stanleysun233/oneproxy-panel:latest`
+- `stanleysun233/oneproxy-node-base:latest`
+- `stanleysun233/oneproxy-node:latest`
