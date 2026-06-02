@@ -56,6 +56,8 @@ func (s *MySQLStore) CreateNode(input domain.CreateNodeInput) (domain.Node, erro
 	}
 	item := domain.Node{
 		ID:           nodeID,
+		CreateID:     "1",
+		OwnerID:      "1",
 		Name:         input.Name,
 		Mode:         input.Mode,
 		ScopeKey:     input.ScopeKey,
@@ -67,9 +69,9 @@ func (s *MySQLStore) CreateNode(input domain.CreateNodeInput) (domain.Node, erro
 	}
 	now := nowRFC3339()
 	_, err = s.db.Exec(
-		`INSERT INTO nodes (id, name, mode, public_host, public_port, scope_key, parent_node_id, enabled, status, created_at, updated_at)
-		 VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, ?, ?, ?)`,
-		item.ID, item.Name, item.Mode, item.PublicHost, item.PublicPort, item.ScopeKey, item.ParentNodeID, 1, item.Status, now, now,
+		`INSERT INTO nodes (id, create_id, owner_id, name, mode, public_host, public_port, scope_key, parent_node_id, enabled, status, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, ?, ?, ?)`,
+		item.ID, item.CreateID, item.OwnerID, item.Name, item.Mode, item.PublicHost, item.PublicPort, item.ScopeKey, item.ParentNodeID, 1, item.Status, now, now,
 	)
 	return item, err
 }

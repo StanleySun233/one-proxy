@@ -2,7 +2,7 @@ package service
 
 import "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 
-func (c *ControlPlane) CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error) {
+func (c *ControlPlane) CreateBootstrapToken(tenantCtx domain.TenantAuthContext, input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error) {
 	if input.TargetType == "" {
 		return domain.BootstrapToken{}, invalidInput("invalid_bootstrap_payload")
 	}
@@ -17,7 +17,7 @@ func (c *ControlPlane) CreateBootstrapToken(input domain.CreateBootstrapTokenInp
 	if input.NodeMode != "" && !c.isValidEnum("node_mode", input.NodeMode) {
 		return domain.BootstrapToken{}, invalidInput("invalid_node_payload")
 	}
-	return c.store.CreateBootstrapToken(input)
+	return c.store.CreateBootstrapTokenForTenant(tenantCtx, input)
 }
 
 func (c *ControlPlane) UnconsumedBootstrapTokens() []domain.BootstrapToken {

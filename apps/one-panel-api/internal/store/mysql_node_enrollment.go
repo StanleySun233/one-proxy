@@ -89,7 +89,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 			`UPDATE nodes
 			 SET name = ?, mode = ?, public_host = NULLIF(?, ''), public_port = ?, scope_key = ?, parent_node_id = NULLIF(?, ''), enabled = ?, status = ?, updated_at = ?
 			 WHERE id = ?`,
-			effectiveName, effectiveMode, effectivePublicHost, effectivePublicPort, effectiveScopeKey, effectiveParentNodeID, 1, domain.NodeStatusHealthy, now, node.ID,
+			effectiveName, effectiveMode, effectivePublicHost, effectivePublicPort, effectiveScopeKey, effectiveParentNodeID, 1, domain.NodeStatusPending, now, node.ID,
 		); err != nil {
 			return domain.EnrollNodeResult{}, err
 		}
@@ -100,30 +100,9 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 		node.PublicHost = effectivePublicHost
 		node.PublicPort = effectivePublicPort
 		node.Enabled = true
-		node.Status = domain.NodeStatusHealthy
+		node.Status = domain.NodeStatusPending
 	} else {
-		nodeID, err := s.nextNodeID()
-		if err != nil {
-			return domain.EnrollNodeResult{}, err
-		}
-		node = domain.Node{
-			ID:           nodeID,
-			Name:         effectiveName,
-			Mode:         effectiveMode,
-			ScopeKey:     effectiveScopeKey,
-			ParentNodeID: effectiveParentNodeID,
-			Enabled:      true,
-			Status:       domain.NodeStatusPending,
-			PublicHost:   effectivePublicHost,
-			PublicPort:   effectivePublicPort,
-		}
-		if _, err := tx.Exec(
-			`INSERT INTO nodes (id, name, mode, public_host, public_port, scope_key, parent_node_id, enabled, status, created_at, updated_at)
-			 VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, ?, ?, ?)`,
-			node.ID, node.Name, node.Mode, node.PublicHost, node.PublicPort, node.ScopeKey, node.ParentNodeID, 1, node.Status, now, now,
-		); err != nil {
-			return domain.EnrollNodeResult{}, err
-		}
+		return domain.EnrollNodeResult{}, fmt.Errorf("bootstrap token missing target node")
 	}
 	if _, err := tx.Exec("UPDATE bootstrap_tokens SET consumed_at = ? WHERE id = ?", now, tokenID); err != nil {
 		return domain.EnrollNodeResult{}, err

@@ -66,6 +66,7 @@ type NodeStore interface {
 	CreateNodeOnboardingTask(accountID string, input domain.CreateNodeOnboardingTaskInput) (domain.NodeOnboardingTask, error)
 	UpdateNodeOnboardingTaskStatus(taskID string, status string, statusMessage string) (domain.NodeOnboardingTask, error)
 	CreateBootstrapToken(input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error)
+	CreateBootstrapTokenForTenant(tenantCtx domain.TenantAuthContext, input domain.CreateBootstrapTokenInput) (domain.BootstrapToken, error)
 	ListUnconsumedBootstrapTokens() []domain.BootstrapToken
 	DeleteBootstrapToken(tokenID string) error
 	EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error)

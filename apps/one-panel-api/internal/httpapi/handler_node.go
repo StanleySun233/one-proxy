@@ -98,7 +98,12 @@ func (r *Router) handleNodeBootstrapToken(w http.ResponseWriter, req *http.Reque
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	item, err := r.service.CreateBootstrapToken(payload)
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	item, err := r.service.CreateBootstrapToken(tenantCtx, payload)
 	if err != nil {
 		writeServiceError(w, req, err, "create_failed")
 		return
