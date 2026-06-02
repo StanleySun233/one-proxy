@@ -31,6 +31,21 @@ func (c *ControlPlane) DeleteAccount(accountID string) error {
 	if accountID == "" {
 		return invalidInput("missing_account_id")
 	}
+	account, ok := c.accountByID(accountID)
+	if !ok || account.Account == "admin" {
+		return c.store.DeleteAccount(accountID)
+	}
+	for _, membership := range c.store.ListTenantMemberships(accountID) {
+		if membership.Role != domain.TenantRoleAdmin {
+			continue
+		}
+		if err := c.store.DeleteTenantMembership(membership.TenantID, accountID); err != nil {
+			return err
+		}
+		if err := c.ensureTenantAdminContinuity(membership.TenantID, accountID); err != nil {
+			return err
+		}
+	}
 	return c.store.DeleteAccount(accountID)
 }
 
