@@ -25,6 +25,8 @@ func Register(mux *http.ServeMux, guard AccountGuard, service *linkservice.Servi
 }
 
 func (r *Router) routes() {
+	r.mux.HandleFunc("/api/v1/chains/access-paths", r.guard(r.handleAccessPaths))
+	r.mux.HandleFunc("/api/v1/chains/access-paths/", r.guard(r.handleAccessPathByID))
 	r.mux.HandleFunc("/api/v1/chains/scopes", r.guard(r.handleScopes))
 	r.mux.HandleFunc("/api/v1/chains/scopes/", r.guard(r.handleScopeByID))
 	r.mux.HandleFunc("/api/v1/chains/node-links", r.guard(r.handleNodeLinks))

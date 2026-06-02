@@ -15,6 +15,7 @@ import {createChain, getChains, getNodes, getScopes, previewChain, probeChain, u
 import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
 
+import {AccessPathPanel} from './_components/access-path-panel';
 import {ChainEditor} from './_components/chain-editor';
 import {CompilationPreviewModal} from './_components/compilation-preview-modal';
 
@@ -284,6 +285,8 @@ export default function ChainsPage() {
         {previewOpen && previewConfig && (
           <CompilationPreviewModal config={previewConfig} onClose={() => setPreviewOpen(false)} />
         )}
+
+        <AccessPathPanel accessToken={accessToken} chains={chains} nodes={nodes} />
       </div>
     </AuthGate>
   );

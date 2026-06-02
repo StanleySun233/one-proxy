@@ -7,8 +7,6 @@
   "chainsDesc": "Edit hop ordering, validate scopes and preview compiled chain configuration.",
   "routesTitle": "Route management",
   "routesDesc": "Whitelist rules, match conditions and destination scopes.",
-  "accessPathsTitle": "Access path management",
-  "accessPathsDesc": "TCP, UDP, SOCKS, TLS passthrough, SSH and RDP entry rules.",
   "healthTitle": "Health and alerts",
   "healthDesc": "Node heartbeats and certificate state.",
   "accountsTitle": "Accounts and roles",

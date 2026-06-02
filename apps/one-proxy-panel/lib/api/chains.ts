@@ -1,6 +1,6 @@
 import { request } from './client';
 import type { Chain, ChainProbeResult, ChainValidationResult, ChainPreviewResult, RouteRule, RouteRuleValidationResult, Scope } from '@/lib/types/chains';
-import type { NodeLink } from '@/lib/types/nodes';
+import type { NodeAccessPath, NodeAccessPathPayload, NodeLink } from '@/lib/types/nodes';
 
 export function getChains(accessToken: string) {
   return request<Chain[]>('/chains', {accessToken});
@@ -59,6 +59,22 @@ export function updateNodeLink(accessToken: string, linkID: string, payload: {so
 
 export function deleteNodeLink(accessToken: string, linkID: string) {
   return request<{status: string}>(`/chains/node-links/${linkID}`, {method: 'DELETE', accessToken});
+}
+
+export function getNodeAccessPaths(accessToken: string) {
+  return request<NodeAccessPath[]>('/chains/access-paths', {accessToken});
+}
+
+export function createNodeAccessPath(accessToken: string, payload: NodeAccessPathPayload) {
+  return request<NodeAccessPath>('/chains/access-paths', {method: 'POST', accessToken, body: payload});
+}
+
+export function updateNodeAccessPath(accessToken: string, pathID: string, payload: NodeAccessPathPayload & {enabled: boolean}) {
+  return request<NodeAccessPath>(`/chains/access-paths/${pathID}`, {method: 'PATCH', accessToken, body: payload});
+}
+
+export function deleteNodeAccessPath(accessToken: string, pathID: string) {
+  return request<{status: string}>(`/chains/access-paths/${pathID}`, {method: 'DELETE', accessToken});
 }
 
 export function getRouteRules(accessToken: string) {

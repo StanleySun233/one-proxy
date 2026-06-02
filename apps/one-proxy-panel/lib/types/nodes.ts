@@ -40,6 +40,7 @@ export type NodeLink = {
 
 export type NodeAccessPath = {
   id: string;
+  chainId: string;
   name: string;
   mode: PathMode;
   protocol: AccessProtocol;

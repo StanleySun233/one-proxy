@@ -163,6 +163,9 @@ func (s *MySQLStore) DeleteChain(chainID string) error {
 	if _, err := tx.Exec("DELETE FROM chain_hops WHERE chain_id = ?", chainID); err != nil {
 		return err
 	}
+	if _, err := tx.Exec("DELETE FROM node_access_paths WHERE chain_id = ?", chainID); err != nil {
+		return err
+	}
 	if _, err := tx.Exec("DELETE FROM chains WHERE id = ?", chainID); err != nil {
 		return err
 	}

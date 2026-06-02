@@ -59,6 +59,7 @@ type UpdateNodeLinkInput struct {
 
 type NodeAccessPath struct {
 	ID             string            `json:"id"`
+	ChainID        string            `json:"chainId"`
 	Name           string            `json:"name"`
 	Mode           string            `json:"mode"`
 	Protocol       string            `json:"protocol"`
@@ -79,6 +80,7 @@ type NodeAccessPath struct {
 }
 
 type CreateNodeAccessPathInput struct {
+	ChainID        string            `json:"chainId"`
 	Name           string            `json:"name"`
 	Mode           string            `json:"mode"`
 	Protocol       string            `json:"protocol"`
@@ -98,6 +100,7 @@ type CreateNodeAccessPathInput struct {
 }
 
 type UpdateNodeAccessPathInput struct {
+	ChainID        string            `json:"chainId"`
 	Name           string            `json:"name"`
 	Mode           string            `json:"mode"`
 	Protocol       string            `json:"protocol"`

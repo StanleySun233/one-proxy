@@ -1,4 +1,4 @@
-package httpapi
+package linkhttpapi
 
 import (
 	"encoding/json"
@@ -7,17 +7,17 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
-func (r *Router) handleNodeAccessPaths(w http.ResponseWriter, req *http.Request) {
+func (r *Router) handleAccessPaths(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
-		writeSuccess(w, http.StatusOK, r.service.NodeAccessPaths())
+		writeSuccess(w, http.StatusOK, r.service.AccessPaths())
 	case http.MethodPost:
 		var payload domain.CreateNodeAccessPathInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
-		item, err := r.service.CreateNodeAccessPath(payload)
+		item, err := r.service.CreateAccessPath(payload)
 		if err != nil {
 			writeServiceError(w, req, err, "create_failed")
 			return
@@ -28,8 +28,8 @@ func (r *Router) handleNodeAccessPaths(w http.ResponseWriter, req *http.Request)
 	}
 }
 
-func (r *Router) handleNodeAccessPathByID(w http.ResponseWriter, req *http.Request) {
-	pathID := resourceID(req.URL.Path, "/api/v1/node-access-paths/")
+func (r *Router) handleAccessPathByID(w http.ResponseWriter, req *http.Request) {
+	pathID := resourceID(req.URL.Path, "/api/v1/chains/access-paths/")
 	if pathID == "" {
 		writeError(w, http.StatusBadRequest, "missing_path_id")
 		return
@@ -41,14 +41,14 @@ func (r *Router) handleNodeAccessPathByID(w http.ResponseWriter, req *http.Reque
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
-		item, err := r.service.UpdateNodeAccessPath(pathID, payload)
+		item, err := r.service.UpdateAccessPath(pathID, payload)
 		if err != nil {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
-		if err := r.service.DeleteNodeAccessPath(pathID); err != nil {
+		if err := r.service.DeleteAccessPath(pathID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}

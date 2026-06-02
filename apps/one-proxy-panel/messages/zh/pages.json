@@ -7,8 +7,6 @@
   "chainsDesc": "编辑 hop 顺序、校验范围，并预览编译后的链路配置。",
   "routesTitle": "规则管理",
   "routesDesc": "白名单规则、匹配条件与目标范围编辑。",
-  "accessPathsTitle": "访问路径管理",
-  "accessPathsDesc": "TCP、UDP、SOCKS、TLS passthrough、SSH 与 RDP 入口规则。",
   "healthTitle": "健康与告警",
   "healthDesc": "节点心跳与证书状态。",
   "accountsTitle": "账号与角色",

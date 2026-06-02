@@ -7,6 +7,7 @@ func (s *MySQLStore) ensureNodeAccessPathProtocolColumns(ctx context.Context) er
 		name      string
 		statement string
 	}{
+		{"chain_id", "ALTER TABLE node_access_paths ADD COLUMN chain_id VARCHAR(191) AFTER id"},
 		{"protocol", "ALTER TABLE node_access_paths ADD COLUMN protocol VARCHAR(64) NOT NULL DEFAULT 'http' AFTER mode"},
 		{"service_type", "ALTER TABLE node_access_paths ADD COLUMN service_type VARCHAR(64) NOT NULL DEFAULT 'http' AFTER protocol"},
 		{"listen_host", "ALTER TABLE node_access_paths ADD COLUMN listen_host VARCHAR(255) AFTER relay_node_ids_json"},
@@ -29,6 +30,13 @@ func (s *MySQLStore) ensureNodeAccessPathProtocolColumns(ctx context.Context) er
 			return err
 		}
 	}
-	_, err := s.db.ExecContext(ctx, "UPDATE node_access_paths SET options_json = '{}' WHERE options_json IS NULL OR options_json = ''")
+	if _, err := s.db.ExecContext(ctx, "UPDATE node_access_paths SET options_json = '{}' WHERE options_json IS NULL OR options_json = ''"); err != nil {
+		return err
+	}
+	exists, err := s.exists(ctx, "SELECT 1 FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = 'node_access_paths' AND constraint_name = 'fk_node_access_paths_chain_id'")
+	if err != nil || exists {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, "ALTER TABLE node_access_paths ADD CONSTRAINT fk_node_access_paths_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id)")
 	return err
 }

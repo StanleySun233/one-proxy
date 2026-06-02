@@ -58,6 +58,14 @@ CREATE TABLE IF NOT EXISTS node_links (
   CONSTRAINT fk_node_links_target_node_id FOREIGN KEY (target_node_id) REFERENCES nodes(id)
 );
 
+CREATE TABLE IF NOT EXISTS scopes (
+  id VARCHAR(191) PRIMARY KEY,
+  name VARCHAR(191) NOT NULL,
+  description TEXT,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS chains (
   id VARCHAR(191) PRIMARY KEY,
   name VARCHAR(191) NOT NULL UNIQUE,
@@ -172,6 +180,7 @@ CREATE TABLE IF NOT EXISTS node_trust_materials (
 
 CREATE TABLE IF NOT EXISTS node_access_paths (
   id VARCHAR(191) PRIMARY KEY,
+  chain_id VARCHAR(191),
   name VARCHAR(191) NOT NULL,
   mode VARCHAR(64) NOT NULL,
   protocol VARCHAR(64) NOT NULL DEFAULT 'http',
@@ -192,7 +201,8 @@ CREATE TABLE IF NOT EXISTS node_access_paths (
   created_at VARCHAR(64) NOT NULL,
   updated_at VARCHAR(64) NOT NULL,
   CONSTRAINT fk_node_access_paths_target_node_id FOREIGN KEY (target_node_id) REFERENCES nodes(id),
-  CONSTRAINT fk_node_access_paths_entry_node_id FOREIGN KEY (entry_node_id) REFERENCES nodes(id)
+  CONSTRAINT fk_node_access_paths_entry_node_id FOREIGN KEY (entry_node_id) REFERENCES nodes(id),
+  CONSTRAINT fk_node_access_paths_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id)
 );
 
 CREATE TABLE IF NOT EXISTS node_onboarding_tasks (

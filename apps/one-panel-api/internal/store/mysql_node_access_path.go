@@ -8,7 +8,7 @@ import (
 
 func (s *MySQLStore) ListNodeAccessPaths() []domain.NodeAccessPath {
 	rows, err := s.db.Query(
-		`SELECT id, name, mode, protocol, service_type, COALESCE(target_node_id, ''), COALESCE(entry_node_id, ''), relay_node_ids_json,
+		`SELECT id, COALESCE(chain_id, ''), name, mode, protocol, service_type, COALESCE(target_node_id, ''), COALESCE(entry_node_id, ''), relay_node_ids_json,
 		        COALESCE(listen_host, ''), COALESCE(listen_port, 0), target_protocol, COALESCE(target_host, ''), COALESCE(target_port, 0),
 		        COALESCE(target_sni, ''), tls_mode, auth_mode, COALESCE(options_json, '{}'), enabled
 		 FROM node_access_paths
@@ -25,7 +25,7 @@ func (s *MySQLStore) ListNodeAccessPaths() []domain.NodeAccessPath {
 		var optionsJSON string
 		var enabled int
 		if err := rows.Scan(
-			&item.ID, &item.Name, &item.Mode, &item.Protocol, &item.ServiceType, &item.TargetNodeID, &item.EntryNodeID, &relayJSON,
+			&item.ID, &item.ChainID, &item.Name, &item.Mode, &item.Protocol, &item.ServiceType, &item.TargetNodeID, &item.EntryNodeID, &relayJSON,
 			&item.ListenHost, &item.ListenPort, &item.TargetProtocol, &item.TargetHost, &item.TargetPort,
 			&item.TargetSNI, &item.TLSMode, &item.AuthMode, &optionsJSON, &enabled,
 		); err != nil {
@@ -46,6 +46,7 @@ func (s *MySQLStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput
 	}
 	item := domain.NodeAccessPath{
 		ID:             pathID,
+		ChainID:        input.ChainID,
 		Name:           input.Name,
 		Mode:           input.Mode,
 		Protocol:       input.Protocol,
@@ -67,10 +68,10 @@ func (s *MySQLStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput
 	now := nowRFC3339()
 	_, err = s.db.Exec(
 		`INSERT INTO node_access_paths
-		 (id, name, mode, protocol, service_type, target_node_id, entry_node_id, relay_node_ids_json, listen_host, listen_port,
+		 (id, chain_id, name, mode, protocol, service_type, target_node_id, entry_node_id, relay_node_ids_json, listen_host, listen_port,
 		  target_protocol, target_host, target_port, target_sni, tls_mode, auth_mode, options_json, enabled, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.Name, item.Mode, item.Protocol, item.ServiceType, item.TargetNodeID, item.EntryNodeID, encodeJSONStringSlice(item.RelayNodeIDs),
+		 VALUES (?, NULLIF(?, ''), ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.ChainID, item.Name, item.Mode, item.Protocol, item.ServiceType, item.TargetNodeID, item.EntryNodeID, encodeJSONStringSlice(item.RelayNodeIDs),
 		item.ListenHost, item.ListenPort, item.TargetProtocol, item.TargetHost, item.TargetPort, item.TargetSNI, item.TLSMode, item.AuthMode,
 		encodeJSONMap(item.Options), 1, now, now,
 	)
@@ -81,11 +82,11 @@ func (s *MySQLStore) UpdateNodeAccessPath(pathID string, input domain.UpdateNode
 	now := nowRFC3339()
 	_, err := s.db.Exec(
 		`UPDATE node_access_paths
-		 SET name = ?, mode = ?, protocol = ?, service_type = ?, target_node_id = NULLIF(?, ''), entry_node_id = NULLIF(?, ''),
+		 SET chain_id = NULLIF(?, ''), name = ?, mode = ?, protocol = ?, service_type = ?, target_node_id = NULLIF(?, ''), entry_node_id = NULLIF(?, ''),
 		     relay_node_ids_json = ?, listen_host = NULLIF(?, ''), listen_port = ?, target_protocol = ?, target_host = NULLIF(?, ''),
 		     target_port = ?, target_sni = NULLIF(?, ''), tls_mode = ?, auth_mode = ?, options_json = ?, enabled = ?, updated_at = ?
 		 WHERE id = ?`,
-		input.Name, input.Mode, input.Protocol, input.ServiceType, input.TargetNodeID, input.EntryNodeID, encodeJSONStringSlice(input.RelayNodeIDs),
+		input.ChainID, input.Name, input.Mode, input.Protocol, input.ServiceType, input.TargetNodeID, input.EntryNodeID, encodeJSONStringSlice(input.RelayNodeIDs),
 		input.ListenHost, input.ListenPort, input.TargetProtocol, input.TargetHost, input.TargetPort, input.TargetSNI, input.TLSMode, input.AuthMode,
 		encodeJSONMap(input.Options), boolToInt(input.Enabled), now, pathID,
 	)

@@ -1,8 +1,6 @@
 import { request } from './client';
 import type {
   Node,
-  NodeAccessPath,
-  NodeAccessPathPayload,
   NodeTransport,
   BootstrapToken,
   UnconsumedBootstrapToken,
@@ -41,22 +39,6 @@ export function deleteNode(accessToken: string, nodeID: string) {
     method: 'DELETE',
     accessToken
   });
-}
-
-export function getNodeAccessPaths(accessToken: string) {
-  return request<NodeAccessPath[]>('/node-access-paths', {accessToken});
-}
-
-export function createNodeAccessPath(accessToken: string, payload: NodeAccessPathPayload) {
-  return request<NodeAccessPath>('/node-access-paths', {method: 'POST', accessToken, body: payload});
-}
-
-export function updateNodeAccessPath(accessToken: string, pathID: string, payload: NodeAccessPathPayload & {enabled: boolean}) {
-  return request<NodeAccessPath>(`/node-access-paths/${pathID}`, {method: 'PATCH', accessToken, body: payload});
-}
-
-export function deleteNodeAccessPath(accessToken: string, pathID: string) {
-  return request<{status: string}>(`/node-access-paths/${pathID}`, {method: 'DELETE', accessToken});
 }
 
 export function getNodeTransports(accessToken: string) {

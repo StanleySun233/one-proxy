@@ -1,0 +1,340 @@
+'use client';
+
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {Edit, Trash2} from 'lucide-react';
+import {useTranslations} from 'next-intl';
+import {useMemo, useState} from 'react';
+import {toast} from 'sonner';
+
+import {AsyncState} from '@/components/async-state';
+import {NameTag} from '@/components/common/name-tag';
+import {createNodeAccessPath, deleteNodeAccessPath, fetchEnums, getNodeAccessPaths, updateNodeAccessPath} from '@/lib/api';
+import {formatControlPlaneError} from '@/lib/presentation';
+import type {Chain, FieldEnumEntry, Node, NodeAccessPath, NodeAccessPathPayload} from '@/lib/types';
+
+type AccessPathFormState = {
+  chainId: string;
+  name: string;
+  protocol: string;
+  listenHost: string;
+  listenPort: string;
+  targetHost: string;
+  targetPort: string;
+  targetSni: string;
+  tlsMode: string;
+  authMode: string;
+  enabled: boolean;
+};
+
+const emptyForm: AccessPathFormState = {
+  chainId: '',
+  name: '',
+  protocol: 'tcp',
+  listenHost: '0.0.0.0',
+  listenPort: '0',
+  targetHost: '',
+  targetPort: '',
+  targetSni: '',
+  tlsMode: 'none',
+  authMode: 'proxy_token',
+  enabled: true
+};
+
+function enumOptions(values?: Record<string, FieldEnumEntry>) {
+  return values ? Object.entries(values).map(([value, item]) => ({value, label: item.name})) : [];
+}
+
+function serviceTypeForProtocol(protocol: string) {
+  const mapping: Record<string, string> = {
+    http: 'http',
+    tcp: 'raw_tcp',
+    tls: 'tls_passthrough',
+    ssh: 'ssh',
+    rdp: 'rdp',
+    socks5: 'socks5',
+    ss5: 'ss5',
+    udp: 'raw_udp'
+  };
+  return mapping[protocol] || 'raw_tcp';
+}
+
+function targetProtocolFor(protocol: string) {
+  return protocol === 'tls' ? 'tcp' : protocol;
+}
+
+function pathFormValues(path: NodeAccessPath): AccessPathFormState {
+  return {
+    chainId: path.chainId,
+    name: path.name,
+    protocol: path.protocol,
+    listenHost: path.listenHost || '0.0.0.0',
+    listenPort: String(path.listenPort || 0),
+    targetHost: path.targetHost || '',
+    targetPort: String(path.targetPort || ''),
+    targetSni: path.targetSni || '',
+    tlsMode: path.tlsMode || 'none',
+    authMode: path.authMode || 'proxy_token',
+    enabled: path.enabled
+  };
+}
+
+function chainNodeIds(chain?: Chain) {
+  return chain?.hops || [];
+}
+
+function submitPayload(form: AccessPathFormState, chains: Chain[]): NodeAccessPathPayload {
+  const chain = chains.find((item) => item.id === form.chainId);
+  const hops = chainNodeIds(chain);
+  return {
+    chainId: form.chainId,
+    name: form.name.trim(),
+    mode: 'relay_chain',
+    protocol: form.protocol as NodeAccessPathPayload['protocol'],
+    serviceType: serviceTypeForProtocol(form.protocol) as NodeAccessPathPayload['serviceType'],
+    targetNodeId: hops[hops.length - 1] || '',
+    entryNodeId: hops[0] || '',
+    relayNodeIds: hops,
+    listenHost: form.listenHost.trim(),
+    listenPort: Number(form.listenPort || 0),
+    targetProtocol: targetProtocolFor(form.protocol),
+    targetHost: form.targetHost.trim(),
+    targetPort: Number(form.targetPort || 0),
+    targetSni: form.targetSni.trim(),
+    tlsMode: form.tlsMode as NodeAccessPathPayload['tlsMode'],
+    authMode: form.authMode as NodeAccessPathPayload['authMode'],
+    options: {},
+    enabled: form.enabled
+  };
+}
+
+export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: string; chains: Chain[]; nodes: Node[]}) {
+  const t = useTranslations();
+  const accessPathsT = useTranslations('accessPaths');
+  const queryClient = useQueryClient();
+  const [editingPath, setEditingPath] = useState<NodeAccessPath | null>(null);
+  const [formState, setFormState] = useState<AccessPathFormState>(emptyForm);
+
+  const pathsQuery = useQuery({
+    queryKey: ['chains-access-paths', accessToken],
+    queryFn: () => getNodeAccessPaths(accessToken),
+    enabled: !!accessToken
+  });
+  const enumsQuery = useQuery({
+    queryKey: ['enums'],
+    queryFn: () => fetchEnums()
+  });
+
+  const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const chainById = useMemo(() => new Map(chains.map((chain) => [chain.id, chain])), [chains]);
+
+  const createMutation = useMutation({
+    mutationFn: (payload: NodeAccessPathPayload) => createNodeAccessPath(accessToken, payload),
+    onSuccess: () => {
+      toast.success(accessPathsT('createSuccess'));
+      setFormState(emptyForm);
+      queryClient.invalidateQueries({queryKey: ['chains-access-paths']});
+    },
+    onError: (error) => toast.error(formatControlPlaneError(error))
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: NodeAccessPathPayload) => updateNodeAccessPath(accessToken, editingPath!.id, {...payload, enabled: payload.enabled ?? true}),
+    onSuccess: () => {
+      toast.success(accessPathsT('updateSuccess'));
+      setEditingPath(null);
+      setFormState(emptyForm);
+      queryClient.invalidateQueries({queryKey: ['chains-access-paths']});
+    },
+    onError: (error) => toast.error(formatControlPlaneError(error))
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (pathID: string) => deleteNodeAccessPath(accessToken, pathID),
+    onSuccess: () => {
+      toast.success(accessPathsT('deleteSuccess'));
+      queryClient.invalidateQueries({queryKey: ['chains-access-paths']});
+    },
+    onError: (error) => toast.error(formatControlPlaneError(error))
+  });
+
+  const setField = <K extends keyof AccessPathFormState>(field: K, value: AccessPathFormState[K]) => {
+    setFormState((current) => ({...current, [field]: value}));
+  };
+
+  const handleEdit = (path: NodeAccessPath) => {
+    setEditingPath(path);
+    setFormState(pathFormValues(path));
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPath(null);
+    setFormState(emptyForm);
+  };
+
+  const handleSubmit = () => {
+    const payload = submitPayload(formState, chains);
+    if (!payload.chainId || !payload.name || !payload.targetHost || payload.targetPort <= 0) {
+      toast.error(accessPathsT('required'));
+      return;
+    }
+    if (editingPath) {
+      updateMutation.mutate(payload);
+      return;
+    }
+    createMutation.mutate(payload);
+  };
+
+  const paths = pathsQuery.data || [];
+  const enums = enumsQuery.data || {};
+  const protocolOptions = enumOptions(enums.access_protocol);
+  const tlsOptions = enumOptions(enums.tls_mode);
+  const authOptions = enumOptions(enums.access_auth_mode);
+  const selectedChain = chainById.get(formState.chainId);
+  const saving = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <section className="panel-card">
+      <div className="panel-toolbar">
+        <div>
+          <p className="section-kicker">{accessPathsT('formEyebrow')}</p>
+          <h3>{editingPath ? accessPathsT('editTitle') : accessPathsT('createTitle')}</h3>
+        </div>
+        {editingPath ? (
+          <button className="secondary-button" onClick={handleCancelEdit} type="button">
+            {t('common.cancel')}
+          </button>
+        ) : null}
+      </div>
+
+      <div className="forms-grid">
+        <label className="field-stack">
+          <span>{accessPathsT('chain')}</span>
+          <select className="field-select" onChange={(event) => setField('chainId', event.target.value)} value={formState.chainId}>
+            <option value="">{accessPathsT('selectChain')}</option>
+            {chains.map((chain) => <option key={chain.id} value={chain.id}>{chain.name}</option>)}
+          </select>
+        </label>
+        <label className="field-stack">
+          <span>{t('common.name')}</span>
+          <input className="field-input" onChange={(event) => setField('name', event.target.value)} value={formState.name} />
+        </label>
+        <label className="field-stack">
+          <span>{accessPathsT('protocol')}</span>
+          <select className="field-select" onChange={(event) => setField('protocol', event.target.value)} value={formState.protocol}>
+            {protocolOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label className="field-stack">
+          <span>{accessPathsT('listenHost')}</span>
+          <input className="field-input" onChange={(event) => setField('listenHost', event.target.value)} placeholder={accessPathsT('listenHostPlaceholder')} value={formState.listenHost} />
+        </label>
+        <label className="field-stack">
+          <span>{accessPathsT('listenPort')}</span>
+          <input className="field-input" inputMode="numeric" onChange={(event) => setField('listenPort', event.target.value)} value={formState.listenPort} />
+        </label>
+        <label className="field-stack">
+          <span>{accessPathsT('targetHost')}</span>
+          <input className="field-input" onChange={(event) => setField('targetHost', event.target.value)} placeholder={accessPathsT('targetHostPlaceholder')} value={formState.targetHost} />
+        </label>
+        <label className="field-stack">
+          <span>{accessPathsT('targetPort')}</span>
+          <input className="field-input" inputMode="numeric" onChange={(event) => setField('targetPort', event.target.value)} value={formState.targetPort} />
+        </label>
+        <label className="field-stack">
+          <span>{accessPathsT('tlsMode')}</span>
+          <select className="field-select" onChange={(event) => setField('tlsMode', event.target.value)} value={formState.tlsMode}>
+            {tlsOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label className="field-stack">
+          <span>{accessPathsT('targetSni')}</span>
+          <input className="field-input" onChange={(event) => setField('targetSni', event.target.value)} placeholder={accessPathsT('sniPlaceholder')} value={formState.targetSni} />
+        </label>
+        <label className="field-stack">
+          <span>{accessPathsT('authMode')}</span>
+          <select className="field-select" onChange={(event) => setField('authMode', event.target.value)} value={formState.authMode}>
+            {authOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label className="field-stack">
+          <span>{accessPathsT('enabled')}</span>
+          <input checked={formState.enabled} onChange={(event) => setField('enabled', event.target.checked)} type="checkbox" />
+        </label>
+      </div>
+
+      <div className="submit-row">
+        <span className="muted-text">
+          {selectedChain ? `${accessPathsT('chainPath')}: ${selectedChain.hops.map((hop) => nodeById.get(hop)?.name || hop).join(' -> ')}` : accessPathsT('selectChain')}
+        </span>
+        <button className="primary-button" disabled={saving} onClick={handleSubmit} type="button">
+          {editingPath ? accessPathsT('save') : accessPathsT('create')}
+        </button>
+      </div>
+
+      <div className="panel-toolbar">
+        <div>
+          <p className="section-kicker">{accessPathsT('listEyebrow')}</p>
+          <h3>{accessPathsT('listTitle')}</h3>
+        </div>
+        <span className="badge is-neutral">{paths.length}</span>
+      </div>
+
+      {pathsQuery.isPending ? (
+        <AsyncState detail={t('common.loading')} title={accessPathsT('loading')} />
+      ) : pathsQuery.isError ? (
+        <AsyncState actionLabel={t('common.retry')} detail={formatControlPlaneError(pathsQuery.error)} onAction={() => void pathsQuery.refetch()} title={accessPathsT('failed')} />
+      ) : paths.length === 0 ? (
+        <AsyncState detail={accessPathsT('empty')} title={t('common.empty')} />
+      ) : (
+        <div className="table-card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>{t('common.name')}</th>
+                <th>{accessPathsT('chain')}</th>
+                <th>{accessPathsT('protocol')}</th>
+                <th>{t('common.target')}</th>
+                <th>{accessPathsT('listen')}</th>
+                <th>{t('common.status')}</th>
+                <th>{t('common.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paths.map((path) => (
+                <tr key={path.id}>
+                  <td><NameTag kind="node">{path.name}</NameTag></td>
+                  <td>{chainById.get(path.chainId)?.name || path.chainId}</td>
+                  <td className="mono">{path.protocol} / {path.serviceType}</td>
+                  <td className="mono">{path.targetHost}:{path.targetPort}</td>
+                  <td className="mono">{path.listenHost || '*'}:{path.listenPort}</td>
+                  <td><span className={`badge ${path.enabled ? 'is-success' : 'is-neutral'}`}>{path.enabled ? t('common.enabled') : t('common.disabled')}</span></td>
+                  <td>
+                    <div className="chain-list-actions">
+                      <button className="secondary-button" onClick={() => handleEdit(path)} type="button">
+                        <Edit size={14} />
+                        {t('common.edit')}
+                      </button>
+                      <button
+                        className="danger-button"
+                        disabled={deleteMutation.isPending}
+                        onClick={() => {
+                          if (window.confirm(accessPathsT('deleteConfirm'))) {
+                            deleteMutation.mutate(path.id);
+                          }
+                        }}
+                        type="button"
+                      >
+                        <Trash2 size={14} />
+                        {t('common.delete')}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}

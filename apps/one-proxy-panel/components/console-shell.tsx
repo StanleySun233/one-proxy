@@ -5,7 +5,6 @@ import {
   GitBranch,
   LayoutDashboard,
   Languages,
-  Network,
   ShieldCheck,
   Shirt,
   Users,
@@ -68,13 +67,6 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         {label: t('shell.nodeApprovals'), href: '/nodes/approvals'},
         {label: t('shell.nodeRegistry'), href: '/nodes/registry'}
       ]
-    },
-    {
-      key: 'accessPaths',
-      label: t('nav.accessPaths'),
-      href: '/access-paths',
-      icon: Network,
-      items: [{label: t('shell.accessPathBoard'), href: '/access-paths'}]
     },
     {
       key: 'health',
