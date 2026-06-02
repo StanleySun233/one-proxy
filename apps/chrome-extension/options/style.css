@@ -4,15 +4,16 @@ body {
 
 .page {
   display: grid;
-  gap: 20px;
-  padding: 28px;
+  gap: 16px;
+  padding: 22px;
 }
 
 .headline {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 20px 22px;
+  gap: 16px;
+  padding: 17px 18px;
 }
 
 .headline-side,
@@ -25,7 +26,7 @@ body {
 .layout {
   display: grid;
   grid-template-columns: 360px 300px minmax(380px, 1fr);
-  gap: 18px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -43,7 +44,7 @@ body {
 }
 
 .panel {
-  padding: 18px;
+  padding: 15px;
 }
 
 .panel-head {
@@ -51,26 +52,26 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .stat-card {
   display: grid;
-  gap: 8px;
-  min-height: 86px;
-  padding: 14px;
+  gap: 6px;
+  min-height: 76px;
+  padding: 12px;
   background: var(--card-strong);
 }
 
@@ -89,7 +90,7 @@ body {
 
 label {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   color: var(--muted);
 }
 
@@ -99,7 +100,7 @@ label.wide {
 
 .group-row {
   width: 100%;
-  padding: 14px;
+  padding: 12px;
   text-align: left;
   cursor: pointer;
 }
@@ -117,37 +118,38 @@ label.wide {
 }
 
 .group-meta {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 12px;
 }
 
 .list,
 .detail-stack {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .meta-card {
-  padding: 14px;
+  padding: 12px;
 }
 
 .meta-value {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 15px;
   font-weight: 600;
 }
 
 .diagnostic-log {
   display: grid;
-  gap: 10px;
-  max-height: 360px;
+  gap: 8px;
+  max-height: 320px;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .log-row {
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
-  padding: 10px 12px;
+  padding: 9px 10px;
   background: rgba(255, 255, 255, 0.28);
 }
 
@@ -175,7 +177,7 @@ label.wide {
 }
 
 .log-row pre {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--ink);
@@ -189,13 +191,13 @@ label.wide {
 .empty-state {
   border: 1px dashed var(--line);
   border-radius: var(--radius-card);
-  padding: 14px;
+  padding: 12px;
   color: var(--muted);
   background: rgba(255, 255, 255, 0.16);
 }
 
 .top-gap {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 @media (max-width: 1240px) {
@@ -230,7 +232,7 @@ label.wide {
 
 @media (max-width: 520px) {
   .page {
-    padding: 16px;
+    padding: 14px;
   }
 
   .stat-grid {

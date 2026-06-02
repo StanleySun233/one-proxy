@@ -1,19 +1,25 @@
 body {
-  min-width: 390px;
+  width: 400px;
+  max-height: 600px;
+  overflow: hidden;
 }
 
 .shell {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  max-height: 600px;
+  padding: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .hero,
 .status-card {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 15px;
+  gap: 10px;
+  padding: 12px 13px;
 }
 
 .hero-tools {
@@ -21,7 +27,7 @@ body {
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .status-card .pill {
@@ -32,7 +38,7 @@ body {
 .detail-grid,
 .quick-actions {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .detail-grid,
@@ -42,13 +48,13 @@ body {
 
 .toggle-card,
 .detail-card {
-  padding: 14px;
+  padding: 12px;
 }
 
 .tester-card {
   display: grid;
-  gap: 10px;
-  padding: 13px;
+  gap: 8px;
+  padding: 12px;
 }
 
 .toggle-card {
@@ -66,22 +72,23 @@ body {
 
 .toggle-value {
   display: block;
-  margin-top: 8px;
-  font-size: 26px;
+  margin-top: 6px;
+  font-size: 24px;
   font-weight: 700;
 }
 
 .section-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .test-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 7px;
 }
 
 .compact {

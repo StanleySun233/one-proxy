@@ -45,6 +45,13 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 body {
@@ -113,6 +120,7 @@ h2,
 .feedback,
 .status-strip,
 input,
+select,
 textarea,
 .input,
 .select,
@@ -156,6 +164,7 @@ textarea,
 }
 
 input,
+select,
 textarea,
 .input,
 .select {
@@ -164,11 +173,13 @@ textarea,
   width: 100%;
   padding: 0 12px;
   outline: 0;
+  overflow: auto;
 }
 
 textarea,
 textarea.input {
   min-height: 124px;
+  max-height: 220px;
   padding: 11px 12px;
   resize: vertical;
 }
@@ -180,6 +191,7 @@ textarea.input {
   min-height: 40px;
   padding: 0 12px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .primary {
@@ -322,6 +334,7 @@ textarea.input {
   gap: 7px;
   min-height: 34px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 .topology-node,
