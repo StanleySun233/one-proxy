@@ -250,6 +250,9 @@ bindThemeMode(themeMode, async (mode) => {
   const result = await sendMessage({ type: 'set-theme-mode', themeMode: mode });
   if (result && result.error) {
     setStatus('error', result.error);
+    if (viewState && viewState.state) {
+      applyThemeMode(viewState.state.themeMode);
+    }
     return;
   }
   render(result);

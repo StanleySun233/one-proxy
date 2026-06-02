@@ -253,6 +253,9 @@ bindThemeMode(themeMode, async (mode) => {
   const result = await sendMessage({ type: 'set-theme-mode', themeMode: mode });
   if (result && result.error) {
     setFeedback('error', formatError(result.error));
+    if (bundle && bundle.state) {
+      applyThemeMode(bundle.state.themeMode);
+    }
     return;
   }
   render(result);

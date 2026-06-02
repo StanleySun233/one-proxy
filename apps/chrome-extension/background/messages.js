@@ -102,7 +102,7 @@ export function registerMessageHandler() {
           sendResponse(await computedAfter(() => setPartialState((state) => ({ ...state, enabled: Boolean(message.enabled) }))));
           return;
         case 'set-theme-mode':
-          sendResponse(await computedAfter(() => setPartialState((state) => ({ ...state, themeMode: message.themeMode || 'vivid' }))));
+          sendResponse(await computedAfter(() => setPartialState((state) => ({ ...state, themeMode: message.themeMode === 'dark' ? 'dark' : 'vivid' }))));
           return;
         case 'set-control-plane-url':
           sendResponse(await computedAfter(() => setPartialState((state) => ({ ...state, controlPlaneUrl: String(message.controlPlaneUrl || '').trim() }))));

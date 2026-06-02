@@ -4,7 +4,8 @@ export function normalizeThemeMode(mode) {
 
 export function applyThemeMode(mode, root = document) {
   const normalized = normalizeThemeMode(mode);
-  root.documentElement.dataset.theme = normalized;
+  const documentElement = root.documentElement || document.documentElement;
+  documentElement.dataset.theme = normalized;
   root.querySelectorAll('[data-theme-mode]').forEach((button) => {
     button.classList.toggle('is-active', button.dataset.themeMode === normalized);
   });
@@ -12,9 +13,13 @@ export function applyThemeMode(mode, root = document) {
 }
 
 export function bindThemeMode(container, onChange) {
+  if (!container) {
+    return;
+  }
   container.querySelectorAll('[data-theme-mode]').forEach((button) => {
     button.addEventListener('click', async () => {
-      await onChange(button.dataset.themeMode);
+      const mode = applyThemeMode(button.dataset.themeMode);
+      await onChange(mode);
     });
   });
 }
