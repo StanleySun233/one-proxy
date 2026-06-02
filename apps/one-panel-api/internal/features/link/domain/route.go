@@ -2,6 +2,8 @@ package link
 
 type RouteRule struct {
 	ID               string `json:"id"`
+	CreateID         string `json:"createId"`
+	OwnerID          string `json:"ownerId"`
 	Priority         int    `json:"priority"`
 	MatchType        string `json:"matchType"`
 	MatchValue       string `json:"matchValue"`
@@ -13,6 +15,8 @@ type RouteRule struct {
 
 type RouteRuleWithDetails struct {
 	ID               string            `json:"id"`
+	CreateID         string            `json:"createId"`
+	OwnerID          string            `json:"ownerId"`
 	Priority         int               `json:"priority"`
 	MatchType        string            `json:"matchType"`
 	MatchValue       string            `json:"matchValue"`
