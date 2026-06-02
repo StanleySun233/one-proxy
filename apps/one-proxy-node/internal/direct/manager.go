@@ -134,7 +134,7 @@ func (m *Manager) probePeer(ctx context.Context, nodeID string, link domain.Dire
 	if !sent {
 		return domain.DirectCandidate{}, 0, false
 	}
-	deadlineCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+	deadlineCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	result, err := AwaitPunch(deadlineCtx, m.packetIO, func(message PunchMessage, _ *net.UDPAddr) bool {
 		return message.LinkID == link.LinkID && message.NodeID == link.PeerNodeID && message.PeerNodeID == nodeID
