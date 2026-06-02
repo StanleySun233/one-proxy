@@ -80,7 +80,12 @@ func (r *Router) handleNodeApprove(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	item, err := r.service.ApproveNodeEnrollment(nodeID, account.ID)
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	item, err := r.service.ApproveNodeEnrollment(tenantCtx, nodeID, account.ID)
 	if err != nil {
 		writeServiceError(w, req, err, "approve_failed")
 		return
@@ -116,7 +121,17 @@ func (r *Router) handleUnconsumedBootstrapTokens(w http.ResponseWriter, req *htt
 		writeMethodNotAllowed(w, "GET")
 		return
 	}
-	writeSuccess(w, http.StatusOK, r.service.UnconsumedBootstrapTokens())
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	items, err := r.service.UnconsumedBootstrapTokens(tenantCtx)
+	if err != nil {
+		writeServiceError(w, req, err, "list_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, items)
 }
 
 func (r *Router) handleBootstrapTokenByID(w http.ResponseWriter, req *http.Request) {
@@ -127,7 +142,12 @@ func (r *Router) handleBootstrapTokenByID(w http.ResponseWriter, req *http.Reque
 	}
 	switch req.Method {
 	case http.MethodDelete:
-		if err := r.service.DeleteBootstrapToken(tokenID); err != nil {
+		tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+		if !ok {
+			writeError(w, http.StatusBadRequest, "tenant_required")
+			return
+		}
+		if err := r.service.DeleteBootstrapToken(tenantCtx, tokenID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
@@ -178,7 +198,17 @@ func (r *Router) handlePendingNodes(w http.ResponseWriter, req *http.Request) {
 		writeMethodNotAllowed(w, "GET")
 		return
 	}
-	writeSuccess(w, http.StatusOK, r.service.PendingNodeEnrollments())
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	items, err := r.service.PendingNodeEnrollments(tenantCtx)
+	if err != nil {
+		writeServiceError(w, req, err, "list_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, items)
 }
 
 func (r *Router) handleNodeReject(w http.ResponseWriter, req *http.Request) {
@@ -201,7 +231,12 @@ func (r *Router) handleNodeReject(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	if err := r.service.RejectNodeEnrollment(nodeID, account.ID, payload.Reason); err != nil {
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	if err := r.service.RejectNodeEnrollment(tenantCtx, nodeID, account.ID, payload.Reason); err != nil {
 		writeServiceError(w, req, err, "reject_failed")
 		return
 	}

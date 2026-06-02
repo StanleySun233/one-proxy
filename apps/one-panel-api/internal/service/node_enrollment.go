@@ -6,16 +6,31 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
-func (c *ControlPlane) PendingNodeEnrollments() []domain.Node {
-	return c.store.ListPendingNodes()
+func (c *ControlPlane) PendingNodeEnrollments(tenantCtx domain.TenantAuthContext) ([]domain.Node, error) {
+	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
+		return nil, newError(403, "tenant_role_forbidden")
+	}
+	allowed := c.tenantNodeIDs(tenantCtx)
+	items := make([]domain.Node, 0)
+	for _, node := range c.store.ListPendingNodes() {
+		if allowed[node.ID] {
+			items = append(items, node)
+		}
+	}
+	return items, nil
 }
 
-func (c *ControlPlane) RejectNodeEnrollment(nodeID string, accountID string, reason string) error {
+func (c *ControlPlane) RejectNodeEnrollment(tenantCtx domain.TenantAuthContext, nodeID string, accountID string, reason string) error {
 	if nodeID == "" {
 		return invalidInput("missing_node_id")
 	}
 	if accountID == "" {
 		return unauthorized("invalid_access_token")
+	}
+	if err := c.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return c.store.NodeBindingPermission(tenantCtx, nodeID)
+	}); err != nil {
+		return err
 	}
 	return c.store.RejectNodeEnrollment(nodeID, accountID, reason)
 }
@@ -27,9 +42,14 @@ func (c *ControlPlane) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNo
 	return c.store.EnrollNode(input)
 }
 
-func (c *ControlPlane) ApproveNodeEnrollment(nodeID string, reviewedBy string) (domain.ApproveNodeEnrollmentResult, error) {
+func (c *ControlPlane) ApproveNodeEnrollment(tenantCtx domain.TenantAuthContext, nodeID string, reviewedBy string) (domain.ApproveNodeEnrollmentResult, error) {
 	if nodeID == "" {
 		return domain.ApproveNodeEnrollmentResult{}, invalidInput("missing_node_id")
+	}
+	if err := c.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return c.store.NodeBindingPermission(tenantCtx, nodeID)
+	}); err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	item, err := c.store.ApproveNodeEnrollment(nodeID, reviewedBy)
 	if err != nil {

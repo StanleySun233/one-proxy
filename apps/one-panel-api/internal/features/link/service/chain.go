@@ -164,6 +164,9 @@ func (s *Service) ProbeChain(tenantCtx domain.TenantAuthContext, chainID string)
 }
 
 func (s *Service) CreateChain(tenantCtx domain.TenantAuthContext, input link.CreateChainInput) (link.Chain, error) {
+	if err := requireActiveTenant(tenantCtx); err != nil {
+		return link.Chain{}, err
+	}
 	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
 		return link.Chain{}, newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
@@ -172,6 +175,9 @@ func (s *Service) CreateChain(tenantCtx domain.TenantAuthContext, input link.Cre
 	}
 	if !s.tenantScopeExists(tenantCtx, input.DestinationScope) {
 		return link.Chain{}, invalidInput("scope_not_found")
+	}
+	if !s.tenantNodesExist(tenantCtx, input.Hops) {
+		return link.Chain{}, invalidInput("node_not_found")
 	}
 	return s.store.CreateChainForTenant(tenantCtx, input)
 }
@@ -188,6 +194,9 @@ func (s *Service) UpdateChain(tenantCtx domain.TenantAuthContext, chainID string
 	if !s.tenantScopeExists(tenantCtx, input.DestinationScope) {
 		return link.Chain{}, invalidInput("scope_not_found")
 	}
+	if !s.tenantNodesExist(tenantCtx, input.Hops) {
+		return link.Chain{}, invalidInput("node_not_found")
+	}
 	return s.store.UpdateChain(chainID, input)
 }
 
@@ -197,7 +206,7 @@ func (s *Service) DeleteChain(tenantCtx domain.TenantAuthContext, chainID string
 	}); err != nil {
 		return err
 	}
-	if !tenantCtx.SuperAdmin && s.store.CountChainBindings(chainID) > 1 {
+	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && s.store.CountChainBindings(chainID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return s.store.DeleteChain(chainID)

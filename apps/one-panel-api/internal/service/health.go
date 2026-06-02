@@ -6,13 +6,23 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
-func (c *ControlPlane) NodeHealth() []domain.NodeHealth {
-	return c.store.ListNodeHealth()
+func (c *ControlPlane) NodeHealth(tenantCtx domain.TenantAuthContext) []domain.NodeHealth {
+	allowed := c.tenantNodeIDs(tenantCtx)
+	items := make([]domain.NodeHealth, 0)
+	for _, item := range c.store.ListNodeHealth() {
+		if allowed[item.NodeID] {
+			items = append(items, item)
+		}
+	}
+	return items
 }
 
-func (c *ControlPlane) NodeHealthHistory(nodeID string, window time.Duration) ([]domain.NodeHealth, error) {
+func (c *ControlPlane) NodeHealthHistory(tenantCtx domain.TenantAuthContext, nodeID string, window time.Duration) ([]domain.NodeHealth, error) {
 	if nodeID == "" {
 		return nil, invalidInput("missing_node_id")
+	}
+	if _, ok := c.store.NodeBindingPermission(tenantCtx, nodeID); !ok {
+		return nil, newError(403, "resource_binding_forbidden")
 	}
 	if window <= 0 || window > 7*24*time.Hour {
 		window = 24 * time.Hour

@@ -12,6 +12,9 @@ func (s *Service) Scopes(tenantCtx maindomain.TenantAuthContext) []link.Scope {
 }
 
 func (s *Service) CreateScope(tenantCtx maindomain.TenantAuthContext, input link.CreateScopeInput) (link.Scope, error) {
+	if err := requireActiveTenant(tenantCtx); err != nil {
+		return link.Scope{}, err
+	}
 	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != maindomain.TenantRoleAdmin {
 		return link.Scope{}, newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
@@ -44,7 +47,7 @@ func (s *Service) DeleteScope(tenantCtx maindomain.TenantAuthContext, scopeID st
 	}); err != nil {
 		return err
 	}
-	if !tenantCtx.SuperAdmin && s.store.CountScopeBindings(scopeID) > 1 {
+	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && s.store.CountScopeBindings(scopeID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	if s.scopeInUse(scopeID) {

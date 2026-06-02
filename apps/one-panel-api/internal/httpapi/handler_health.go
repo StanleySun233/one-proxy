@@ -10,7 +10,12 @@ func (r *Router) handleNodeHealth(w http.ResponseWriter, req *http.Request) {
 		writeMethodNotAllowed(w, "GET")
 		return
 	}
-	writeSuccess(w, http.StatusOK, r.service.NodeHealth())
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.NodeHealth(tenantCtx))
 }
 
 func (r *Router) handleNodeHealthHistory(w http.ResponseWriter, req *http.Request) {
@@ -30,7 +35,12 @@ func (r *Router) handleNodeHealthHistory(w http.ResponseWriter, req *http.Reques
 			window = parsed
 		}
 	}
-	items, err := r.service.NodeHealthHistory(nodeID, window)
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	items, err := r.service.NodeHealthHistory(tenantCtx, nodeID, window)
 	if err != nil {
 		writeServiceError(w, req, err, "history_fetch_failed")
 		return

@@ -2,8 +2,15 @@ package service
 
 import "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 
-func (c *ControlPlane) NodeTransports() []domain.NodeTransport {
-	return c.store.ListNodeTransports()
+func (c *ControlPlane) NodeTransports(tenantCtx domain.TenantAuthContext) []domain.NodeTransport {
+	allowed := c.tenantNodeIDs(tenantCtx)
+	items := make([]domain.NodeTransport, 0)
+	for _, item := range c.store.ListNodeTransports() {
+		if allowed[item.NodeID] {
+			items = append(items, item)
+		}
+	}
+	return items
 }
 
 func (c *ControlPlane) UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error) {

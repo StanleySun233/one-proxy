@@ -7,5 +7,10 @@ func (r *Router) handleNodeTransports(w http.ResponseWriter, req *http.Request) 
 		writeMethodNotAllowed(w, "GET")
 		return
 	}
-	writeSuccess(w, http.StatusOK, r.service.NodeTransports())
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	writeSuccess(w, http.StatusOK, r.service.NodeTransports(tenantCtx))
 }

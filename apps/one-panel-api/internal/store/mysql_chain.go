@@ -31,7 +31,7 @@ func (s *MySQLStore) ListChains() []link.Chain {
 }
 
 func (s *MySQLStore) ListChainsForTenant(tenantCtx domain.TenantAuthContext) []link.Chain {
-	if tenantCtx.SuperAdmin {
+	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
 		return s.ListChains()
 	}
 	rows, err := s.db.Query(
@@ -166,7 +166,7 @@ func (s *MySQLStore) CreateChainForTenant(tenantCtx domain.TenantAuthContext, in
 			return link.Chain{}, err
 		}
 	}
-	if !tenantCtx.SuperAdmin {
+	if tenantCtx.ActiveTenant.TenantID != "" {
 		if err := bindTenantResource(tx, "tenant_chains", "chain_id", tenantCtx.ActiveTenant.TenantID, item.ID, tenantCtx.Account.ID); err != nil {
 			return link.Chain{}, err
 		}

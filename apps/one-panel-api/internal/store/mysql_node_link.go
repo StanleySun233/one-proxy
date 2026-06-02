@@ -14,7 +14,7 @@ func (s *MySQLStore) ListNodeLinks() []domain.NodeLink {
 }
 
 func (s *MySQLStore) ListNodeLinksForTenant(tenantCtx domain.TenantAuthContext) []domain.NodeLink {
-	if tenantCtx.SuperAdmin {
+	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
 		return s.ListNodeLinks()
 	}
 	rows, err := s.db.Query(
@@ -92,7 +92,7 @@ func (s *MySQLStore) CreateNodeLinkForTenant(tenantCtx domain.TenantAuthContext,
 	); err != nil {
 		return domain.NodeLink{}, err
 	}
-	if !tenantCtx.SuperAdmin {
+	if tenantCtx.ActiveTenant.TenantID != "" {
 		if err := bindTenantResource(tx, "tenant_node_links", "node_link_id", tenantCtx.ActiveTenant.TenantID, item.ID, tenantCtx.Account.ID); err != nil {
 			return domain.NodeLink{}, err
 		}

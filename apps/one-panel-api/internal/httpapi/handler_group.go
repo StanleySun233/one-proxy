@@ -9,6 +9,9 @@ import (
 )
 
 func (r *Router) handleGroups(w http.ResponseWriter, req *http.Request) {
+	if !r.requireSuperAdmin(w, req) {
+		return
+	}
 	switch req.Method {
 	case http.MethodGet:
 		groups, err := r.service.ListGroups()
@@ -35,6 +38,9 @@ func (r *Router) handleGroups(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleGroupByID(w http.ResponseWriter, req *http.Request) {
+	if !r.requireSuperAdmin(w, req) {
+		return
+	}
 	if strings.HasSuffix(req.URL.Path, "/accounts") {
 		r.handleGroupAccounts(w, req)
 		return
@@ -80,6 +86,9 @@ func (r *Router) handleGroupByID(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleGroupAccounts(w http.ResponseWriter, req *http.Request) {
+	if !r.requireSuperAdmin(w, req) {
+		return
+	}
 	groupID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/groups/"), "/accounts")
 	if groupID == "" {
 		writeError(w, http.StatusBadRequest, "missing_group_id")
@@ -110,6 +119,9 @@ func (r *Router) handleGroupAccounts(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleGroupScopes(w http.ResponseWriter, req *http.Request) {
+	if !r.requireSuperAdmin(w, req) {
+		return
+	}
 	groupID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/groups/"), "/scopes")
 	if groupID == "" {
 		writeError(w, http.StatusBadRequest, "missing_group_id")

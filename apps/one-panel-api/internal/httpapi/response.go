@@ -163,6 +163,19 @@ func nodeIDFromContext(ctx context.Context) (string, bool) {
 	return httpctx.NodeID(ctx)
 }
 
+func (r *Router) requireSuperAdmin(w http.ResponseWriter, req *http.Request) bool {
+	account, ok := accountFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_access_token")
+		return false
+	}
+	if account.Role != domain.AccountRoleSuperAdmin {
+		writeError(w, http.StatusForbidden, "account_role_forbidden")
+		return false
+	}
+	return true
+}
+
 type statusWriter struct {
 	http.ResponseWriter
 	status int

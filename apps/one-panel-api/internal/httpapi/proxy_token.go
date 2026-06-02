@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/auth"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
 type proxyTokenValidateRequest struct {
@@ -35,9 +36,21 @@ func (r *Router) handleProxyTokenValidate(w http.ResponseWriter, req *http.Reque
 	if result.ActiveTenantID == nil && len(result.TenantMemberships) == 1 {
 		result.ActiveTenantID = &result.TenantMemberships[0].TenantID
 	}
-	if result.ActiveTenantID == nil {
+	if result.ActiveTenantID == nil && !proxyTokenAllowsTenantlessProxy(result) {
 		writeError(w, http.StatusUnauthorized, "invalid_proxy_token")
 		return
 	}
 	writeSuccess(w, http.StatusOK, result)
+}
+
+func proxyTokenAllowsTenantlessProxy(result domain.ProxyTokenValidation) bool {
+	if result.Account.Role == domain.AccountRoleSuperAdmin {
+		return true
+	}
+	for _, membership := range result.TenantMemberships {
+		if membership.Role == domain.TenantRoleAdmin {
+			return true
+		}
+	}
+	return false
 }

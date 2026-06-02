@@ -17,7 +17,7 @@ func (s *MySQLStore) ListScopes() []link.Scope {
 }
 
 func (s *MySQLStore) ListScopesForTenant(tenantCtx domain.TenantAuthContext) []link.Scope {
-	if tenantCtx.SuperAdmin {
+	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
 		return s.ListScopes()
 	}
 	rows, err := s.db.Query(
@@ -103,7 +103,7 @@ func (s *MySQLStore) CreateScopeForTenant(tenantCtx domain.TenantAuthContext, in
 	); err != nil {
 		return link.Scope{}, err
 	}
-	if !tenantCtx.SuperAdmin {
+	if tenantCtx.ActiveTenant.TenantID != "" {
 		if err := bindTenantResource(tx, "tenant_scopes", "scope_id", tenantCtx.ActiveTenant.TenantID, item.ID, tenantCtx.Account.ID); err != nil {
 			return link.Scope{}, err
 		}

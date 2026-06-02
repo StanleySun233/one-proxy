@@ -11,6 +11,9 @@ func (s *Service) AccessPaths(tenantCtx domain.TenantAuthContext) []domain.NodeA
 }
 
 func (s *Service) CreateAccessPath(tenantCtx domain.TenantAuthContext, input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error) {
+	if err := requireActiveTenant(tenantCtx); err != nil {
+		return domain.NodeAccessPath{}, err
+	}
 	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
 		return domain.NodeAccessPath{}, newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
@@ -46,7 +49,7 @@ func (s *Service) DeleteAccessPath(tenantCtx domain.TenantAuthContext, pathID st
 	}); err != nil {
 		return err
 	}
-	if !tenantCtx.SuperAdmin && s.store.CountNodeAccessPathBindings(pathID) > 1 {
+	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && s.store.CountNodeAccessPathBindings(pathID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return s.store.DeleteNodeAccessPath(pathID)

@@ -16,7 +16,7 @@ func (s *MySQLStore) ListRouteRules() []link.RouteRule {
 }
 
 func (s *MySQLStore) ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext) []link.RouteRule {
-	if tenantCtx.SuperAdmin {
+	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
 		return s.ListRouteRules()
 	}
 	rows, err := s.db.Query(
@@ -102,7 +102,7 @@ func (s *MySQLStore) CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext
 	); err != nil {
 		return link.RouteRule{}, err
 	}
-	if !tenantCtx.SuperAdmin {
+	if tenantCtx.ActiveTenant.TenantID != "" {
 		if err := bindTenantResource(tx, "tenant_route_rules", "route_rule_id", tenantCtx.ActiveTenant.TenantID, item.ID, tenantCtx.Account.ID); err != nil {
 			return link.RouteRule{}, err
 		}

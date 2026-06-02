@@ -10,6 +10,14 @@ func (c *ControlPlane) Nodes(tenantCtx domain.TenantAuthContext) []domain.Node {
 	return c.store.ListNodesForTenant(tenantCtx)
 }
 
+func (c *ControlPlane) tenantNodeIDs(tenantCtx domain.TenantAuthContext) map[string]bool {
+	items := make(map[string]bool)
+	for _, node := range c.store.ListNodesForTenant(tenantCtx) {
+		items[node.ID] = true
+	}
+	return items
+}
+
 func (c *ControlPlane) UpdateNode(tenantCtx domain.TenantAuthContext, nodeID string, input domain.UpdateNodeInput) (domain.Node, error) {
 	if nodeID == "" {
 		return domain.Node{}, invalidInput("missing_node_id")
@@ -22,10 +30,19 @@ func (c *ControlPlane) UpdateNode(tenantCtx domain.TenantAuthContext, nodeID str
 	if err := validateNodeInput(input.Name, input.Mode, input.ScopeKey); err != nil {
 		return domain.Node{}, err
 	}
-	if !c.ScopeExists(input.ScopeKey) {
+	if !c.tenantScopeExists(tenantCtx, input.ScopeKey) {
 		return domain.Node{}, invalidInput("scope_not_found")
 	}
 	return c.store.UpdateNode(nodeID, input)
+}
+
+func (c *ControlPlane) tenantScopeExists(tenantCtx domain.TenantAuthContext, scopeID string) bool {
+	for _, scope := range c.store.ListScopesForTenant(tenantCtx) {
+		if scope.ID == scopeID {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *ControlPlane) DeleteNode(tenantCtx domain.TenantAuthContext, nodeID string) error {
@@ -34,17 +51,17 @@ func (c *ControlPlane) DeleteNode(tenantCtx domain.TenantAuthContext, nodeID str
 	}); err != nil {
 		return err
 	}
-	if !tenantCtx.SuperAdmin && c.store.CountNodeBindings(nodeID) > 1 {
+	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && c.store.CountNodeBindings(nodeID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return c.store.DeleteNode(nodeID)
 }
 
 func (c *ControlPlane) requireTenantResourceManage(tenantCtx domain.TenantAuthContext, permission func() (domain.BindingPermission, bool)) error {
-	if tenantCtx.SuperAdmin {
+	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
 		return nil
 	}
-	if tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
+	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
 		return newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
 	bindingPermission, ok := permission()

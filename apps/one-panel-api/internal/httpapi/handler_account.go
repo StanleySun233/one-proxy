@@ -8,6 +8,15 @@ import (
 )
 
 func (r *Router) handleAccounts(w http.ResponseWriter, req *http.Request) {
+	account, ok := accountFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_access_token")
+		return
+	}
+	if account.Role != domain.AccountRoleSuperAdmin {
+		writeError(w, http.StatusForbidden, "account_role_forbidden")
+		return
+	}
 	switch req.Method {
 	case http.MethodGet:
 		writeSuccess(w, http.StatusOK, r.service.Accounts())
@@ -50,6 +59,12 @@ func (r *Router) handleAccountByID(w http.ResponseWriter, req *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
+		if account.Role != domain.AccountRoleSuperAdmin {
+			if account.ID != accountID || payload.Password == "" || payload.Role != "" || payload.Status != "" {
+				writeError(w, http.StatusForbidden, "account_role_forbidden")
+				return
+			}
+		}
 		item, err := r.service.UpdateAccount(accountID, payload)
 		if err != nil {
 			writeServiceError(w, req, err, "update_failed")
@@ -57,6 +72,10 @@ func (r *Router) handleAccountByID(w http.ResponseWriter, req *http.Request) {
 		}
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
+		if account.Role != domain.AccountRoleSuperAdmin {
+			writeError(w, http.StatusForbidden, "account_role_forbidden")
+			return
+		}
 		if err := r.service.DeleteAccount(accountID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return

@@ -17,7 +17,7 @@ func (s *MySQLStore) ListNodes() []domain.Node {
 }
 
 func (s *MySQLStore) ListNodesForTenant(tenantCtx domain.TenantAuthContext) []domain.Node {
-	if tenantCtx.SuperAdmin {
+	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
 		return s.ListNodes()
 	}
 	rows, err := s.db.Query(
@@ -107,7 +107,7 @@ func (s *MySQLStore) CreateNodeForTenant(tenantCtx domain.TenantAuthContext, inp
 	); err != nil {
 		return domain.Node{}, err
 	}
-	if !tenantCtx.SuperAdmin {
+	if tenantCtx.ActiveTenant.TenantID != "" {
 		if err := bindTenantResource(tx, "tenant_nodes", "node_id", tenantCtx.ActiveTenant.TenantID, item.ID, tenantCtx.Account.ID); err != nil {
 			return domain.Node{}, err
 		}
@@ -187,7 +187,7 @@ func bindTenantResource(tx *sql.Tx, table string, idColumn string, tenantID stri
 }
 
 func (s *MySQLStore) tenantResourcePermission(tenantCtx domain.TenantAuthContext, table string, idColumn string, resourceID string) (domain.BindingPermission, bool) {
-	if tenantCtx.SuperAdmin {
+	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
 		return domain.BindingPermissionManage, true
 	}
 	var permission domain.BindingPermission

@@ -18,7 +18,7 @@ func (s *MySQLStore) ListNodeAccessPaths() []domain.NodeAccessPath {
 }
 
 func (s *MySQLStore) ListNodeAccessPathsForTenant(tenantCtx domain.TenantAuthContext) []domain.NodeAccessPath {
-	if tenantCtx.SuperAdmin {
+	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
 		return s.ListNodeAccessPaths()
 	}
 	rows, err := s.db.Query(
@@ -144,7 +144,7 @@ func (s *MySQLStore) CreateNodeAccessPathForTenant(tenantCtx domain.TenantAuthCo
 	); err != nil {
 		return domain.NodeAccessPath{}, err
 	}
-	if !tenantCtx.SuperAdmin {
+	if tenantCtx.ActiveTenant.TenantID != "" {
 		if err := bindTenantResource(tx, "tenant_access_paths", "access_path_id", tenantCtx.ActiveTenant.TenantID, item.ID, tenantCtx.Account.ID); err != nil {
 			return domain.NodeAccessPath{}, err
 		}

@@ -58,7 +58,7 @@ func (s *Service) validateMatchValue(matchType, matchValue string) link.MatchVal
 	return link.MatchValueValidation{Valid: false, Format: matchType, Message: "Unknown match type"}
 }
 
-func (s *Service) validateRouteRule(actionType string, chainID string, destinationScope string, matchType string, matchValue string) error {
+func (s *Service) validateRouteRule(tenantCtx domain.TenantAuthContext, actionType string, chainID string, destinationScope string, matchType string, matchValue string) error {
 	if matchType == "" || matchValue == "" || actionType == "" {
 		return invalidInput("invalid_route_rule_payload")
 	}
@@ -74,7 +74,7 @@ func (s *Service) validateRouteRule(actionType string, chainID string, destinati
 			return invalidInput("invalid_route_rule_payload")
 		}
 		found := false
-		for _, chain := range s.store.ListChains() {
+		for _, chain := range s.store.ListChainsForTenant(tenantCtx) {
 			if chain.ID == chainID {
 				found = true
 				break
@@ -87,7 +87,7 @@ func (s *Service) validateRouteRule(actionType string, chainID string, destinati
 		if destinationScope == "" {
 			return invalidInput("invalid_route_rule_payload")
 		}
-		if !s.scopeExists(destinationScope) {
+		if !s.tenantScopeExists(tenantCtx, destinationScope) {
 			return invalidInput("invalid_route_rule_payload")
 		}
 	}

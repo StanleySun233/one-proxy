@@ -90,10 +90,13 @@ func (s *Service) MatchTypes() []link.MatchType {
 }
 
 func (s *Service) CreateRouteRule(tenantCtx domain.TenantAuthContext, input link.CreateRouteRuleInput) (link.RouteRule, error) {
+	if err := requireActiveTenant(tenantCtx); err != nil {
+		return link.RouteRule{}, err
+	}
 	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
 		return link.RouteRule{}, newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
-	if err := s.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
+	if err := s.validateRouteRule(tenantCtx, input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return link.RouteRule{}, err
 	}
 	return s.store.CreateRouteRuleForTenant(tenantCtx, input)
@@ -108,7 +111,7 @@ func (s *Service) UpdateRouteRule(tenantCtx domain.TenantAuthContext, ruleID str
 	}); err != nil {
 		return link.RouteRule{}, err
 	}
-	if err := s.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
+	if err := s.validateRouteRule(tenantCtx, input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return link.RouteRule{}, err
 	}
 	return s.store.UpdateRouteRule(ruleID, input)
@@ -120,7 +123,7 @@ func (s *Service) DeleteRouteRule(tenantCtx domain.TenantAuthContext, ruleID str
 	}); err != nil {
 		return err
 	}
-	if !tenantCtx.SuperAdmin && s.store.CountRouteRuleBindings(ruleID) > 1 {
+	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && s.store.CountRouteRuleBindings(ruleID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return s.store.DeleteRouteRule(ruleID)
