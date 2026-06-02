@@ -492,6 +492,8 @@ INSERT IGNORE INTO field_enum (id, field, value, name, meta) VALUES
 ('enum-transport_type-public_http', 'transport_type', 'public_http', 'Public HTTP', '{}'),
 ('enum-transport_type-public_https', 'transport_type', 'public_https', 'Public HTTPS', '{}'),
 ('enum-transport_type-reverse_ws_parent', 'transport_type', 'reverse_ws_parent', 'Reverse WS Parent', '{}'),
+('enum-transport_type-direct_udp_candidate', 'transport_type', 'direct_udp_candidate', 'Direct UDP Candidate', '{}'),
+('enum-transport_type-direct_quic', 'transport_type', 'direct_quic', 'Direct QUIC', '{}'),
 ('enum-transport_type-child_ws', 'transport_type', 'child_ws', 'Child WS', '{}'),
 ('enum-transport_type-reverse_ws', 'transport_type', 'reverse_ws', 'Reverse WS', '{}'),
 ('enum-transport_status-connected', 'transport_status', 'connected', 'Connected', '{"color":"#22c55e","className":"is-good"}'),
