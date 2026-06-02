@@ -2,6 +2,8 @@ package link
 
 type Scope struct {
 	ID          string `json:"id"`
+	CreateID    string `json:"createId"`
+	OwnerID     string `json:"ownerId"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	CreatedAt   string `json:"createdAt"`
