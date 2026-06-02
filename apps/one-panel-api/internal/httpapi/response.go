@@ -104,6 +104,10 @@ func (r *Router) requireAccount(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 		ctx := context.WithValue(req.Context(), accountContextKey, account)
+		if isPasswordRotationRequest(req, account) {
+			next(w, req.WithContext(ctx))
+			return
+		}
 		if requiresTenantContext(req) {
 			tenantID := strings.TrimSpace(req.Header.Get("X-Tenant-ID"))
 			tenantCtx, err := r.service.ResolveTenantAuthContext(account, tenantID, allowsSuperAdminTenantBypass(req))
@@ -115,6 +119,10 @@ func (r *Router) requireAccount(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, req.WithContext(ctx))
 	}
+}
+
+func isPasswordRotationRequest(req *http.Request, account domain.Account) bool {
+	return account.MustRotatePassword && req.Method == http.MethodPatch && req.URL.Path == "/api/v1/accounts/"+account.ID
 }
 
 func requiresTenantContext(req *http.Request) bool {
