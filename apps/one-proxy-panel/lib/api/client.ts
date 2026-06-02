@@ -1,4 +1,5 @@
 import type { APIResponse, Account } from '@/lib/types';
+import type { TenantMembership } from '@/lib/types/auth';
 
 export const CONTROL_PLANE_PROXY_BASE = '/api/v1';
 export const SESSION_STORAGE_KEY = 'one-proxy-panel-session';
@@ -22,10 +23,13 @@ export type Session = {
   refreshToken: string;
   expiresAt: string;
   mustRotatePassword: boolean;
+  tenantMemberships: TenantMembership[];
+  activeTenantId: string | null;
 };
 
 type RequestOptions = {
   accessToken?: string;
+  tenantId?: string | null;
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
 };
@@ -39,11 +43,32 @@ function notifyUnauthorized() {
   window.dispatchEvent(new Event(AUTH_INVALID_EVENT));
 }
 
+function getStoredActiveTenantId() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
+  if (!stored) {
+    return null;
+  }
+
+  try {
+    return (JSON.parse(stored) as Session).activeTenantId || null;
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers();
+  const tenantId = options.tenantId ?? getStoredActiveTenantId();
 
   if (options.accessToken) {
     headers.set('Authorization', `Bearer ${options.accessToken}`);
+  }
+  if (tenantId) {
+    headers.set('X-Tenant-ID', tenantId);
   }
   if (options.body !== undefined) {
     headers.set('Content-Type', 'application/json');
