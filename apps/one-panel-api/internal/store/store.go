@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 )
 
 type AccountStore interface {
@@ -51,18 +52,18 @@ type NodeStore interface {
 }
 
 type ChainStore interface {
-	ListChains() []domain.Chain
-	CreateChain(input domain.CreateChainInput) (domain.Chain, error)
-	UpdateChain(chainID string, input domain.UpdateChainInput) (domain.Chain, error)
+	ListChains() []link.Chain
+	CreateChain(input link.CreateChainInput) (link.Chain, error)
+	UpdateChain(chainID string, input link.UpdateChainInput) (link.Chain, error)
 	DeleteChain(chainID string) error
-	GetChainProbeResult(chainID string) (domain.ChainProbeResult, bool)
-	SaveChainProbeResult(input domain.SaveChainProbeResultInput) (domain.ChainProbeResult, error)
+	GetChainProbeResult(chainID string) (link.ChainProbeResult, bool)
+	SaveChainProbeResult(input link.SaveChainProbeResultInput) (link.ChainProbeResult, error)
 }
 
 type RouteStore interface {
-	ListRouteRules() []domain.RouteRule
-	CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error)
-	UpdateRouteRule(ruleID string, input domain.UpdateRouteRuleInput) (domain.RouteRule, error)
+	ListRouteRules() []link.RouteRule
+	CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error)
+	UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error)
 	DeleteRouteRule(ruleID string) error
 }
 
@@ -89,9 +90,9 @@ type GroupStore interface {
 }
 
 type ScopeStore interface {
-	ListScopes() []domain.Scope
-	CreateScope(input domain.CreateScopeInput) (domain.Scope, error)
-	UpdateScope(scopeID string, input domain.UpdateScopeInput) (domain.Scope, error)
+	ListScopes() []link.Scope
+	CreateScope(input link.CreateScopeInput) (link.Scope, error)
+	UpdateScope(scopeID string, input link.UpdateScopeInput) (link.Scope, error)
 	DeleteScope(scopeID string) error
 }
 

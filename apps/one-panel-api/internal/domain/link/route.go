@@ -1,4 +1,4 @@
-package domain
+package link
 
 type RouteRule struct {
 	ID               string `json:"id"`
@@ -72,10 +72,10 @@ type ChainValidation struct {
 }
 
 type ScopeValidation struct {
-	Valid               bool   `json:"valid"`
-	ScopeExists         bool   `json:"scopeExists"`
-	ScopeOwnerNodeID    string `json:"scopeOwnerNodeId"`
-	MatchesChainFinalHop bool  `json:"matchesChainFinalHop"`
+	Valid                bool   `json:"valid"`
+	ScopeExists          bool   `json:"scopeExists"`
+	ScopeOwnerNodeID     string `json:"scopeOwnerNodeId"`
+	MatchesChainFinalHop bool   `json:"matchesChainFinalHop"`
 }
 
 type RouteRuleValidationResult struct {

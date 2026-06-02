@@ -2,12 +2,11 @@ package store
 
 import (
 	"database/sql"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 	"strings"
-
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
-func (s *MySQLStore) ListScopes() []domain.Scope {
+func (s *MySQLStore) ListScopes() []link.Scope {
 	rows, err := s.db.Query(
 		`SELECT id, name, COALESCE(description, ''), created_at, updated_at
 		 FROM scopes ORDER BY name`,
@@ -16,9 +15,9 @@ func (s *MySQLStore) ListScopes() []domain.Scope {
 		return nil
 	}
 	defer rows.Close()
-	items := make([]domain.Scope, 0)
+	items := make([]link.Scope, 0)
 	for rows.Next() {
-		var item domain.Scope
+		var item link.Scope
 		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			continue
 		}
@@ -27,17 +26,17 @@ func (s *MySQLStore) ListScopes() []domain.Scope {
 	return items
 }
 
-func (s *MySQLStore) CreateScope(input domain.CreateScopeInput) (domain.Scope, error) {
+func (s *MySQLStore) CreateScope(input link.CreateScopeInput) (link.Scope, error) {
 	scopeID := strings.TrimSpace(input.ID)
 	if scopeID == "" {
 		var err error
 		scopeID, err = s.nextID("scope")
 		if err != nil {
-			return domain.Scope{}, err
+			return link.Scope{}, err
 		}
 	}
 	now := nowRFC3339()
-	item := domain.Scope{
+	item := link.Scope{
 		ID:          scopeID,
 		Name:        strings.TrimSpace(input.Name),
 		Description: strings.TrimSpace(input.Description),
@@ -52,23 +51,23 @@ func (s *MySQLStore) CreateScope(input domain.CreateScopeInput) (domain.Scope, e
 	return item, err
 }
 
-func (s *MySQLStore) UpdateScope(scopeID string, input domain.UpdateScopeInput) (domain.Scope, error) {
+func (s *MySQLStore) UpdateScope(scopeID string, input link.UpdateScopeInput) (link.Scope, error) {
 	now := nowRFC3339()
 	_, err := s.db.Exec(
 		`UPDATE scopes SET name = ?, description = ?, updated_at = ? WHERE id = ?`,
 		strings.TrimSpace(input.Name), strings.TrimSpace(input.Description), now, scopeID,
 	)
 	if err != nil {
-		return domain.Scope{}, err
+		return link.Scope{}, err
 	}
-	var item domain.Scope
+	var item link.Scope
 	err = s.db.QueryRow(
 		`SELECT id, name, COALESCE(description, ''), created_at, updated_at
 		 FROM scopes WHERE id = ?`,
 		scopeID,
 	).Scan(&item.ID, &item.Name, &item.Description, &item.CreatedAt, &item.UpdatedAt)
 	if err == sql.ErrNoRows {
-		return domain.Scope{}, sql.ErrNoRows
+		return link.Scope{}, sql.ErrNoRows
 	}
 	return item, err
 }

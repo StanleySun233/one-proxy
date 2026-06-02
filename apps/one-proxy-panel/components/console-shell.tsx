@@ -42,14 +42,21 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     {
       key: 'chains',
       label: t('nav.chains'),
-      href: '/scopes',
+      href: '/chains/scopes',
       icon: GitBranch,
       items: [
-        {label: t('shell.scopeBoard'), href: '/scopes'},
-        {label: t('shell.nodeTopology'), href: '/nodes/topology'},
-        {label: t('shell.chainStudio'), href: '/chains'},
-        {label: t('shell.routeBoard'), href: '/routes'}
+        {label: t('shell.scopeBoard'), href: '/chains/scopes'},
+        {label: t('shell.nodeTopology'), href: '/chains/topology'},
+        {label: t('shell.chainStudio'), href: '/chains/studio'},
+        {label: t('shell.routeBoard'), href: '/chains/routes'}
       ]
+    },
+    {
+      key: 'overview',
+      label: t('nav.overview'),
+      href: '/',
+      icon: LayoutDashboard,
+      items: [{label: t('shell.summary'), href: '/'}]
     },
     {
       key: 'nodes',
@@ -61,13 +68,6 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         {label: t('shell.nodeApprovals'), href: '/nodes/approvals'},
         {label: t('shell.nodeRegistry'), href: '/nodes/registry'}
       ]
-    },
-    {
-      key: 'overview',
-      label: t('nav.overview'),
-      href: '/',
-      icon: LayoutDashboard,
-      items: [{label: t('shell.summary'), href: '/'}]
     },
     {
       key: 'accessPaths',

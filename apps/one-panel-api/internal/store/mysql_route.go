@@ -2,11 +2,10 @@ package store
 
 import (
 	"database/sql"
-
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 )
 
-func (s *MySQLStore) ListRouteRules() []domain.RouteRule {
+func (s *MySQLStore) ListRouteRules() []link.RouteRule {
 	rows, err := s.db.Query(
 		`SELECT id, priority, match_type, match_value, action_type, COALESCE(chain_id, ''), COALESCE(destination_scope, ''), enabled
 		 FROM route_rules ORDER BY priority ASC`,
@@ -15,9 +14,9 @@ func (s *MySQLStore) ListRouteRules() []domain.RouteRule {
 		return nil
 	}
 	defer rows.Close()
-	items := make([]domain.RouteRule, 0)
+	items := make([]link.RouteRule, 0)
 	for rows.Next() {
-		var item domain.RouteRule
+		var item link.RouteRule
 		var enabled int
 		if err := rows.Scan(&item.ID, &item.Priority, &item.MatchType, &item.MatchValue, &item.ActionType, &item.ChainID, &item.DestinationScope, &enabled); err != nil {
 			continue
@@ -28,12 +27,12 @@ func (s *MySQLStore) ListRouteRules() []domain.RouteRule {
 	return items
 }
 
-func (s *MySQLStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
+func (s *MySQLStore) CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error) {
 	ruleID, err := s.nextID("route_rule")
 	if err != nil {
-		return domain.RouteRule{}, err
+		return link.RouteRule{}, err
 	}
-	item := domain.RouteRule{
+	item := link.RouteRule{
 		ID:               ruleID,
 		Priority:         input.Priority,
 		MatchType:        input.MatchType,
@@ -52,7 +51,7 @@ func (s *MySQLStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.
 	return item, err
 }
 
-func (s *MySQLStore) UpdateRouteRule(ruleID string, input domain.UpdateRouteRuleInput) (domain.RouteRule, error) {
+func (s *MySQLStore) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
 	now := nowRFC3339()
 	_, err := s.db.Exec(
 		`UPDATE route_rules
@@ -61,14 +60,14 @@ func (s *MySQLStore) UpdateRouteRule(ruleID string, input domain.UpdateRouteRule
 		input.Priority, input.MatchType, input.MatchValue, input.ActionType, input.ChainID, input.DestinationScope, boolToInt(input.Enabled), now, ruleID,
 	)
 	if err != nil {
-		return domain.RouteRule{}, err
+		return link.RouteRule{}, err
 	}
 	for _, item := range s.ListRouteRules() {
 		if item.ID == ruleID {
 			return item, nil
 		}
 	}
-	return domain.RouteRule{}, sql.ErrNoRows
+	return link.RouteRule{}, sql.ErrNoRows
 }
 
 func (s *MySQLStore) DeleteRouteRule(ruleID string) error {

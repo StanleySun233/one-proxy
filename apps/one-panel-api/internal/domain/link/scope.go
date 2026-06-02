@@ -1,4 +1,4 @@
-package domain
+package link
 
 type Scope struct {
 	ID          string `json:"id"`

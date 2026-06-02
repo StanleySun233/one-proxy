@@ -3,8 +3,7 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
-
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 )
 
 func (s *MySQLStore) loadChainHops(chainID string) []string {
@@ -24,15 +23,15 @@ func (s *MySQLStore) loadChainHops(chainID string) []string {
 	return hops
 }
 
-func (s *MySQLStore) ListChains() []domain.Chain {
+func (s *MySQLStore) ListChains() []link.Chain {
 	rows, err := s.db.Query("SELECT id, name, destination_scope, enabled FROM chains ORDER BY name")
 	if err != nil {
 		return nil
 	}
 	defer rows.Close()
-	items := make([]domain.Chain, 0)
+	items := make([]link.Chain, 0)
 	for rows.Next() {
-		var item domain.Chain
+		var item link.Chain
 		var enabled int
 		if err := rows.Scan(&item.ID, &item.Name, &item.DestinationScope, &enabled); err != nil {
 			continue
@@ -44,8 +43,8 @@ func (s *MySQLStore) ListChains() []domain.Chain {
 	return items
 }
 
-func (s *MySQLStore) GetChainProbeResult(chainID string) (domain.ChainProbeResult, bool) {
-	var item domain.ChainProbeResult
+func (s *MySQLStore) GetChainProbeResult(chainID string) (link.ChainProbeResult, bool) {
+	var item link.ChainProbeResult
 	var hopsJSON string
 	err := s.db.QueryRow(
 		`SELECT chain_id, status, message, resolved_hops_json, COALESCE(blocking_node_id, ''), COALESCE(blocking_reason, ''), COALESCE(target_host, ''), target_port, probed_at
@@ -53,16 +52,16 @@ func (s *MySQLStore) GetChainProbeResult(chainID string) (domain.ChainProbeResul
 		chainID,
 	).Scan(&item.ChainID, &item.Status, &item.Message, &hopsJSON, &item.BlockingNodeID, &item.BlockingReason, &item.TargetHost, &item.TargetPort, &item.ProbedAt)
 	if err != nil {
-		return domain.ChainProbeResult{}, false
+		return link.ChainProbeResult{}, false
 	}
 	_ = json.Unmarshal([]byte(hopsJSON), &item.ResolvedHops)
 	return item, true
 }
 
-func (s *MySQLStore) SaveChainProbeResult(input domain.SaveChainProbeResultInput) (domain.ChainProbeResult, error) {
+func (s *MySQLStore) SaveChainProbeResult(input link.SaveChainProbeResultInput) (link.ChainProbeResult, error) {
 	hopsJSON, err := json.Marshal(input.ResolvedHops)
 	if err != nil {
-		return domain.ChainProbeResult{}, err
+		return link.ChainProbeResult{}, err
 	}
 	_, err = s.db.Exec(
 		`INSERT INTO chain_probe_results (chain_id, status, message, resolved_hops_json, blocking_node_id, blocking_reason, target_host, target_port, probed_at)
@@ -79,9 +78,9 @@ func (s *MySQLStore) SaveChainProbeResult(input domain.SaveChainProbeResultInput
 		input.ChainID, input.Status, input.Message, string(hopsJSON), input.BlockingNodeID, input.BlockingReason, input.TargetHost, input.TargetPort, input.ProbedAt,
 	)
 	if err != nil {
-		return domain.ChainProbeResult{}, err
+		return link.ChainProbeResult{}, err
 	}
-	return domain.ChainProbeResult{
+	return link.ChainProbeResult{
 		ChainID:        input.ChainID,
 		Status:         input.Status,
 		Message:        input.Message,
@@ -94,65 +93,65 @@ func (s *MySQLStore) SaveChainProbeResult(input domain.SaveChainProbeResultInput
 	}, nil
 }
 
-func (s *MySQLStore) CreateChain(input domain.CreateChainInput) (domain.Chain, error) {
+func (s *MySQLStore) CreateChain(input link.CreateChainInput) (link.Chain, error) {
 	chainID, err := s.nextID("chain")
 	if err != nil {
-		return domain.Chain{}, err
+		return link.Chain{}, err
 	}
-	item := domain.Chain{ID: chainID, Name: input.Name, DestinationScope: input.DestinationScope, Enabled: true, Hops: input.Hops}
+	item := link.Chain{ID: chainID, Name: input.Name, DestinationScope: input.DestinationScope, Enabled: true, Hops: input.Hops}
 	now := nowRFC3339()
 	tx, err := s.db.Begin()
 	if err != nil {
-		return domain.Chain{}, err
+		return link.Chain{}, err
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(
 		`INSERT INTO chains (id, name, destination_scope, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
 		item.ID, item.Name, item.DestinationScope, 1, now, now,
 	); err != nil {
-		return domain.Chain{}, err
+		return link.Chain{}, err
 	}
 	for index, hop := range item.Hops {
 		if _, err := tx.Exec("INSERT INTO chain_hops (chain_id, hop_index, node_id) VALUES (?, ?, ?)", item.ID, index, hop); err != nil {
-			return domain.Chain{}, err
+			return link.Chain{}, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return domain.Chain{}, err
+		return link.Chain{}, err
 	}
 	return item, nil
 }
 
-func (s *MySQLStore) UpdateChain(chainID string, input domain.UpdateChainInput) (domain.Chain, error) {
+func (s *MySQLStore) UpdateChain(chainID string, input link.UpdateChainInput) (link.Chain, error) {
 	now := nowRFC3339()
 	tx, err := s.db.Begin()
 	if err != nil {
-		return domain.Chain{}, err
+		return link.Chain{}, err
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(
 		`UPDATE chains SET name = ?, destination_scope = ?, enabled = ?, updated_at = ? WHERE id = ?`,
 		input.Name, input.DestinationScope, boolToInt(input.Enabled), now, chainID,
 	); err != nil {
-		return domain.Chain{}, err
+		return link.Chain{}, err
 	}
 	if _, err := tx.Exec("DELETE FROM chain_hops WHERE chain_id = ?", chainID); err != nil {
-		return domain.Chain{}, err
+		return link.Chain{}, err
 	}
 	for index, hop := range input.Hops {
 		if _, err := tx.Exec("INSERT INTO chain_hops (chain_id, hop_index, node_id) VALUES (?, ?, ?)", chainID, index, hop); err != nil {
-			return domain.Chain{}, err
+			return link.Chain{}, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return domain.Chain{}, err
+		return link.Chain{}, err
 	}
 	for _, item := range s.ListChains() {
 		if item.ID == chainID {
 			return item, nil
 		}
 	}
-	return domain.Chain{}, sql.ErrNoRows
+	return link.Chain{}, sql.ErrNoRows
 }
 
 func (s *MySQLStore) DeleteChain(chainID string) error {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 )
 
 type matchTypeMeta struct {
@@ -13,21 +14,21 @@ type matchTypeMeta struct {
 	ValidationRegex string `json:"validationRegex"`
 }
 
-func (c *ControlPlane) RouteRules() []domain.RouteRule {
+func (c *ControlPlane) RouteRules() []link.RouteRule {
 	return c.store.ListRouteRules()
 }
 
-func (c *ControlPlane) RouteRulesWithDetails() []domain.RouteRuleWithDetails {
+func (c *ControlPlane) RouteRulesWithDetails() []link.RouteRuleWithDetails {
 	rules := c.store.ListRouteRules()
 	chains := c.ChainsWithDetails()
-	chainMap := make(map[string]domain.ChainWithDetails)
+	chainMap := make(map[string]link.ChainWithDetails)
 	for _, chain := range chains {
 		chainMap[chain.ID] = chain
 	}
 
-	result := make([]domain.RouteRuleWithDetails, 0, len(rules))
+	result := make([]link.RouteRuleWithDetails, 0, len(rules))
 	for _, rule := range rules {
-		item := domain.RouteRuleWithDetails{
+		item := link.RouteRuleWithDetails{
 			ID:               rule.ID,
 			Priority:         rule.Priority,
 			MatchType:        rule.MatchType,
@@ -47,9 +48,9 @@ func (c *ControlPlane) RouteRulesWithDetails() []domain.RouteRuleWithDetails {
 	return result
 }
 
-func (c *ControlPlane) GetRouteRule(ruleID string) (domain.RouteRuleWithDetails, error) {
+func (c *ControlPlane) GetRouteRule(ruleID string) (link.RouteRuleWithDetails, error) {
 	if ruleID == "" {
-		return domain.RouteRuleWithDetails{}, invalidInput("missing_rule_id")
+		return link.RouteRuleWithDetails{}, invalidInput("missing_rule_id")
 	}
 
 	rules := c.RouteRulesWithDetails()
@@ -58,14 +59,14 @@ func (c *ControlPlane) GetRouteRule(ruleID string) (domain.RouteRuleWithDetails,
 			return rule, nil
 		}
 	}
-	return domain.RouteRuleWithDetails{}, invalidInput("route_rule_not_found")
+	return link.RouteRuleWithDetails{}, invalidInput("route_rule_not_found")
 }
 
-func (c *ControlPlane) MatchTypes() []domain.MatchType {
+func (c *ControlPlane) MatchTypes() []link.MatchType {
 	items, _ := c.store.ListFieldEnumsByField("match_type")
-	result := make([]domain.MatchType, 0, len(items))
+	result := make([]link.MatchType, 0, len(items))
 	for _, item := range items {
-		mt := domain.MatchType{
+		mt := link.MatchType{
 			Type:        item.Value,
 			Label:       item.Name,
 			Description: item.Name,
@@ -85,19 +86,19 @@ func (c *ControlPlane) MatchTypes() []domain.MatchType {
 	return result
 }
 
-func (c *ControlPlane) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
+func (c *ControlPlane) CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error) {
 	if err := c.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
-		return domain.RouteRule{}, err
+		return link.RouteRule{}, err
 	}
 	return c.store.CreateRouteRule(input)
 }
 
-func (c *ControlPlane) UpdateRouteRule(ruleID string, input domain.UpdateRouteRuleInput) (domain.RouteRule, error) {
+func (c *ControlPlane) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
 	if ruleID == "" {
-		return domain.RouteRule{}, invalidInput("missing_rule_id")
+		return link.RouteRule{}, invalidInput("missing_rule_id")
 	}
 	if err := c.validateRouteRule(input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
-		return domain.RouteRule{}, err
+		return link.RouteRule{}, err
 	}
 	return c.store.UpdateRouteRule(ruleID, input)
 }
@@ -106,8 +107,8 @@ func (c *ControlPlane) DeleteRouteRule(ruleID string) error {
 	return c.store.DeleteRouteRule(ruleID)
 }
 
-func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (domain.RouteRuleValidationResult, error) {
-	result := domain.RouteRuleValidationResult{
+func (c *ControlPlane) ValidateRouteRule(input link.ValidateRouteRuleInput) (link.RouteRuleValidationResult, error) {
+	result := link.RouteRuleValidationResult{
 		Valid:    true,
 		Errors:   []string{},
 		Warnings: []string{},
@@ -123,7 +124,7 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 		result.Errors = append(result.Errors, "invalid_action_type")
 	}
 
-	var matchedChain *domain.Chain
+	var matchedChain *link.Chain
 	if input.ActionType == domain.ActionTypeChain {
 		chains := c.store.ListChains()
 		for _, chain := range chains {
@@ -134,14 +135,14 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 			}
 		}
 		if matchedChain == nil {
-			result.ChainValidation = domain.ChainValidation{
+			result.ChainValidation = link.ChainValidation{
 				Valid:        false,
 				ChainEnabled: false,
 			}
 			result.Valid = false
 			result.Errors = append(result.Errors, "chain_not_found")
 		} else {
-			result.ChainValidation = domain.ChainValidation{
+			result.ChainValidation = link.ChainValidation{
 				Valid:        true,
 				ChainEnabled: matchedChain.Enabled,
 				ChainHops:    matchedChain.Hops,
@@ -156,13 +157,13 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 		input.DestinationScope = matchedChain.DestinationScope
 	}
 	if input.ActionType == domain.ActionTypeDirect && input.DestinationScope == "" {
-		result.ScopeValidation = domain.ScopeValidation{Valid: false}
+		result.ScopeValidation = link.ScopeValidation{Valid: false}
 		result.Valid = false
 		result.Errors = append(result.Errors, "scope_not_found")
 	} else if input.DestinationScope == "" {
-		result.ScopeValidation = domain.ScopeValidation{Valid: true}
+		result.ScopeValidation = link.ScopeValidation{Valid: true}
 	} else if !c.scopeExists(input.DestinationScope) {
-		result.ScopeValidation = domain.ScopeValidation{
+		result.ScopeValidation = link.ScopeValidation{
 			Valid:       false,
 			ScopeExists: false,
 		}
@@ -181,7 +182,7 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 				}
 			}
 		}
-		result.ScopeValidation = domain.ScopeValidation{
+		result.ScopeValidation = link.ScopeValidation{
 			Valid:                true,
 			ScopeExists:          true,
 			ScopeOwnerNodeID:     ownerNodeID,
@@ -203,7 +204,7 @@ func (c *ControlPlane) ValidateRouteRule(input domain.ValidateRouteRuleInput) (d
 	return result, nil
 }
 
-func (c *ControlPlane) RouteRuleSuggestions(matchType string, query string) domain.RouteRuleSuggestionResult {
+func (c *ControlPlane) RouteRuleSuggestions(matchType string, query string) link.RouteRuleSuggestionResult {
 	rules := c.store.ListRouteRules()
 	seen := make(map[string]struct{})
 	var suggestions []string
@@ -229,7 +230,7 @@ func (c *ControlPlane) RouteRuleSuggestions(matchType string, query string) doma
 		suggestions = []string{}
 	}
 
-	return domain.RouteRuleSuggestionResult{
+	return link.RouteRuleSuggestionResult{
 		MatchType:   matchType,
 		Suggestions: suggestions,
 	}

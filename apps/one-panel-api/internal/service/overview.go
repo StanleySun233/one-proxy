@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 )
 
 func (c *ControlPlane) Overview() domain.Overview {
@@ -17,7 +18,7 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 	chains := c.store.ListChains()
 	overview := c.store.GetOverview()
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
-	chainsByID := make(map[string]domain.Chain, len(chains))
+	chainsByID := make(map[string]link.Chain, len(chains))
 	for _, chain := range chains {
 		chainsByID[chain.ID] = chain
 	}
@@ -44,7 +45,7 @@ func (c *ControlPlane) ExtensionBootstrap(account domain.Account) domain.Extensi
 					filteredNodes = append(filteredNodes, node)
 				}
 			}
-			filteredRules = make([]domain.RouteRule, 0)
+			filteredRules = make([]link.RouteRule, 0)
 			for _, rule := range rules {
 				if rule.ActionType == domain.ActionTypeDirect && allowedScopes[rule.DestinationScope] {
 					filteredRules = append(filteredRules, rule)

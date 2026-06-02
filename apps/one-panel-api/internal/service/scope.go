@@ -1,27 +1,26 @@
 package service
 
 import (
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 	"strings"
-
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
-func (c *ControlPlane) Scopes() []domain.Scope {
+func (c *ControlPlane) Scopes() []link.Scope {
 	return c.store.ListScopes()
 }
 
-func (c *ControlPlane) CreateScope(input domain.CreateScopeInput) (domain.Scope, error) {
+func (c *ControlPlane) CreateScope(input link.CreateScopeInput) (link.Scope, error) {
 	input.ID = ""
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" {
-		return domain.Scope{}, invalidInput("invalid_scope_payload")
+		return link.Scope{}, invalidInput("invalid_scope_payload")
 	}
 	return c.store.CreateScope(input)
 }
 
-func (c *ControlPlane) UpdateScope(scopeID string, input domain.UpdateScopeInput) (domain.Scope, error) {
+func (c *ControlPlane) UpdateScope(scopeID string, input link.UpdateScopeInput) (link.Scope, error) {
 	if scopeID == "" || strings.TrimSpace(input.Name) == "" {
-		return domain.Scope{}, invalidInput("invalid_scope_payload")
+		return link.Scope{}, invalidInput("invalid_scope_payload")
 	}
 	return c.store.UpdateScope(scopeID, input)
 }

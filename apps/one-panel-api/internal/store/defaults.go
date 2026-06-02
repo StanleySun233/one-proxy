@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 )
 
 func defaultNodes() []domain.Node {
@@ -15,15 +16,15 @@ func defaultNodes() []domain.Node {
 	}
 }
 
-func defaultChains() []domain.Chain {
-	return []domain.Chain{
+func defaultChains() []link.Chain {
+	return []link.Chain{
 		{ID: "1", Name: "corp-k8s", DestinationScope: "c-k8s", Enabled: true, Hops: []string{"1", "2", "3"}},
 		{ID: "2", Name: "office-tools", DestinationScope: "d-office", Enabled: true, Hops: []string{"1", "4"}},
 	}
 }
 
-func defaultRouteRules() []domain.RouteRule {
-	return []domain.RouteRule{
+func defaultRouteRules() []link.RouteRule {
+	return []link.RouteRule{
 		{ID: "1", Priority: 100, MatchType: "domain_suffix", MatchValue: ".corp.internal", ActionType: "chain", ChainID: "1", DestinationScope: "c-k8s", Enabled: true},
 		{ID: "2", Priority: 200, MatchType: domain.MatchTypeIPCIDR, MatchValue: "10.30.0.0/16", ActionType: "chain", ChainID: "1", DestinationScope: "b-lan", Enabled: true},
 		{ID: "3", Priority: 300, MatchType: "domain", MatchValue: "grafana.office.local", ActionType: "chain", ChainID: "2", DestinationScope: "d-office", Enabled: true},

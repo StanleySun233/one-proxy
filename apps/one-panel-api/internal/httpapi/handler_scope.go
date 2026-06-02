@@ -2,10 +2,9 @@ package httpapi
 
 import (
 	"encoding/json"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 	"net/http"
 	"strings"
-
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
 func (r *Router) handleScopes(w http.ResponseWriter, req *http.Request) {
@@ -13,7 +12,7 @@ func (r *Router) handleScopes(w http.ResponseWriter, req *http.Request) {
 	case http.MethodGet:
 		writeSuccess(w, http.StatusOK, r.service.Scopes())
 	case http.MethodPost:
-		var payload domain.CreateScopeInput
+		var payload link.CreateScopeInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_request_body")
 			return
@@ -38,7 +37,7 @@ func (r *Router) handleScopeByID(w http.ResponseWriter, req *http.Request) {
 	}
 	switch req.Method {
 	case http.MethodPatch:
-		var payload domain.UpdateScopeInput
+		var payload link.UpdateScopeInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_request_body")
 			return

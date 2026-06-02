@@ -16,7 +16,7 @@ import (
 )
 
 type APIResponse[T any] struct {
-	Code    int  `json:"code"`
+	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    T      `json:"data"`
 }

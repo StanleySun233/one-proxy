@@ -2,9 +2,8 @@ package httpapi
 
 import (
 	"encoding/json"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 	"net/http"
-
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
 func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
@@ -17,7 +16,7 @@ func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
 			writeSuccess(w, http.StatusOK, r.service.RouteRules())
 		}
 	case http.MethodPost:
-		var payload domain.CreateRouteRuleInput
+		var payload link.CreateRouteRuleInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
@@ -48,7 +47,7 @@ func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
 		}
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodPatch:
-		var payload domain.UpdateRouteRuleInput
+		var payload link.UpdateRouteRuleInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
@@ -75,7 +74,7 @@ func (r *Router) handleRouteRuleValidate(w http.ResponseWriter, req *http.Reques
 		writeMethodNotAllowed(w, "POST")
 		return
 	}
-	var payload domain.ValidateRouteRuleInput
+	var payload link.ValidateRouteRuleInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return

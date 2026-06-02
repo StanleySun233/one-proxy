@@ -1,13 +1,13 @@
 package store
 
-import "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+import "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 
-func (s *SeedStore) ListRouteRules() []domain.RouteRule {
-	return []domain.RouteRule{}
+func (s *SeedStore) ListRouteRules() []link.RouteRule {
+	return []link.RouteRule{}
 }
 
-func (s *SeedStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.RouteRule, error) {
-	return domain.RouteRule{
+func (s *SeedStore) CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error) {
+	return link.RouteRule{
 		ID:               s.nextID("route_rule"),
 		Priority:         input.Priority,
 		MatchType:        input.MatchType,
@@ -19,8 +19,8 @@ func (s *SeedStore) CreateRouteRule(input domain.CreateRouteRuleInput) (domain.R
 	}, nil
 }
 
-func (s *SeedStore) UpdateRouteRule(ruleID string, input domain.UpdateRouteRuleInput) (domain.RouteRule, error) {
-	return domain.RouteRule{
+func (s *SeedStore) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
+	return link.RouteRule{
 		ID:               ruleID,
 		Priority:         input.Priority,
 		MatchType:        input.MatchType,

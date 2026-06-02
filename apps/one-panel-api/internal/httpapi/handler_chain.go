@@ -2,10 +2,9 @@ package httpapi
 
 import (
 	"encoding/json"
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 	"net/http"
 	"strings"
-
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
 func (r *Router) handleChains(w http.ResponseWriter, req *http.Request) {
@@ -18,7 +17,7 @@ func (r *Router) handleChains(w http.ResponseWriter, req *http.Request) {
 			writeSuccess(w, http.StatusOK, r.service.Chains())
 		}
 	case http.MethodPost:
-		var payload domain.CreateChainInput
+		var payload link.CreateChainInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
@@ -53,7 +52,7 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 		}
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodPatch:
-		var payload domain.UpdateChainInput
+		var payload link.UpdateChainInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
@@ -107,7 +106,7 @@ func (r *Router) handleChainValidate(w http.ResponseWriter, req *http.Request) {
 		writeMethodNotAllowed(w, "POST")
 		return
 	}
-	var payload domain.ValidateChainInput
+	var payload link.ValidateChainInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
@@ -125,7 +124,7 @@ func (r *Router) handleChainPreview(w http.ResponseWriter, req *http.Request) {
 		writeMethodNotAllowed(w, "POST")
 		return
 	}
-	var payload domain.PreviewChainInput
+	var payload link.PreviewChainInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return

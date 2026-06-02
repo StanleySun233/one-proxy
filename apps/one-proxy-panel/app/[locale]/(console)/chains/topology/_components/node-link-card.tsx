@@ -5,7 +5,7 @@ import {useTranslations} from 'next-intl';
 import {Node, NodeLink, NodeTransport} from '@/lib/types';
 import {formatISODateTime} from '@/lib/presentation';
 
-import {describeNodeName, transportBadgeClassName} from './node-utils';
+import {describeNodeName, transportBadgeClassName} from '../../../nodes/_components/node-utils';
 
 export function NodeLinkCard({
   link,

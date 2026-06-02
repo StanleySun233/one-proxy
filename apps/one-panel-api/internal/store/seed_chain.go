@@ -1,18 +1,18 @@
 package store
 
-import "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
+import "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain/link"
 
-func (s *SeedStore) ListChains() []domain.Chain {
-	return []domain.Chain{}
+func (s *SeedStore) ListChains() []link.Chain {
+	return []link.Chain{}
 }
 
-func (s *SeedStore) GetChainProbeResult(chainID string) (domain.ChainProbeResult, bool) {
+func (s *SeedStore) GetChainProbeResult(chainID string) (link.ChainProbeResult, bool) {
 	_ = chainID
-	return domain.ChainProbeResult{}, false
+	return link.ChainProbeResult{}, false
 }
 
-func (s *SeedStore) SaveChainProbeResult(input domain.SaveChainProbeResultInput) (domain.ChainProbeResult, error) {
-	return domain.ChainProbeResult{
+func (s *SeedStore) SaveChainProbeResult(input link.SaveChainProbeResultInput) (link.ChainProbeResult, error) {
+	return link.ChainProbeResult{
 		ChainID:        input.ChainID,
 		Status:         input.Status,
 		Message:        input.Message,
@@ -25,8 +25,8 @@ func (s *SeedStore) SaveChainProbeResult(input domain.SaveChainProbeResultInput)
 	}, nil
 }
 
-func (s *SeedStore) CreateChain(input domain.CreateChainInput) (domain.Chain, error) {
-	return domain.Chain{
+func (s *SeedStore) CreateChain(input link.CreateChainInput) (link.Chain, error) {
+	return link.Chain{
 		ID:               s.nextID("chain"),
 		Name:             input.Name,
 		DestinationScope: input.DestinationScope,
@@ -35,8 +35,8 @@ func (s *SeedStore) CreateChain(input domain.CreateChainInput) (domain.Chain, er
 	}, nil
 }
 
-func (s *SeedStore) UpdateChain(chainID string, input domain.UpdateChainInput) (domain.Chain, error) {
-	return domain.Chain{
+func (s *SeedStore) UpdateChain(chainID string, input link.UpdateChainInput) (link.Chain, error) {
+	return link.Chain{
 		ID:               chainID,
 		Name:             input.Name,
 		DestinationScope: input.DestinationScope,

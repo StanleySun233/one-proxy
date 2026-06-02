@@ -1,4 +1,4 @@
-package domain
+package link
 
 type Chain struct {
 	ID               string   `json:"id"`
@@ -43,9 +43,9 @@ type ValidateChainInput struct {
 }
 
 type HopConnectivity struct {
-	From       string `json:"from"`
-	To         string `json:"to"`
-	Reachable  bool   `json:"reachable"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	Reachable bool   `json:"reachable"`
 }
 
 type ScopeOwnership struct {
@@ -89,25 +89,25 @@ type ChainProbeHop struct {
 }
 
 type ChainProbeResult struct {
-	ChainID         string          `json:"chainId"`
-	Status          string          `json:"status"`
-	Message         string          `json:"message"`
-	ResolvedHops    []ChainProbeHop `json:"resolvedHops"`
-	BlockingNodeID  string          `json:"blockingNodeId"`
-	BlockingReason  string          `json:"blockingReason"`
-	TargetHost      string          `json:"targetHost"`
-	TargetPort      int             `json:"targetPort"`
-	ProbedAt        string          `json:"probedAt"`
+	ChainID        string          `json:"chainId"`
+	Status         string          `json:"status"`
+	Message        string          `json:"message"`
+	ResolvedHops   []ChainProbeHop `json:"resolvedHops"`
+	BlockingNodeID string          `json:"blockingNodeId"`
+	BlockingReason string          `json:"blockingReason"`
+	TargetHost     string          `json:"targetHost"`
+	TargetPort     int             `json:"targetPort"`
+	ProbedAt       string          `json:"probedAt"`
 }
 
 type SaveChainProbeResultInput struct {
-	ChainID         string          `json:"chainId"`
-	Status          string          `json:"status"`
-	Message         string          `json:"message"`
-	ResolvedHops    []ChainProbeHop `json:"resolvedHops"`
-	BlockingNodeID  string          `json:"blockingNodeId"`
-	BlockingReason  string          `json:"blockingReason"`
-	TargetHost      string          `json:"targetHost"`
-	TargetPort      int             `json:"targetPort"`
-	ProbedAt        string          `json:"probedAt"`
+	ChainID        string          `json:"chainId"`
+	Status         string          `json:"status"`
+	Message        string          `json:"message"`
+	ResolvedHops   []ChainProbeHop `json:"resolvedHops"`
+	BlockingNodeID string          `json:"blockingNodeId"`
+	BlockingReason string          `json:"blockingReason"`
+	TargetHost     string          `json:"targetHost"`
+	TargetPort     int             `json:"targetPort"`
+	ProbedAt       string          `json:"probedAt"`
 }

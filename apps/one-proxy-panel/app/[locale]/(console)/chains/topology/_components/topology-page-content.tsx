@@ -9,8 +9,8 @@ import {AuthGate} from '@/components/auth-gate';
 import {fetchEnums} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
-import {useNodeConsole} from './use-node-console';
-import {describeNodeName, transportBadgeClassName} from './node-utils';
+import {useNodeConsole} from '../../../nodes/_components/use-node-console';
+import {describeNodeName, transportBadgeClassName} from '../../../nodes/_components/node-utils';
 import {CreateNodeLinkForm} from './create-node-link-form';
 import {NodeLinkCard} from './node-link-card';
 
