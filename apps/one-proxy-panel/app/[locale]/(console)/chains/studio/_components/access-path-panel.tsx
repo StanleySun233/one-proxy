@@ -108,7 +108,7 @@ function submitPayload(form: AccessPathFormState, chains: Chain[]): NodeAccessPa
   };
 }
 
-export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: string; chains: Chain[]; nodes: Node[]}) {
+export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {accessToken: string; activeTenantId: string | null; chains: Chain[]; nodes: Node[]}) {
   const t = useTranslations();
   const accessPathsT = useTranslations('accessPaths');
   const queryClient = useQueryClient();
@@ -123,7 +123,7 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
   const [formState, setFormState] = useState<AccessPathFormState>(emptyForm);
 
   const pathsQuery = useQuery({
-    queryKey: ['chains-access-paths', accessToken],
+    queryKey: ['chains-access-paths', accessToken, activeTenantId],
     queryFn: () => getNodeAccessPaths(accessToken),
     enabled: !!accessToken
   });

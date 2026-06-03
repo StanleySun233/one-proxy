@@ -29,17 +29,18 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const {resolvedTheme, setTheme} = useTheme();
   const {session, tenantMemberships, activeTenant, switchTenant, logout} = useAuth();
   const accessToken = session?.accessToken || '';
+  const activeTenantId = session?.activeTenantId || null;
   const tenantOptions = tenantMemberships.map((membership) => ({
     value: membership.tenantId,
     label: membership.tenantName
   }));
-  const showTenantSwitcher = tenantMemberships.length > 1;
+  const showTenantSwitcher = tenantMemberships.length > 0;
   const tenantSelectOptions = activeTenant ? tenantOptions : [{value: '', label: t('shell.tenantPlaceholder')}, ...tenantOptions];
 
   const pendingQuery = useQuery({
-    queryKey: ['pending-nodes', accessToken],
+    queryKey: ['pending-nodes', accessToken, activeTenantId],
     queryFn: () => getPendingNodes(accessToken),
-    enabled: !!accessToken,
+    enabled: !!accessToken && (!!activeTenantId || tenantMemberships.length === 0),
     refetchInterval: 30000
   });
 
@@ -144,20 +145,19 @@ export function ConsoleShell({children}: {children: ReactNode}) {
             <img alt="" src="/favicon.svg" />
           </span>
           <span className="console-topbar-wordmark">One Proxy</span>
+          {showTenantSwitcher ? (
+            <CapsuleSelect
+              aria-label={t('shell.tenantLabel')}
+              icon={<Building2 size={16} />}
+              onChange={handleTenantChange}
+              options={tenantSelectOptions}
+              value={activeTenant?.tenantId || ''}
+            />
+          ) : null}
         </div>
 
         <div className="console-topbar-actions">
           <CapsuleSelectGroup>
-            {showTenantSwitcher ? (
-              <CapsuleSelect
-                aria-label={t('shell.tenantLabel')}
-                icon={<Building2 size={16} />}
-                onChange={handleTenantChange}
-                options={tenantSelectOptions}
-                value={activeTenant?.tenantId || ''}
-              />
-            ) : null}
-
             <CapsuleSelect
               aria-label={t('shell.themeLabel')}
               icon={<Shirt size={16} />}

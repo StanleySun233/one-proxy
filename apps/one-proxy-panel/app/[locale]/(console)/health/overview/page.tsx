@@ -22,16 +22,17 @@ export default function HealthOverviewPage() {
   const healthT = useTranslations('health');
   const {session} = useAuth();
   const accessToken = session?.accessToken || '';
+  const activeTenantId = session?.activeTenantId || null;
 
   const [selectedNodeId, setSelectedNodeId] = useState('');
 
   const nodesQuery = useQuery({
-    queryKey: ['nodes', accessToken],
+    queryKey: ['nodes', accessToken, activeTenantId],
     queryFn: () => getNodes(accessToken),
     enabled: !!accessToken
   });
   const healthQuery = useQuery({
-    queryKey: ['node-health', accessToken],
+    queryKey: ['node-health', accessToken, activeTenantId],
     queryFn: () => getNodeHealth(accessToken),
     enabled: !!accessToken,
     refetchInterval: 5000
@@ -62,7 +63,7 @@ export default function HealthOverviewPage() {
   }, [healthRows, enums]);
 
   const historyQuery = useQuery({
-    queryKey: ['node-health-history', accessToken, selectedNodeId],
+    queryKey: ['node-health-history', accessToken, activeTenantId, selectedNodeId],
     queryFn: () => getNodeHealthHistory(accessToken, selectedNodeId, '24h'),
     enabled: !!accessToken && !!selectedNodeId
   });

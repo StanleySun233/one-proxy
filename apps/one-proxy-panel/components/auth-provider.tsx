@@ -18,16 +18,30 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function tenantRoleRank(role: TenantMembership['role']) {
+  return role === 'tenant_admin' ? 2 : 1;
+}
+
+function sortTenantMemberships(tenantMemberships: TenantMembership[]) {
+  return [...tenantMemberships].sort((left, right) => {
+    const roleDiff = tenantRoleRank(right.role) - tenantRoleRank(left.role);
+    if (roleDiff !== 0) {
+      return roleDiff;
+    }
+    return left.tenantName.localeCompare(right.tenantName) || left.tenantId.localeCompare(right.tenantId);
+  });
+}
+
 function resolveActiveTenantId(tenantMemberships: TenantMembership[], activeTenantId: string | null | undefined) {
-  if (activeTenantId) {
+  if (activeTenantId && tenantMemberships.some((membership) => membership.tenantId === activeTenantId)) {
     return activeTenantId;
   }
 
-  return tenantMemberships.length === 1 ? tenantMemberships[0].tenantId : null;
+  return tenantMemberships[0]?.tenantId || null;
 }
 
 function normalizeSession(session: Session): Session {
-  const tenantMemberships = session.tenantMemberships || [];
+  const tenantMemberships = sortTenantMemberships(session.tenantMemberships || []);
 
   return {
     ...session,
@@ -119,6 +133,9 @@ export function AuthProvider({children}: {children: ReactNode}) {
       switchTenant(tenantId: string | null) {
         if (!session) {
           return null;
+        }
+        if (tenantId && !session.tenantMemberships.some((membership) => membership.tenantId === tenantId)) {
+          return session;
         }
 
         const nextSession: Session = {

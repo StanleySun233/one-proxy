@@ -32,7 +32,7 @@ export default function ChainAccessPathsPage() {
   return (
     <AuthGate>
       <ConsolePage title={t('shell.accessPaths')}>
-        {canWrite ? <AccessPathPanel accessToken={accessToken} chains={chainsQuery.data || []} nodes={nodesQuery.data || []} /> : null}
+        {canWrite ? <AccessPathPanel accessToken={accessToken} activeTenantId={activeTenantId} chains={chainsQuery.data || []} nodes={nodesQuery.data || []} /> : null}
       </ConsolePage>
     </AuthGate>
   );

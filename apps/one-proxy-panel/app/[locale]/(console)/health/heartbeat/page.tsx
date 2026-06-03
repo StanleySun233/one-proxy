@@ -25,6 +25,7 @@ export default function HeartbeatPage() {
   const healthT = useTranslations('health');
   const {session} = useAuth();
   const accessToken = session?.accessToken || '';
+  const activeTenantId = session?.activeTenantId || null;
 
   const [nameFilter, setNameFilter] = useState('');
   const [idFilter, setIdFilter] = useState('');
@@ -38,12 +39,12 @@ export default function HeartbeatPage() {
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
 
   const nodesQuery = useQuery({
-    queryKey: ['nodes', accessToken],
+    queryKey: ['nodes', accessToken, activeTenantId],
     queryFn: () => getNodes(accessToken),
     enabled: !!accessToken
   });
   const healthQuery = useQuery({
-    queryKey: ['node-health', accessToken],
+    queryKey: ['node-health', accessToken, activeTenantId],
     queryFn: () => getNodeHealth(accessToken),
     enabled: !!accessToken,
     refetchInterval: 5000
@@ -197,6 +198,7 @@ export default function HeartbeatPage() {
                           item={item}
                           expanded={expandedNodeId === item.nodeId}
                           accessToken={accessToken}
+                          activeTenantId={activeTenantId}
                           enums={enums}
                           onToggle={() => handleToggleExpand(item.nodeId)}
                         />
@@ -217,19 +219,21 @@ function ExpandableRow({
   item,
   expanded,
   accessToken,
+  activeTenantId,
   enums,
   onToggle
 }: {
   item: HealthRow;
   expanded: boolean;
   accessToken: string;
+  activeTenantId: string | null;
   enums: FieldEnumMap | undefined;
   onToggle: () => void;
 }) {
   const common = useTranslations('common');
   const healthT = useTranslations('health');
   const historyQuery = useQuery({
-    queryKey: ['node-health-history', accessToken, item.nodeId],
+    queryKey: ['node-health-history', accessToken, activeTenantId, item.nodeId],
     queryFn: () => getNodeHealthHistory(accessToken, item.nodeId, '24h'),
     enabled: expanded && !!accessToken
   });

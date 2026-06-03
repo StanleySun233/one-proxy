@@ -17,19 +17,20 @@ export default function OverviewPage() {
   const t = useTranslations();
   const {session} = useAuth();
   const accessToken = session?.accessToken || '';
+  const activeTenantId = session?.activeTenantId || null;
 
   const overviewQuery = useQuery({
-    queryKey: ['overview', accessToken],
+    queryKey: ['overview', accessToken, activeTenantId],
     queryFn: () => getOverview(accessToken),
     enabled: !!accessToken
   });
   const nodesQuery = useQuery({
-    queryKey: ['nodes', accessToken],
+    queryKey: ['nodes', accessToken, activeTenantId],
     queryFn: () => getNodes(accessToken),
     enabled: !!accessToken
   });
   const pendingQuery = useQuery({
-    queryKey: ['pending-nodes', accessToken],
+    queryKey: ['pending-nodes', accessToken, activeTenantId],
     queryFn: () => getPendingNodes(accessToken),
     enabled: !!accessToken,
     refetchInterval: 30000
