@@ -1,5 +1,5 @@
 import { clearDiagnosticLogs, diagnosticLogs, appendLog } from './diagnostics.js';
-import { login, logout, selectTenant, syncRemoteConfig, testConnection } from './api.js';
+import { login, logout, normalizeControlPlaneUrl, selectTenant, syncRemoteConfig, testConnection } from './api.js';
 import { activeGroupFrom, getState, persistState, setPartialState, uniqueStrings } from './state.js';
 import { pacSummary } from './pac.js';
 import { routePreviewForUrl, sanitizeHost } from './routing.js';
@@ -103,7 +103,7 @@ function handleMessage(message) {
     case 'set-theme-mode':
       return computedAfter(() => setPartialState((state) => ({ ...state, themeMode: message.themeMode === 'dark' ? 'dark' : 'vivid' })));
     case 'set-control-plane-url':
-      return computedAfter(() => setPartialState((state) => ({ ...state, controlPlaneUrl: String(message.controlPlaneUrl || '').trim() })));
+      return computedAfter(() => setPartialState((state) => ({ ...state, controlPlaneUrl: normalizeControlPlaneUrl(message.controlPlaneUrl) })));
     case 'login':
       return computedAfter(() => login(message.controlPlaneUrl, message.account, message.password));
     case 'test-connection':

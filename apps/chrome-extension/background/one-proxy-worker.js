@@ -572,8 +572,16 @@ function readJSON(response) {
   return response.json().catch(() => null);
 }
 
+function normalizeControlPlaneUrl(value) {
+  const clean = String(value || '').trim().replace(/\/+$/, '');
+  if (!clean) {
+    return '';
+  }
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(clean) ? clean : `https://${clean}`;
+}
+
 function apiRequest(state, path, options = {}) {
-  const controlPlaneUrl = String(state.controlPlaneUrl || '').trim().replace(/\/$/, '');
+  const controlPlaneUrl = normalizeControlPlaneUrl(state.controlPlaneUrl);
   if (!controlPlaneUrl) {
     return Promise.reject(new Error('missing_control_plane_url'));
   }
@@ -608,7 +616,11 @@ function apiRequest(state, path, options = {}) {
 }
 
 function login(controlPlaneUrl, account, password) {
-  return fetch(`${String(controlPlaneUrl || '').trim().replace(/\/$/, '')}/api/v1/auth/login`, {
+  const normalizedControlPlaneUrl = normalizeControlPlaneUrl(controlPlaneUrl);
+  if (!normalizedControlPlaneUrl) {
+    return Promise.reject(new Error('missing_control_plane_url'));
+  }
+  return fetch(`${normalizedControlPlaneUrl}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ account, password })
@@ -624,7 +636,7 @@ function login(controlPlaneUrl, account, password) {
       .then((state) => {
         const nextState = mergeState({
           ...state,
-          controlPlaneUrl: String(controlPlaneUrl || '').trim(),
+          controlPlaneUrl: normalizedControlPlaneUrl,
           session: {
             account: payload.data.account.account,
             accessToken: payload.data.accessToken,
@@ -645,7 +657,7 @@ function login(controlPlaneUrl, account, password) {
 }
 
 function testConnection(controlPlaneUrl) {
-  const baseUrl = String(controlPlaneUrl || '').trim().replace(/\/$/, '');
+  const baseUrl = normalizeControlPlaneUrl(controlPlaneUrl);
   if (!baseUrl) {
     return Promise.reject(new Error('missing_control_plane_url'));
   }
@@ -669,7 +681,7 @@ function refreshSession(sourceState) {
     if (!state.controlPlaneUrl || !state.session.refreshToken) {
       throw new Error('missing_refresh_token');
     }
-    return fetch(`${state.controlPlaneUrl.replace(/\/$/, '')}/api/v1/auth/refresh`, {
+    return fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/v1/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: state.session.refreshToken })
@@ -759,7 +771,7 @@ function selectTenant(tenantId) {
 function logout() {
   return getState().then((state) => {
     const logoutRequest = state.controlPlaneUrl && state.session.accessToken
-      ? fetch(`${state.controlPlaneUrl.replace(/\/$/, '')}/api/v1/auth/logout`, {
+      ? fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/v1/auth/logout`, {
         method: 'POST',
         headers: authHeaders(state.session.accessToken)
       }).catch(() => {})
@@ -960,7 +972,7 @@ function handleMessage(message) {
     case 'set-theme-mode':
       return computedAfter(() => setPartialState((state) => ({ ...state, themeMode: message.themeMode === 'dark' ? 'dark' : 'vivid' })));
     case 'set-control-plane-url':
-      return computedAfter(() => setPartialState((state) => ({ ...state, controlPlaneUrl: String(message.controlPlaneUrl || '').trim() })));
+      return computedAfter(() => setPartialState((state) => ({ ...state, controlPlaneUrl: normalizeControlPlaneUrl(message.controlPlaneUrl) })));
     case 'login':
       return computedAfter(() => login(message.controlPlaneUrl, message.account, message.password));
     case 'test-connection':
