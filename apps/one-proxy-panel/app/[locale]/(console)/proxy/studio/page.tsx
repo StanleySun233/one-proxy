@@ -179,7 +179,7 @@ export default function ChainsPage() {
     return chains.filter((chain) =>
       (!idFilter.trim() || chain.id.toLowerCase().includes(idFilter.trim().toLowerCase())) &&
       (!nameFilter.trim() || chain.name.toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
-      (!destinationScopeFilter.trim() || `${chain.destinationScope} ${scopeLabelFor(chain.destinationScope)}`.toLowerCase().includes(destinationScopeFilter.trim().toLowerCase())) &&
+      (!destinationScopeFilter.trim() || scopeLabelFor(chain.destinationScope).toLowerCase().includes(destinationScopeFilter.trim().toLowerCase())) &&
       (!hopsFilter.trim() || chain.hops.join(' ').toLowerCase().includes(hopsFilter.trim().toLowerCase())) &&
       (!statusFilter || (statusFilter === 'enabled' ? chain.enabled : !chain.enabled))
     );

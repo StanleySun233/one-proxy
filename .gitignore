@@ -225,6 +225,7 @@ apps/one-proxy-node/tmp/
 apps/one-proxy-node/runtime/*.json
 apps/one-proxy-panel/.next/
 apps/one-proxy-panel/node_modules/
+*.tsbuildinfo
 !apps/one-proxy-panel/lib/
 !apps/one-proxy-panel/lib/*.ts
 
