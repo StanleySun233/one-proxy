@@ -253,12 +253,13 @@ func (v panelProxyTokenValidator) ValidateProxyToken(ctx context.Context, tokenH
 	}
 	expiresAt, err := time.Parse(time.RFC3339, result.ExpiresAt)
 	if err != nil {
-		return proxy.TokenValidation{Valid: result.Valid}, nil
+		return proxy.TokenValidation{Valid: result.Valid, AllowLocalProxy: result.AllowLocalProxy}, nil
 	}
 	return proxy.TokenValidation{
-		Valid:     result.Valid,
-		ExpiresAt: expiresAt,
-		CacheTTL:  time.Duration(result.CacheTTLSeconds) * time.Second,
+		Valid:           result.Valid,
+		ExpiresAt:       expiresAt,
+		CacheTTL:        time.Duration(result.CacheTTLSeconds) * time.Second,
+		AllowLocalProxy: result.AllowLocalProxy,
 	}, nil
 }
 

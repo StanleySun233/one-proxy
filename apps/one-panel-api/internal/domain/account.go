@@ -46,6 +46,7 @@ type ProxyTokenValidation struct {
 	CacheTTLSeconds   int                `json:"cacheTtlSeconds"`
 	TenantMemberships []TenantMembership `json:"tenantMemberships"`
 	ActiveTenantID    *string            `json:"activeTenantId"`
+	AllowLocalProxy   bool               `json:"allowLocalProxy"`
 }
 
 type RefreshSessionInput struct {

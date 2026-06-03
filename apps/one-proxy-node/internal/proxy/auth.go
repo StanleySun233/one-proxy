@@ -22,14 +22,16 @@ type TokenValidator interface {
 }
 
 type TokenValidation struct {
-	Valid     bool
-	ExpiresAt time.Time
-	CacheTTL  time.Duration
+	Valid           bool
+	ExpiresAt       time.Time
+	CacheTTL        time.Duration
+	AllowLocalProxy bool
 }
 
 type cachedTokenValidation struct {
-	valid     bool
-	expiresAt time.Time
+	valid           bool
+	expiresAt       time.Time
+	allowLocalProxy bool
 }
 
 type TokenAuthorizer struct {
@@ -45,20 +47,28 @@ func NewTokenAuthorizer(auth AuthConfig) *TokenAuthorizer {
 }
 
 func (a *TokenAuthorizer) Validate(ctx context.Context, token string) bool {
+	return a.Authorize(ctx, token).Valid
+}
+
+func (a *TokenAuthorizer) Authorize(ctx context.Context, token string) TokenValidation {
 	if a == nil || a.auth.Validator == nil {
-		return true
+		return TokenValidation{Valid: true}
 	}
 	if token == "" {
-		return false
+		return TokenValidation{}
 	}
 	hash := proxyTokenHash(token)
 	now := time.Now().UTC()
 	if validation, ok := a.cache.get(hash, now); ok {
-		return validation.valid
+		return TokenValidation{
+			Valid:           validation.valid,
+			ExpiresAt:       validation.expiresAt,
+			AllowLocalProxy: validation.allowLocalProxy,
+		}
 	}
 	result, err := a.auth.Validator.ValidateProxyToken(ctx, hash)
 	if err != nil {
-		return false
+		return TokenValidation{}
 	}
 	ttl := result.CacheTTL
 	if ttl <= 0 {
@@ -72,10 +82,15 @@ func (a *TokenAuthorizer) Validate(ctx context.Context, token string) bool {
 		expiresAt = result.ExpiresAt
 	}
 	a.cache.set(hash, cachedTokenValidation{
-		valid:     result.Valid,
-		expiresAt: expiresAt,
+		valid:           result.Valid,
+		expiresAt:       expiresAt,
+		allowLocalProxy: result.AllowLocalProxy,
 	})
-	return result.Valid && now.Before(expiresAt)
+	return TokenValidation{
+		Valid:           result.Valid && now.Before(expiresAt),
+		ExpiresAt:       expiresAt,
+		AllowLocalProxy: result.AllowLocalProxy,
+	}
 }
 
 func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) bool {
@@ -95,16 +110,22 @@ func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) bool
 }
 
 func (s *Server) authorizeForward(w http.ResponseWriter, req *http.Request) bool {
+	_, ok := s.authorizeForwardRequest(w, req)
+	return ok
+}
+
+func (s *Server) authorizeForwardRequest(w http.ResponseWriter, req *http.Request) (TokenValidation, bool) {
 	token := forwardToken(req.Header.Get("Proxy-Authorization"))
 	if s.auth.Validator == nil {
-		return true
+		return TokenValidation{Valid: true}, true
 	}
-	if token == "" || !s.validateToken(req.Context(), token) {
+	validation := s.authorizer.Authorize(req.Context(), token)
+	if token == "" || !validation.Valid {
 		w.Header().Set("Proxy-Authenticate", `Basic realm="one-proxy"`)
 		http.Error(w, "proxy_auth_required", http.StatusProxyAuthRequired)
-		return false
+		return TokenValidation{}, false
 	}
-	return true
+	return validation, true
 }
 
 func (s *Server) validateToken(ctx context.Context, token string) bool {

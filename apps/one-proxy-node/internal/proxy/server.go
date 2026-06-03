@@ -80,14 +80,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		s.forwardReverse(w, req)
 		return
 	}
-	if !s.authorizeForward(w, req) {
+	validation, ok := s.authorizeForwardRequest(w, req)
+	if !ok {
 		return
 	}
 	_, snapshot := s.store.Current()
 	match := Match(snapshot, req)
 	if !match.Found {
-		http.Error(w, "route_not_found", http.StatusForbidden)
-		return
+		if !validation.AllowLocalProxy {
+			http.Error(w, "route_not_found", http.StatusForbidden)
+			return
+		}
+		match = RouteMatch{Rule: domain.RouteRule{ActionType: domain.ActionTypeDirect}, Found: true}
 	}
 	switch match.Rule.ActionType {
 	case domain.ActionTypeDirect:

@@ -28,6 +28,7 @@ type ProxyTokenValidation struct {
 	Valid           bool   `json:"valid"`
 	ExpiresAt       string `json:"expiresAt"`
 	CacheTTLSeconds int    `json:"cacheTtlSeconds"`
+	AllowLocalProxy bool   `json:"allowLocalProxy"`
 }
 
 func New(baseURL string, token string) *Client {

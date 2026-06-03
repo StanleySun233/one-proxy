@@ -121,7 +121,7 @@ func (c *ControlPlane) IssueProxyToken(account domain.Account, tenantCtx domain.
 	return token, expiresAt, true
 }
 
-func (c *ControlPlane) ValidateProxyTokenHash(tokenHash string) domain.ProxyTokenValidation {
+func (c *ControlPlane) ValidateProxyTokenHash(tokenHash string, nodeID string) domain.ProxyTokenValidation {
 	if tokenHash == "" {
 		return domain.ProxyTokenValidation{}
 	}
@@ -148,5 +148,29 @@ func (c *ControlPlane) ValidateProxyTokenHash(tokenHash string) domain.ProxyToke
 		CacheTTLSeconds:   int(cacheTTL.Seconds()),
 		TenantMemberships: record.TenantMemberships,
 		ActiveTenantID:    record.ActiveTenantID,
+		AllowLocalProxy:   c.proxyTokenAllowsNode(record, nodeID),
 	}
+}
+
+func (c *ControlPlane) proxyTokenAllowsNode(record domain.ProxyTokenRecord, nodeID string) bool {
+	if record.ActiveTenantID == nil || *record.ActiveTenantID == "" || nodeID == "" {
+		return false
+	}
+	var membership domain.TenantMembership
+	for _, item := range record.TenantMemberships {
+		if item.TenantID == *record.ActiveTenantID {
+			membership = item
+			break
+		}
+	}
+	if membership.TenantID == "" {
+		return false
+	}
+	tenantCtx := domain.TenantAuthContext{
+		Account:      record.Account,
+		ActiveTenant: membership,
+		SuperAdmin:   record.Account.Role == domain.AccountRoleSuperAdmin,
+	}
+	_, ok := c.store.NodeBindingPermission(tenantCtx, nodeID)
+	return ok
 }

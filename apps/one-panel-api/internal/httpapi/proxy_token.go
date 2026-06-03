@@ -28,7 +28,12 @@ func (r *Router) handleProxyTokenValidate(w http.ResponseWriter, req *http.Reque
 	if tokenHash == "" && payload.Token != "" {
 		tokenHash = auth.TokenHash(payload.Token)
 	}
-	result := r.service.ValidateProxyTokenHash(tokenHash)
+	nodeID, ok := nodeIDFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_node_token")
+		return
+	}
+	result := r.service.ValidateProxyTokenHash(tokenHash, nodeID)
 	if !result.Valid {
 		writeError(w, http.StatusUnauthorized, "invalid_proxy_token")
 		return

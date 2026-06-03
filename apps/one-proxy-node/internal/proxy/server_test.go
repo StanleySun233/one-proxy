@@ -18,14 +18,15 @@ import (
 )
 
 type recordingTokenValidator struct {
-	validations []string
-	valid       bool
-	expiresAt   time.Time
+	validations     []string
+	valid           bool
+	expiresAt       time.Time
+	allowLocalProxy bool
 }
 
 func (v *recordingTokenValidator) ValidateProxyToken(_ context.Context, tokenHash string) (TokenValidation, error) {
 	v.validations = append(v.validations, tokenHash)
-	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt}, nil
+	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt, AllowLocalProxy: v.allowLocalProxy}, nil
 }
 
 func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
@@ -144,6 +145,57 @@ func TestForwardProxyAcceptsBearerAndChromeBasicToken(t *testing.T) {
 	expectedHash = sha256Hex("chrome-token")
 	if len(validator.validations) != 2 || validator.validations[1] != expectedHash {
 		t.Fatalf("validation hashes = %v, want second %s", validator.validations, expectedHash)
+	}
+}
+
+func TestForwardProxyAllowsAuthorizedLocalProxyFallback(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/local-proxy" {
+			t.Fatalf("path = %q", req.URL.Path)
+		}
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer origin.Close()
+
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[]}`); err != nil {
+		t.Fatal(err)
+	}
+	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
+		Validator: &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour), allowLocalProxy: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, origin.URL+"/local-proxy", nil)
+	req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("token:local-proxy-token")))
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+	if resp.Body.String() != "ok" {
+		t.Fatalf("body = %q", resp.Body.String())
+	}
+}
+
+func TestForwardProxyRejectsLocalProxyFallbackWithoutNodeGrant(t *testing.T) {
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[]}`); err != nil {
+		t.Fatal(err)
+	}
+	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
+		Validator: &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("token:local-proxy-token")))
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusForbidden {
+		t.Fatalf("status = %d", resp.Code)
 	}
 }
 
