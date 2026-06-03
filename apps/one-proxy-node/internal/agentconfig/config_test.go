@@ -2,8 +2,8 @@ package agentconfig
 
 import "testing"
 
-func TestLoadUsesPanelControlPlaneForPublicNode(t *testing.T) {
-	t.Setenv("CONTROL_PLANE_URL", "http://panel:2886")
+func TestLoadUsesParentURLAsPanelBootstrapEndpoint(t *testing.T) {
+	t.Setenv("NODE_PARENT_URL", "http://panel:2886")
 
 	cfg := Load()
 
@@ -12,10 +12,8 @@ func TestLoadUsesPanelControlPlaneForPublicNode(t *testing.T) {
 	}
 }
 
-func TestLoadUsesParentControlPlaneForChildNode(t *testing.T) {
-	t.Setenv("CONTROL_PLANE_URL", "http://panel:2886")
+func TestLoadUsesParentURLAsNodeBootstrapEndpoint(t *testing.T) {
 	t.Setenv("NODE_PARENT_URL", "http://parent:2988")
-	t.Setenv("NODE_PROXY_TOKEN_CONTROL_PLANE_URL", "http://panel:2886")
 
 	cfg := Load()
 

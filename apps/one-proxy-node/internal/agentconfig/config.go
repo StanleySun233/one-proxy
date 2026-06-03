@@ -41,7 +41,7 @@ func Load() Config {
 	joinPassword, joinPasswordProvided := lookupEnvOrDefault("NODE_JOIN_PASSWORD", "password")
 	parentID := envOrDefault("NODE_PARENT_ID", "")
 	parentURL := envOrDefault("NODE_PARENT_URL", "")
-	controlPlaneURL := resolveControlPlaneURL(envOrDefault("CONTROL_PLANE_URL", ""), parentURL, parentID)
+	controlPlaneURL := resolveControlPlaneURL(envOrDefault("CONTROL_PLANE_URL", ""), parentURL)
 	proxyTokenControlPlaneURL := envOrDefault("NODE_PROXY_TOKEN_CONTROL_PLANE_URL", "")
 	if controlPlaneURL == parentURL && parentURL != "" {
 		proxyTokenControlPlaneURL = parentURL
@@ -82,7 +82,7 @@ func Load() Config {
 	}
 }
 
-func resolveControlPlaneURL(panelURL string, parentURL string, parentID string) string {
+func resolveControlPlaneURL(panelURL string, parentURL string) string {
 	if parentURL != "" {
 		return parentURL
 	}
