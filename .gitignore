@@ -153,6 +153,7 @@ activemq-data/
 .venv
 .codex/
 releases/
+docs/
 env/
 venv/
 ENV/
