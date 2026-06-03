@@ -47,15 +47,16 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const pendingCount = (pendingQuery.data || []).length;
   const navSections = [
     {
-      key: 'chains',
-      label: t('nav.chains'),
-      href: '/chains/network',
+      key: 'proxy',
+      label: t('nav.proxy'),
+      href: '/proxy/scopes',
       icon: GitBranch,
       items: [
-        {label: t('shell.accessPaths'), href: '/chains/network'},
-        {label: t('shell.nodeTopology'), href: '/chains/topology'},
-        {label: t('shell.chainStudio'), href: '/chains/studio'},
-        {label: t('shell.routeBoard'), href: '/chains/routes'}
+        {label: t('shell.scopeBoard'), href: '/proxy/scopes'},
+        {label: t('shell.nodeTopology'), href: '/proxy/topology'},
+        {label: t('shell.chainStudio'), href: '/proxy/studio'},
+        {label: t('shell.routeBoard'), href: '/proxy/routes'},
+        {label: t('shell.accessPaths'), href: '/proxy/network'}
       ]
     },
     {

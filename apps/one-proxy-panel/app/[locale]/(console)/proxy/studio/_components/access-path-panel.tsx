@@ -123,7 +123,7 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
   const [formState, setFormState] = useState<AccessPathFormState>(emptyForm);
 
   const pathsQuery = useQuery({
-    queryKey: ['chains-access-paths', accessToken, activeTenantId],
+    queryKey: ['proxy-access-paths', accessToken, activeTenantId],
     queryFn: () => getNodeAccessPaths(accessToken),
     enabled: !!accessToken
   });
@@ -141,7 +141,7 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
       toast.success(accessPathsT('createSuccess'));
       setFormState(emptyForm);
       setCreateOpen(false);
-      queryClient.invalidateQueries({queryKey: ['chains-access-paths']});
+      queryClient.invalidateQueries({queryKey: ['proxy-access-paths']});
     },
     onError: (error) => toast.error(formatControlPlaneError(error))
   });
@@ -152,7 +152,7 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
       toast.success(accessPathsT('updateSuccess'));
       setEditingPath(null);
       setFormState(emptyForm);
-      queryClient.invalidateQueries({queryKey: ['chains-access-paths']});
+      queryClient.invalidateQueries({queryKey: ['proxy-access-paths']});
     },
     onError: (error) => toast.error(formatControlPlaneError(error))
   });
@@ -161,7 +161,7 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
     mutationFn: (pathID: string) => deleteNodeAccessPath(accessToken, pathID),
     onSuccess: () => {
       toast.success(accessPathsT('deleteSuccess'));
-      queryClient.invalidateQueries({queryKey: ['chains-access-paths']});
+      queryClient.invalidateQueries({queryKey: ['proxy-access-paths']});
     },
     onError: (error) => toast.error(formatControlPlaneError(error))
   });
