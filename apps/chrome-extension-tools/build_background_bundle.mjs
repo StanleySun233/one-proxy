@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -63,3 +63,13 @@ function writePageBundle(sourceDir, output) {
 
 writePageBundle('popup', path.join(extensionRoot, 'popup/runtime.js'));
 writePageBundle('options', path.join(extensionRoot, 'options/runtime.js'));
+
+function copyContentAsset(name) {
+  const source = path.join(toolsRoot, 'content-source', name);
+  const output = path.join(extensionRoot, 'content', name);
+  mkdirSync(path.dirname(output), { recursive: true });
+  copyFileSync(source, output);
+}
+
+copyContentAsset('status-bubble.js');
+copyContentAsset('status-bubble.css');

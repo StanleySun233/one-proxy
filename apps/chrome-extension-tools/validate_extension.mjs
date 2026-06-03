@@ -28,6 +28,19 @@ if (!existsSync(serviceWorkerPath)) {
   throw new Error(`missing_service_worker_file:${manifest.background.service_worker}`);
 }
 
+for (const script of manifest.content_scripts || []) {
+  for (const js of script.js || []) {
+    if (!existsSync(path.join(root, js))) {
+      throw new Error(`missing_content_script_file:${js}`);
+    }
+  }
+  for (const css of script.css || []) {
+    if (!existsSync(path.join(root, css))) {
+      throw new Error(`missing_content_style_file:${css}`);
+    }
+  }
+}
+
 const serviceWorkerSource = readFileSync(serviceWorkerPath, 'utf8');
 if (/\bawait\b/.test(serviceWorkerSource)) {
   throw new Error(`service_worker_entry_contains_await:${manifest.background.service_worker}`);
@@ -61,10 +74,10 @@ for (const file of files(root)) {
     if (/^background\//.test(relative) && relative !== manifest.background.service_worker) {
       throw new Error(`unexpected_background_runtime_file:${relative}`);
     }
-    if (/^(background|shared|options|popup)\//.test(relative) && /\bawait\b/.test(readFileSync(file, 'utf8'))) {
+    if (/^(background|shared|options|popup|content)\//.test(relative) && /\bawait\b/.test(readFileSync(file, 'utf8'))) {
       throw new Error(`runtime_file_contains_await:${relative}`);
     }
-    if (/^(background|shared|options|popup)\//.test(relative) && (/^\s*import\s/m.test(readFileSync(file, 'utf8')) || /^\s*export\s/m.test(readFileSync(file, 'utf8')))) {
+    if (/^(background|shared|options|popup|content)\//.test(relative) && (/^\s*import\s/m.test(readFileSync(file, 'utf8')) || /^\s*export\s/m.test(readFileSync(file, 'utf8')))) {
       throw new Error(`runtime_file_contains_module_syntax:${relative}`);
     }
     execFileSync(process.execPath, ['--check', file], { stdio: 'inherit' });
