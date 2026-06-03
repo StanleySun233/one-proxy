@@ -25,6 +25,7 @@ func (s *Server) forwardViaProxy(w http.ResponseWriter, req *http.Request, nextH
 }
 
 func (s *Server) forwardHTTP(w http.ResponseWriter, req *http.Request, proxyURL *url.URL, nextHopID string, tracker *proxySessionTracker) {
+	targetHost, _ := targetAddress(req)
 	outbound := req.Clone(req.Context())
 	outbound.RequestURI = ""
 	outbound.URL = cloneTargetURL(req)
@@ -42,8 +43,12 @@ func (s *Server) forwardHTTP(w http.ResponseWriter, req *http.Request, proxyURL 
 	tracker.markForward()
 	roundTripStarted := time.Now().UTC()
 	resp, err := transport.RoundTrip(outbound)
-	if nextHopID != "" {
-		tracker.addLinkTiming(s.nodeIDGetter(), nextHopID, roundTripStarted)
+	timingTarget := nextHopID
+	if timingTarget == "" {
+		timingTarget = targetHost
+	}
+	if timingTarget != "" {
+		tracker.addLinkTiming(s.nodeIDGetter(), timingTarget, roundTripStarted)
 	}
 	if err != nil {
 		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, "forward_failed", "forward_failed")

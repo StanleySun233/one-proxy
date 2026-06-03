@@ -173,12 +173,16 @@
 
 #one-proxy-status-root .opsb-topology {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: minmax(62px, auto) 18px;
-  column-gap: 4px;
-  row-gap: 2px;
+  gap: 4px;
   margin-top: 10px;
   overflow: visible;
+}
+
+#one-proxy-status-root .opsb-path-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
 }
 
 #one-proxy-status-root .opsb-hop {
@@ -239,31 +243,43 @@
   white-space: nowrap;
 }
 
-#one-proxy-status-root .opsb-path-edge {
+#one-proxy-status-root .opsb-path-link {
   position: relative;
-  z-index: 0;
   min-width: 0;
+  min-height: 30px;
   pointer-events: none;
 }
 
-#one-proxy-status-root .opsb-path-edge-horizontal::after {
-  content: "";
+#one-proxy-status-root .opsb-path-link .opsb-hop-segment {
   position: absolute;
-  left: 22px;
-  right: 22px;
-  top: 20px;
+  left: 0;
+  right: 0;
+  top: 17px;
   height: 1px;
   background: #cbd5e1;
 }
 
-#one-proxy-status-root .opsb-path-edge-vertical::after {
+#one-proxy-status-root .opsb-path-turn {
+  position: relative;
+  height: 18px;
+  pointer-events: none;
+}
+
+#one-proxy-status-root .opsb-path-turn .opsb-hop-segment {
   content: "";
   position: absolute;
-  top: 34px;
-  bottom: 28px;
-  left: 50%;
+  top: -8px;
+  bottom: -8px;
   width: 1px;
   background: #cbd5e1;
+}
+
+#one-proxy-status-root .opsb-path-turn-right .opsb-hop-segment {
+  right: 10.5%;
+}
+
+#one-proxy-status-root .opsb-path-turn-left .opsb-hop-segment {
+  left: 10.5%;
 }
 
 #one-proxy-status-root .opsb-hop-latency {
@@ -279,6 +295,17 @@
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
+}
+
+#one-proxy-status-root .opsb-path-turn-right .opsb-hop-latency {
+  left: auto;
+  right: calc(10.5% - 14px);
+  transform: none;
+}
+
+#one-proxy-status-root .opsb-path-turn-left .opsb-hop-latency {
+  left: calc(10.5% - 14px);
+  transform: none;
 }
 
 #one-proxy-status-root .opsb-actions {

@@ -28,7 +28,7 @@ type proxyNodeTimingAggregate struct {
 type proxyLinkTimingAggregate struct {
 	fromNodeID string
 	toNodeID   string
-	rttTotal   int64
+	rttMs      int64
 	sampleTSMs int64
 	count      int
 }
@@ -255,9 +255,9 @@ func appendLinkTimings(items map[string]*proxyLinkTimingAggregate, session domai
 			item = &proxyLinkTimingAggregate{fromNodeID: timing.FromNodeID, toNodeID: timing.ToNodeID}
 			items[key] = item
 		}
-		item.rttTotal += timing.RTTMs * int64(count)
 		item.count += count
 		if timing.SampleTSMs > item.sampleTSMs {
+			item.rttMs = timing.RTTMs
 			item.sampleTSMs = timing.SampleTSMs
 		}
 	}
@@ -292,7 +292,7 @@ func linkTimingResults(items map[string]*proxyLinkTimingAggregate) []domain.Prox
 		result = append(result, domain.ProxyLinkTiming{
 			FromNodeID: item.fromNodeID,
 			ToNodeID:   item.toNodeID,
-			RTTMs:      item.rttTotal / int64(item.count),
+			RTTMs:      item.rttMs,
 			SampleTSMs: item.sampleTSMs,
 			Count:      item.count,
 		})

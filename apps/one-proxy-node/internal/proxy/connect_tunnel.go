@@ -12,8 +12,11 @@ import (
 )
 
 func (s *Server) tunnelDirect(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {
+	targetHost, _ := targetAddress(req)
 	tracker.markForward()
+	dialStarted := time.Now().UTC()
 	targetConn, err := net.Dial("tcp", req.Host)
+	tracker.addLinkTiming(s.nodeIDGetter(), targetHost, dialStarted)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, "connect_failed", "connect_failed")
 		http.Error(w, "connect_failed", http.StatusBadGateway)

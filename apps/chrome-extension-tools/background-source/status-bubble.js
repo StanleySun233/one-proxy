@@ -1,5 +1,4 @@
 import { getExtensionPageStatus, syncRemoteConfig } from './api.js';
-import { appendLog } from './diagnostics.js';
 import { activeGroupFrom, getState } from './state.js';
 import { routePreviewForUrl, urlHostname } from './routing.js';
 import { tabMetricsSnapshot } from './page-metrics.js';
@@ -59,35 +58,18 @@ function mergePageSnapshot(route, metrics, remoteStatus) {
   };
 }
 
-function fallbackStatus(metrics) {
-  return {
-    status: (metrics && metrics.failureCount) ? 'error' : 'unknown',
-    latencyMs: 0,
-    uploadBytes: metrics ? metrics.uploadBytes : 0,
-    downloadBytes: metrics ? metrics.downloadBytes : 0,
-    requestCount: metrics ? metrics.requestCount : 0,
-    failureCount: metrics ? metrics.failureCount : 0,
-    lastErrorCode: metrics ? metrics.lastErrorCode : '',
-    lastErrorMessage: metrics ? metrics.lastErrorMessage : '',
-    nodeTimings: [],
-    linkTimings: [],
-    policyRevision: '',
-    correlated: false
-  };
-}
-
 function requestRemoteStatus(state, route, routeInfo) {
-  if (route.mode !== 'proxy' || !state.session.accessToken || !state.session.activeTenantId) {
+  if (route.mode !== 'proxy') {
     return Promise.resolve(null);
+  }
+  if (!state.session.accessToken || !state.session.activeTenantId) {
+    throw new Error('status_bubble_session_required');
   }
   return getExtensionPageStatus(state, {
     host: route.host,
     routeId: routeInfo.id,
     chainId: routeInfo.chainId
-  }).catch((error) => appendLog('error', 'status_bubble_page_status_failed', {
-    message: error.message || 'page_status_failed',
-    host: route.host
-  }).then(() => null));
+  });
 }
 
 function shouldDisplay(state, route) {
@@ -100,15 +82,23 @@ function shouldDisplay(state, route) {
 
 export function getStatusBubblePageStatus(message, sender) {
   const url = message.url || (sender && sender.tab && sender.tab.url) || '';
-  return (message.refresh ? syncRemoteConfig().catch(() => null) : Promise.resolve(null))
+  return (message.refresh ? syncRemoteConfig() : Promise.resolve(null))
     .then(() => getState())
     .then((state) => {
       const group = activeGroupFrom(state);
       const route = routePreviewForUrl(state, url);
       const routeInfo = routePayload(route);
       const metrics = tabMetricsSnapshot(sender, url);
+      if (!shouldDisplay(state, route)) {
+        return {
+          display: false
+        };
+      }
       return requestRemoteStatus(state, route, routeInfo).then((remoteStatus) => {
-        const status = remoteStatus || fallbackStatus(metrics);
+        if (!remoteStatus) {
+          throw new Error('status_bubble_page_status_required');
+        }
+        const status = remoteStatus;
         const page = mergePageSnapshot(route, metrics, status);
         const uploadBytes = Number(status.uploadBytes || (metrics && metrics.uploadBytes) || 0);
         const downloadBytes = Number(status.downloadBytes || (metrics && metrics.downloadBytes) || 0);

@@ -3,60 +3,6 @@
   const POSITION_KEY = 'oneProxyStatusBubblePosition';
   const FADE_DELAY_MS = 5000;
   const REFRESH_INTERVAL_MS = 30000;
-  const FALLBACK_MESSAGES = {
-    en: {
-      account: 'Account',
-      activeGroup: 'Active group',
-      policyRevision: 'Policy',
-      syncedAt: 'Synced',
-      tenant: 'Tenant',
-      statusBubbleTitle: 'Proxy status',
-      statusBubbleUpload: 'Upload',
-      statusBubbleDownload: 'Download',
-      statusBubbleLatency: 'Latency',
-      statusBubbleRequests: 'Requests',
-      statusBubbleRoute: 'Route',
-      statusBubbleOpenedAt: 'Opened',
-      statusBubbleRequestMix: 'Proxy / Direct / Failed',
-      statusBubbleCorrelation: 'IO source',
-      statusBubbleCorrelated: 'Node correlated',
-      statusBubbleNotCorrelated: 'Not correlated',
-      statusBubbleLastError: 'Last error',
-      statusBubbleTopology: 'Path',
-      statusBubbleUserMachine: 'User machine',
-      statusBubbleWebsite: 'Website',
-      statusBubbleRefresh: 'Refresh',
-      statusBubbleCopy: 'Copy diagnostics',
-      statusBubbleCopied: 'Copied',
-      statusBubbleUnknown: 'Unknown'
-    },
-    zh: {
-      account: '账号',
-      activeGroup: '当前分组',
-      policyRevision: '策略',
-      syncedAt: '已同步',
-      tenant: '租户',
-      statusBubbleTitle: '代理状态',
-      statusBubbleUpload: '上传',
-      statusBubbleDownload: '下载',
-      statusBubbleLatency: '延迟',
-      statusBubbleRequests: '请求',
-      statusBubbleRoute: '链路',
-      statusBubbleOpenedAt: '打开时间',
-      statusBubbleRequestMix: '代理 / 直连 / 失败',
-      statusBubbleCorrelation: 'IO 来源',
-      statusBubbleCorrelated: '节点关联',
-      statusBubbleNotCorrelated: '未关联',
-      statusBubbleLastError: '最后错误',
-      statusBubbleTopology: '路径',
-      statusBubbleUserMachine: '用户机',
-      statusBubbleWebsite: '网页',
-      statusBubbleRefresh: '刷新',
-      statusBubbleCopy: '复制诊断',
-      statusBubbleCopied: '已复制',
-      statusBubbleUnknown: '未知'
-    }
-  };
   const state = {
     root: null,
     icon: null,
@@ -74,14 +20,13 @@
     const i18n = api && api.i18n;
     const getMessage = i18n && i18n.getMessage;
     if (typeof getMessage !== 'function') {
-      return fallbackMessage(key);
+      throw new Error('chrome_i18n_unavailable');
     }
-    return getMessage.call(i18n, key) || fallbackMessage(key);
-  }
-
-  function fallbackMessage(key) {
-    const language = String(navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
-    return (FALLBACK_MESSAGES[language] && FALLBACK_MESSAGES[language][key]) || FALLBACK_MESSAGES.en[key] || key;
+    const message = getMessage.call(i18n, key);
+    if (!message) {
+      throw new Error(`missing_i18n_message:${key}`);
+    }
+    return message;
   }
 
   function formatMb(bytes) {
@@ -179,51 +124,56 @@
     return timing ? Number(timing.rttMs || 0) : 0;
   }
 
-  function topologyPosition(index) {
-    const row = Math.floor(index / 4);
-    const offset = index % 4;
-    const column = row % 2 === 0 ? offset : 3 - offset;
-    return { row, column };
+  function edgeLatency(payload, previous, node) {
+    return linkTiming(payload, previous.id, node.id);
   }
 
-  function edgeLatency(payload, previous, node) {
-    return linkTiming(payload, previous.id, node.id) || (previous.kind === 'node' && node.kind === 'node' ? payload.latencyMs : 0);
+  function pathConnector(payload, previous, node, className) {
+    const connector = el('div', className || 'opsb-path-link');
+    connector.append(el('span', 'opsb-hop-latency', formatLatency(edgeLatency(payload, previous, node))));
+    connector.append(el('span', 'opsb-hop-segment'));
+    return connector;
+  }
+
+  function pathNode(node) {
+    const item = el('div', 'opsb-hop');
+    const icon = el('span', `opsb-hop-icon opsb-hop-${node.kind}`);
+    icon.append(svgIcon(node.kind));
+    item.append(icon);
+    item.append(el('span', 'opsb-hop-name', text(node.name, node.id)));
+    if (node.kind === 'node') {
+      item.append(el('span', 'opsb-hop-process', node.processMs === null ? '-' : `${Math.round(node.processMs)} ms`));
+    }
+    return item;
   }
 
   function renderTopology(payload) {
     const rail = el('div', 'opsb-topology');
+    const websiteHost = payload.page && payload.page.host ? payload.page.host : '';
     const nodes = [
       { id: 'user', name: t('statusBubbleUserMachine'), kind: 'user' },
       ...((payload.topology || []).map((node) => ({ id: node.id, name: node.name || node.id, kind: 'node', processMs: nodeTiming(payload, node.id) }))),
-      { id: 'website', name: payload.page && payload.page.host ? payload.page.host : t('statusBubbleWebsite'), kind: 'web' }
+      { id: websiteHost || 'website', name: websiteHost || t('statusBubbleWebsite'), kind: 'web' }
     ];
-    nodes.forEach((node, index) => {
-      const position = topologyPosition(index);
-      if (index > 0) {
-        const previous = nodes[index - 1];
-        const previousPosition = topologyPosition(index - 1);
-        const connector = el('div', previousPosition.row === position.row ? 'opsb-path-edge opsb-path-edge-horizontal' : 'opsb-path-edge opsb-path-edge-vertical');
-        connector.style.gridColumn = previousPosition.row === position.row
-          ? `${Math.min(previousPosition.column, position.column) + 1} / ${Math.max(previousPosition.column, position.column) + 2}`
-          : `${previousPosition.column + 1}`;
-        connector.style.gridRow = previousPosition.row === position.row
-          ? `${previousPosition.row * 2 + 1}`
-          : `${previousPosition.row * 2 + 1} / ${position.row * 2 + 2}`;
-        connector.append(el('span', 'opsb-hop-latency', formatLatency(edgeLatency(payload, previous, node))));
-        rail.append(connector);
+    for (let start = 0; start < nodes.length; start += 4) {
+      const rowIndex = start / 4;
+      const chunk = nodes.slice(start, start + 4);
+      const visualNodes = rowIndex % 2 === 0 ? chunk : chunk.slice().reverse();
+      const rowNode = el('div', 'opsb-path-row');
+      visualNodes.forEach((node, visualIndex) => {
+        if (visualIndex > 0) {
+          const previous = rowIndex % 2 === 0 ? visualNodes[visualIndex - 1] : visualNodes[visualIndex];
+          const next = rowIndex % 2 === 0 ? visualNodes[visualIndex] : visualNodes[visualIndex - 1];
+          rowNode.append(pathConnector(payload, previous, next));
+        }
+        rowNode.append(pathNode(node));
+      });
+      rail.append(rowNode);
+      if (start + 4 < nodes.length) {
+        const turn = pathConnector(payload, nodes[start + 3], nodes[start + 4], rowIndex % 2 === 0 ? 'opsb-path-turn opsb-path-turn-right' : 'opsb-path-turn opsb-path-turn-left');
+        rail.append(turn);
       }
-      const item = el('div', 'opsb-hop');
-      item.style.gridColumn = `${position.column + 1}`;
-      item.style.gridRow = `${position.row * 2 + 1}`;
-      const icon = el('span', `opsb-hop-icon opsb-hop-${node.kind}`);
-      icon.append(svgIcon(node.kind));
-      item.append(icon);
-      item.append(el('span', 'opsb-hop-name', text(node.name, node.id)));
-      if (node.kind === 'node') {
-        item.append(el('span', 'opsb-hop-process', node.processMs === null ? '-' : `${Math.round(node.processMs)} ms`));
-      }
-      rail.append(item);
-    });
+    }
     return rail;
   }
 
@@ -240,16 +190,10 @@
       }, 1200);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(value).then(done).catch(function () {});
+      navigator.clipboard.writeText(value).then(done);
       return;
     }
-    const area = el('textarea');
-    area.value = value;
-    document.body.append(area);
-    area.select();
-    document.execCommand('copy');
-    area.remove();
-    done();
+    throw new Error('clipboard_unavailable');
   }
 
   function renderPanel() {
@@ -327,15 +271,13 @@
   }
 
   function applySavedPosition() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(POSITION_KEY) || 'null');
-      if (!saved) {
-        return;
-      }
-      state.root.style.left = `${Math.max(8, Number(saved.left) || 16)}px`;
-      state.root.style.top = `${Math.max(8, Number(saved.top) || 0)}px`;
-      state.root.style.bottom = 'auto';
-    } catch (_error) {}
+    const saved = JSON.parse(localStorage.getItem(POSITION_KEY) || 'null');
+    if (!saved) {
+      return;
+    }
+    state.root.style.left = `${Math.max(8, Number(saved.left) || 16)}px`;
+    state.root.style.top = `${Math.max(8, Number(saved.top) || 0)}px`;
+    state.root.style.bottom = 'auto';
   }
 
   function enableDrag() {
@@ -437,15 +379,7 @@
       refresh: Boolean(force)
     }, function (response) {
       if (chrome.runtime.lastError) {
-        applyPayload({
-          display: true,
-          color: 'red',
-          status: 'error',
-          page: { host: window.location.hostname },
-          io: { uploadBytes: 0, downloadBytes: 0, correlated: false },
-          lastError: { code: 'runtime_unreachable', message: chrome.runtime.lastError.message }
-        });
-        return;
+        throw new Error(chrome.runtime.lastError.message);
       }
       applyPayload(refreshPayload(state.payload, response, Boolean(force)));
     });
