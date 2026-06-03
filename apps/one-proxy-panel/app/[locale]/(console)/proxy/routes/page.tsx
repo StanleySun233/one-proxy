@@ -68,8 +68,8 @@ export default function RoutesPage() {
     queryFn: () => getScopes(accessToken),
     enabled: !!accessToken
   });
-  const policiesQuery = useQuery({
-    queryKey: ['policies-revisions', accessToken, activeTenantId],
+  const policyRevisionsQuery = useQuery({
+    queryKey: ['policy-revisions', accessToken, activeTenantId],
     queryFn: () => getPolicyRevisions(accessToken),
     enabled: !!accessToken
   });
@@ -123,7 +123,7 @@ export default function RoutesPage() {
     mutationFn: () => publishPolicy(accessToken),
     onSuccess: () => {
       toast.success(routesT('publishSuccess'));
-      queryClient.invalidateQueries({queryKey: ['policies-revisions']});
+      queryClient.invalidateQueries({queryKey: ['policy-revisions']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -131,7 +131,7 @@ export default function RoutesPage() {
   });
 
   const routeRules = routeRulesQuery.data || [];
-  const policies = policiesQuery.data || [];
+  const policyRevisions = policyRevisionsQuery.data || [];
   const chains = chainsQuery.data || [];
   const scopes = scopesQuery.data || [];
   const filteredRouteRules = useMemo(() => {
@@ -214,7 +214,7 @@ export default function RoutesPage() {
         actions={canWrite ? (
           <>
             <button className="secondary-button" disabled={publishMutation.isPending} onClick={() => publishMutation.mutate()} type="button">
-              {publishMutation.isPending ? t('common.submitting') : routesT('publishPolicy')}
+              {publishMutation.isPending ? t('common.submitting') : routesT('publishRevision')}
             </button>
             <button className="primary-button" onClick={startCreate} type="button">
               {routesT('createRule')}
@@ -267,36 +267,36 @@ export default function RoutesPage() {
           />
         </ConsoleList>
 
-        <ConsoleList count={policies.length} title={routesT('policies')}>
-          {policiesQuery.isPending ? (
-            <AsyncState detail={t('common.loading')} title={routesT('loadingPolicies')} />
-          ) : policiesQuery.isError ? (
+        <ConsoleList count={policyRevisions.length} title={routesT('publishHistory')}>
+          {policyRevisionsQuery.isPending ? (
+            <AsyncState detail={t('common.loading')} title={routesT('loadingPublishHistory')} />
+          ) : policyRevisionsQuery.isError ? (
             <AsyncState
               actionLabel={t('common.retry')}
-              detail={formatControlPlaneError(policiesQuery.error)}
-              onAction={() => void policiesQuery.refetch()}
-              title={routesT('failedPolicies')}
+              detail={formatControlPlaneError(policyRevisionsQuery.error)}
+              onAction={() => void policyRevisionsQuery.refetch()}
+              title={routesT('failedPublishHistory')}
             />
-          ) : policies.length === 0 ? (
-            <AsyncState detail={routesT('emptyPolicies')} title={t('common.empty')} />
+          ) : policyRevisions.length === 0 ? (
+            <AsyncState detail={routesT('emptyPublishHistory')} title={t('common.empty')} />
           ) : (
             <div className="table-card">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>{t('common.policy')}</th>
+                    <th>{routesT('revision')}</th>
                     <th>{routesT('status')}</th>
                     <th>{t('common.target')}</th>
                     <th>{t('common.updated')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {policies.map((policy) => (
-                    <tr key={policy.id}>
-                      <td className="mono">{policy.version}</td>
-                      <td>{policy.status}</td>
-                      <td>{routesT('nodesCount', {count: policy.assignedNodes})}</td>
-                      <td className="mono">{formatISODateTime(policy.createdAt)}</td>
+                  {policyRevisions.map((revision) => (
+                    <tr key={revision.id}>
+                      <td className="mono">{revision.version}</td>
+                      <td>{revision.status}</td>
+                      <td>{routesT('nodesCount', {count: revision.assignedNodes})}</td>
+                      <td className="mono">{formatISODateTime(revision.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
