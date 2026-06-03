@@ -18,6 +18,7 @@
   "nodeTopology": "节点拓扑",
   "scopeBoard": "范围管理",
   "chainStudio": "链路编辑器",
+  "accessPaths": "访问入口",
   "routeBoard": "规则看板",
   "healthOverview": "健康总览",
   "healthHeartbeat": "心跳监控",

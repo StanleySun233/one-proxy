@@ -18,6 +18,7 @@
   "nodeTopology": "Topology",
   "scopeBoard": "Scope manager",
   "chainStudio": "Chain studio",
+  "accessPaths": "Access paths",
   "routeBoard": "Route board",
   "healthOverview": "Health overview",
   "healthHeartbeat": "Heartbeat monitor",

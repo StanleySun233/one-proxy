@@ -54,6 +54,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         {label: t('shell.scopeBoard'), href: '/chains/scopes'},
         {label: t('shell.nodeTopology'), href: '/chains/topology'},
         {label: t('shell.chainStudio'), href: '/chains/studio'},
+        {label: t('shell.accessPaths'), href: '/chains/access-paths'},
         {label: t('shell.routeBoard'), href: '/chains/routes'}
       ]
     },
