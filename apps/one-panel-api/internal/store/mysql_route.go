@@ -4,10 +4,10 @@ import (
 	"database/sql"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	link "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 )
 
-func (s *MySQLStore) ListRouteRules() []link.RouteRule {
+func (s *MySQLStore) ListRouteRules() []proxy.RouteRule {
 	rows, err := s.db.Query(
 		`SELECT id, create_id, owner_id, priority, match_type, match_value, action_type, COALESCE(chain_id, ''), COALESCE(destination_scope, ''), enabled
 		 FROM route_rules ORDER BY priority ASC`,
@@ -15,7 +15,7 @@ func (s *MySQLStore) ListRouteRules() []link.RouteRule {
 	return s.scanRouteRules(rows, err)
 }
 
-func (s *MySQLStore) ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext) []link.RouteRule {
+func (s *MySQLStore) ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext) []proxy.RouteRule {
 	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
 		return s.ListRouteRules()
 	}
@@ -30,14 +30,14 @@ func (s *MySQLStore) ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext)
 	return s.scanRouteRules(rows, err)
 }
 
-func (s *MySQLStore) scanRouteRules(rows *sql.Rows, err error) []link.RouteRule {
+func (s *MySQLStore) scanRouteRules(rows *sql.Rows, err error) []proxy.RouteRule {
 	if err != nil {
 		return nil
 	}
 	defer rows.Close()
-	items := make([]link.RouteRule, 0)
+	items := make([]proxy.RouteRule, 0)
 	for rows.Next() {
-		var item link.RouteRule
+		var item proxy.RouteRule
 		var enabled int
 		if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Priority, &item.MatchType, &item.MatchValue, &item.ActionType, &item.ChainID, &item.DestinationScope, &enabled); err != nil {
 			continue
@@ -48,12 +48,12 @@ func (s *MySQLStore) scanRouteRules(rows *sql.Rows, err error) []link.RouteRule 
 	return items
 }
 
-func (s *MySQLStore) CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error) {
+func (s *MySQLStore) CreateRouteRule(input proxy.CreateRouteRuleInput) (proxy.RouteRule, error) {
 	ruleID, err := s.nextID("route_rule")
 	if err != nil {
-		return link.RouteRule{}, err
+		return proxy.RouteRule{}, err
 	}
-	item := link.RouteRule{
+	item := proxy.RouteRule{
 		ID:               ruleID,
 		Priority:         input.Priority,
 		MatchType:        input.MatchType,
@@ -72,12 +72,12 @@ func (s *MySQLStore) CreateRouteRule(input link.CreateRouteRuleInput) (link.Rout
 	return item, err
 }
 
-func (s *MySQLStore) CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext, input link.CreateRouteRuleInput) (link.RouteRule, error) {
+func (s *MySQLStore) CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext, input proxy.CreateRouteRuleInput) (proxy.RouteRule, error) {
 	ruleID, err := s.nextID("route_rule")
 	if err != nil {
-		return link.RouteRule{}, err
+		return proxy.RouteRule{}, err
 	}
-	item := link.RouteRule{
+	item := proxy.RouteRule{
 		ID:               ruleID,
 		CreateID:         tenantCtx.Account.ID,
 		OwnerID:          tenantCtx.Account.ID,
@@ -92,7 +92,7 @@ func (s *MySQLStore) CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext
 	now := nowRFC3339()
 	tx, err := s.db.Begin()
 	if err != nil {
-		return link.RouteRule{}, err
+		return proxy.RouteRule{}, err
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(
@@ -100,17 +100,17 @@ func (s *MySQLStore) CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext
 		 VALUES (?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?)`,
 		item.ID, item.CreateID, item.OwnerID, item.Priority, item.MatchType, item.MatchValue, item.ActionType, item.ChainID, item.DestinationScope, 1, now, now,
 	); err != nil {
-		return link.RouteRule{}, err
+		return proxy.RouteRule{}, err
 	}
 	if tenantCtx.ActiveTenant.TenantID != "" {
 		if err := bindTenantResource(tx, "tenant_route_rules", "route_rule_id", tenantCtx.ActiveTenant.TenantID, item.ID, tenantCtx.Account.ID); err != nil {
-			return link.RouteRule{}, err
+			return proxy.RouteRule{}, err
 		}
 	}
 	return item, tx.Commit()
 }
 
-func (s *MySQLStore) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
+func (s *MySQLStore) UpdateRouteRule(ruleID string, input proxy.UpdateRouteRuleInput) (proxy.RouteRule, error) {
 	now := nowRFC3339()
 	_, err := s.db.Exec(
 		`UPDATE route_rules
@@ -119,14 +119,14 @@ func (s *MySQLStore) UpdateRouteRule(ruleID string, input link.UpdateRouteRuleIn
 		input.Priority, input.MatchType, input.MatchValue, input.ActionType, input.ChainID, input.DestinationScope, boolToInt(input.Enabled), now, ruleID,
 	)
 	if err != nil {
-		return link.RouteRule{}, err
+		return proxy.RouteRule{}, err
 	}
 	for _, item := range s.ListRouteRules() {
 		if item.ID == ruleID {
 			return item, nil
 		}
 	}
-	return link.RouteRule{}, sql.ErrNoRows
+	return proxy.RouteRule{}, sql.ErrNoRows
 }
 
 func (s *MySQLStore) DeleteRouteRule(ruleID string) error {

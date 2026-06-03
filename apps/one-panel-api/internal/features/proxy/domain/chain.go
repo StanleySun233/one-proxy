@@ -1,4 +1,4 @@
-package link
+package proxy
 
 type Chain struct {
 	ID               string   `json:"id"`

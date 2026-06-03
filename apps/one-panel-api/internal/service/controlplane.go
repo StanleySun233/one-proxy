@@ -6,7 +6,7 @@ import (
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/config"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	linkservice "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/service"
+	proxyservice "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/service"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/proxytoken"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/store"
 )
@@ -20,7 +20,7 @@ type ControlPlane struct {
 	nodeHeartbeatTTL   time.Duration
 	publicRenewWindow  time.Duration
 	enumsByField       map[string]map[string]domain.FieldEnum
-	link               *linkservice.Service
+	proxy              *proxyservice.Service
 }
 
 func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
@@ -41,7 +41,7 @@ func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
 		nodeHeartbeatTTL:   parseDuration(cfg.NodeHeartbeatTTL, 2*time.Minute),
 		publicRenewWindow:  parseDuration(cfg.PublicCertRenewWindow, 7*24*time.Hour),
 	}
-	controlPlane.link = linkservice.New(store)
+	controlPlane.proxy = proxyservice.New(store)
 	return controlPlane
 }
 
@@ -53,12 +53,12 @@ func (c *ControlPlane) ReinitializeStore(adminPassword string) error {
 	return c.store.ReinitializeStore(adminPassword)
 }
 
-func (c *ControlPlane) Link() *linkservice.Service {
-	return c.link
+func (c *ControlPlane) Proxy() *proxyservice.Service {
+	return c.proxy
 }
 
 func (c *ControlPlane) ScopeExists(scopeID string) bool {
-	return c.link.ScopeExists(scopeID)
+	return c.proxy.ScopeExists(scopeID)
 }
 
 func (c *ControlPlane) RunMaintenance() error {

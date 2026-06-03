@@ -1,39 +1,39 @@
-package linkservice
+package proxyservice
 
 import (
 	maindomain "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 	"net/http"
 	"strings"
 )
 
-func (s *Service) Scopes(tenantCtx maindomain.TenantAuthContext) []link.Scope {
+func (s *Service) Scopes(tenantCtx maindomain.TenantAuthContext) []proxy.Scope {
 	return s.store.ListScopesForTenant(tenantCtx)
 }
 
-func (s *Service) CreateScope(tenantCtx maindomain.TenantAuthContext, input link.CreateScopeInput) (link.Scope, error) {
+func (s *Service) CreateScope(tenantCtx maindomain.TenantAuthContext, input proxy.CreateScopeInput) (proxy.Scope, error) {
 	if err := requireActiveTenant(tenantCtx); err != nil {
-		return link.Scope{}, err
+		return proxy.Scope{}, err
 	}
 	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != maindomain.TenantRoleAdmin {
-		return link.Scope{}, newError(http.StatusForbidden, "tenant_role_forbidden")
+		return proxy.Scope{}, newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
 	input.ID = ""
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" {
-		return link.Scope{}, invalidInput("invalid_scope_payload")
+		return proxy.Scope{}, invalidInput("invalid_scope_payload")
 	}
 	return s.store.CreateScopeForTenant(tenantCtx, input)
 }
 
-func (s *Service) UpdateScope(tenantCtx maindomain.TenantAuthContext, scopeID string, input link.UpdateScopeInput) (link.Scope, error) {
+func (s *Service) UpdateScope(tenantCtx maindomain.TenantAuthContext, scopeID string, input proxy.UpdateScopeInput) (proxy.Scope, error) {
 	if scopeID == "" || strings.TrimSpace(input.Name) == "" {
-		return link.Scope{}, invalidInput("invalid_scope_payload")
+		return proxy.Scope{}, invalidInput("invalid_scope_payload")
 	}
 	if err := s.requireTenantResourceManage(tenantCtx, func() (maindomain.BindingPermission, bool) {
 		return s.store.ScopeBindingPermission(tenantCtx, scopeID)
 	}); err != nil {
-		return link.Scope{}, err
+		return proxy.Scope{}, err
 	}
 	return s.store.UpdateScope(scopeID, input)
 }

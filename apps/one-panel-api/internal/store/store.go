@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	link "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 )
 
 type AccountStore interface {
@@ -78,24 +78,24 @@ type NodeStore interface {
 }
 
 type ChainStore interface {
-	ListChains() []link.Chain
-	ListChainsForTenant(tenantCtx domain.TenantAuthContext) []link.Chain
-	CreateChain(input link.CreateChainInput) (link.Chain, error)
-	CreateChainForTenant(tenantCtx domain.TenantAuthContext, input link.CreateChainInput) (link.Chain, error)
-	UpdateChain(chainID string, input link.UpdateChainInput) (link.Chain, error)
+	ListChains() []proxy.Chain
+	ListChainsForTenant(tenantCtx domain.TenantAuthContext) []proxy.Chain
+	CreateChain(input proxy.CreateChainInput) (proxy.Chain, error)
+	CreateChainForTenant(tenantCtx domain.TenantAuthContext, input proxy.CreateChainInput) (proxy.Chain, error)
+	UpdateChain(chainID string, input proxy.UpdateChainInput) (proxy.Chain, error)
 	DeleteChain(chainID string) error
 	ChainBindingPermission(tenantCtx domain.TenantAuthContext, chainID string) (domain.BindingPermission, bool)
 	CountChainBindings(chainID string) int
-	GetChainProbeResult(chainID string) (link.ChainProbeResult, bool)
-	SaveChainProbeResult(input link.SaveChainProbeResultInput) (link.ChainProbeResult, error)
+	GetChainProbeResult(chainID string) (proxy.ChainProbeResult, bool)
+	SaveChainProbeResult(input proxy.SaveChainProbeResultInput) (proxy.ChainProbeResult, error)
 }
 
 type RouteStore interface {
-	ListRouteRules() []link.RouteRule
-	ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext) []link.RouteRule
-	CreateRouteRule(input link.CreateRouteRuleInput) (link.RouteRule, error)
-	CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext, input link.CreateRouteRuleInput) (link.RouteRule, error)
-	UpdateRouteRule(ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error)
+	ListRouteRules() []proxy.RouteRule
+	ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext) []proxy.RouteRule
+	CreateRouteRule(input proxy.CreateRouteRuleInput) (proxy.RouteRule, error)
+	CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext, input proxy.CreateRouteRuleInput) (proxy.RouteRule, error)
+	UpdateRouteRule(ruleID string, input proxy.UpdateRouteRuleInput) (proxy.RouteRule, error)
 	DeleteRouteRule(ruleID string) error
 	RouteRuleBindingPermission(tenantCtx domain.TenantAuthContext, ruleID string) (domain.BindingPermission, bool)
 	CountRouteRuleBindings(ruleID string) int
@@ -124,11 +124,11 @@ type GroupStore interface {
 }
 
 type ScopeStore interface {
-	ListScopes() []link.Scope
-	ListScopesForTenant(tenantCtx domain.TenantAuthContext) []link.Scope
-	CreateScope(input link.CreateScopeInput) (link.Scope, error)
-	CreateScopeForTenant(tenantCtx domain.TenantAuthContext, input link.CreateScopeInput) (link.Scope, error)
-	UpdateScope(scopeID string, input link.UpdateScopeInput) (link.Scope, error)
+	ListScopes() []proxy.Scope
+	ListScopesForTenant(tenantCtx domain.TenantAuthContext) []proxy.Scope
+	CreateScope(input proxy.CreateScopeInput) (proxy.Scope, error)
+	CreateScopeForTenant(tenantCtx domain.TenantAuthContext, input proxy.CreateScopeInput) (proxy.Scope, error)
+	UpdateScope(scopeID string, input proxy.UpdateScopeInput) (proxy.Scope, error)
 	DeleteScope(scopeID string) error
 	ScopeBindingPermission(tenantCtx domain.TenantAuthContext, scopeID string) (domain.BindingPermission, bool)
 	CountScopeBindings(scopeID string) int

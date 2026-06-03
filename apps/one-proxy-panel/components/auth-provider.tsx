@@ -2,7 +2,7 @@
 
 import {createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 
-import {AUTH_INVALID_EVENT, login as loginRequest, logout as logoutRequest, Session, SESSION_STORAGE_KEY, updateAccount} from '@/lib/api';
+import {AUTH_INVALID_EVENT, login as loginRequest, logout as logoutRequest, refreshSession, Session, SESSION_STORAGE_KEY, updateAccount} from '@/lib/api';
 import type {ActiveTenant, TenantMembership} from '@/lib/types/auth';
 
 type AuthContextValue = {
@@ -63,6 +63,19 @@ export function AuthProvider({children}: {children: ReactNode}) {
         if (Date.parse(parsed.expiresAt) > Date.now()) {
           setSession(parsed);
           window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsed));
+          void refreshSession(parsed.refreshToken).then((result) => {
+            const refreshed = normalizeSession({
+              account: result.account,
+              accessToken: result.accessToken,
+              refreshToken: result.refreshToken,
+              expiresAt: result.expiresAt,
+              mustRotatePassword: result.mustRotatePassword,
+              tenantMemberships: result.tenantMemberships,
+              activeTenantId: result.activeTenantId || parsed.activeTenantId
+            });
+            setSession(refreshed);
+            window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(refreshed));
+          }).catch(() => {});
         } else {
           window.localStorage.removeItem(SESSION_STORAGE_KEY);
         }

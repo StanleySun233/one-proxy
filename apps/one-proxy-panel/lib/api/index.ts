@@ -1,6 +1,6 @@
 export { request, ControlPlaneAPIError, notifyUnauthorized, AUTH_INVALID_EVENT, SESSION_STORAGE_KEY } from './client';
 export type { Session } from './client';
-export { login, logout } from './auth';
+export { login, refreshSession, logout } from './auth';
 export {
   getNodes,
   updateNode,
@@ -16,7 +16,7 @@ export {
   getNodeHealth,
   getNodeHealthHistory,
 } from './nodes';
-export { getChains, createChain, updateChain, probeChain, validateChain, previewChain, getNodeLinks, createNodeLink, updateNodeLink, deleteNodeLink, getNodeAccessPaths, createNodeAccessPath, updateNodeAccessPath, deleteNodeAccessPath, getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule, getScopes, createScope, updateScope, deleteScope } from './chains';
+export { getChains, createChain, updateChain, probeChain, validateChain, previewChain, getNodeLinks, createNodeLink, updateNodeLink, deleteNodeLink, getNodeAccessPaths, createNodeAccessPath, updateNodeAccessPath, deleteNodeAccessPath, getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule, getScopes, createScope, updateScope, deleteScope } from './proxy';
 export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAccounts, setGroupScopes } from './groups';
 export { getAccounts, createAccount, updateAccount, deleteAccount } from './accounts';
 export { getPolicyRevisions, publishPolicy } from './policies';

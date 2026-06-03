@@ -21,6 +21,7 @@ export default function GroupListPage() {
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
+  const activeTenantId = session?.activeTenantId || null;
 
   const [dialogGroup, setDialogGroup] = useState<Group | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -133,6 +134,7 @@ export default function GroupListPage() {
 
       <GroupDialog
         accessToken={accessToken}
+        activeTenantId={activeTenantId}
         group={dialogGroup}
         onClose={() => setDialogGroup(null)}
         onSaved={() => {
@@ -143,6 +145,7 @@ export default function GroupListPage() {
 
       <GroupDialog
         accessToken={accessToken}
+        activeTenantId={activeTenantId}
         group={null}
         onClose={() => setShowCreate(false)}
         onSaved={() => {

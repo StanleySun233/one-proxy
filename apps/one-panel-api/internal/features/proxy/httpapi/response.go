@@ -1,4 +1,4 @@
-package linkhttpapi
+package proxyhttpapi
 
 import (
 	"database/sql"
@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 
-	linkservice "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/service"
+	proxyservice "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/service"
 )
 
 type APIResponse[T any] struct {
@@ -40,7 +40,7 @@ func writeServiceError(w http.ResponseWriter, req *http.Request, err error, fall
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	if serviceErr, ok := err.(*linkservice.Error); ok {
+	if serviceErr, ok := err.(*proxyservice.Error); ok {
 		writeError(w, serviceErr.Status, serviceErr.Message)
 		return
 	}

@@ -27,7 +27,7 @@ const emptyForm: ScopeFormState = {
 
 export default function ScopesPage() {
   const t = useTranslations();
-  const scopesT = useTranslations('chainsScopes');
+  const scopesT = useTranslations('proxyScopes');
   const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
@@ -41,18 +41,18 @@ export default function ScopesPage() {
   const [formState, setFormState] = useState<ScopeFormState>(emptyForm);
 
   const scopesQuery = useQuery({
-    queryKey: ['chains-scopes', accessToken, activeTenantId],
-    queryFn: () => getScopes(accessToken),
+    queryKey: ['proxy-scopes', accessToken, activeTenantId],
+    queryFn: () => getScopes(accessToken, activeTenantId),
     enabled: !!accessToken
   });
 
   const createScopeMutation = useMutation({
-    mutationFn: (payload: ScopeFormState) => createScope(accessToken, payload),
+    mutationFn: (payload: ScopeFormState) => createScope(accessToken, activeTenantId, payload),
     onSuccess: () => {
       toast.success(scopesT('createSuccess'));
       setFormState(emptyForm);
       setCreateOpen(false);
-      queryClient.invalidateQueries({queryKey: ['chains-scopes']});
+      queryClient.invalidateQueries({queryKey: ['proxy-scopes']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -60,12 +60,12 @@ export default function ScopesPage() {
   });
 
   const updateScopeMutation = useMutation({
-    mutationFn: (payload: ScopeFormState) => updateScope(accessToken, editingScope!.id, {name: payload.name, description: payload.description}),
+    mutationFn: (payload: ScopeFormState) => updateScope(accessToken, activeTenantId, editingScope!.id, {name: payload.name, description: payload.description}),
     onSuccess: () => {
       toast.success(scopesT('updateSuccess'));
       setEditingScope(null);
       setFormState(emptyForm);
-      queryClient.invalidateQueries({queryKey: ['chains-scopes']});
+      queryClient.invalidateQueries({queryKey: ['proxy-scopes']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -73,10 +73,10 @@ export default function ScopesPage() {
   });
 
   const deleteScopeMutation = useMutation({
-    mutationFn: (scopeID: string) => deleteScope(accessToken, scopeID),
+    mutationFn: (scopeID: string) => deleteScope(accessToken, activeTenantId, scopeID),
     onSuccess: () => {
       toast.success(scopesT('deleteSuccess'));
-      queryClient.invalidateQueries({queryKey: ['chains-scopes']});
+      queryClient.invalidateQueries({queryKey: ['proxy-scopes']});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));

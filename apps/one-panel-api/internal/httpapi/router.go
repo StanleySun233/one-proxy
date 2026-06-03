@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	linkhttpapi "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/httpapi"
+	proxyhttpapi "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/httpapi"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/service"
 )
 
@@ -65,5 +65,5 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/node-agent/direct/link-plan", r.requireNode(r.handleDirectLinkPlan))
 	r.mux.HandleFunc("/api/v1/node-agent/direct/status", r.requireNode(r.handleDirectStatus))
 	r.mux.HandleFunc("/api/v1/node-agent/proxy-token/validate", r.requireNode(r.handleProxyTokenValidate))
-	linkhttpapi.Register(r.mux, r.requireAccount, r.service.Link())
+	proxyhttpapi.Register(r.mux, r.requireAccount, r.service.Proxy())
 }

@@ -1,4 +1,4 @@
-package linkhttpapi
+package proxyhttpapi
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/httpctx"
 )
 
-func (r *Router) handleAccessPaths(w http.ResponseWriter, req *http.Request) {
+func (r *Router) handleNodeLinks(w http.ResponseWriter, req *http.Request) {
 	tenantCtx, ok := httpctx.TenantAuth(req.Context())
 	if !ok {
 		writeError(w, http.StatusBadRequest, "tenant_required")
@@ -16,14 +16,14 @@ func (r *Router) handleAccessPaths(w http.ResponseWriter, req *http.Request) {
 	}
 	switch req.Method {
 	case http.MethodGet:
-		writeSuccess(w, http.StatusOK, r.service.AccessPaths(tenantCtx))
+		writeSuccess(w, http.StatusOK, r.service.NodeLinks(tenantCtx))
 	case http.MethodPost:
-		var payload domain.CreateNodeAccessPathInput
+		var payload domain.CreateNodeLinkInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
-		item, err := r.service.CreateAccessPath(tenantCtx, payload)
+		item, err := r.service.CreateNodeLink(tenantCtx, payload)
 		if err != nil {
 			writeServiceError(w, req, err, "create_failed")
 			return
@@ -34,10 +34,10 @@ func (r *Router) handleAccessPaths(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (r *Router) handleAccessPathByID(w http.ResponseWriter, req *http.Request) {
-	pathID := resourceID(req.URL.Path, "/api/v1/chains/access-paths/")
-	if pathID == "" {
-		writeError(w, http.StatusBadRequest, "missing_path_id")
+func (r *Router) handleNodeLinkByID(w http.ResponseWriter, req *http.Request) {
+	linkID := resourceID(req.URL.Path, "/api/v1/proxy/node-links/")
+	if linkID == "" {
+		writeError(w, http.StatusBadRequest, "missing_node_link_id")
 		return
 	}
 	tenantCtx, ok := httpctx.TenantAuth(req.Context())
@@ -47,19 +47,19 @@ func (r *Router) handleAccessPathByID(w http.ResponseWriter, req *http.Request) 
 	}
 	switch req.Method {
 	case http.MethodPatch:
-		var payload domain.UpdateNodeAccessPathInput
+		var payload domain.UpdateNodeLinkInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
-		item, err := r.service.UpdateAccessPath(tenantCtx, pathID, payload)
+		item, err := r.service.UpdateNodeLink(tenantCtx, linkID, payload)
 		if err != nil {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
-		if err := r.service.DeleteAccessPath(tenantCtx, pathID); err != nil {
+		if err := r.service.DeleteNodeLink(tenantCtx, linkID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}

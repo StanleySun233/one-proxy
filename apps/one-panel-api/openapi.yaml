@@ -355,7 +355,7 @@ paths:
           description: Envelope node enrollment exchange response
         "400":
           description: Invalid enrollment exchange payload
-  /api/v1/chains:
+  /api/v1/proxy:
     get:
       security:
         - controlPlaneBearer: []
@@ -372,7 +372,7 @@ paths:
       responses:
         "201":
           description: Envelope chain created response
-  /api/v1/chains/{chainId}:
+  /api/v1/proxy/{chainId}:
     patch:
       security:
         - controlPlaneBearer: []
@@ -389,7 +389,7 @@ paths:
       responses:
         "200":
           description: Envelope chain deleted response
-  /api/v1/chains/scopes:
+  /api/v1/proxy/scopes:
     get:
       security:
         - controlPlaneBearer: []
@@ -406,7 +406,7 @@ paths:
       responses:
         "201":
           description: Envelope chain scope created response
-  /api/v1/chains/scopes/{scopeId}:
+  /api/v1/proxy/scopes/{scopeId}:
     patch:
       security:
         - controlPlaneBearer: []
@@ -423,7 +423,7 @@ paths:
       responses:
         "200":
           description: Envelope chain scope deleted response
-  /api/v1/chains/node-links:
+  /api/v1/proxy/node-links:
     get:
       security:
         - controlPlaneBearer: []
@@ -440,7 +440,7 @@ paths:
       responses:
         "201":
           description: Envelope node link created response
-  /api/v1/chains/node-links/{linkId}:
+  /api/v1/proxy/node-links/{linkId}:
     patch:
       security:
         - controlPlaneBearer: []
@@ -457,7 +457,7 @@ paths:
       responses:
         "200":
           description: Envelope node link deleted response
-  /api/v1/chains/routes:
+  /api/v1/proxy/routes:
     get:
       security:
         - controlPlaneBearer: []
@@ -474,7 +474,7 @@ paths:
       responses:
         "201":
           description: Envelope route rule created response
-  /api/v1/chains/routes/{ruleId}:
+  /api/v1/proxy/routes/{ruleId}:
     patch:
       security:
         - controlPlaneBearer: []

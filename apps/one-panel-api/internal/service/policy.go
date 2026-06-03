@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	link "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 )
 
 func (c *ControlPlane) PolicyRevisions(tenantCtx domain.TenantAuthContext) []domain.PolicyRevision {
@@ -51,13 +51,13 @@ func (c *ControlPlane) ExtensionBootstrapForTenant(account domain.Account, tenan
 	chains := c.store.ListChainsForTenant(scopedTenantCtx)
 	rules := c.store.ListRouteRulesForTenant(scopedTenantCtx)
 	if bootstrapStore, ok := c.store.(interface {
-		ExtensionBootstrapResourcesForTenant(domain.TenantAuthContext) ([]domain.Node, []link.Chain, []link.RouteRule)
+		ExtensionBootstrapResourcesForTenant(domain.TenantAuthContext) ([]domain.Node, []proxy.Chain, []proxy.RouteRule)
 	}); ok {
 		nodes, chains, rules = bootstrapStore.ExtensionBootstrapResourcesForTenant(tenantCtx)
 	}
 	overview := c.store.GetOverview()
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
-	chainsByID := make(map[string]link.Chain, len(chains))
+	chainsByID := make(map[string]proxy.Chain, len(chains))
 	for _, chain := range chains {
 		chainsByID[chain.ID] = chain
 	}
@@ -84,7 +84,7 @@ func (c *ControlPlane) ExtensionBootstrapForTenant(account domain.Account, tenan
 					filteredNodes = append(filteredNodes, node)
 				}
 			}
-			filteredRules = make([]link.RouteRule, 0)
+			filteredRules = make([]proxy.RouteRule, 0)
 			for _, rule := range rules {
 				if rule.ActionType == domain.ActionTypeDirect && allowedScopes[rule.DestinationScope] {
 					filteredRules = append(filteredRules, rule)

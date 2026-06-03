@@ -1,4 +1,4 @@
-package link
+package proxy
 
 type Scope struct {
 	ID          string `json:"id"`

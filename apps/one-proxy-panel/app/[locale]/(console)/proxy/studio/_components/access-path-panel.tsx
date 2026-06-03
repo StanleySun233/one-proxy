@@ -124,7 +124,7 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
 
   const pathsQuery = useQuery({
     queryKey: ['proxy-access-paths', accessToken, activeTenantId],
-    queryFn: () => getNodeAccessPaths(accessToken),
+    queryFn: () => getNodeAccessPaths(accessToken, activeTenantId),
     enabled: !!accessToken
   });
   const enumsQuery = useQuery({
@@ -136,7 +136,7 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
   const chainById = useMemo(() => new Map(chains.map((chain) => [chain.id, chain])), [chains]);
 
   const createMutation = useMutation({
-    mutationFn: (payload: NodeAccessPathPayload) => createNodeAccessPath(accessToken, payload),
+    mutationFn: (payload: NodeAccessPathPayload) => createNodeAccessPath(accessToken, activeTenantId, payload),
     onSuccess: () => {
       toast.success(accessPathsT('createSuccess'));
       setFormState(emptyForm);
@@ -147,7 +147,7 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: NodeAccessPathPayload) => updateNodeAccessPath(accessToken, editingPath!.id, {...payload, enabled: payload.enabled ?? true}),
+    mutationFn: (payload: NodeAccessPathPayload) => updateNodeAccessPath(accessToken, activeTenantId, editingPath!.id, {...payload, enabled: payload.enabled ?? true}),
     onSuccess: () => {
       toast.success(accessPathsT('updateSuccess'));
       setEditingPath(null);
@@ -158,7 +158,7 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (pathID: string) => deleteNodeAccessPath(accessToken, pathID),
+    mutationFn: (pathID: string) => deleteNodeAccessPath(accessToken, activeTenantId, pathID),
     onSuccess: () => {
       toast.success(accessPathsT('deleteSuccess'));
       queryClient.invalidateQueries({queryKey: ['proxy-access-paths']});

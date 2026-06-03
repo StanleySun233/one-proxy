@@ -40,12 +40,12 @@ export default function HeartbeatPage() {
 
   const nodesQuery = useQuery({
     queryKey: ['nodes', accessToken, activeTenantId],
-    queryFn: () => getNodes(accessToken),
+    queryFn: () => getNodes(accessToken, activeTenantId),
     enabled: !!accessToken
   });
   const healthQuery = useQuery({
     queryKey: ['node-health', accessToken, activeTenantId],
-    queryFn: () => getNodeHealth(accessToken),
+    queryFn: () => getNodeHealth(accessToken, activeTenantId),
     enabled: !!accessToken,
     refetchInterval: 5000
   });
@@ -234,7 +234,7 @@ function ExpandableRow({
   const healthT = useTranslations('health');
   const historyQuery = useQuery({
     queryKey: ['node-health-history', accessToken, activeTenantId, item.nodeId],
-    queryFn: () => getNodeHealthHistory(accessToken, item.nodeId, '24h'),
+    queryFn: () => getNodeHealthHistory(accessToken, activeTenantId, item.nodeId, '24h'),
     enabled: expanded && !!accessToken
   });
 

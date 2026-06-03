@@ -1,8 +1,8 @@
-package linkhttpapi
+package proxyhttpapi
 
 import (
 	"encoding/json"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/httpctx"
 	"net/http"
 	"strings"
@@ -18,7 +18,7 @@ func (r *Router) handleScopes(w http.ResponseWriter, req *http.Request) {
 	case http.MethodGet:
 		writeSuccess(w, http.StatusOK, r.service.Scopes(tenantCtx))
 	case http.MethodPost:
-		var payload link.CreateScopeInput
+		var payload proxy.CreateScopeInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_request_body")
 			return
@@ -36,7 +36,7 @@ func (r *Router) handleScopes(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleScopeByID(w http.ResponseWriter, req *http.Request) {
-	scopeID := strings.TrimPrefix(req.URL.Path, "/api/v1/chains/scopes/")
+	scopeID := strings.TrimPrefix(req.URL.Path, "/api/v1/proxy/scopes/")
 	if scopeID == "" {
 		writeError(w, http.StatusNotFound, "scope_not_found")
 		return
@@ -48,7 +48,7 @@ func (r *Router) handleScopeByID(w http.ResponseWriter, req *http.Request) {
 	}
 	switch req.Method {
 	case http.MethodPatch:
-		var payload link.UpdateScopeInput
+		var payload proxy.UpdateScopeInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_request_body")
 			return

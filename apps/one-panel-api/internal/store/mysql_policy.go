@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	link "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/policy"
 )
 
@@ -13,7 +13,7 @@ func tenantPolicyContext(tenantCtx domain.TenantAuthContext) domain.TenantAuthCo
 	return tenantCtx
 }
 
-func (s *MySQLStore) tenantPolicyInputs(tenantCtx domain.TenantAuthContext) ([]domain.Node, []domain.NodeLink, []link.Chain, []link.RouteRule) {
+func (s *MySQLStore) tenantPolicyInputs(tenantCtx domain.TenantAuthContext) ([]domain.Node, []domain.NodeLink, []proxy.Chain, []proxy.RouteRule) {
 	scoped := tenantPolicyContext(tenantCtx)
 	return s.policyNodesForTenant(scoped), s.ListNodeLinksForTenant(scoped), s.ListChainsForTenant(scoped), s.ListRouteRulesForTenant(scoped)
 }

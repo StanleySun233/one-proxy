@@ -1,4 +1,4 @@
-package linkservice
+package proxyservice
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 )
 
 type matchTypeMeta struct {
@@ -15,21 +15,21 @@ type matchTypeMeta struct {
 	ValidationRegex string `json:"validationRegex"`
 }
 
-func (s *Service) RouteRules(tenantCtx domain.TenantAuthContext) []link.RouteRule {
+func (s *Service) RouteRules(tenantCtx domain.TenantAuthContext) []proxy.RouteRule {
 	return s.store.ListRouteRulesForTenant(tenantCtx)
 }
 
-func (s *Service) RouteRulesWithDetails(tenantCtx domain.TenantAuthContext) []link.RouteRuleWithDetails {
+func (s *Service) RouteRulesWithDetails(tenantCtx domain.TenantAuthContext) []proxy.RouteRuleWithDetails {
 	rules := s.store.ListRouteRulesForTenant(tenantCtx)
 	chains := s.ChainsWithDetails(tenantCtx)
-	chainMap := make(map[string]link.ChainWithDetails)
+	chainMap := make(map[string]proxy.ChainWithDetails)
 	for _, chain := range chains {
 		chainMap[chain.ID] = chain
 	}
 
-	result := make([]link.RouteRuleWithDetails, 0, len(rules))
+	result := make([]proxy.RouteRuleWithDetails, 0, len(rules))
 	for _, rule := range rules {
-		item := link.RouteRuleWithDetails{
+		item := proxy.RouteRuleWithDetails{
 			ID:               rule.ID,
 			CreateID:         rule.CreateID,
 			OwnerID:          rule.OwnerID,
@@ -51,9 +51,9 @@ func (s *Service) RouteRulesWithDetails(tenantCtx domain.TenantAuthContext) []li
 	return result
 }
 
-func (s *Service) GetRouteRule(tenantCtx domain.TenantAuthContext, ruleID string) (link.RouteRuleWithDetails, error) {
+func (s *Service) GetRouteRule(tenantCtx domain.TenantAuthContext, ruleID string) (proxy.RouteRuleWithDetails, error) {
 	if ruleID == "" {
-		return link.RouteRuleWithDetails{}, invalidInput("missing_rule_id")
+		return proxy.RouteRuleWithDetails{}, invalidInput("missing_rule_id")
 	}
 
 	rules := s.RouteRulesWithDetails(tenantCtx)
@@ -62,14 +62,14 @@ func (s *Service) GetRouteRule(tenantCtx domain.TenantAuthContext, ruleID string
 			return rule, nil
 		}
 	}
-	return link.RouteRuleWithDetails{}, invalidInput("route_rule_not_found")
+	return proxy.RouteRuleWithDetails{}, invalidInput("route_rule_not_found")
 }
 
-func (s *Service) MatchTypes() []link.MatchType {
+func (s *Service) MatchTypes() []proxy.MatchType {
 	items, _ := s.store.ListFieldEnumsByField("match_type")
-	result := make([]link.MatchType, 0, len(items))
+	result := make([]proxy.MatchType, 0, len(items))
 	for _, item := range items {
-		mt := link.MatchType{
+		mt := proxy.MatchType{
 			Type:        item.Value,
 			Label:       item.Name,
 			Description: item.Name,
@@ -89,30 +89,30 @@ func (s *Service) MatchTypes() []link.MatchType {
 	return result
 }
 
-func (s *Service) CreateRouteRule(tenantCtx domain.TenantAuthContext, input link.CreateRouteRuleInput) (link.RouteRule, error) {
+func (s *Service) CreateRouteRule(tenantCtx domain.TenantAuthContext, input proxy.CreateRouteRuleInput) (proxy.RouteRule, error) {
 	if err := requireActiveTenant(tenantCtx); err != nil {
-		return link.RouteRule{}, err
+		return proxy.RouteRule{}, err
 	}
 	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
-		return link.RouteRule{}, newError(http.StatusForbidden, "tenant_role_forbidden")
+		return proxy.RouteRule{}, newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
 	if err := s.validateRouteRule(tenantCtx, input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
-		return link.RouteRule{}, err
+		return proxy.RouteRule{}, err
 	}
 	return s.store.CreateRouteRuleForTenant(tenantCtx, input)
 }
 
-func (s *Service) UpdateRouteRule(tenantCtx domain.TenantAuthContext, ruleID string, input link.UpdateRouteRuleInput) (link.RouteRule, error) {
+func (s *Service) UpdateRouteRule(tenantCtx domain.TenantAuthContext, ruleID string, input proxy.UpdateRouteRuleInput) (proxy.RouteRule, error) {
 	if ruleID == "" {
-		return link.RouteRule{}, invalidInput("missing_rule_id")
+		return proxy.RouteRule{}, invalidInput("missing_rule_id")
 	}
 	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
 		return s.store.RouteRuleBindingPermission(tenantCtx, ruleID)
 	}); err != nil {
-		return link.RouteRule{}, err
+		return proxy.RouteRule{}, err
 	}
 	if err := s.validateRouteRule(tenantCtx, input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
-		return link.RouteRule{}, err
+		return proxy.RouteRule{}, err
 	}
 	return s.store.UpdateRouteRule(ruleID, input)
 }
@@ -129,8 +129,8 @@ func (s *Service) DeleteRouteRule(tenantCtx domain.TenantAuthContext, ruleID str
 	return s.store.DeleteRouteRule(ruleID)
 }
 
-func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input link.ValidateRouteRuleInput) (link.RouteRuleValidationResult, error) {
-	result := link.RouteRuleValidationResult{
+func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input proxy.ValidateRouteRuleInput) (proxy.RouteRuleValidationResult, error) {
+	result := proxy.RouteRuleValidationResult{
 		Valid:    true,
 		Errors:   []string{},
 		Warnings: []string{},
@@ -146,7 +146,7 @@ func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input li
 		result.Errors = append(result.Errors, "invalid_action_type")
 	}
 
-	var matchedChain *link.Chain
+	var matchedChain *proxy.Chain
 	if input.ActionType == domain.ActionTypeChain {
 		chains := s.store.ListChainsForTenant(tenantCtx)
 		for _, chain := range chains {
@@ -157,14 +157,14 @@ func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input li
 			}
 		}
 		if matchedChain == nil {
-			result.ChainValidation = link.ChainValidation{
+			result.ChainValidation = proxy.ChainValidation{
 				Valid:        false,
 				ChainEnabled: false,
 			}
 			result.Valid = false
 			result.Errors = append(result.Errors, "chain_not_found")
 		} else {
-			result.ChainValidation = link.ChainValidation{
+			result.ChainValidation = proxy.ChainValidation{
 				Valid:        true,
 				ChainEnabled: matchedChain.Enabled,
 				ChainHops:    matchedChain.Hops,
@@ -179,13 +179,13 @@ func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input li
 		input.DestinationScope = matchedChain.DestinationScope
 	}
 	if input.ActionType == domain.ActionTypeDirect && input.DestinationScope == "" {
-		result.ScopeValidation = link.ScopeValidation{Valid: false}
+		result.ScopeValidation = proxy.ScopeValidation{Valid: false}
 		result.Valid = false
 		result.Errors = append(result.Errors, "scope_not_found")
 	} else if input.DestinationScope == "" {
-		result.ScopeValidation = link.ScopeValidation{Valid: true}
+		result.ScopeValidation = proxy.ScopeValidation{Valid: true}
 	} else if !s.tenantScopeExists(tenantCtx, input.DestinationScope) {
-		result.ScopeValidation = link.ScopeValidation{
+		result.ScopeValidation = proxy.ScopeValidation{
 			Valid:       false,
 			ScopeExists: false,
 		}
@@ -204,7 +204,7 @@ func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input li
 				}
 			}
 		}
-		result.ScopeValidation = link.ScopeValidation{
+		result.ScopeValidation = proxy.ScopeValidation{
 			Valid:                true,
 			ScopeExists:          true,
 			ScopeOwnerNodeID:     ownerNodeID,
@@ -226,7 +226,7 @@ func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input li
 	return result, nil
 }
 
-func (s *Service) RouteRuleSuggestions(tenantCtx domain.TenantAuthContext, matchType string, query string) link.RouteRuleSuggestionResult {
+func (s *Service) RouteRuleSuggestions(tenantCtx domain.TenantAuthContext, matchType string, query string) proxy.RouteRuleSuggestionResult {
 	rules := s.store.ListRouteRulesForTenant(tenantCtx)
 	seen := make(map[string]struct{})
 	var suggestions []string
@@ -252,7 +252,7 @@ func (s *Service) RouteRuleSuggestions(tenantCtx domain.TenantAuthContext, match
 		suggestions = []string{}
 	}
 
-	return link.RouteRuleSuggestionResult{
+	return proxy.RouteRuleSuggestionResult{
 		MatchType:   matchType,
 		Suggestions: suggestions,
 	}

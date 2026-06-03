@@ -27,10 +27,11 @@ type Props = {
   onClose: () => void;
   onSaved: () => void;
   accessToken: string;
+  activeTenantId: string | null;
   group?: {id: string; name: string; description: string; enabled: boolean} | null;
 };
 
-export default function GroupDialog({open, onClose, onSaved, accessToken, group}: Props) {
+export default function GroupDialog({open, onClose, onSaved, accessToken, activeTenantId, group}: Props) {
   const t = useTranslations();
   const isEdit = !!group;
 
@@ -55,8 +56,8 @@ export default function GroupDialog({open, onClose, onSaved, accessToken, group}
   });
 
   const scopesQuery = useQuery({
-    queryKey: ['scopes', accessToken],
-    queryFn: () => getScopes(accessToken),
+    queryKey: ['proxy-scopes', accessToken, activeTenantId],
+    queryFn: () => getScopes(accessToken, activeTenantId),
     enabled: open && !!accessToken
   });
 

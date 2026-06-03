@@ -1,4 +1,4 @@
-package link
+package proxy
 
 type RouteRule struct {
 	ID               string `json:"id"`

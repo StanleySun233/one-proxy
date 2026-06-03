@@ -23,7 +23,7 @@ import {validateMatchValue} from './_lib/validation';
 
 export default function RoutesPage() {
   const t = useTranslations();
-  const routesT = useTranslations('chainsRoutes');
+  const routesT = useTranslations('proxyRoutes');
   const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
@@ -55,26 +55,26 @@ export default function RoutesPage() {
 
   const routeRulesQuery = useQuery({
     queryKey: ['route-rules', accessToken, activeTenantId],
-    queryFn: () => getRouteRules(accessToken),
+    queryFn: () => getRouteRules(accessToken, activeTenantId),
     enabled: !!accessToken
   });
   const chainsQuery = useQuery({
-    queryKey: ['chains', accessToken, activeTenantId],
-    queryFn: () => getChains(accessToken),
+    queryKey: ['proxy-chains', accessToken, activeTenantId],
+    queryFn: () => getChains(accessToken, activeTenantId),
     enabled: !!accessToken
   });
   const scopesQuery = useQuery({
-    queryKey: ['chains-scopes', accessToken, activeTenantId],
-    queryFn: () => getScopes(accessToken),
+    queryKey: ['proxy-scopes', accessToken, activeTenantId],
+    queryFn: () => getScopes(accessToken, activeTenantId),
     enabled: !!accessToken
   });
   const policyRevisionsQuery = useQuery({
     queryKey: ['policy-revisions', accessToken, activeTenantId],
-    queryFn: () => getPolicyRevisions(accessToken),
+    queryFn: () => getPolicyRevisions(accessToken, activeTenantId),
     enabled: !!accessToken
   });
   const createRuleMutation = useMutation({
-    mutationFn: (payload: RouteRuleSubmitPayload) => createRouteRule(accessToken, payload),
+    mutationFn: (payload: RouteRuleSubmitPayload) => createRouteRule(accessToken, activeTenantId, payload),
     onSuccess: () => {
       toast.success(routesT('createSuccess'));
       queryClient.invalidateQueries({queryKey: ['route-rules']});
@@ -86,7 +86,7 @@ export default function RoutesPage() {
     }
   });
   const updateRuleMutation = useMutation({
-    mutationFn: (payload: RouteRuleSubmitPayload & {id: string}) => updateRouteRule(accessToken, payload.id, {
+    mutationFn: (payload: RouteRuleSubmitPayload & {id: string}) => updateRouteRule(accessToken, activeTenantId, payload.id, {
       priority: payload.priority,
       matchType: payload.matchType,
       matchValue: payload.matchValue,
@@ -106,7 +106,7 @@ export default function RoutesPage() {
     }
   });
   const deleteRuleMutation = useMutation({
-    mutationFn: (ruleId: string) => deleteRouteRule(accessToken, ruleId),
+    mutationFn: (ruleId: string) => deleteRouteRule(accessToken, activeTenantId, ruleId),
     onSuccess: () => {
       toast.success(routesT('deleteSuccess'));
       queryClient.invalidateQueries({queryKey: ['route-rules']});
@@ -120,7 +120,7 @@ export default function RoutesPage() {
     }
   });
   const publishMutation = useMutation({
-    mutationFn: () => publishPolicy(accessToken),
+    mutationFn: () => publishPolicy(accessToken, activeTenantId),
     onSuccess: () => {
       toast.success(routesT('publishSuccess'));
       queryClient.invalidateQueries({queryKey: ['policy-revisions']});

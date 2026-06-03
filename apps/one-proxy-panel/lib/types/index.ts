@@ -24,7 +24,7 @@ export type {
   ScopeValidation,
   RouteRuleValidationResult,
   Scope,
-} from './chains';
+} from './proxy';
 export type { Group, GroupDetail } from './groups';
 export type {
   APIResponse,

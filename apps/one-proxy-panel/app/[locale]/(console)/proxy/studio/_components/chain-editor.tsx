@@ -21,6 +21,7 @@ type HopItem = {
 
 type ChainEditorProps = {
   accessToken: string;
+  activeTenantId: string | null;
   chainName: string;
   destinationScope: string;
   hops: string[];
@@ -38,6 +39,7 @@ type ChainEditorProps = {
 
 export function ChainEditor({
   accessToken,
+  activeTenantId,
   chainName,
   destinationScope,
   hops,
@@ -53,7 +55,7 @@ export function ChainEditor({
   previewing
 }: ChainEditorProps) {
   const t = useTranslations();
-  const chainsT = useTranslations('chains');
+  const chainsT = useTranslations('proxyChains');
   const [hopItems, setHopItems] = useState<HopItem[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string>('');
   const [validationResult, setValidationResult] = useState<ChainValidationResult | null>(null);
@@ -88,14 +90,14 @@ export function ChainEditor({
     }
     setValidationPending(true);
     try {
-      const result = await validateChain(accessToken, {name, destinationScope: scope, hops: hopList});
+      const result = await validateChain(accessToken, activeTenantId, {name, destinationScope: scope, hops: hopList});
       setValidationResult(result);
     } catch {
       setValidationResult(null);
     } finally {
       setValidationPending(false);
     }
-  }, [accessToken]);
+  }, [accessToken, activeTenantId]);
 
   useEffect(() => {
     if (debounceRef.current) {

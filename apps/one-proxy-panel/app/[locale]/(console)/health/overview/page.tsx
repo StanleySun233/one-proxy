@@ -28,12 +28,12 @@ export default function HealthOverviewPage() {
 
   const nodesQuery = useQuery({
     queryKey: ['nodes', accessToken, activeTenantId],
-    queryFn: () => getNodes(accessToken),
+    queryFn: () => getNodes(accessToken, activeTenantId),
     enabled: !!accessToken
   });
   const healthQuery = useQuery({
     queryKey: ['node-health', accessToken, activeTenantId],
-    queryFn: () => getNodeHealth(accessToken),
+    queryFn: () => getNodeHealth(accessToken, activeTenantId),
     enabled: !!accessToken,
     refetchInterval: 5000
   });
@@ -64,7 +64,7 @@ export default function HealthOverviewPage() {
 
   const historyQuery = useQuery({
     queryKey: ['node-health-history', accessToken, activeTenantId, selectedNodeId],
-    queryFn: () => getNodeHealthHistory(accessToken, selectedNodeId, '24h'),
+    queryFn: () => getNodeHealthHistory(accessToken, activeTenantId, selectedNodeId, '24h'),
     enabled: !!accessToken && !!selectedNodeId
   });
 

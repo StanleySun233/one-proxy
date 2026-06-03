@@ -60,53 +60,53 @@ export function useNodeConsole() {
 
   const nodesQuery = useQuery({
     queryKey: ['nodes', accessToken, activeTenantId],
-    queryFn: () => getNodes(accessToken),
+    queryFn: () => getNodes(accessToken, activeTenantId),
     enabled: !!accessToken
   });
 
   const scopesQuery = useQuery({
     queryKey: ['scopes', accessToken, activeTenantId],
-    queryFn: () => getScopes(accessToken),
+    queryFn: () => getScopes(accessToken, activeTenantId),
     enabled: !!accessToken
   });
 
   const linksQuery = useQuery({
     queryKey: ['node-links', accessToken, activeTenantId],
-    queryFn: () => getNodeLinks(accessToken),
+    queryFn: () => getNodeLinks(accessToken, activeTenantId),
     enabled: !!accessToken
   });
 
   const healthQuery = useQuery({
     queryKey: ['node-health', accessToken, activeTenantId],
-    queryFn: () => getNodeHealth(accessToken),
+    queryFn: () => getNodeHealth(accessToken, activeTenantId),
     enabled: !!accessToken,
     refetchInterval: 5000
   });
 
   const transportsQuery = useQuery({
     queryKey: ['node-transports', accessToken, activeTenantId],
-    queryFn: () => getNodeTransports(accessToken),
+    queryFn: () => getNodeTransports(accessToken, activeTenantId),
     enabled: !!accessToken,
     refetchInterval: 5000
   });
 
   const pendingNodesQuery = useQuery({
     queryKey: ['pending-nodes', accessToken, activeTenantId],
-    queryFn: () => getPendingNodes(accessToken),
+    queryFn: () => getPendingNodes(accessToken, activeTenantId),
     enabled: !!accessToken,
     refetchInterval: 30000
   });
 
   const unconsumedTokensQuery = useQuery({
     queryKey: ['unconsumed-bootstrap-tokens', accessToken, activeTenantId],
-    queryFn: () => getUnconsumedBootstrapTokens(accessToken),
+    queryFn: () => getUnconsumedBootstrapTokens(accessToken, activeTenantId),
     enabled: !!accessToken,
     refetchInterval: 30000
   });
 
   const bootstrapMutation = useMutation({
     mutationFn: (payload: {targetId: string; nodeName: string; nodeMode: string; scopeKey: string; parentNodeId: string; parentReachableUrl: string; publicHost: string; publicPort: number}) =>
-      createBootstrapToken(accessToken, {
+      createBootstrapToken(accessToken, activeTenantId, {
         targetType: DEFAULT_TARGET_TYPE,
         targetId: payload.targetId,
         nodeName: payload.nodeName,
@@ -137,7 +137,7 @@ export function useNodeConsole() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: (nodeID: string) => approveNode(accessToken, nodeID),
+    mutationFn: (nodeID: string) => approveNode(accessToken, activeTenantId, nodeID),
     onSuccess: () => {
       toast.success('node approved');
       queryClient.invalidateQueries({queryKey: ['pending-nodes']});
@@ -164,7 +164,7 @@ export function useNodeConsole() {
     }) => {
       const {nodeID, ...body} = payload;
 
-      return updateNode(accessToken, nodeID, body);
+      return updateNode(accessToken, activeTenantId, nodeID, body);
     },
     onSuccess: () => {
       toast.success('node updated');
@@ -178,7 +178,7 @@ export function useNodeConsole() {
   });
 
   const deleteNodeMutation = useMutation({
-    mutationFn: (nodeID: string) => deleteNode(accessToken, nodeID),
+    mutationFn: (nodeID: string) => deleteNode(accessToken, activeTenantId, nodeID),
     onSuccess: () => {
       toast.success('node deleted');
       queryClient.invalidateQueries({queryKey: ['nodes']});
@@ -192,7 +192,7 @@ export function useNodeConsole() {
   });
 
   const deleteBootstrapTokenMutation = useMutation({
-    mutationFn: (tokenID: string) => deleteBootstrapToken(accessToken, tokenID),
+    mutationFn: (tokenID: string) => deleteBootstrapToken(accessToken, activeTenantId, tokenID),
     onSuccess: () => {
       toast.success('bootstrap token deleted');
       queryClient.invalidateQueries({queryKey: ['unconsumed-bootstrap-tokens']});
@@ -204,7 +204,7 @@ export function useNodeConsole() {
 
   const createNodeLinkMutation = useMutation({
     mutationFn: (payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) =>
-      createNodeLink(accessToken, payload),
+      createNodeLink(accessToken, activeTenantId, payload),
     onSuccess: () => {
       toast.success('link created');
       queryClient.invalidateQueries({queryKey: ['node-links']});
@@ -218,7 +218,7 @@ export function useNodeConsole() {
     mutationFn: (payload: {linkID: string; sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) => {
       const {linkID, ...body} = payload;
 
-      return updateNodeLink(accessToken, linkID, body);
+      return updateNodeLink(accessToken, activeTenantId, linkID, body);
     },
     onSuccess: () => {
       toast.success('link updated');
@@ -230,7 +230,7 @@ export function useNodeConsole() {
   });
 
   const deleteNodeLinkMutation = useMutation({
-    mutationFn: (linkID: string) => deleteNodeLink(accessToken, linkID),
+    mutationFn: (linkID: string) => deleteNodeLink(accessToken, activeTenantId, linkID),
     onSuccess: () => {
       toast.success('link deleted');
       queryClient.invalidateQueries({queryKey: ['node-links']});
@@ -242,7 +242,7 @@ export function useNodeConsole() {
 
   const rejectNodeMutation = useMutation({
     mutationFn: ({nodeId, reason}: {nodeId: string; reason?: string}) =>
-      rejectNode(accessToken, nodeId, reason),
+      rejectNode(accessToken, activeTenantId, nodeId, reason),
     onSuccess: () => {
       toast.success('node rejected');
       queryClient.invalidateQueries({queryKey: ['pending-nodes']});

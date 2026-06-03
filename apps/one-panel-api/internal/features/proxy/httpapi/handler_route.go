@@ -1,8 +1,8 @@
-package linkhttpapi
+package proxyhttpapi
 
 import (
 	"encoding/json"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/httpctx"
 	"net/http"
 )
@@ -22,7 +22,7 @@ func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
 			writeSuccess(w, http.StatusOK, r.service.RouteRules(tenantCtx))
 		}
 	case http.MethodPost:
-		var payload link.CreateRouteRuleInput
+		var payload proxy.CreateRouteRuleInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
@@ -39,7 +39,7 @@ func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
-	ruleID := resourceID(req.URL.Path, "/api/v1/chains/routes/")
+	ruleID := resourceID(req.URL.Path, "/api/v1/proxy/routes/")
 	if ruleID == "" {
 		writeError(w, http.StatusBadRequest, "missing_rule_id")
 		return
@@ -58,7 +58,7 @@ func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
 		}
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodPatch:
-		var payload link.UpdateRouteRuleInput
+		var payload proxy.UpdateRouteRuleInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
@@ -90,7 +90,7 @@ func (r *Router) handleRouteRuleValidate(w http.ResponseWriter, req *http.Reques
 		writeError(w, http.StatusBadRequest, "tenant_required")
 		return
 	}
-	var payload link.ValidateRouteRuleInput
+	var payload proxy.ValidateRouteRuleInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return

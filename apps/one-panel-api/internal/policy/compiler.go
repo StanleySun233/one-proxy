@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 )
 
 type GroupScopeEntry struct {
@@ -18,12 +18,12 @@ type Snapshot struct {
 	TenantID   string            `json:"tenantId,omitempty"`
 	Nodes      []domain.Node     `json:"nodes"`
 	Links      []domain.NodeLink `json:"links"`
-	Chains     []link.Chain      `json:"chains"`
-	RouteRules []link.RouteRule  `json:"routeRules"`
+	Chains     []proxy.Chain     `json:"chains"`
+	RouteRules []proxy.RouteRule `json:"routeRules"`
 	Groups     []GroupScopeEntry `json:"groups"`
 }
 
-func CompileForTenant(tenantID string, nodes []domain.Node, links []domain.NodeLink, chains []link.Chain, rules []link.RouteRule, groups []GroupScopeEntry) (string, error) {
+func CompileForTenant(tenantID string, nodes []domain.Node, links []domain.NodeLink, chains []proxy.Chain, rules []proxy.RouteRule, groups []GroupScopeEntry) (string, error) {
 	raw, err := Compile(nodes, links, chains, rules, groups)
 	if err != nil {
 		return "", err
@@ -40,7 +40,7 @@ func CompileForTenant(tenantID string, nodes []domain.Node, links []domain.NodeL
 	return string(payload), nil
 }
 
-func Compile(nodes []domain.Node, links []domain.NodeLink, chains []link.Chain, rules []link.RouteRule, groups []GroupScopeEntry) (string, error) {
+func Compile(nodes []domain.Node, links []domain.NodeLink, chains []proxy.Chain, rules []proxy.RouteRule, groups []GroupScopeEntry) (string, error) {
 	activeNodes := make([]domain.Node, 0, len(nodes))
 	nodeSet := make(map[string]domain.Node, len(nodes))
 	for _, node := range nodes {
@@ -78,7 +78,7 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []link.Chain, 
 			chainSet[chain.ID] = struct{}{}
 		}
 	}
-	compiledRules := make([]link.RouteRule, 0, len(rules))
+	compiledRules := make([]proxy.RouteRule, 0, len(rules))
 	for _, rule := range rules {
 		if !rule.Enabled {
 			continue
@@ -99,14 +99,14 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []link.Chain, 
 		compiledRules = append(compiledRules, rule)
 	}
 	compiledLinks := make([]domain.NodeLink, 0, len(links))
-	for _, link := range links {
-		if _, ok := nodeSet[link.SourceNodeID]; !ok {
+	for _, nodeLink := range links {
+		if _, ok := nodeSet[nodeLink.SourceNodeID]; !ok {
 			continue
 		}
-		if _, ok := nodeSet[link.TargetNodeID]; !ok {
+		if _, ok := nodeSet[nodeLink.TargetNodeID]; !ok {
 			continue
 		}
-		compiledLinks = append(compiledLinks, link)
+		compiledLinks = append(compiledLinks, nodeLink)
 	}
 	payload, err := json.Marshal(Snapshot{
 		Nodes:      activeNodes,
@@ -121,7 +121,7 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []link.Chain, 
 	return string(payload), nil
 }
 
-func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink, chains []link.Chain, rules []link.RouteRule, groups []GroupScopeEntry) (string, error) {
+func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink, chains []proxy.Chain, rules []proxy.RouteRule, groups []GroupScopeEntry) (string, error) {
 	raw, err := Compile(nodes, links, chains, rules, groups)
 	if err != nil {
 		return "", err
@@ -137,7 +137,7 @@ func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink,
 			break
 		}
 	}
-	filteredChains := make([]link.Chain, 0)
+	filteredChains := make([]proxy.Chain, 0)
 	visibleChainIDs := make(map[string]struct{})
 	for _, chain := range snapshot.Chains {
 		include := chain.DestinationScope == currentScope
@@ -154,7 +154,7 @@ func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink,
 			visibleChainIDs[chain.ID] = struct{}{}
 		}
 	}
-	filteredRules := make([]link.RouteRule, 0)
+	filteredRules := make([]proxy.RouteRule, 0)
 	for _, rule := range snapshot.RouteRules {
 		if rule.ActionType == domain.ActionTypeChain {
 			if _, ok := visibleChainIDs[rule.ChainID]; ok {
@@ -167,9 +167,9 @@ func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink,
 		}
 	}
 	filteredLinks := make([]domain.NodeLink, 0)
-	for _, link := range snapshot.Links {
-		if link.SourceNodeID == nodeID || link.TargetNodeID == nodeID {
-			filteredLinks = append(filteredLinks, link)
+	for _, nodeLink := range snapshot.Links {
+		if nodeLink.SourceNodeID == nodeID || nodeLink.TargetNodeID == nodeID {
+			filteredLinks = append(filteredLinks, nodeLink)
 		}
 	}
 	payload, err := json.Marshal(Snapshot{

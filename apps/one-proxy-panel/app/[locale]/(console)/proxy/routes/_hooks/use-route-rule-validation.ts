@@ -29,7 +29,7 @@ export function useRouteRuleValidation({accessToken, activeTenantId, formValues}
     inFlightValidationKeyRef.current = validationKey;
     setValidationPending(true);
     try {
-      const result = await validateRouteRule(accessToken, payload);
+      const result = await validateRouteRule(accessToken, activeTenantId, payload);
       if (inFlightValidationKeyRef.current === validationKey) {
         setValidationResult(result);
       }
@@ -44,7 +44,7 @@ export function useRouteRuleValidation({accessToken, activeTenantId, formValues}
         setValidationPending(false);
       }
     }
-  }, [accessToken]);
+  }, [accessToken, activeTenantId]);
 
   useEffect(() => {
     const payload = routeRuleValidationPayload(formValues);

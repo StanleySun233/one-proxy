@@ -1,8 +1,8 @@
-package linkhttpapi
+package proxyhttpapi
 
 import (
 	"encoding/json"
-	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/link/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/domain"
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/httpctx"
 	"net/http"
 	"strings"
@@ -23,7 +23,7 @@ func (r *Router) handleChains(w http.ResponseWriter, req *http.Request) {
 			writeSuccess(w, http.StatusOK, r.service.Chains(tenantCtx))
 		}
 	case http.MethodPost:
-		var payload link.CreateChainInput
+		var payload proxy.CreateChainInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
@@ -44,7 +44,7 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 		r.handleChainProbe(w, req)
 		return
 	}
-	chainID := resourceID(req.URL.Path, "/api/v1/chains/")
+	chainID := resourceID(req.URL.Path, "/api/v1/proxy/")
 	if chainID == "" {
 		writeError(w, http.StatusBadRequest, "missing_chain_id")
 		return
@@ -63,7 +63,7 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 		}
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodPatch:
-		var payload link.UpdateChainInput
+		var payload proxy.UpdateChainInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
@@ -86,7 +86,7 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleChainProbe(w http.ResponseWriter, req *http.Request) {
-	chainID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/chains/"), "/probe")
+	chainID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/proxy/"), "/probe")
 	chainID = strings.TrimSuffix(chainID, "/")
 	if chainID == "" {
 		writeError(w, http.StatusBadRequest, "missing_chain_id")
@@ -127,7 +127,7 @@ func (r *Router) handleChainValidate(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusBadRequest, "tenant_required")
 		return
 	}
-	var payload link.ValidateChainInput
+	var payload proxy.ValidateChainInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
@@ -150,7 +150,7 @@ func (r *Router) handleChainPreview(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusBadRequest, "tenant_required")
 		return
 	}
-	var payload link.PreviewChainInput
+	var payload proxy.PreviewChainInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return

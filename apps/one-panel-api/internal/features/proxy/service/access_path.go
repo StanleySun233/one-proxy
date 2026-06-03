@@ -1,4 +1,4 @@
-package linkservice
+package proxyservice
 
 import (
 	"net/http"

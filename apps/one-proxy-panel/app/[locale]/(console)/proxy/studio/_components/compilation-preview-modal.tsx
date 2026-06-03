@@ -13,7 +13,7 @@ type CompilationPreviewModalProps = {
 
 export function CompilationPreviewModal({config, onClose}: CompilationPreviewModalProps) {
   const t = useTranslations();
-  const chainsT = useTranslations('chains');
+  const chainsT = useTranslations('proxyChains');
   const handleCopy = () => {
     navigator.clipboard.writeText(JSON.stringify(config, null, 2)).then(
       () => toast.success(chainsT('copiedConfig')),

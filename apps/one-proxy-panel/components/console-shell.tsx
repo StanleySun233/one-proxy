@@ -14,7 +14,7 @@ import {
 import {useLocale, useTranslations} from 'next-intl';
 import {useTheme} from 'next-themes';
 import {MouseEvent, ReactNode, useEffect, useState} from 'react';
-import {useQuery} from '@tanstack/react-query';
+import {useQuery, useQueryClient} from '@tanstack/react-query';
 
 import {useAuth} from '@/components/auth-provider';
 import {CapsuleSelect, CapsuleSelectGroup} from '@/components/common/capsule-select';
@@ -28,6 +28,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const router = useRouter();
   const {resolvedTheme, setTheme} = useTheme();
   const {session, tenantMemberships, activeTenant, switchTenant, logout} = useAuth();
+  const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
   const activeTenantId = session?.activeTenantId || null;
   const tenantOptions = tenantMemberships.map((membership) => ({
@@ -39,7 +40,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
 
   const pendingQuery = useQuery({
     queryKey: ['pending-nodes', accessToken, activeTenantId],
-    queryFn: () => getPendingNodes(accessToken),
+    queryFn: () => getPendingNodes(accessToken, activeTenantId),
     enabled: !!accessToken && (!!activeTenantId || tenantMemberships.length === 0),
     refetchInterval: 30000
   });
@@ -135,6 +136,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const handleTenantChange = (value: string) => {
     if (value) {
       switchTenant(value);
+      queryClient.clear();
     }
   };
 

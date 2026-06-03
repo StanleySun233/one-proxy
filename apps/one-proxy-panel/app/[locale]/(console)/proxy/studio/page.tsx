@@ -18,7 +18,7 @@ import {formatControlPlaneError} from '@/lib/presentation';
 import {ChainEditor} from './_components/chain-editor';
 import {CompilationPreviewModal} from './_components/compilation-preview-modal';
 
-function probeReasonLabel(reason: string, chainsT: ReturnType<typeof useTranslations<'chains'>>) {
+function probeReasonLabel(reason: string, chainsT: ReturnType<typeof useTranslations<'proxyChains'>>) {
   if (!reason) {
     return '';
   }
@@ -30,7 +30,7 @@ function probeReasonLabel(reason: string, chainsT: ReturnType<typeof useTranslat
 
 export default function ChainsPage() {
   const t = useTranslations();
-  const chainsT = useTranslations('chains');
+  const chainsT = useTranslations('proxyChains');
   const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
@@ -52,28 +52,28 @@ export default function ChainsPage() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const chainsQuery = useQuery({
-    queryKey: ['chains', accessToken, activeTenantId],
-    queryFn: () => getChains(accessToken),
+    queryKey: ['proxy-chains', accessToken, activeTenantId],
+    queryFn: () => getChains(accessToken, activeTenantId),
     enabled: !!accessToken
   });
 
   const nodesQuery = useQuery({
     queryKey: ['nodes', accessToken, activeTenantId],
-    queryFn: () => getNodes(accessToken),
+    queryFn: () => getNodes(accessToken, activeTenantId),
     enabled: !!accessToken
   });
 
   const scopesQuery = useQuery({
-    queryKey: ['chains-scopes', accessToken, activeTenantId],
-    queryFn: () => getScopes(accessToken),
+    queryKey: ['proxy-scopes', accessToken, activeTenantId],
+    queryFn: () => getScopes(accessToken, activeTenantId),
     enabled: !!accessToken
   });
 
   const createChainMutation = useMutation({
-    mutationFn: (payload: {name: string; destinationScope: string; hops: string[]}) => createChain(accessToken, payload),
+    mutationFn: (payload: {name: string; destinationScope: string; hops: string[]}) => createChain(accessToken, activeTenantId, payload),
     onSuccess: () => {
       toast.success(chainsT('createSuccess'));
-      queryClient.invalidateQueries({queryKey: ['chains']});
+      queryClient.invalidateQueries({queryKey: ['proxy-chains']});
       handleCloseEditor();
     },
     onError: (error) => {
@@ -83,7 +83,7 @@ export default function ChainsPage() {
 
   const updateChainMutation = useMutation({
     mutationFn: (payload: {chainID: string; name: string; destinationScope: string; hops: string[]; enabled: boolean}) =>
-      updateChain(accessToken, payload.chainID, {
+      updateChain(accessToken, activeTenantId, payload.chainID, {
         name: payload.name,
         destinationScope: payload.destinationScope,
         hops: payload.hops,
@@ -91,7 +91,7 @@ export default function ChainsPage() {
       }),
     onSuccess: () => {
       toast.success(chainsT('updateSuccess'));
-      queryClient.invalidateQueries({queryKey: ['chains']});
+      queryClient.invalidateQueries({queryKey: ['proxy-chains']});
       handleCloseEditor();
     },
     onError: (error) => {
@@ -100,7 +100,7 @@ export default function ChainsPage() {
   });
 
   const probeChainMutation = useMutation({
-    mutationFn: (chainID: string) => probeChain(accessToken, chainID),
+    mutationFn: (chainID: string) => probeChain(accessToken, activeTenantId, chainID),
     onSuccess: (result) => {
       toast.success(result.status === 'connected' ? chainsT('probeReady') : chainsT('probeBlocked'));
       setProbeResults((current) => ({...current, [result.chainId]: result}));
@@ -111,7 +111,7 @@ export default function ChainsPage() {
   });
 
   const previewMutation = useMutation({
-    mutationFn: (payload: {name: string; destinationScope: string; hops: string[]}) => previewChain(accessToken, payload),
+    mutationFn: (payload: {name: string; destinationScope: string; hops: string[]}) => previewChain(accessToken, activeTenantId, payload),
     onSuccess: (result: ChainPreviewResult) => {
       setPreviewConfig(result.compiledConfig);
       setPreviewOpen(true);
@@ -305,6 +305,7 @@ export default function ChainsPage() {
         >
             <ChainEditor
               accessToken={accessToken}
+              activeTenantId={activeTenantId}
               chainName={chainName}
               destinationScope={destinationScope}
               hops={hops}

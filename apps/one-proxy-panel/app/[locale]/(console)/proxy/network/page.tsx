@@ -18,14 +18,14 @@ export default function ChainAccessPathsPage() {
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
 
   const chainsQuery = useQuery({
-    queryKey: ['chains', accessToken, activeTenantId],
-    queryFn: () => getChains(accessToken),
+    queryKey: ['proxy-chains', accessToken, activeTenantId],
+    queryFn: () => getChains(accessToken, activeTenantId),
     enabled: !!accessToken
   });
 
   const nodesQuery = useQuery({
     queryKey: ['nodes', accessToken, activeTenantId],
-    queryFn: () => getNodes(accessToken),
+    queryFn: () => getNodes(accessToken, activeTenantId),
     enabled: !!accessToken
   });
 
