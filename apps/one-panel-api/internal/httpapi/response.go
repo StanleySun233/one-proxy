@@ -127,7 +127,7 @@ func requiresTenantContext(req *http.Request) bool {
 	if req.URL.Path == "/api/v1/tenants" && (req.Method == http.MethodGet || req.Method == http.MethodPost) {
 		return false
 	}
-	return strings.HasPrefix(req.URL.Path, "/api/v1/")
+	return strings.HasPrefix(req.URL.Path, "/api/v1/") || strings.HasPrefix(req.URL.Path, "/api/audit/")
 }
 
 func allowsSuperAdminTenantBypass(req *http.Request) bool {
