@@ -1,7 +1,7 @@
-FROM node:22-bookworm-slim AS web-builder
+FROM node:26.2.0-bookworm-slim AS web-builder
 WORKDIR /workspace/apps/one-proxy-panel
-COPY apps/one-proxy-panel/package.json ./
-RUN npm install
+COPY apps/one-proxy-panel/package.json apps/one-proxy-panel/package-lock.json ./
+RUN npm ci
 COPY apps/one-proxy-panel ./
 RUN npm run build
 
@@ -13,7 +13,7 @@ COPY apps/one-panel-api ./
 RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/one-proxy-panel ./cmd/one-proxy-panel
 
-FROM node:22-bookworm-slim
+FROM node:26.2.0-bookworm-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production

@@ -225,7 +225,6 @@ apps/one-proxy-node/tmp/
 apps/one-proxy-node/runtime/*.json
 apps/one-proxy-panel/.next/
 apps/one-proxy-panel/node_modules/
-apps/one-proxy-panel/package-lock.json
 !apps/one-proxy-panel/lib/
 !apps/one-proxy-panel/lib/*.ts
 
