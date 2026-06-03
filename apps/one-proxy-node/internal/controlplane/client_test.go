@@ -44,3 +44,24 @@ func TestReportProxySessionsPostsNodeAgentMetrics(t *testing.T) {
 		t.Fatalf("received = %+v", received)
 	}
 }
+
+func TestValidateNodeAuthUsesNodeAgentEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/api/v1/node-agent/auth/validate" {
+			t.Fatalf("path = %q", req.URL.Path)
+		}
+		if req.Header.Get("Authorization") != "Bearer child-token" {
+			t.Fatalf("authorization = %q", req.Header.Get("Authorization"))
+		}
+		_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"nodeId":"child-node"}}`))
+	}))
+	defer server.Close()
+
+	result, err := New(server.URL, "child-token").ValidateNodeAuth()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.NodeID != "child-node" {
+		t.Fatalf("nodeID = %q", result.NodeID)
+	}
+}

@@ -60,6 +60,7 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/v1/nodes/health", r.requireAccount(r.handleNodeHealth))
 	r.mux.HandleFunc("/api/v1/nodes/health/history", r.requireAccount(r.handleNodeHealthHistory))
 	r.mux.HandleFunc("/api/v1/node-agent/policy", r.requireNode(r.handleNodeAgentPolicy))
+	r.mux.HandleFunc("/api/v1/node-agent/auth/validate", r.requireNode(r.handleNodeAgentAuthValidate))
 	r.mux.HandleFunc("/api/v1/node-agent/heartbeat", r.requireNode(r.handleNodeAgentHeartbeat))
 	r.mux.HandleFunc("/api/v1/node-agent/cert/renew", r.requireNode(r.handleNodeAgentCertRenew))
 	r.mux.HandleFunc("/api/v1/node-agent/transports", r.requireNode(r.handleNodeAgentTransport))

@@ -34,8 +34,8 @@ func NewServer(manager *runtime.Manager, registry *Registry) http.Handler {
 			return
 		}
 		validator := controlplane.New(current.ControlPlaneURL, token)
-		policy, err := validator.FetchPolicy()
-		if err != nil || policy.NodeID == "" {
+		auth, err := validator.ValidateNodeAuth()
+		if err != nil || auth.NodeID == "" {
 			http.Error(w, "invalid_child_node_token", http.StatusUnauthorized)
 			return
 		}
@@ -44,8 +44,8 @@ func NewServer(manager *runtime.Manager, registry *Registry) http.Handler {
 			return
 		}
 		defer conn.Close()
-		session := registry.Add(policy.NodeID, conn)
-		defer registry.Remove(policy.NodeID, session)
+		session := registry.Add(auth.NodeID, conn)
+		defer registry.Remove(auth.NodeID, session)
 		_ = conn.SetReadDeadline(time.Now().Add(45 * time.Second))
 		conn.SetPongHandler(func(string) error {
 			return conn.SetReadDeadline(time.Now().Add(45 * time.Second))
@@ -68,7 +68,7 @@ func NewServer(manager *runtime.Manager, registry *Registry) http.Handler {
 				session.writeMu.Lock()
 				_ = conn.WriteJSON(Message{
 					Type:      "heartbeat_ack",
-					NodeID:    policy.NodeID,
+					NodeID:    auth.NodeID,
 					ParentID:  current.NodeID,
 					Timestamp: time.Now().UTC().Format(time.RFC3339),
 					Status:    "connected",
@@ -76,11 +76,11 @@ func NewServer(manager *runtime.Manager, registry *Registry) http.Handler {
 				session.writeMu.Unlock()
 			}
 			if message.Type == "register" {
-				log.Printf("node tunnel child_connected childNodeID=%s parentNodeID=%s", policy.NodeID, current.NodeID)
+				log.Printf("node tunnel child_connected childNodeID=%s parentNodeID=%s", auth.NodeID, current.NodeID)
 				session.writeMu.Lock()
 				_ = conn.WriteJSON(Message{
 					Type:      "register_ack",
-					NodeID:    policy.NodeID,
+					NodeID:    auth.NodeID,
 					ParentID:  current.NodeID,
 					Timestamp: time.Now().UTC().Format(time.RFC3339),
 					Status:    "connected",

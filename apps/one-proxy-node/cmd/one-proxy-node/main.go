@@ -139,6 +139,7 @@ func main() {
 		mux.Handle("/api/v1/nodes/enroll", forwarder)
 		mux.Handle("/api/v1/nodes/exchange", forwarder)
 		mux.Handle("/api/v1/node-agent/policy", forwarder)
+		mux.Handle("/api/v1/node-agent/auth/validate", forwarder)
 		mux.Handle("/api/v1/node-agent/heartbeat", forwarder)
 		mux.Handle("/api/v1/node-agent/cert/renew", forwarder)
 		mux.Handle("/api/v1/node-agent/transports", forwarder)

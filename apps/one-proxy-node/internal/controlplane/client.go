@@ -31,6 +31,10 @@ type ProxyTokenValidation struct {
 	AllowLocalProxy bool   `json:"allowLocalProxy"`
 }
 
+type NodeAuthValidation struct {
+	NodeID string `json:"nodeId"`
+}
+
 func New(baseURL string, token string) *Client {
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
@@ -71,6 +75,19 @@ func (c *Client) FetchPolicy() (domain.NodeAgentPolicy, error) {
 	var envelope responseEnvelope[domain.NodeAgentPolicy]
 	if err := c.do(req, &envelope); err != nil {
 		return domain.NodeAgentPolicy{}, err
+	}
+	return envelope.Data, nil
+}
+
+func (c *Client) ValidateNodeAuth() (NodeAuthValidation, error) {
+	req, err := http.NewRequest(http.MethodGet, c.baseURL+"/api/v1/node-agent/auth/validate", nil)
+	if err != nil {
+		return NodeAuthValidation{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	var envelope responseEnvelope[NodeAuthValidation]
+	if err := c.do(req, &envelope); err != nil {
+		return NodeAuthValidation{}, err
 	}
 	return envelope.Data, nil
 }
