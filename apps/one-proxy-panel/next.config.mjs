@@ -7,8 +7,18 @@ export default withNextIntl({
   async redirects() {
     return [
       {
+        source: '/:locale(zh|en)/chains',
+        destination: '/:locale/chains/network',
+        permanent: false
+      },
+      {
         source: '/:locale(zh|en)/chains/access-paths',
         destination: '/:locale/chains/network',
+        permanent: false
+      },
+      {
+        source: '/chains',
+        destination: '/chains/network',
         permanent: false
       },
       {
