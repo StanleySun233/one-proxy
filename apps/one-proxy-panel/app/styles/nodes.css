@@ -131,21 +131,6 @@
   gap: 14px;
 }
 
-.registry-toolbar {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(180px, 0.4fr));
-  align-items: end;
-}
-
-.registry-filter {
-  min-width: 0;
-}
-
-.registry-filter-short {
-  max-width: 240px;
-}
-
 .registry-table td {
   line-height: 1.45;
 }
@@ -232,7 +217,6 @@
 
 @media (max-width: 880px) {
   .forms-grid,
-  .registry-toolbar,
   .node-mode-picker {
     grid-template-columns: 1fr;
   }

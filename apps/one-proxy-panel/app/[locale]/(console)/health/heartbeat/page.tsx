@@ -8,6 +8,7 @@ import ReactECharts from 'echarts-for-react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {ConsoleFilterBar, ConsoleFilterItem} from '@/components/console-template';
 import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
@@ -25,7 +26,13 @@ export default function HeartbeatPage() {
   const {session} = useAuth();
   const accessToken = session?.accessToken || '';
 
-  const [query, setQuery] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
+  const [idFilter, setIdFilter] = useState('');
+  const [modeFilter, setModeFilter] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('');
+  const [policyFilter, setPolicyFilter] = useState('');
+  const [listenerFilter, setListenerFilter] = useState('');
+  const [certificateFilter, setCertificateFilter] = useState('');
   const [healthFilter, setHealthFilter] = useState('all');
   const [parentFilter, setParentFilter] = useState('all');
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
@@ -69,7 +76,6 @@ export default function HeartbeatPage() {
   }, [nodes, nodesByID]);
 
   const filteredHealth = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
     return healthRows.filter((item) => {
       if (healthFilter !== 'all' && item.derivedStatus !== healthFilter) {
         return false;
@@ -77,15 +83,15 @@ export default function HeartbeatPage() {
       if (parentFilter !== 'all' && item.parentNodeId !== parentFilter) {
         return false;
       }
-      if (!normalized) {
-        return true;
-      }
-      return [item.nodeId, item.name, item.mode, item.scopeKey, item.policyRevisionId, item.listenerSummary, item.certSummary]
-        .join(' ')
-        .toLowerCase()
-        .includes(normalized);
+      return (!nameFilter.trim() || item.name.toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
+        (!idFilter.trim() || item.nodeId.toLowerCase().includes(idFilter.trim().toLowerCase())) &&
+        (!modeFilter.trim() || item.mode.toLowerCase().includes(modeFilter.trim().toLowerCase())) &&
+        (!scopeFilter.trim() || item.scopeKey.toLowerCase().includes(scopeFilter.trim().toLowerCase())) &&
+        (!policyFilter.trim() || item.policyRevisionId.toLowerCase().includes(policyFilter.trim().toLowerCase())) &&
+        (!listenerFilter.trim() || item.listenerSummary.toLowerCase().includes(listenerFilter.trim().toLowerCase())) &&
+        (!certificateFilter.trim() || item.certSummary.toLowerCase().includes(certificateFilter.trim().toLowerCase()));
     });
-  }, [healthFilter, healthRows, parentFilter, query]);
+  }, [certificateFilter, healthFilter, healthRows, idFilter, listenerFilter, modeFilter, nameFilter, parentFilter, policyFilter, scopeFilter]);
 
   const handleToggleExpand = useCallback((nodeId: string) => {
     setExpandedNodeId((prev) => (prev === nodeId ? null : nodeId));
@@ -120,9 +126,8 @@ export default function HeartbeatPage() {
             <AsyncState detail={healthT('emptyNodeHealthDetail')} title={healthT('emptyNodeHealth')} />
           ) : (
             <div className="registry-stack">
-              <div className="registry-toolbar">
-                <label className="field-stack registry-filter registry-filter-short">
-                  <span>{healthT('parentNode')}</span>
+              <ConsoleFilterBar title={common('filter')}>
+                <ConsoleFilterItem label={healthT('parentNode')} match={common('equals')}>
                   <select className="field-select" onChange={(event) => setParentFilter(event.target.value)} value={parentFilter}>
                     <option value="all">{healthT('allNodes')}</option>
                     {parentNodeOptions.map((opt) => (
@@ -131,27 +136,43 @@ export default function HeartbeatPage() {
                       </option>
                     ))}
                   </select>
-                </label>
-                <label className="field-stack registry-filter">
-                  <span>{common('search')}</span>
+                </ConsoleFilterItem>
+                <ConsoleFilterItem label={common('name')} match={common('contains')}>
                   <input
                     className="field-input"
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder={healthT('heartbeatSearchPlaceholder')}
+                    onChange={(event) => setNameFilter(event.target.value)}
+                    placeholder={common('name')}
                     type="search"
-                    value={query}
+                    value={nameFilter}
                   />
-                </label>
-                <label className="field-stack registry-filter registry-filter-short">
-                  <span>{healthT('derivedState')}</span>
+                </ConsoleFilterItem>
+                <ConsoleFilterItem label={common('id')} match={common('contains')}>
+                  <input className="field-input" onChange={(event) => setIdFilter(event.target.value)} placeholder={common('id')} value={idFilter} />
+                </ConsoleFilterItem>
+                <ConsoleFilterItem label={healthT('derivedState')} match={common('equals')}>
                   <select className="field-select" onChange={(event) => setHealthFilter(event.target.value)} value={healthFilter}>
                     <option value="all">{healthT('allStates')}</option>
                     {enums?.node_status && Object.entries(enums.node_status).map(([value, entry]) => (
                       <option key={value} value={value}>{entry.name}</option>
                     ))}
                   </select>
-                </label>
-              </div>
+                </ConsoleFilterItem>
+                <ConsoleFilterItem label={common('mode')} match={common('contains')}>
+                  <input className="field-input" onChange={(event) => setModeFilter(event.target.value)} placeholder={common('mode')} value={modeFilter} />
+                </ConsoleFilterItem>
+                <ConsoleFilterItem label={common('scope')} match={common('contains')}>
+                  <input className="field-input" onChange={(event) => setScopeFilter(event.target.value)} placeholder={common('scope')} value={scopeFilter} />
+                </ConsoleFilterItem>
+                <ConsoleFilterItem label={common('policy')} match={common('contains')}>
+                  <input className="field-input" onChange={(event) => setPolicyFilter(event.target.value)} placeholder={common('policy')} value={policyFilter} />
+                </ConsoleFilterItem>
+                <ConsoleFilterItem label={healthT('listeners')} match={common('contains')}>
+                  <input className="field-input" onChange={(event) => setListenerFilter(event.target.value)} placeholder={healthT('listeners')} value={listenerFilter} />
+                </ConsoleFilterItem>
+                <ConsoleFilterItem label={healthT('certificates')} match={common('contains')}>
+                  <input className="field-input" onChange={(event) => setCertificateFilter(event.target.value)} placeholder={healthT('certificates')} value={certificateFilter} />
+                </ConsoleFilterItem>
+              </ConsoleFilterBar>
               {filteredEmpty ? (
                 <AsyncState detail={healthT('noMatchingHealthDetail')} title={healthT('noMatchingHealth')} />
               ) : (

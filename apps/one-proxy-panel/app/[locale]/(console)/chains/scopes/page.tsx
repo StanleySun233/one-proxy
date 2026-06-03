@@ -35,7 +35,9 @@ export default function ScopesPage() {
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
   const [editingScope, setEditingScope] = useState<Scope | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [idFilter, setIdFilter] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
+  const [descriptionFilter, setDescriptionFilter] = useState('');
   const [formState, setFormState] = useState<ScopeFormState>(emptyForm);
 
   const scopesQuery = useQuery({
@@ -120,14 +122,12 @@ export default function ScopesPage() {
 
   const scopes = scopesQuery.data || [];
   const filteredScopes = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    if (!keyword) {
-      return scopes;
-    }
     return scopes.filter((scope) =>
-      [scope.id, scope.name, scope.description].some((value) => String(value || '').toLowerCase().includes(keyword))
+      (!idFilter.trim() || scope.id.toLowerCase().includes(idFilter.trim().toLowerCase())) &&
+      (!nameFilter.trim() || scope.name.toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
+      (!descriptionFilter.trim() || String(scope.description || '').toLowerCase().includes(descriptionFilter.trim().toLowerCase()))
     );
-  }, [scopes, search]);
+  }, [descriptionFilter, idFilter, nameFilter, scopes]);
   const saving = createScopeMutation.isPending || updateScopeMutation.isPending;
   const modalOpen = createOpen || Boolean(editingScope);
 
@@ -142,13 +142,19 @@ export default function ScopesPage() {
         title={t('shell.scopeBoard')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <ConsoleFilterItem label={`${t('common.id')} / ${t('common.name')} / ${scopesT('description')}`} match={t('common.contains')}>
+          <ConsoleFilterItem label={t('common.id')} match={t('common.contains')}>
             <input
               className="field-input"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('common.searchPlaceholder')}
-              value={search}
+              onChange={(event) => setIdFilter(event.target.value)}
+              placeholder={t('common.id')}
+              value={idFilter}
             />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.name')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setNameFilter(event.target.value)} placeholder={t('common.name')} value={nameFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={scopesT('description')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setDescriptionFilter(event.target.value)} placeholder={scopesT('description')} value={descriptionFilter} />
           </ConsoleFilterItem>
         </ConsoleFilterBar>
 

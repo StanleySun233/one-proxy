@@ -8,6 +8,7 @@ import ReactECharts from 'echarts-for-react';
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {useAuth} from '@/components/auth-provider';
+import {ConsoleFilterBar, ConsoleFilterItem} from '@/components/console-template';
 import {PageHero} from '@/components/page-hero';
 import {fetchEnums, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/api';
 import {NodeHealthHistory} from '@/lib/types';
@@ -212,8 +213,9 @@ export default function HealthOverviewPage() {
               <p className="section-kicker">{healthT('trend')}</p>
               <h3>{healthT('healthTrend')}</h3>
             </div>
-            <label className="field-stack registry-filter registry-filter-short">
-              <span>{common('name')}</span>
+          </div>
+          <ConsoleFilterBar title={common('filter')}>
+            <ConsoleFilterItem label={common('name')} match={common('equals')}>
               <select
                 className="field-select"
                 value={selectedNodeId}
@@ -224,8 +226,8 @@ export default function HealthOverviewPage() {
                   <option key={node.id} value={node.id}>{node.name}</option>
                 ))}
               </select>
-            </label>
-          </div>
+            </ConsoleFilterItem>
+          </ConsoleFilterBar>
           {!selectedNodeId ? (
             <div className="trend-summary">
               <div className="trend-summary-grid">

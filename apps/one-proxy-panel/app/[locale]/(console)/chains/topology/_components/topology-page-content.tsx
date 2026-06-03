@@ -25,32 +25,40 @@ export function NodeTopologyPageContent() {
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingLinkID, setEditingLinkID] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [targetFilter, setTargetFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [trustFilter, setTrustFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [addressFilter, setAddressFilter] = useState('');
   const editingLink = links.find((link) => link.id === editingLinkID) || null;
   const transportTypeKeys = Object.keys(enums?.transport_type || {});
   const LINK_TYPE_RELAY = Object.keys(enums?.link_type || {}).find(k => k === 'relay') || 'relay';
   const TRUST_STATE_TRUSTED = Object.keys(enums?.trust_state || {}).find(k => k === 'trusted') || 'trusted';
   const REVERSE_WS_PARENT = transportTypeKeys.find(k => k === 'reverse_ws_parent') || 'reverse_ws_parent';
   const filteredLinks = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    if (!keyword) {
-      return links;
-    }
-    return links.filter((link) =>
-      [link.id, link.sourceNodeId, link.targetNodeId, link.linkType, link.trustState, describeNodeName(link.sourceNodeId, nodesByID), describeNodeName(link.targetNodeId, nodesByID)]
-        .some((value) => String(value || '').toLowerCase().includes(keyword))
-    );
-  }, [links, nodesByID, search]);
+    return links.filter((link) => {
+      const transportReady = transports.some((transport) =>
+        transport.nodeId === link.targetNodeId &&
+        transport.parentNodeId === link.sourceNodeId &&
+        transport.transportType === REVERSE_WS_PARENT
+      );
+      return (!sourceFilter.trim() || [link.sourceNodeId, describeNodeName(link.sourceNodeId, nodesByID)].some((value) => String(value).toLowerCase().includes(sourceFilter.trim().toLowerCase()))) &&
+        (!targetFilter.trim() || [link.targetNodeId, describeNodeName(link.targetNodeId, nodesByID)].some((value) => String(value).toLowerCase().includes(targetFilter.trim().toLowerCase()))) &&
+        (!typeFilter.trim() || link.linkType.toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
+        (!trustFilter.trim() || link.trustState.toLowerCase().includes(trustFilter.trim().toLowerCase())) &&
+        (!statusFilter || (statusFilter === 'connected' ? transportReady : !transportReady));
+    });
+  }, [links, nodesByID, REVERSE_WS_PARENT, sourceFilter, statusFilter, targetFilter, transports, trustFilter, typeFilter]);
   const filteredTransports = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    if (!keyword) {
-      return transports;
-    }
     return transports.filter((transport) =>
-      [transport.id, transport.nodeId, transport.transportType, transport.direction, transport.status, transport.address, transport.parentNodeId, describeNodeName(transport.nodeId, nodesByID)]
-        .some((value) => String(value || '').toLowerCase().includes(keyword))
+      (!targetFilter.trim() || [transport.nodeId, describeNodeName(transport.nodeId, nodesByID)].some((value) => String(value).toLowerCase().includes(targetFilter.trim().toLowerCase()))) &&
+      (!sourceFilter.trim() || [transport.parentNodeId, describeNodeName(transport.parentNodeId, nodesByID)].some((value) => String(value).toLowerCase().includes(sourceFilter.trim().toLowerCase()))) &&
+      (!typeFilter.trim() || transport.transportType.toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
+      (!statusFilter || transport.status === statusFilter) &&
+      (!addressFilter.trim() || transport.address.toLowerCase().includes(addressFilter.trim().toLowerCase()))
     );
-  }, [nodesByID, search, transports]);
+  }, [addressFilter, nodesByID, sourceFilter, statusFilter, targetFilter, transports, typeFilter]);
   const modalOpen = createOpen || Boolean(editingLink);
   const closeModal = () => {
     setCreateOpen(false);
@@ -68,8 +76,27 @@ export function NodeTopologyPageContent() {
         title={t('shell.nodeTopology')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <ConsoleFilterItem label={`${t('common.source')} / ${t('common.target')} / ${t('common.type')} / ${nodesT('trustState')}`} match={t('common.contains')}>
-            <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
+          <ConsoleFilterItem label={t('common.source')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setSourceFilter(event.target.value)} placeholder={t('common.source')} value={sourceFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.target')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setTargetFilter(event.target.value)} placeholder={t('common.target')} value={targetFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.type')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setTypeFilter(event.target.value)} placeholder={t('common.type')} value={typeFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={nodesT('trustState')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setTrustFilter(event.target.value)} placeholder={nodesT('trustState')} value={trustFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.status')} match={t('common.equals')}>
+            <select className="field-select" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
+              <option value="">{t('common.all')}</option>
+              <option value="connected">{nodesT('reverseTunnelsUp')}</option>
+              <option value="blocked">{nodesT('reverseTunnelsBlocked')}</option>
+            </select>
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={nodesT('address')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setAddressFilter(event.target.value)} placeholder={nodesT('address')} value={addressFilter} />
           </ConsoleFilterItem>
         </ConsoleFilterBar>
 
@@ -162,7 +189,7 @@ export function NodeTopologyPageContent() {
               title={nodesT('failedTransport')}
             />
           ) : filteredTransports.length === 0 ? (
-            <AsyncState detail={search ? t('common.noMatching') : nodesT('noRuntimeTransports')} title={t('common.empty')} />
+            <AsyncState detail={sourceFilter || targetFilter || typeFilter || statusFilter || addressFilter ? t('common.noMatching') : nodesT('noRuntimeTransports')} title={t('common.empty')} />
           ) : (
             <div className="table-card">
               <table className="data-table">

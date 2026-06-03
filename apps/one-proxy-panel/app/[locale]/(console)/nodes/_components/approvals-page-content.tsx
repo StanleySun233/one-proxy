@@ -17,7 +17,10 @@ export function NodeApprovalsPageContent() {
   const t = useTranslations();
   const nodesT = useTranslations('nodesConsole');
   const nodeConsole = useNodeConsole();
-  const [search, setSearch] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [targetFilter, setTargetFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const pendingNodes = nodeConsole.pendingNodesQuery.data || [];
   const unconsumedTokens = nodeConsole.unconsumedTokensQuery.data || [];
   const allItems: Array<{kind: 'pending'; data: Node} | {kind: 'unconsumed'; data: UnconsumedBootstrapToken}> = [
@@ -26,22 +29,37 @@ export function NodeApprovalsPageContent() {
   ];
   const combinedCount = allItems.length;
   const filteredItems = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    if (!keyword) {
-      return allItems;
-    }
     return allItems.filter((item) => {
-      const data = item.data;
-      return Object.values(data).some((value) => String(value || '').toLowerCase().includes(keyword));
+      if (item.kind === 'pending') {
+        const node = item.data;
+        return (!nameFilter.trim() || String(node.name || '').toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
+          (!typeFilter.trim() || node.mode.toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
+          (!targetFilter.trim() || node.id.toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
+          (!statusFilter.trim() || node.status.toLowerCase().includes(statusFilter.trim().toLowerCase()));
+      }
+      const token = item.data;
+      return (!nameFilter.trim() || String(token.nodeName || '').toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
+        (!typeFilter.trim() || nodesT('unconnected').toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
+        (!targetFilter.trim() || String(token.targetId || '').toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
+        (!statusFilter.trim() || t('common.unused').toLowerCase().includes(statusFilter.trim().toLowerCase()));
     });
-  }, [allItems, search]);
+  }, [allItems, nameFilter, nodesT, statusFilter, t, targetFilter, typeFilter]);
 
   return (
     <AuthGate>
       <ConsolePage title={t('shell.nodeApprovals')}>
         <ConsoleFilterBar title={t('common.filter')}>
-          <ConsoleFilterItem label={`${t('common.name')} / ${t('common.type')} / ${t('common.target')} / ${t('common.status')}`} match={t('common.contains')}>
-            <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
+          <ConsoleFilterItem label={t('common.name')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setNameFilter(event.target.value)} placeholder={t('common.name')} value={nameFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.type')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setTypeFilter(event.target.value)} placeholder={t('common.type')} value={typeFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.target')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setTargetFilter(event.target.value)} placeholder={t('common.target')} value={targetFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.status')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setStatusFilter(event.target.value)} placeholder={t('common.status')} value={statusFilter} />
           </ConsoleFilterItem>
         </ConsoleFilterBar>
 

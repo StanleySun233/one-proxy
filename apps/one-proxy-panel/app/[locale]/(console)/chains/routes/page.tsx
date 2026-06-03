@@ -45,7 +45,9 @@ export default function RoutesPage() {
   const [regexTesterOpen, setRegexTesterOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [matchFilter, setMatchFilter] = useState('');
+  const [chainFilter, setChainFilter] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const formValues = form.watch();
@@ -133,9 +135,14 @@ export default function RoutesPage() {
   const chains = chainsQuery.data || [];
   const scopes = scopesQuery.data || [];
   const filteredRouteRules = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
     return routeRules.filter((rule) => {
       if (actionFilter && rule.actionType !== actionFilter) {
+        return false;
+      }
+      if (chainFilter && rule.chainId !== chainFilter) {
+        return false;
+      }
+      if (scopeFilter && rule.destinationScope !== scopeFilter) {
         return false;
       }
       if (statusFilter === 'enabled' && !rule.enabled) {
@@ -144,13 +151,14 @@ export default function RoutesPage() {
       if (statusFilter === 'disabled' && rule.enabled) {
         return false;
       }
-      if (!keyword) {
+      if (!matchFilter.trim()) {
         return true;
       }
-      return [rule.id, rule.matchType, rule.matchValue, rule.actionType, rule.chainId, rule.destinationScope]
+      const keyword = matchFilter.trim().toLowerCase();
+      return [rule.id, rule.matchType, rule.matchValue]
         .some((value) => String(value || '').toLowerCase().includes(keyword));
     });
-  }, [actionFilter, routeRules, search, statusFilter]);
+  }, [actionFilter, chainFilter, matchFilter, routeRules, scopeFilter, statusFilter]);
 
   const selectedChain = chains.find((c) => c.id === selectedChainId);
   const matchValuePlaceholder = matchType === 'default' ? '*' : routesT('matchValuePlaceholder', {type: matchType || routesT('value')});
@@ -216,13 +224,25 @@ export default function RoutesPage() {
         title={t('shell.routeBoard')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <ConsoleFilterItem label={`${routesT('match')} / ${routesT('chain')} / ${routesT('scope')}`} match={t('common.contains')}>
-            <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
+          <ConsoleFilterItem label={routesT('match')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setMatchFilter(event.target.value)} placeholder={routesT('match')} value={matchFilter} />
           </ConsoleFilterItem>
           <ConsoleFilterItem label={routesT('actionType')} match={t('common.equals')}>
             <select className="field-select" onChange={(event) => setActionFilter(event.target.value)} value={actionFilter}>
               <option value="">{t('common.all')}</option>
               {actionTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={routesT('chain')} match={t('common.equals')}>
+            <select className="field-select" onChange={(event) => setChainFilter(event.target.value)} value={chainFilter}>
+              <option value="">{t('common.all')}</option>
+              {chains.map((chain) => <option key={chain.id} value={chain.id}>{chain.name}</option>)}
+            </select>
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={routesT('scope')} match={t('common.equals')}>
+            <select className="field-select" onChange={(event) => setScopeFilter(event.target.value)} value={scopeFilter}>
+              <option value="">{t('common.all')}</option>
+              {scopes.map((scope) => <option key={scope.id} value={scope.id}>{scope.name}</option>)}
             </select>
           </ConsoleFilterItem>
           <ConsoleFilterItem label={routesT('status')} match={t('common.equals')}>

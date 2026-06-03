@@ -21,7 +21,11 @@ export function NodeRegistryPageContent() {
   const nodes = nodeConsole.nodesQuery.data || [];
   const scopes = nodeConsole.scopesQuery.data || [];
   const healthRows = nodeConsole.healthQuery.data || [];
-  const [query, setQuery] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
+  const [idFilter, setIdFilter] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('');
+  const [parentFilter, setParentFilter] = useState('');
+  const [publicEndpointFilter, setPublicEndpointFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [modeFilter, setModeFilter] = useState('all');
   const [editingNodeID, setEditingNodeID] = useState('');
@@ -57,21 +61,16 @@ export function NodeRegistryPageContent() {
       }),
     [healthByNodeID, nodes, enums]
   );
-  const normalizedQuery = query.trim().toLowerCase();
   const filteredNodes = nodeRows.filter((node) => {
-    const matchesQuery =
-      normalizedQuery.length === 0 ||
-      node.name.toLowerCase().includes(normalizedQuery) ||
-      node.id.toLowerCase().includes(normalizedQuery) ||
-      node.scopeKey.toLowerCase().includes(normalizedQuery) ||
-      node.parentNodeId.toLowerCase().includes(normalizedQuery) ||
-      node.publicHost?.toLowerCase().includes(normalizedQuery) ||
-      node.derivedHealthLabel.toLowerCase().includes(normalizedQuery) ||
-      node.policyRevisionId.toLowerCase().includes(normalizedQuery);
+    const matchesName = !nameFilter.trim() || node.name.toLowerCase().includes(nameFilter.trim().toLowerCase());
+    const matchesId = !idFilter.trim() || node.id.toLowerCase().includes(idFilter.trim().toLowerCase());
+    const matchesScope = !scopeFilter.trim() || node.scopeKey.toLowerCase().includes(scopeFilter.trim().toLowerCase());
+    const matchesParent = !parentFilter.trim() || node.parentNodeId.toLowerCase().includes(parentFilter.trim().toLowerCase());
+    const matchesPublicEndpoint = !publicEndpointFilter.trim() || `${node.publicHost || ''}:${node.publicPort || ''}`.toLowerCase().includes(publicEndpointFilter.trim().toLowerCase());
     const matchesStatus = statusFilter === 'all' || node.derivedHealthStatus === statusFilter;
     const matchesMode = modeFilter === 'all' || node.mode === modeFilter;
 
-    return matchesQuery && matchesStatus && matchesMode;
+    return matchesName && matchesId && matchesScope && matchesParent && matchesPublicEndpoint && matchesStatus && matchesMode;
   });
   const availableModes = Array.from(new Set(nodes.map((node) => node.mode))).sort();
   const editingNode = nodes.find((node) => node.id === editingNodeID) || null;
@@ -136,14 +135,26 @@ export function NodeRegistryPageContent() {
     <AuthGate>
       <ConsolePage title={t('shell.nodeRegistry')}>
         <ConsoleFilterBar title={t('common.filter')}>
-          <ConsoleFilterItem label={`${t('common.name')} / ${t('common.id')} / ${t('common.scope')} / ${t('common.parent')} / ${nodesT('publicEndpoint')}`} match={t('common.contains')}>
+          <ConsoleFilterItem label={t('common.name')} match={t('common.contains')}>
             <input
               className="field-input"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={nodesT('registrySearchPlaceholder')}
+              onChange={(event) => setNameFilter(event.target.value)}
+              placeholder={t('common.name')}
               type="search"
-              value={query}
+              value={nameFilter}
             />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.id')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setIdFilter(event.target.value)} placeholder={t('common.id')} value={idFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.scope')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setScopeFilter(event.target.value)} placeholder={t('common.scope')} value={scopeFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.parent')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setParentFilter(event.target.value)} placeholder={t('common.parent')} value={parentFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={nodesT('publicEndpoint')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setPublicEndpointFilter(event.target.value)} placeholder={nodesT('publicEndpoint')} value={publicEndpointFilter} />
           </ConsoleFilterItem>
           <ConsoleFilterItem label={t('common.status')} match={t('common.equals')}>
             <select className="field-select" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>

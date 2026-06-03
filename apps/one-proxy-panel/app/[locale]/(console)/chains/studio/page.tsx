@@ -45,7 +45,11 @@ export default function ChainsPage() {
   const [probeResults, setProbeResults] = useState<Record<string, ChainProbeResult>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<CompiledChainConfig | null>(null);
-  const [search, setSearch] = useState('');
+  const [idFilter, setIdFilter] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
+  const [destinationScopeFilter, setDestinationScopeFilter] = useState('');
+  const [hopsFilter, setHopsFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   const chainsQuery = useQuery({
     queryKey: ['chains', accessToken, activeTenantId],
@@ -170,15 +174,14 @@ export default function ChainsPage() {
   const nodes = nodesQuery.data || [];
   const scopes = scopesQuery.data || [];
   const filteredChains = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    if (!keyword) {
-      return chains;
-    }
     return chains.filter((chain) =>
-      [chain.id, chain.name, chain.destinationScope, chain.hops.join(' ')]
-        .some((value) => String(value || '').toLowerCase().includes(keyword))
+      (!idFilter.trim() || chain.id.toLowerCase().includes(idFilter.trim().toLowerCase())) &&
+      (!nameFilter.trim() || chain.name.toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
+      (!destinationScopeFilter.trim() || chain.destinationScope.toLowerCase().includes(destinationScopeFilter.trim().toLowerCase())) &&
+      (!hopsFilter.trim() || chain.hops.join(' ').toLowerCase().includes(hopsFilter.trim().toLowerCase())) &&
+      (!statusFilter || (statusFilter === 'enabled' ? chain.enabled : !chain.enabled))
     );
-  }, [chains, search]);
+  }, [chains, destinationScopeFilter, hopsFilter, idFilter, nameFilter, statusFilter]);
 
   return (
     <AuthGate>
@@ -191,8 +194,24 @@ export default function ChainsPage() {
         title={t('shell.chainStudio')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <ConsoleFilterItem label={`${t('common.name')} / ${chainsT('destinationScope')} / ${chainsT('hops')}`} match={t('common.contains')}>
-            <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
+          <ConsoleFilterItem label={t('common.id')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setIdFilter(event.target.value)} placeholder={t('common.id')} value={idFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.name')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setNameFilter(event.target.value)} placeholder={t('common.name')} value={nameFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={chainsT('hops')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setHopsFilter(event.target.value)} placeholder={chainsT('hops')} value={hopsFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={chainsT('destinationScope')} match={t('common.contains')}>
+            <input className="field-input" onChange={(event) => setDestinationScopeFilter(event.target.value)} placeholder={chainsT('destinationScope')} value={destinationScopeFilter} />
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.status')} match={t('common.equals')}>
+            <select className="field-select" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
+              <option value="">{t('common.all')}</option>
+              <option value="enabled">{t('common.enabled')}</option>
+              <option value="disabled">{t('common.disabled')}</option>
+            </select>
           </ConsoleFilterItem>
         </ConsoleFilterBar>
 

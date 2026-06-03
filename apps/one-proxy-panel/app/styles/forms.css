@@ -44,9 +44,9 @@
 
 .console-filter-bar {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px 12px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -54,10 +54,12 @@
 }
 
 .console-filter-title {
-  min-width: 92px;
-  height: 42px;
-  display: inline-flex;
+  grid-column: 1 / -1;
+  min-height: 26px;
+  display: flex;
   align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
   color: var(--text);
   font-size: 13px;
   font-weight: 700;
@@ -66,13 +68,13 @@
 .console-filter-fields {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px 12px;
   min-width: 0;
 }
 
 .console-filter-item {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -100,6 +102,7 @@
 
 .console-filter-actions {
   display: flex;
+  align-self: end;
   justify-content: flex-end;
   gap: 8px;
 }
