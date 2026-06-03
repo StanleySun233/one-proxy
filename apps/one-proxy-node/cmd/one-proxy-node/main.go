@@ -109,10 +109,7 @@ func main() {
 	proxyAuth := proxy.AuthConfig{CacheTTL: parseDurationOrDefault(cfg.NodeProxyTokenCacheTTL, 24*time.Hour)}
 	if manager.Bound() {
 		current := manager.Current()
-		proxyAuth.Validator = proxyTokenValidator(
-			agentconfig.FirstNonEmpty(cfg.NodeProxyTokenControlPlaneURL, current.ControlPlaneURL),
-			current.NodeAccessToken,
-		)
+		proxyAuth.Validator = proxyTokenValidator(current.ControlPlaneURL, current.NodeAccessToken)
 	}
 	proxyAuthorizer := proxy.NewTokenAuthorizer(proxyAuth)
 	proxyHandler, err := proxy.NewServerWithAuthorizer(store, manager.NodeID, tunnelRegistry, cfg.NodeReverseTargetURL, proxy.AuthConfig{
@@ -177,7 +174,7 @@ func main() {
 			log.Fatal(httpsServer.ListenAndServeTLS("", ""))
 		}()
 	}
-	tunnelController := tunnel.NewController(manager, tunnelRegistry, cfg.NodeParentTunnelURL, cfg.NodeTunnelPath, tunnelInterval)
+	tunnelController := tunnel.NewController(manager, tunnelRegistry, cfg.NodeTunnelPath, tunnelInterval)
 	go tunnelController.Run()
 	startDirectManager(cfg, manager, directRegistry)
 	go manager.Run()

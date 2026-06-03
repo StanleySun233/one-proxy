@@ -4,7 +4,6 @@ import "os"
 
 type Config struct {
 	ControlPlaneURL               string
-	NodeParentURL                 string
 	NodeBootstrapToken            string
 	NodeAccessToken               string
 	EnrollmentSecret              string
@@ -17,9 +16,7 @@ type Config struct {
 	NodeJoinPassword              string
 	NodeJoinPasswordProvided      bool
 	NodeReverseTargetURL          string
-	NodeProxyTokenControlPlaneURL string
 	NodeProxyTokenCacheTTL        string
-	NodeParentTunnelURL           string
 	NodeTunnelPath                string
 	NodeTunnelHeartbeat           string
 	NodeDirectListenAddr          string
@@ -41,14 +38,8 @@ func Load() Config {
 	joinPassword, joinPasswordProvided := lookupEnvOrDefault("NODE_JOIN_PASSWORD", "password")
 	parentID := envOrDefault("NODE_PARENT_ID", "")
 	parentURL := envOrDefault("NODE_PARENT_URL", "")
-	controlPlaneURL := resolveControlPlaneURL(envOrDefault("CONTROL_PLANE_URL", ""), parentURL)
-	proxyTokenControlPlaneURL := envOrDefault("NODE_PROXY_TOKEN_CONTROL_PLANE_URL", "")
-	if controlPlaneURL == parentURL && parentURL != "" {
-		proxyTokenControlPlaneURL = parentURL
-	}
 	return Config{
-		ControlPlaneURL:               controlPlaneURL,
-		NodeParentURL:                 parentURL,
+		ControlPlaneURL:               parentURL,
 		NodeBootstrapToken:            envOrDefault("NODE_BOOTSTRAP_TOKEN", ""),
 		NodeAccessToken:               envOrDefault("NODE_ACCESS_TOKEN", ""),
 		EnrollmentSecret:              envOrDefault("NODE_ENROLLMENT_SECRET", ""),
@@ -61,9 +52,7 @@ func Load() Config {
 		NodeJoinPassword:              joinPassword,
 		NodeJoinPasswordProvided:      joinPasswordProvided,
 		NodeReverseTargetURL:          envOrDefault("NODE_REVERSE_TARGET_URL", ""),
-		NodeProxyTokenControlPlaneURL: proxyTokenControlPlaneURL,
 		NodeProxyTokenCacheTTL:        envOrDefault("NODE_PROXY_TOKEN_CACHE_TTL", "24h"),
-		NodeParentTunnelURL:           FirstNonEmpty(envOrDefault("NODE_PARENT_TUNNEL_URL", ""), parentURL),
 		NodeTunnelPath:                envOrDefault("NODE_TUNNEL_PATH", "/api/v1/node-tunnel/connect"),
 		NodeTunnelHeartbeat:           envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),
 		NodeDirectListenAddr:          envOrDefault("NODE_DIRECT_LISTEN_ADDR", ""),
@@ -80,13 +69,6 @@ func Load() Config {
 		LetsEncryptEmail:              envOrDefault("LETSENCRYPT_EMAIL", ""),
 		LetsEncryptCacheDir:           envOrDefault("LETSENCRYPT_CACHE_DIR", "runtime/autocert"),
 	}
-}
-
-func resolveControlPlaneURL(panelURL string, parentURL string) string {
-	if parentURL != "" {
-		return parentURL
-	}
-	return FirstNonEmpty(panelURL, parentURL)
 }
 
 func FirstNonEmpty(values ...string) string {

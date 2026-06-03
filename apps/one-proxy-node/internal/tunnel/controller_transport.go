@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/controlplane"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
@@ -20,15 +19,10 @@ func (c *Controller) writeMessage(conn *websocket.Conn, message Message) error {
 }
 
 func (c *Controller) websocketURL(current runtime.Binding, parentNodeID string) (string, error) {
-	parentTunnelURL := c.parentTunnelURL
-	if parentTunnelURL == "" && current.NodeParentID != "" {
-		parentTunnelURL = current.ControlPlaneURL
-	}
-	parentTunnelURL = strings.TrimRight(parentTunnelURL, "/")
-	if parentTunnelURL == "" {
+	if current.ControlPlaneURL == "" {
 		return "", errors.New("missing_parent_tunnel_url")
 	}
-	base, err := url.Parse(parentTunnelURL)
+	base, err := url.Parse(current.ControlPlaneURL)
 	if err != nil {
 		return "", err
 	}

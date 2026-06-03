@@ -2,7 +2,6 @@ package tunnel
 
 import (
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 type Controller struct {
 	manager           *runtime.Manager
 	registry          *Registry
-	parentTunnelURL   string
 	tunnelPath        string
 	heartbeatInterval time.Duration
 	writeMu           sync.Mutex
@@ -20,11 +18,10 @@ type Controller struct {
 	streams           map[string]net.Conn
 }
 
-func NewController(manager *runtime.Manager, registry *Registry, parentTunnelURL string, tunnelPath string, heartbeatInterval time.Duration) *Controller {
+func NewController(manager *runtime.Manager, registry *Registry, tunnelPath string, heartbeatInterval time.Duration) *Controller {
 	return &Controller{
 		manager:           manager,
 		registry:          registry,
-		parentTunnelURL:   strings.TrimRight(parentTunnelURL, "/"),
 		tunnelPath:        tunnelPath,
 		heartbeatInterval: heartbeatInterval,
 		streams:           make(map[string]net.Conn),

@@ -20,10 +20,4 @@ func TestLoadUsesParentURLAsNodeBootstrapEndpoint(t *testing.T) {
 	if cfg.ControlPlaneURL != "http://parent:2988" {
 		t.Fatalf("ControlPlaneURL = %q", cfg.ControlPlaneURL)
 	}
-	if cfg.NodeProxyTokenControlPlaneURL != "http://parent:2988" {
-		t.Fatalf("NodeProxyTokenControlPlaneURL = %q", cfg.NodeProxyTokenControlPlaneURL)
-	}
-	if cfg.NodeParentTunnelURL != "http://parent:2988" {
-		t.Fatalf("NodeParentTunnelURL = %q", cfg.NodeParentTunnelURL)
-	}
 }
