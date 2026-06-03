@@ -127,7 +127,12 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", proxyHandler)
 	httpHandler := proxyAwareHandler(proxyHandler, mux)
-	mux.Handle("/api/v1/control-relay/probe", controlrelay.NewProbeHandler(tunnelRegistry))
+	mux.Handle("/api/v1/control-relay/probe", controlrelay.NewProbeHandler(tunnelRegistry, func() string {
+		if !manager.Bound() {
+			return ""
+		}
+		return manager.Current().NodeID
+	}))
 	mux.Handle("/api/v1/node/bootstrap/attach", bootstrap.New(cfg.ListenAddr, cfg.HTTPSListenAddr, manager))
 	mux.Handle(cfg.NodeTunnelPath, tunnel.NewServer(manager, tunnelRegistry))
 	if manager.Bound() {

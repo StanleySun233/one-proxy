@@ -116,7 +116,7 @@
     const timing = (payload.linkTimings || []).find(function (item) {
       return item && item.fromNodeId === fromNodeId && item.toNodeId === toNodeId;
     });
-    return timing ? Number(timing.rttMs || 0) : 0;
+    return timing ? Number(timing.roundTripMs || 0) : 0;
   }
 
   function edgeLatency(payload, previous, node) {
@@ -125,7 +125,7 @@
 
   function pathConnector(payload, previous, node, className) {
     const connector = el('div', className || 'opsb-path-link');
-    connector.append(el('span', 'opsb-hop-latency', formatLatency(edgeLatency(payload, previous, node))));
+    connector.append(el('span', 'opsb-hop-latency', `${label('statusBubbleRoundTrip')} ${formatLatency(edgeLatency(payload, previous, node))}`));
     connector.append(el('span', 'opsb-hop-segment'));
     return connector;
   }

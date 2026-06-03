@@ -340,6 +340,9 @@
   "statusBubbleWebsite": {
     "message": "Website"
   },
+  "statusBubbleRoundTrip": {
+    "message": "RTT"
+  },
   "statusBubbleRefresh": {
     "message": "Refresh"
   },

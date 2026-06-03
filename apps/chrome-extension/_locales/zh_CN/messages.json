@@ -340,6 +340,9 @@
   "statusBubbleWebsite": {
     "message": "网页"
   },
+  "statusBubbleRoundTrip": {
+    "message": "RTT"
+  },
   "statusBubbleRefresh": {
     "message": "刷新"
   },

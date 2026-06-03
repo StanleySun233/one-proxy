@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -48,14 +49,15 @@ func (r *Registry) HasChild(nodeID string) bool {
 	return ok
 }
 
-func (r *Registry) ForwardProbe(nextNodeID string, requestID string, remaining []string, protocol string, targetHost string, targetPort int) (Message, error) {
+func (r *Registry) ForwardProbe(fromNodeID string, nextNodeID string, requestID string, remaining []string, protocol string, targetHost string, targetPort int) (Message, error) {
 	r.mu.RLock()
 	session, ok := r.sessions[nextNodeID]
 	r.mu.RUnlock()
 	if !ok {
 		return Message{}, errors.New("child_tunnel_not_found")
 	}
-	return session.request(Message{
+	started := time.Now()
+	response, err := session.request(Message{
 		Type:                "probe_request",
 		RequestID:           requestID,
 		RemainingHopNodeIDs: remaining,
@@ -63,6 +65,18 @@ func (r *Registry) ForwardProbe(nextNodeID string, requestID string, remaining [
 		TargetHost:          targetHost,
 		TargetPort:          targetPort,
 	})
+	if err != nil {
+		return Message{}, err
+	}
+	ended := time.Now().UTC()
+	response.PathTimings = append([]PathTiming{{
+		FromNodeID:  fromNodeID,
+		ToNodeID:    nextNodeID,
+		RoundTripMs: ended.Sub(started).Milliseconds(),
+		SampleTSMs:  ended.UnixMilli(),
+		Count:       1,
+	}}, response.PathTimings...)
+	return response, nil
 }
 
 func (r *Registry) OpenStream(nextNodeID string, remaining []string, targetHost string, targetPort int) (net.Conn, error) {

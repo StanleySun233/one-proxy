@@ -9,7 +9,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/tunnel"
 )
 
-func NewProbeHandler(registry *tunnel.Registry) http.HandlerFunc {
+func NewProbeHandler(registry *tunnel.Registry, nodeIDGetter func() string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -20,21 +20,21 @@ func NewProbeHandler(registry *tunnel.Registry) http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		result, statusCode := runProbe(payload, registry)
+		result, statusCode := runProbe(payload, registry, nodeIDGetter)
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(statusCode)
 		_ = json.NewEncoder(w).Encode(result)
 	}
 }
 
-func runProbe(payload ProbeRequest, registry *tunnel.Registry) (ProbeResponse, int) {
+func runProbe(payload ProbeRequest, registry *tunnel.Registry, nodeIDGetter func() string) (ProbeResponse, int) {
 	if len(payload.RemainingHopNodeIDs) > 0 {
 		next := payload.RemainingHopNodeIDs[0]
-		response, err := registry.ForwardProbe(next, time.Now().UTC().Format(time.RFC3339Nano), payload.RemainingHopNodeIDs[1:], payload.Protocol, payload.TargetHost, payload.TargetPort)
+		response, err := registry.ForwardProbe(currentNodeID(nodeIDGetter), next, time.Now().UTC().Format(time.RFC3339Nano), payload.RemainingHopNodeIDs[1:], payload.Protocol, payload.TargetHost, payload.TargetPort)
 		if err != nil {
 			return ProbeResponse{Status: "failed", Message: "relay_unreachable"}, http.StatusBadGateway
 		}
-		return ProbeResponse{Status: response.Status, Message: response.Message}, http.StatusOK
+		return ProbeResponse{Status: response.Status, Message: response.Message, PathTimings: response.PathTimings}, http.StatusOK
 	}
 	if payload.TargetHost == "" || payload.TargetPort <= 0 {
 		return ProbeResponse{Status: "connected", Message: "chain_reachable"}, http.StatusOK
@@ -53,14 +53,32 @@ func runProbe(payload ProbeRequest, registry *tunnel.Registry) (ProbeResponse, i
 		}
 		return result, http.StatusOK
 	}
-	return probeTarget(payload)
+	return probeTarget(currentNodeID(nodeIDGetter), payload)
 }
 
-func probeTarget(payload ProbeRequest) (ProbeResponse, int) {
+func currentNodeID(nodeIDGetter func() string) string {
+	if nodeIDGetter == nil {
+		return ""
+	}
+	return nodeIDGetter()
+}
+
+func probeTarget(nodeID string, payload ProbeRequest) (ProbeResponse, int) {
 	result := probe.Run(payload.Protocol, payload.TargetHost, payload.TargetPort)
 	statusCode := http.StatusOK
 	if result.Status == "failed" {
 		statusCode = http.StatusBadGateway
 	}
-	return ProbeResponse{Status: result.Status, Message: result.Message}, statusCode
+	response := ProbeResponse{Status: result.Status, Message: result.Message}
+	if nodeID != "" && payload.TargetHost != "" {
+		now := time.Now().UTC()
+		response.PathTimings = []tunnel.PathTiming{{
+			FromNodeID:  nodeID,
+			ToNodeID:    payload.TargetHost,
+			RoundTripMs: result.LatencyMs,
+			SampleTSMs:  now.UnixMilli(),
+			Count:       1,
+		}}
+	}
+	return response, statusCode
 }

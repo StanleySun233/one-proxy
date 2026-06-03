@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/tunnel"
 )
 
 type ProbeRequest struct {
@@ -18,8 +20,9 @@ type ProbeRequest struct {
 }
 
 type ProbeResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
+	Status      string              `json:"status"`
+	Message     string              `json:"message"`
+	PathTimings []tunnel.PathTiming `json:"pathTimings,omitempty"`
 }
 
 func Execute(relayURL string, payload ProbeRequest) (ProbeResponse, error) {

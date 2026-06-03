@@ -1045,11 +1045,14 @@ const STATUS_BUBBLE_LABELS = [
   'statusBubbleTopology',
   'statusBubbleUserMachine',
   'statusBubbleWebsite',
+  'statusBubbleRoundTrip',
   'statusBubbleRefresh',
   'statusBubbleCopy',
   'statusBubbleCopied',
   'statusBubbleUnknown'
 ];
+const PATH_HEALTH_TTL_MS = 60000;
+const pathHealthCache = new Map();
 
 function tenantFrom(state) {
   const membership = state.session.tenantMemberships.find((item) => item.tenantId === state.session.activeTenantId);
@@ -1087,12 +1090,78 @@ function measureEntryLatency(group) {
     });
 }
 
+function pathHealthKey(group, route) {
+  const topologyIds = (route.topology || []).map((node) => node.id).filter(Boolean).join('>');
+  return [
+    group.id || '',
+    group.proxyHost || '',
+    group.proxyPort || '',
+    topologyIds,
+    route.protocol || '',
+    route.host || '',
+    route.port || ''
+  ].join('|');
+}
+
 function entryNodeId(route) {
   const first = route.topology && route.topology[0];
   if (!first || !first.id) {
     throw new Error('status_bubble_entry_node_required');
   }
   return first.id;
+}
+
+function requestNodePathHealth(group, route) {
+  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/v1/control-relay/probe`;
+  const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
+  return fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      protocol: route.protocol,
+      remainingHopNodeIds,
+      targetHost: route.host,
+      targetPort: route.port
+    })
+  }).then((response) => response.json()
+    .then((body) => {
+      if (!response.ok) {
+        throw new Error((body && body.message) || `path_health_failed:${response.status}`);
+      }
+      if (!body || !Array.isArray(body.pathTimings)) {
+        throw new Error('path_health_timings_required');
+      }
+      return body.pathTimings;
+    }));
+}
+
+function measurePathHealth(group, route) {
+  const key = pathHealthKey(group, route);
+  const cached = pathHealthCache.get(key);
+  const now = Date.now();
+  if (cached && now - cached.sampleTsMs < PATH_HEALTH_TTL_MS) {
+    return Promise.resolve(cached);
+  }
+  return Promise.all([
+    measureEntryLatency(group),
+    requestNodePathHealth(group, route)
+  ]).then(([entryLatencyMs, nodeTimings]) => {
+    const result = {
+      sampleTsMs: Date.now(),
+      linkTimings: [
+        {
+          fromNodeId: 'user',
+          toNodeId: entryNodeId(route),
+          roundTripMs: entryLatencyMs,
+          sampleTsMs: Date.now(),
+          count: 1
+        },
+        ...nodeTimings
+      ]
+    };
+    pathHealthCache.set(key, result);
+    return result;
+  });
 }
 
 function colorFor(status, latencyMs, routeMode) {
@@ -1180,8 +1249,8 @@ function getStatusBubblePageStatus(message, sender) {
       }
       return Promise.all([
         requestRemoteStatus(state, route, routeInfo),
-        measureEntryLatency(group)
-      ]).then(([remoteStatus, entryLatencyMs]) => {
+        measurePathHealth(group, route)
+      ]).then(([remoteStatus, pathHealth]) => {
         if (!remoteStatus) {
           throw new Error('status_bubble_page_status_required');
         }
@@ -1209,17 +1278,8 @@ function getStatusBubblePageStatus(message, sender) {
           latencyMs,
           topology: route.topology || [],
           labels: labels(),
-          nodeTimings: Array.isArray(status.nodeTimings) ? status.nodeTimings : [],
-          linkTimings: [
-            {
-              fromNodeId: 'user',
-              toNodeId: entryNodeId(route),
-              rttMs: entryLatencyMs,
-              sampleTsMs: Date.now(),
-              count: 1
-            },
-            ...(Array.isArray(status.linkTimings) ? status.linkTimings : [])
-          ],
+          nodeTimings: [],
+          linkTimings: pathHealth.linkTimings,
           policyRevision: status.policyRevision || state.remote.policyRevision || '',
           configFetchedAt: state.remote.fetchedAt || '',
           lastError: {

@@ -11,8 +11,9 @@ import (
 )
 
 type Result struct {
-	Status  string
-	Message string
+	Status    string
+	Message   string
+	LatencyMs int64
 }
 
 func Run(protocol string, host string, port int) Result {
@@ -29,46 +30,50 @@ func Run(protocol string, host string, port int) Result {
 }
 
 func probeHTTP(protocol string, host string, port int) Result {
+	started := time.Now()
 	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(strings.ToLower(protocol) + "://" + host + ":" + strconv.Itoa(port) + "/")
+	resp, err := client.Get(strings.ToLower(protocol) + "://" + host + ":" + strconv.Itoa(port) + "/healthz")
 	if err != nil {
-		return Result{Status: "failed", Message: "target_unreachable"}
+		return Result{Status: "failed", Message: "target_unreachable", LatencyMs: time.Since(started).Milliseconds()}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= http.StatusInternalServerError {
-		return Result{Status: "failed", Message: "target_unhealthy"}
+		return Result{Status: "failed", Message: "target_unhealthy", LatencyMs: time.Since(started).Milliseconds()}
 	}
-	return Result{Status: "connected", Message: "target_reachable"}
+	return Result{Status: "connected", Message: "target_reachable", LatencyMs: time.Since(started).Milliseconds()}
 }
 
 func probeWebSocket(protocol string, host string, port int) Result {
+	started := time.Now()
 	conn, resp, err := websocket.DefaultDialer.Dial(strings.ToLower(protocol)+"://"+host+":"+strconv.Itoa(port)+"/", nil)
 	if err == nil {
 		_ = conn.Close()
-		return Result{Status: "connected", Message: "target_reachable"}
+		return Result{Status: "connected", Message: "target_reachable", LatencyMs: time.Since(started).Milliseconds()}
 	}
 	if resp != nil && resp.StatusCode < http.StatusInternalServerError {
-		return Result{Status: "connected", Message: "target_reachable"}
+		return Result{Status: "connected", Message: "target_reachable", LatencyMs: time.Since(started).Milliseconds()}
 	}
-	return Result{Status: "failed", Message: "target_unreachable"}
+	return Result{Status: "failed", Message: "target_unreachable", LatencyMs: time.Since(started).Milliseconds()}
 }
 
 func probeTCP(host string, port int) Result {
+	started := time.Now()
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), 3*time.Second)
 	if err != nil {
-		return Result{Status: "failed", Message: "target_unreachable"}
+		return Result{Status: "failed", Message: "target_unreachable", LatencyMs: time.Since(started).Milliseconds()}
 	}
 	_ = conn.Close()
-	return Result{Status: "connected", Message: "target_reachable"}
+	return Result{Status: "connected", Message: "target_reachable", LatencyMs: time.Since(started).Milliseconds()}
 }
 
 func probeUDP(host string, port int) Result {
+	started := time.Now()
 	conn, err := net.DialTimeout("udp", net.JoinHostPort(host, strconv.Itoa(port)), 3*time.Second)
 	if err != nil {
-		return Result{Status: "failed", Message: "target_unreachable"}
+		return Result{Status: "failed", Message: "target_unreachable", LatencyMs: time.Since(started).Milliseconds()}
 	}
 	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
 	_, _ = conn.Write([]byte{0})
 	_ = conn.Close()
-	return Result{Status: "connected", Message: "target_packet_sent"}
+	return Result{Status: "connected", Message: "target_packet_sent", LatencyMs: time.Since(started).Milliseconds()}
 }
