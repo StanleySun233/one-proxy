@@ -114,7 +114,12 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
   const queryClient = useQueryClient();
   const [editingPath, setEditingPath] = useState<NodeAccessPath | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
+  const [chainFilter, setChainFilter] = useState('');
+  const [protocolFilter, setProtocolFilter] = useState('');
+  const [targetFilter, setTargetFilter] = useState('');
+  const [listenFilter, setListenFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [formState, setFormState] = useState<AccessPathFormState>(emptyForm);
 
   const pathsQuery = useQuery({
@@ -204,15 +209,15 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
   const selectedChain = chainById.get(formState.chainId);
   const saving = createMutation.isPending || updateMutation.isPending;
   const filteredPaths = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    if (!keyword) {
-      return paths;
-    }
     return paths.filter((path) =>
-      [path.id, path.name, path.chainId, path.protocol, path.serviceType, path.targetHost, path.listenHost]
-        .some((value) => String(value || '').toLowerCase().includes(keyword))
+      (!nameFilter.trim() || path.name.toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
+      (!chainFilter || path.chainId === chainFilter) &&
+      (!protocolFilter || path.protocol === protocolFilter) &&
+      (!targetFilter.trim() || `${path.targetHost}:${path.targetPort}`.toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
+      (!listenFilter.trim() || `${path.listenHost || '*'}:${path.listenPort}`.toLowerCase().includes(listenFilter.trim().toLowerCase())) &&
+      (!statusFilter || (statusFilter === 'enabled' ? path.enabled : !path.enabled))
     );
-  }, [paths, search]);
+  }, [chainFilter, listenFilter, nameFilter, paths, protocolFilter, statusFilter, targetFilter]);
   const modalOpen = createOpen || Boolean(editingPath);
 
   return (
@@ -222,8 +227,33 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
           {accessPathsT('create')}
         </button>
       )}>
-        <ConsoleFilterItem label={`${t('common.name')} / ${accessPathsT('chain')} / ${accessPathsT('protocol')} / ${t('common.target')} / ${accessPathsT('listen')}`} match={t('common.contains')}>
-          <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
+        <ConsoleFilterItem label={t('common.name')} match={t('common.contains')}>
+          <input className="field-input" onChange={(event) => setNameFilter(event.target.value)} placeholder={t('common.name')} value={nameFilter} />
+        </ConsoleFilterItem>
+        <ConsoleFilterItem label={accessPathsT('chain')} match={t('common.equals')}>
+          <select className="field-select" onChange={(event) => setChainFilter(event.target.value)} value={chainFilter}>
+            <option value="">{t('common.all')}</option>
+            {chains.map((chain) => <option key={chain.id} value={chain.id}>{chain.name}</option>)}
+          </select>
+        </ConsoleFilterItem>
+        <ConsoleFilterItem label={accessPathsT('protocol')} match={t('common.equals')}>
+          <select className="field-select" onChange={(event) => setProtocolFilter(event.target.value)} value={protocolFilter}>
+            <option value="">{t('common.all')}</option>
+            {protocolOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </ConsoleFilterItem>
+        <ConsoleFilterItem label={t('common.target')} match={t('common.contains')}>
+          <input className="field-input" onChange={(event) => setTargetFilter(event.target.value)} placeholder={accessPathsT('targetHost')} value={targetFilter} />
+        </ConsoleFilterItem>
+        <ConsoleFilterItem label={accessPathsT('listen')} match={t('common.contains')}>
+          <input className="field-input" onChange={(event) => setListenFilter(event.target.value)} placeholder={accessPathsT('listenHost')} value={listenFilter} />
+        </ConsoleFilterItem>
+        <ConsoleFilterItem label={t('common.status')} match={t('common.equals')}>
+          <select className="field-select" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
+            <option value="">{t('common.all')}</option>
+            <option value="enabled">{t('common.enabled')}</option>
+            <option value="disabled">{t('common.disabled')}</option>
+          </select>
         </ConsoleFilterItem>
       </ConsoleFilterBar>
 

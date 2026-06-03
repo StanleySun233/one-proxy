@@ -149,6 +149,8 @@
 
 .console-page {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: start;
   gap: 18px;
   min-height: calc(100vh - 154px);
   padding: 20px;
@@ -158,6 +160,7 @@
 }
 
 .console-page-head {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -188,6 +191,7 @@
 }
 
 .console-page-body {
+  width: 100%;
   display: grid;
   align-content: start;
   gap: 16px;
