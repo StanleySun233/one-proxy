@@ -172,30 +172,29 @@
 }
 
 #one-proxy-status-root .opsb-topology {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(62px, auto) 18px;
+  column-gap: 4px;
+  row-gap: 2px;
   margin-top: 10px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-#one-proxy-status-root .opsb-topology::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+  overflow: visible;
 }
 
 #one-proxy-status-root .opsb-hop {
-  width: 58px;
-  flex: 0 0 58px;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
   display: grid;
   justify-items: center;
-  gap: 4px;
+  align-content: start;
+  gap: 3px;
+  padding: 0 2px;
 }
 
 #one-proxy-status-root .opsb-hop-icon {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -213,56 +212,73 @@
 }
 
 #one-proxy-status-root .opsb-hop-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   fill: currentColor;
 }
 
 #one-proxy-status-root .opsb-hop-name {
-  width: 58px;
+  max-width: 100%;
   color: #334155;
-  font-size: 10px;
-  line-height: 1.2;
+  font-size: 9px;
+  line-height: 1.15;
   text-align: center;
   overflow-wrap: anywhere;
 }
 
 #one-proxy-status-root .opsb-hop-process {
-  max-width: 58px;
-  padding: 2px 5px;
+  max-width: 100%;
+  padding: 2px 4px;
   border-radius: 999px;
   background: #eef2ff;
   color: #3730a3;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   line-height: 1;
   text-align: center;
   white-space: nowrap;
 }
 
-#one-proxy-status-root .opsb-hop-line {
-  width: 32px;
-  min-height: 30px;
-  flex: 0 0 32px;
-  margin-top: 2px;
-  display: grid;
-  grid-template-rows: 13px 1px;
-  align-items: center;
-  justify-items: center;
+#one-proxy-status-root .opsb-path-edge {
+  position: relative;
+  z-index: 0;
+  min-width: 0;
+  pointer-events: none;
+}
+
+#one-proxy-status-root .opsb-path-edge-horizontal::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 20px;
+  height: 1px;
+  background: #cbd5e1;
+}
+
+#one-proxy-status-root .opsb-path-edge-vertical::after {
+  content: "";
+  position: absolute;
+  top: 34px;
+  bottom: 28px;
+  left: 50%;
+  width: 1px;
+  background: #cbd5e1;
 }
 
 #one-proxy-status-root .opsb-hop-latency {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 3px;
+  border-radius: 999px;
+  background: #ffffff;
   color: #475569;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
-}
-
-#one-proxy-status-root .opsb-hop-segment {
-  width: 100%;
-  height: 1px;
-  background: #cbd5e1;
 }
 
 #one-proxy-status-root .opsb-actions {

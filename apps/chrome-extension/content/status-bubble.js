@@ -3,6 +3,60 @@
   const POSITION_KEY = 'oneProxyStatusBubblePosition';
   const FADE_DELAY_MS = 5000;
   const REFRESH_INTERVAL_MS = 30000;
+  const FALLBACK_MESSAGES = {
+    en: {
+      account: 'Account',
+      activeGroup: 'Active group',
+      policyRevision: 'Policy',
+      syncedAt: 'Synced',
+      tenant: 'Tenant',
+      statusBubbleTitle: 'Proxy status',
+      statusBubbleUpload: 'Upload',
+      statusBubbleDownload: 'Download',
+      statusBubbleLatency: 'Latency',
+      statusBubbleRequests: 'Requests',
+      statusBubbleRoute: 'Route',
+      statusBubbleOpenedAt: 'Opened',
+      statusBubbleRequestMix: 'Proxy / Direct / Failed',
+      statusBubbleCorrelation: 'IO source',
+      statusBubbleCorrelated: 'Node correlated',
+      statusBubbleNotCorrelated: 'Not correlated',
+      statusBubbleLastError: 'Last error',
+      statusBubbleTopology: 'Path',
+      statusBubbleUserMachine: 'User machine',
+      statusBubbleWebsite: 'Website',
+      statusBubbleRefresh: 'Refresh',
+      statusBubbleCopy: 'Copy diagnostics',
+      statusBubbleCopied: 'Copied',
+      statusBubbleUnknown: 'Unknown'
+    },
+    zh: {
+      account: '账号',
+      activeGroup: '当前分组',
+      policyRevision: '策略',
+      syncedAt: '已同步',
+      tenant: '租户',
+      statusBubbleTitle: '代理状态',
+      statusBubbleUpload: '上传',
+      statusBubbleDownload: '下载',
+      statusBubbleLatency: '延迟',
+      statusBubbleRequests: '请求',
+      statusBubbleRoute: '链路',
+      statusBubbleOpenedAt: '打开时间',
+      statusBubbleRequestMix: '代理 / 直连 / 失败',
+      statusBubbleCorrelation: 'IO 来源',
+      statusBubbleCorrelated: '节点关联',
+      statusBubbleNotCorrelated: '未关联',
+      statusBubbleLastError: '最后错误',
+      statusBubbleTopology: '路径',
+      statusBubbleUserMachine: '用户机',
+      statusBubbleWebsite: '网页',
+      statusBubbleRefresh: '刷新',
+      statusBubbleCopy: '复制诊断',
+      statusBubbleCopied: '已复制',
+      statusBubbleUnknown: '未知'
+    }
+  };
   const state = {
     root: null,
     icon: null,
@@ -20,9 +74,14 @@
     const i18n = api && api.i18n;
     const getMessage = i18n && i18n.getMessage;
     if (typeof getMessage !== 'function') {
-      return key;
+      return fallbackMessage(key);
     }
-    return getMessage.call(i18n, key) || key;
+    return getMessage.call(i18n, key) || fallbackMessage(key);
+  }
+
+  function fallbackMessage(key) {
+    const language = String(navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+    return (FALLBACK_MESSAGES[language] && FALLBACK_MESSAGES[language][key]) || FALLBACK_MESSAGES.en[key] || key;
   }
 
   function formatMb(bytes) {
@@ -32,6 +91,21 @@
   function formatLatency(ms) {
     const value = Number(ms || 0);
     return value > 0 ? `${Math.round(value)} ms` : '-';
+  }
+
+  function pad2(value) {
+    return String(value).padStart(2, '0');
+  }
+
+  function formatDateTime(value) {
+    if (!value) {
+      return '-';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '-';
+    }
+    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
   }
 
   function text(value, fallback) {
@@ -105,6 +179,17 @@
     return timing ? Number(timing.rttMs || 0) : 0;
   }
 
+  function topologyPosition(index) {
+    const row = Math.floor(index / 4);
+    const offset = index % 4;
+    const column = row % 2 === 0 ? offset : 3 - offset;
+    return { row, column };
+  }
+
+  function edgeLatency(payload, previous, node) {
+    return linkTiming(payload, previous.id, node.id) || (previous.kind === 'node' && node.kind === 'node' ? payload.latencyMs : 0);
+  }
+
   function renderTopology(payload) {
     const rail = el('div', 'opsb-topology');
     const nodes = [
@@ -113,15 +198,23 @@
       { id: 'website', name: payload.page && payload.page.host ? payload.page.host : t('statusBubbleWebsite'), kind: 'web' }
     ];
     nodes.forEach((node, index) => {
+      const position = topologyPosition(index);
       if (index > 0) {
         const previous = nodes[index - 1];
-        const hopLatency = linkTiming(payload, previous.id, node.id) || (previous.kind === 'node' && node.kind === 'node' ? payload.latencyMs : 0);
-        const connector = el('div', 'opsb-hop-line');
-        connector.append(el('span', 'opsb-hop-latency', formatLatency(hopLatency)));
-        connector.append(el('span', 'opsb-hop-segment'));
+        const previousPosition = topologyPosition(index - 1);
+        const connector = el('div', previousPosition.row === position.row ? 'opsb-path-edge opsb-path-edge-horizontal' : 'opsb-path-edge opsb-path-edge-vertical');
+        connector.style.gridColumn = previousPosition.row === position.row
+          ? `${Math.min(previousPosition.column, position.column) + 1} / ${Math.max(previousPosition.column, position.column) + 2}`
+          : `${previousPosition.column + 1}`;
+        connector.style.gridRow = previousPosition.row === position.row
+          ? `${previousPosition.row * 2 + 1}`
+          : `${previousPosition.row * 2 + 1} / ${position.row * 2 + 2}`;
+        connector.append(el('span', 'opsb-hop-latency', formatLatency(edgeLatency(payload, previous, node))));
         rail.append(connector);
       }
       const item = el('div', 'opsb-hop');
+      item.style.gridColumn = `${position.column + 1}`;
+      item.style.gridRow = `${position.row * 2 + 1}`;
       const icon = el('span', `opsb-hop-icon opsb-hop-${node.kind}`);
       icon.append(svgIcon(node.kind));
       item.append(icon);
@@ -183,8 +276,8 @@
     section.append(row(t('activeGroup'), payload.group && payload.group.name));
     section.append(row(t('statusBubbleRoute'), routeText(payload)));
     section.append(row(t('policyRevision'), payload.policyRevision));
-    section.append(row(t('syncedAt'), payload.configFetchedAt));
-    section.append(row(t('statusBubbleOpenedAt'), page.openedAt ? new Date(page.openedAt).toLocaleTimeString() : '-'));
+    section.append(row(t('syncedAt'), formatDateTime(payload.configFetchedAt)));
+    section.append(row(t('statusBubbleOpenedAt'), formatDateTime(page.openedAt)));
     section.append(row(t('statusBubbleRequestMix'), `${page.proxiedRequestCount || 0} / ${page.directRequestCount || 0} / ${page.failureCount || 0}`));
     section.append(row(t('statusBubbleCorrelation'), io.correlated ? t('statusBubbleCorrelated') : t('statusBubbleNotCorrelated')));
     section.append(row(t('statusBubbleLastError'), payload.lastError && (payload.lastError.code || payload.lastError.message) ? `${payload.lastError.code || ''} ${payload.lastError.message || ''}` : '-'));
@@ -326,6 +419,17 @@
     }
   }
 
+  function refreshPayload(previous, next, force) {
+    if (!force || !previous || !next) {
+      return next;
+    }
+    return {
+      ...next,
+      page: previous.page || next.page,
+      io: previous.io || next.io
+    };
+  }
+
   function refreshStatus(force) {
     chrome.runtime.sendMessage({
       type: 'status-bubble-page-status',
@@ -343,7 +447,7 @@
         });
         return;
       }
-      applyPayload(response);
+      applyPayload(refreshPayload(state.payload, response, Boolean(force)));
     });
   }
 
