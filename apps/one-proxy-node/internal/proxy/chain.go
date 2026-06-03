@@ -7,9 +7,10 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/policystore"
 )
 
-func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot policystore.Snapshot, rule domain.RouteRule) {
+func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot policystore.Snapshot, rule domain.RouteRule, tracker *proxySessionTracker) {
 	hop, ok := s.resolveChainHop(snapshot, rule.ChainID)
 	if !ok {
+		tracker.finish(0, 0, domain.ProxySessionStatusError, "invalid_chain_route", "invalid_chain_route")
 		http.Error(w, "invalid_chain_route", http.StatusBadGateway)
 		return
 	}
@@ -19,10 +20,10 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 			return
 		}
 		if req.Method == http.MethodConnect {
-			s.tunnelDirect(w, req)
+			s.tunnelDirect(w, req, tracker)
 			return
 		}
-		s.forwardDirect(w, req)
+		s.forwardDirect(w, req, tracker)
 		return
 	}
 	if s.shouldUseStream(hop.node) {
@@ -31,25 +32,26 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 			return
 		}
 		if req.Method == http.MethodConnect {
-			s.tunnelViaStream(w, req, hop)
+			s.tunnelViaStream(w, req, hop, tracker)
 			return
 		}
-		s.forwardViaStream(w, req, hop)
+		s.forwardViaStream(w, req, hop, tracker)
 		return
 	}
 	if hop.node.PublicHost == "" || hop.node.PublicPort <= 0 {
+		tracker.finish(0, 0, domain.ProxySessionStatusError, "next_hop_unreachable", "next_hop_unreachable")
 		http.Error(w, "next_hop_unreachable", http.StatusBadGateway)
 		return
 	}
 	if req.Method == http.MethodConnect {
-		s.tunnelViaProxy(w, req, hop.node)
+		s.tunnelViaProxy(w, req, hop.node, tracker)
 		return
 	}
 	if isWebSocketUpgrade(req) {
 		s.upgradeViaProxy(w, req, hop.node)
 		return
 	}
-	s.forwardViaProxy(w, req, hop.node)
+	s.forwardViaProxy(w, req, hop.node, tracker)
 }
 
 func (s *Server) shouldUseStream(nextHop domain.Node) bool {

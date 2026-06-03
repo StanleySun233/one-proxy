@@ -1,14 +1,19 @@
 package proxy
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,9 +29,20 @@ type recordingTokenValidator struct {
 	allowLocalProxy bool
 }
 
+type recordingSessionReporter struct {
+	sessions chan domain.ProxySessionMetric
+}
+
 func (v *recordingTokenValidator) ValidateProxyToken(_ context.Context, tokenHash string) (TokenValidation, error) {
 	v.validations = append(v.validations, tokenHash)
 	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt, AllowLocalProxy: v.allowLocalProxy}, nil
+}
+
+func (r recordingSessionReporter) ReportProxySessions(_ context.Context, input domain.ProxySessionMetricsInput) error {
+	for _, session := range input.Sessions {
+		r.sessions <- session
+	}
+	return nil
 }
 
 func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
@@ -69,6 +85,117 @@ func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
 	}
 	if resp.Body.String() != "ok" {
 		t.Fatalf("body = %q", resp.Body.String())
+	}
+}
+
+func TestForwardDirectReportsProxySessionMetrics(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != "upload" {
+			t.Fatalf("body = %q", body)
+		}
+		_, _ = w.Write([]byte("reply"))
+	}))
+	defer origin.Close()
+
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","tenantId":"tenant-1","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	server.SetProxySessionReporter(reporter)
+
+	req := httptest.NewRequest(http.MethodPost, origin.URL+"/metrics", strings.NewReader("upload"))
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+
+	session := receiveSession(t, reporter.sessions)
+	if session.TenantID != "tenant-1" || session.NodeID != "node-1" || session.RouteID != "default" {
+		t.Fatalf("session identity = %+v", session)
+	}
+	if session.Protocol != domain.ProxySessionProtocolHTTP || session.UploadBytes != 6 || session.DownloadBytes != 5 || session.Status != domain.ProxySessionStatusOK {
+		t.Fatalf("session metrics = %+v", session)
+	}
+}
+
+func TestTunnelDirectReportsProxySessionMetrics(t *testing.T) {
+	target, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer target.Close()
+	go func() {
+		conn, err := target.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		buffer := make([]byte, 4)
+		_, _ = io.ReadFull(conn, buffer)
+		_, _ = conn.Write([]byte("pong"))
+	}()
+
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","tenantId":"tenant-1","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	server.SetProxySessionReporter(reporter)
+	proxyServer := httptest.NewServer(server)
+	defer proxyServer.Close()
+
+	proxyURL, err := url.Parse(proxyServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := net.Dial("tcp", proxyURL.Host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := bufio.NewReader(conn)
+	targetAddr := target.Addr().String()
+	if _, err := fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", targetAddr, targetAddr); err != nil {
+		t.Fatal(err)
+	}
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(line, "200") {
+		t.Fatalf("connect line = %q", line)
+	}
+	for {
+		headerLine, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatal(err)
+		}
+		if headerLine == "\r\n" {
+			break
+		}
+	}
+	if _, err := conn.Write([]byte("ping")); err != nil {
+		t.Fatal(err)
+	}
+	reply := make([]byte, 4)
+	if _, err := io.ReadFull(reader, reply); err != nil {
+		t.Fatal(err)
+	}
+	if string(reply) != "pong" {
+		t.Fatalf("reply = %q", reply)
+	}
+	_ = conn.Close()
+
+	session := receiveSession(t, reporter.sessions)
+	if session.Protocol != domain.ProxySessionProtocolConnect || session.UploadBytes != 4 || session.DownloadBytes != 4 || session.Status != domain.ProxySessionStatusOK {
+		t.Fatalf("session metrics = %+v", session)
 	}
 }
 
@@ -323,4 +450,15 @@ func TestTokenValidationCache(t *testing.T) {
 func sha256Hex(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
+}
+
+func receiveSession(t *testing.T, sessions <-chan domain.ProxySessionMetric) domain.ProxySessionMetric {
+	t.Helper()
+	select {
+	case session := <-sessions:
+		return session
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for proxy session metric")
+	}
+	return domain.ProxySessionMetric{}
 }

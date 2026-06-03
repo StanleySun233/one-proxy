@@ -11,13 +11,14 @@ import (
 )
 
 type Server struct {
-	store          *policystore.Store
-	nodeIDGetter   func() string
-	tunnelRegistry *tunnel.Registry
-	directStream   directPeerStreamOpener
-	reverseTarget  *url.URL
-	auth           AuthConfig
-	authorizer     *TokenAuthorizer
+	store           *policystore.Store
+	nodeIDGetter    func() string
+	tunnelRegistry  *tunnel.Registry
+	directStream    directPeerStreamOpener
+	reverseTarget   *url.URL
+	auth            AuthConfig
+	authorizer      *TokenAuthorizer
+	metricsReporter ProxySessionReporter
 }
 
 type AuthConfig struct {
@@ -93,6 +94,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		match = RouteMatch{Rule: domain.RouteRule{ActionType: domain.ActionTypeDirect}, Found: true}
 	}
+	tracker := s.newProxySession(req, match.Rule, routeTenantID(snapshot, match.Rule))
 	switch match.Rule.ActionType {
 	case domain.ActionTypeDirect:
 		if isWebSocketUpgrade(req) {
@@ -100,13 +102,26 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if req.Method == http.MethodConnect {
-			s.tunnelDirect(w, req)
+			s.tunnelDirect(w, req, tracker)
 			return
 		}
-		s.forwardDirect(w, req)
+		s.forwardDirect(w, req, tracker)
 	case domain.ActionTypeChain:
-		s.forwardChain(w, req, snapshot, match.Rule)
+		s.forwardChain(w, req, snapshot, match.Rule, tracker)
 	default:
+		tracker.finish(0, 0, domain.ProxySessionStatusError, "unsupported_route_action", "unsupported_route_action")
 		http.Error(w, "unsupported_route_action", http.StatusBadRequest)
 	}
+}
+
+func routeTenantID(snapshot policystore.Snapshot, rule domain.RouteRule) string {
+	if rule.TenantID != "" {
+		return rule.TenantID
+	}
+	for _, chain := range snapshot.Chains {
+		if chain.ID == rule.ChainID {
+			return chain.TenantID
+		}
+	}
+	return ""
 }
