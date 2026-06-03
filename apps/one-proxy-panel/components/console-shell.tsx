@@ -4,7 +4,6 @@ import {
   Building2,
   ChevronRight,
   GitBranch,
-  LayoutDashboard,
   Languages,
   ShieldCheck,
   Shirt,
@@ -50,22 +49,16 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     {
       key: 'proxy',
       label: t('nav.proxy'),
-      href: '/proxy/scopes',
+      href: '/proxy/overview',
       icon: GitBranch,
       items: [
-        {label: t('shell.scopeBoard'), href: '/proxy/scopes'},
+        {label: t('nav.overview'), href: '/proxy/overview'},
         {label: t('shell.nodeTopology'), href: '/proxy/topology'},
         {label: t('shell.chainStudio'), href: '/proxy/studio'},
         {label: t('shell.routeBoard'), href: '/proxy/routes'},
-        {label: t('shell.accessPaths'), href: '/proxy/network'}
+        {label: t('shell.accessPaths'), href: '/proxy/network'},
+        {label: t('shell.scopeBoard'), href: '/proxy/scopes'}
       ]
-    },
-    {
-      key: 'overview',
-      label: t('nav.overview'),
-      href: '/',
-      icon: LayoutDashboard,
-      items: [{label: t('shell.summary'), href: '/'}]
     },
     {
       key: 'nodes',
