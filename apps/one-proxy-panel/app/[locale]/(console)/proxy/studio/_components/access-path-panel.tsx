@@ -3,7 +3,7 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {Edit, Trash2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
-import {useMemo, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 
 import {AsyncState} from '@/components/async-state';
@@ -108,7 +108,19 @@ function submitPayload(form: AccessPathFormState, chains: Chain[]): NodeAccessPa
   };
 }
 
-export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {accessToken: string; activeTenantId: string | null; chains: Chain[]; nodes: Node[]}) {
+export function AccessPathPanel({
+  accessToken,
+  activeTenantId,
+  chains,
+  createRequestKey = 0,
+  nodes
+}: {
+  accessToken: string;
+  activeTenantId: string | null;
+  chains: Chain[];
+  createRequestKey?: number;
+  nodes: Node[];
+}) {
   const t = useTranslations();
   const accessPathsT = useTranslations('accessPaths');
   const queryClient = useQueryClient();
@@ -188,6 +200,12 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
     setCreateOpen(true);
   };
 
+  useEffect(() => {
+    if (createRequestKey > 0) {
+      handleOpenCreate();
+    }
+  }, [createRequestKey]);
+
   const handleSubmit = () => {
     const payload = submitPayload(formState, chains);
     if (!payload.chainId || !payload.name || !payload.targetHost || payload.targetPort <= 0) {
@@ -222,11 +240,7 @@ export function AccessPathPanel({accessToken, activeTenantId, chains, nodes}: {a
 
   return (
     <>
-      <ConsoleFilterBar title={t('common.filter')} actions={(
-        <button className="primary-button" onClick={handleOpenCreate} type="button">
-          {accessPathsT('create')}
-        </button>
-      )}>
+      <ConsoleFilterBar title={t('common.filter')}>
         <ConsoleFilterItem label={t('common.name')} match={t('common.contains')}>
           <input className="field-input" onChange={(event) => setNameFilter(event.target.value)} placeholder={t('common.name')} value={nameFilter} />
         </ConsoleFilterItem>
