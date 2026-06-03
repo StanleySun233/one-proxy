@@ -3,6 +3,7 @@ import { applyProxy } from './pac.js';
 import { getState, configureStateEffects, handleStateStorageChange, persistState } from './state.js';
 import { getComputedState, registerMessageHandler } from './messages.js';
 import { runProxyMonitor } from './monitor.js';
+import { registerPageMetrics } from './page-metrics.js';
 import { registerProxyAuthHandler, updateProxyAuthCache } from './proxy-auth.js';
 
 function broadcastState() {
@@ -67,6 +68,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 function bootstrap() {
+  registerPageMetrics();
   registerProxyAuthHandler();
   registerMessageHandler();
   return getState().then((state) => updateProxyAuthCache(state));

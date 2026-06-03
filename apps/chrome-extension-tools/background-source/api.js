@@ -188,6 +188,20 @@ export function syncRemoteConfig(sourceState) {
   });
 }
 
+export function getExtensionPageStatus(state, params) {
+  const query = new URLSearchParams();
+  if (params.host) {
+    query.set('host', params.host);
+  }
+  if (params.routeId) {
+    query.set('routeId', params.routeId);
+  }
+  if (params.chainId) {
+    query.set('chainId', params.chainId);
+  }
+  return apiRequest(state, `/api/v1/proxy/extension/page-status?${query.toString()}`);
+}
+
 export function selectTenant(tenantId) {
   return getState().then((state) => {
     const activeTenantId = String(tenantId || '').trim();

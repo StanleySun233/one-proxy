@@ -747,6 +747,20 @@ function syncRemoteConfig(sourceState) {
   });
 }
 
+function getExtensionPageStatus(state, params) {
+  const query = new URLSearchParams();
+  if (params.host) {
+    query.set('host', params.host);
+  }
+  if (params.routeId) {
+    query.set('routeId', params.routeId);
+  }
+  if (params.chainId) {
+    query.set('chainId', params.chainId);
+  }
+  return apiRequest(state, `/api/v1/proxy/extension/page-status?${query.toString()}`);
+}
+
 function selectTenant(tenantId) {
   return getState().then((state) => {
     const activeTenantId = String(tenantId || '').trim();
@@ -874,6 +888,278 @@ function runNodeProbe(endpoint, payload) {
     .finally(() => clearTimeout(timeout));
 }
 
+const pagesByTab = new Map();
+const requestsById = new Map();
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function pageFor(tabId, url) {
+  const current = pagesByTab.get(tabId);
+  if (current && current.url === url) {
+    return current;
+  }
+  const page = {
+    url,
+    host: hostOf(url),
+    openedAt: nowIso(),
+    requestCount: 0,
+    proxiedRequestCount: 0,
+    directRequestCount: 0,
+    failureCount: 0,
+    uploadBytes: 0,
+    downloadBytes: 0,
+    lastErrorCode: '',
+    lastErrorMessage: ''
+  };
+  pagesByTab.set(tabId, page);
+  return page;
+}
+
+function hostOf(url) {
+  try {
+    return new URL(url).hostname;
+  } catch (_error) {
+    return '';
+  }
+}
+
+function estimateUploadBytes(requestBody) {
+  if (!requestBody) {
+    return 0;
+  }
+  if (Array.isArray(requestBody.raw)) {
+    return requestBody.raw.reduce((total, item) => total + (item.bytes ? item.bytes.byteLength : 0), 0);
+  }
+  if (!requestBody.formData) {
+    return 0;
+  }
+  return Object.entries(requestBody.formData).reduce((total, [key, values]) => {
+    const valueBytes = (values || []).reduce((sum, value) => sum + String(value || '').length, 0);
+    return total + key.length + valueBytes;
+  }, 0);
+}
+
+function contentLength(headers) {
+  const header = (headers || []).find((item) => String(item.name || '').toLowerCase() === 'content-length');
+  const value = header ? Number(header.value) : 0;
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function trackStarted(details) {
+  if (details.tabId < 0 || !details.url) {
+    return;
+  }
+  if (details.type === 'main_frame') {
+    pagesByTab.delete(details.tabId);
+  }
+  const page = pageFor(details.tabId, details.documentUrl || details.initiator || details.url);
+  page.requestCount += 1;
+  const uploadBytes = estimateUploadBytes(details.requestBody);
+  page.uploadBytes += uploadBytes;
+  requestsById.set(details.requestId, { tabId: details.tabId, uploadBytes });
+  getState()
+    .then((state) => {
+      const route = routePreviewForUrl(state, details.url);
+      if (route.mode === 'proxy') {
+        page.proxiedRequestCount += 1;
+      } else {
+        page.directRequestCount += 1;
+      }
+    })
+    .catch(() => {
+      page.directRequestCount += 1;
+    });
+}
+
+function trackHeaders(details) {
+  const tracked = requestsById.get(details.requestId);
+  if (!tracked) {
+    return;
+  }
+  const page = pagesByTab.get(tracked.tabId);
+  if (!page) {
+    return;
+  }
+  page.downloadBytes += contentLength(details.responseHeaders);
+}
+
+function trackFinished(details) {
+  requestsById.delete(details.requestId);
+}
+
+function trackFailed(details) {
+  const tracked = requestsById.get(details.requestId);
+  if (tracked) {
+    const page = pagesByTab.get(tracked.tabId);
+    if (page) {
+      page.failureCount += 1;
+      page.lastErrorCode = details.error || 'request_failed';
+      page.lastErrorMessage = details.error || 'request_failed';
+    }
+  }
+  requestsById.delete(details.requestId);
+}
+
+function tabMetricsSnapshot(sender, url) {
+  const tabId = sender && sender.tab ? sender.tab.id : -1;
+  if (tabId < 0) {
+    return null;
+  }
+  const page = pageFor(tabId, url || (sender.tab && sender.tab.url) || '');
+  return structuredClone(page);
+}
+
+function registerPageMetrics() {
+  if (!chrome.webRequest) {
+    return;
+  }
+  chrome.webRequest.onBeforeRequest.addListener(trackStarted, { urls: ['<all_urls>'] }, ['requestBody']);
+  chrome.webRequest.onHeadersReceived.addListener(trackHeaders, { urls: ['<all_urls>'] }, ['responseHeaders']);
+  chrome.webRequest.onCompleted.addListener(trackFinished, { urls: ['<all_urls>'] });
+  chrome.webRequest.onErrorOccurred.addListener(trackFailed, { urls: ['<all_urls>'] });
+  if (chrome.tabs && chrome.tabs.onRemoved) {
+    chrome.tabs.onRemoved.addListener((tabId) => pagesByTab.delete(tabId));
+  }
+}
+
+function tenantFrom(state) {
+  const membership = state.session.tenantMemberships.find((item) => item.tenantId === state.session.activeTenantId);
+  return {
+    id: state.session.activeTenantId || '',
+    name: (membership && membership.tenantName) || state.session.activeTenantId || ''
+  };
+}
+
+function colorFor(status, latencyMs, routeMode) {
+  if (routeMode !== 'proxy') {
+    return 'gray';
+  }
+  if (status === 'error') {
+    return 'red';
+  }
+  if (status === 'slow' || Number(latencyMs || 0) > 1000) {
+    return 'yellow';
+  }
+  if (status === 'ok') {
+    return 'green';
+  }
+  return 'gray';
+}
+
+function routePayload(route) {
+  const rule = route.rule || null;
+  if (!rule) {
+    return {
+      id: '',
+      source: route.source || '',
+      matchType: '',
+      matchValue: '',
+      chainId: ''
+    };
+  }
+  return {
+    id: rule.id || '',
+    source: route.source || '',
+    matchType: rule.matchType || '',
+    matchValue: rule.matchValue || '',
+    chainId: rule.chainId || ''
+  };
+}
+
+function mergePageSnapshot(route, metrics, remoteStatus) {
+  return {
+    host: route.host || '',
+    openedAt: (metrics && metrics.openedAt) || new Date().toISOString(),
+    requestCount: Number((remoteStatus && remoteStatus.requestCount) || (metrics && metrics.requestCount) || 0),
+    proxiedRequestCount: Number((metrics && metrics.proxiedRequestCount) || 0),
+    directRequestCount: Number((metrics && metrics.directRequestCount) || 0),
+    failureCount: Number((remoteStatus && remoteStatus.failureCount) || (metrics && metrics.failureCount) || 0)
+  };
+}
+
+function fallbackStatus(metrics) {
+  return {
+    status: (metrics && metrics.failureCount) ? 'error' : 'unknown',
+    latencyMs: 0,
+    uploadBytes: metrics ? metrics.uploadBytes : 0,
+    downloadBytes: metrics ? metrics.downloadBytes : 0,
+    requestCount: metrics ? metrics.requestCount : 0,
+    failureCount: metrics ? metrics.failureCount : 0,
+    lastErrorCode: metrics ? metrics.lastErrorCode : '',
+    lastErrorMessage: metrics ? metrics.lastErrorMessage : '',
+    policyRevision: '',
+    correlated: false
+  };
+}
+
+function requestRemoteStatus(state, route, routeInfo) {
+  if (route.mode !== 'proxy' || !state.session.accessToken || !state.session.activeTenantId) {
+    return Promise.resolve(null);
+  }
+  return getExtensionPageStatus(state, {
+    host: route.host,
+    routeId: routeInfo.id,
+    chainId: routeInfo.chainId
+  }).catch((error) => appendLog('error', 'status_bubble_page_status_failed', {
+    message: error.message || 'page_status_failed',
+    host: route.host
+  }).then(() => null));
+}
+
+function shouldDisplay(state, route) {
+  const controlPlaneHost = urlHostname(state.controlPlaneUrl);
+  if (!route.host || route.host === controlPlaneHost) {
+    return false;
+  }
+  return route.mode === 'proxy';
+}
+
+function getStatusBubblePageStatus(message, sender) {
+  const url = message.url || (sender && sender.tab && sender.tab.url) || '';
+  return (message.refresh ? syncRemoteConfig().catch(() => null) : Promise.resolve(null))
+    .then(() => getState())
+    .then((state) => {
+      const group = activeGroupFrom(state);
+      const route = routePreviewForUrl(state, url);
+      const routeInfo = routePayload(route);
+      const metrics = tabMetricsSnapshot(sender, url);
+      return requestRemoteStatus(state, route, routeInfo).then((remoteStatus) => {
+        const status = remoteStatus || fallbackStatus(metrics);
+        const page = mergePageSnapshot(route, metrics, status);
+        const uploadBytes = Number(status.uploadBytes || (metrics && metrics.uploadBytes) || 0);
+        const downloadBytes = Number(status.downloadBytes || (metrics && metrics.downloadBytes) || 0);
+        const latencyMs = Number(status.latencyMs || 0);
+        const lastErrorCode = status.lastErrorCode || (metrics && metrics.lastErrorCode) || '';
+        const lastErrorMessage = status.lastErrorMessage || (metrics && metrics.lastErrorMessage) || '';
+        return {
+          status: status.status || 'unknown',
+          color: colorFor(status.status, latencyMs, route.mode),
+          display: shouldDisplay(state, route),
+          account: state.session.account || '',
+          tenant: tenantFrom(state),
+          group: group ? { id: group.id || '', name: group.name || group.entryNodeName || group.id || '' } : { id: '', name: '' },
+          route: routeInfo,
+          page,
+          io: {
+            uploadBytes,
+            downloadBytes,
+            correlated: Boolean(status.correlated)
+          },
+          latencyMs,
+          topology: route.topology || [],
+          policyRevision: status.policyRevision || state.remote.policyRevision || '',
+          configFetchedAt: state.remote.fetchedAt || '',
+          lastError: {
+            code: lastErrorCode,
+            message: lastErrorMessage
+          }
+        };
+      });
+    });
+}
+
 function getCurrentTabInfo() {
   const queries = [{ active: true, currentWindow: true }, { active: true, lastFocusedWindow: true }];
   function next(index) {
@@ -952,7 +1238,7 @@ function computedAfter(operation) {
     .then((result) => result || getComputedState());
 }
 
-function handleMessage(message) {
+function handleMessage(message, sender) {
   if (!message || !message.type) {
     return Promise.resolve(null);
   }
@@ -985,6 +1271,8 @@ function handleMessage(message) {
       return computedAfter(() => selectTenant(message.tenantId));
     case 'test-url-route':
       return testUrlRoute(message.url, { saveMonitorTarget: Boolean(message.saveMonitorTarget) });
+    case 'status-bubble-page-status':
+      return getStatusBubblePageStatus(message, sender);
     case 'select-group':
       return computedAfter(() => setPartialState((state) => ({
         ...state,
@@ -1013,8 +1301,8 @@ function handleMessage(message) {
 }
 
 function registerMessageHandler() {
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    handleMessage(message).then(sendResponse).catch((error) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    handleMessage(message, sender).then(sendResponse).catch((error) => {
       appendLog('error', 'runtime_message_failed', {
         type: message && message.type ? message.type : '',
         message: error.message || 'unexpected_error'
@@ -1135,6 +1423,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 function bootstrap() {
+  registerPageMetrics();
   registerProxyAuthHandler();
   registerMessageHandler();
   return getState().then((state) => updateProxyAuthCache(state));

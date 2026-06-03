@@ -4,6 +4,7 @@ import { activeGroupFrom, getState, persistState, setPartialState, uniqueStrings
 import { pacSummary } from './pac.js';
 import { routePreviewForUrl, sanitizeHost } from './routing.js';
 import { testUrlRoute } from './monitor.js';
+import { getStatusBubblePageStatus } from './status-bubble.js';
 
 export function getCurrentTabInfo() {
   const queries = [{ active: true, currentWindow: true }, { active: true, lastFocusedWindow: true }];
@@ -83,7 +84,7 @@ function computedAfter(operation) {
     .then((result) => result || getComputedState());
 }
 
-function handleMessage(message) {
+function handleMessage(message, sender) {
   if (!message || !message.type) {
     return Promise.resolve(null);
   }
@@ -116,6 +117,8 @@ function handleMessage(message) {
       return computedAfter(() => selectTenant(message.tenantId));
     case 'test-url-route':
       return testUrlRoute(message.url, { saveMonitorTarget: Boolean(message.saveMonitorTarget) });
+    case 'status-bubble-page-status':
+      return getStatusBubblePageStatus(message, sender);
     case 'select-group':
       return computedAfter(() => setPartialState((state) => ({
         ...state,
@@ -144,8 +147,8 @@ function handleMessage(message) {
 }
 
 export function registerMessageHandler() {
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    handleMessage(message).then(sendResponse).catch((error) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    handleMessage(message, sender).then(sendResponse).catch((error) => {
       appendLog('error', 'runtime_message_failed', {
         type: message && message.type ? message.type : '',
         message: error.message || 'unexpected_error'
