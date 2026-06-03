@@ -83,7 +83,7 @@ func Load() Config {
 }
 
 func resolveControlPlaneURL(panelURL string, parentURL string, parentID string) string {
-	if parentID != "" && parentURL != "" {
+	if parentURL != "" {
 		return parentURL
 	}
 	return FirstNonEmpty(panelURL, parentURL)

@@ -4,7 +4,6 @@ import "testing"
 
 func TestLoadUsesPanelControlPlaneForPublicNode(t *testing.T) {
 	t.Setenv("CONTROL_PLANE_URL", "http://panel:2886")
-	t.Setenv("NODE_PARENT_URL", "http://parent:2988")
 
 	cfg := Load()
 
@@ -15,7 +14,6 @@ func TestLoadUsesPanelControlPlaneForPublicNode(t *testing.T) {
 
 func TestLoadUsesParentControlPlaneForChildNode(t *testing.T) {
 	t.Setenv("CONTROL_PLANE_URL", "http://panel:2886")
-	t.Setenv("NODE_PARENT_ID", "1")
 	t.Setenv("NODE_PARENT_URL", "http://parent:2988")
 	t.Setenv("NODE_PROXY_TOKEN_CONTROL_PLANE_URL", "http://panel:2886")
 

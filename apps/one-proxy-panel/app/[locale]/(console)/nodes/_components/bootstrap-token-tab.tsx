@@ -74,14 +74,11 @@ export function BootstrapTokenTab({
       return '';
     }
     const parentUrl = parentReachableUrl.trim();
-    const parentID = selectedParentNodeId.trim();
     const parentEndpointLines = parentUrl
       ? [
-        `  -e NODE_PARENT_URL=${shellQuote(parentUrl)} \\`,
-        `  -e NODE_PARENT_TUNNEL_URL=${shellQuote(parentUrl)} \\`
+        `  -e NODE_PARENT_URL=${shellQuote(parentUrl)} \\`
       ]
       : [];
-    const parentLines = parentID ? [`  -e NODE_PARENT_ID=${shellQuote(parentID)} \\`] : [];
     const hostPublicPort = publicPort.trim() || '2988';
     return [
       'docker rm -f one-proxy-node >/dev/null 2>&1 || true',
@@ -92,12 +89,11 @@ export function BootstrapTokenTab({
       '  -v one-proxy-node-runtime:/app/runtime \\',
       `  -e CONTROL_PLANE_URL=${shellQuote(controlPlaneURL)} \\`,
       ...parentEndpointLines,
-      ...parentLines,
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
       "  -e TZ='Asia/Shanghai' \\",
       '  ghcr.io/stanleysun233/oneproxy-node:latest'
     ].join('\n');
-  }, [controlPlaneURL, latestToken, parentReachableUrl, publicPort, selectedParentNodeId]);
+  }, [controlPlaneURL, latestToken, parentReachableUrl, publicPort]);
   const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);
   const needsParentReachableUrl = selectedNodeMode === 'relay' && selectedParentNodeId.trim() !== '';
 
