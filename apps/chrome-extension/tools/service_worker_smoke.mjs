@@ -8,48 +8,65 @@ const extensionPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'oneproxy-extension-'));
 
 let context;
-try {
-  context = await chromium.launchPersistentContext(userDataDir, {
+function cleanup() {
+  const close = context ? context.close() : Promise.resolve();
+  return close.finally(() => {
+    rmSync(userDataDir, { recursive: true, force: true });
+  });
+}
+
+chromium.launchPersistentContext(userDataDir, {
     headless: false,
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`
     ]
-  });
+  })
+  .then((createdContext) => {
+    context = createdContext;
 
-  let serviceWorker = context.serviceWorkers()[0];
-  if (!serviceWorker) {
-    serviceWorker = await context.waitForEvent('serviceworker', { timeout: 15000 });
-  }
+    const serviceWorkerReady = context.serviceWorkers()[0]
+      ? Promise.resolve(context.serviceWorkers()[0])
+      : context.waitForEvent('serviceworker', { timeout: 15000 });
 
-  if (!serviceWorker.url().endsWith('/background/index.js')) {
-    throw new Error(`unexpected_service_worker:${serviceWorker.url()}`);
-  }
+    return serviceWorkerReady.then((serviceWorker) => {
+      if (!serviceWorker.url().endsWith('/background/index.js')) {
+        throw new Error(`unexpected_service_worker:${serviceWorker.url()}`);
+      }
 
-  const extensionId = new URL(serviceWorker.url()).host;
-  const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/options/index.html`);
+      const extensionId = new URL(serviceWorker.url()).host;
+      return context.newPage()
+        .then((page) => page.goto(`chrome-extension://${extensionId}/options/index.html`).then(() => page))
+        .then((page) => page.evaluate(() => new Promise((resolve, reject) => {
+          const manifest = chrome.runtime.getManifest();
+          chrome.storage.local.set({ oneProxyServiceWorkerSmoke: 'ok' }, () => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            chrome.storage.local.get('oneProxyServiceWorkerSmoke', (stored) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+              }
+              resolve({
+                id: chrome.runtime.id,
+                name: manifest.name,
+                version: manifest.version,
+                stored: stored.oneProxyServiceWorkerSmoke
+              });
+            });
+          });
+        })))
+        .then((result) => {
+          if (result.id !== extensionId || result.name !== 'One Proxy' || result.stored !== 'ok') {
+            throw new Error('service_worker_runtime_check_failed');
+          }
 
-  const result = await page.evaluate(async () => {
-    const manifest = chrome.runtime.getManifest();
-    await chrome.storage.local.set({ oneProxyServiceWorkerSmoke: 'ok' });
-    const stored = await chrome.storage.local.get('oneProxyServiceWorkerSmoke');
-    return {
-      id: chrome.runtime.id,
-      name: manifest.name,
-      version: manifest.version,
-      stored: stored.oneProxyServiceWorkerSmoke
-    };
-  });
-
-  if (result.id !== extensionId || result.name !== 'One Proxy' || result.stored !== 'ok') {
-    throw new Error('service_worker_runtime_check_failed');
-  }
-
-  console.log(`chrome_extension_service_worker_ok id=${result.id} version=${result.version}`);
-} finally {
-  if (context) {
-    await context.close();
-  }
-  rmSync(userDataDir, { recursive: true, force: true });
-}
+          console.log(`chrome_extension_service_worker_ok id=${result.id} version=${result.version}`);
+        });
+    });
+  })
+  .then(cleanup, (error) => cleanup().then(() => {
+    throw error;
+  }));
