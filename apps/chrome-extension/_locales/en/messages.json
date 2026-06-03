@@ -292,6 +292,63 @@
   "noLogs": {
     "message": "No diagnostic logs yet."
   },
+  "statusBubbleTitle": {
+    "message": "Proxy status"
+  },
+  "statusBubbleUpload": {
+    "message": "Upload"
+  },
+  "statusBubbleDownload": {
+    "message": "Download"
+  },
+  "statusBubbleLatency": {
+    "message": "Latency"
+  },
+  "statusBubbleRequests": {
+    "message": "Requests"
+  },
+  "statusBubbleRoute": {
+    "message": "Route"
+  },
+  "statusBubbleOpenedAt": {
+    "message": "Opened"
+  },
+  "statusBubbleRequestMix": {
+    "message": "Proxy / Direct / Failed"
+  },
+  "statusBubbleCorrelation": {
+    "message": "IO source"
+  },
+  "statusBubbleCorrelated": {
+    "message": "Node correlated"
+  },
+  "statusBubbleNotCorrelated": {
+    "message": "Not correlated"
+  },
+  "statusBubbleLastError": {
+    "message": "Last error"
+  },
+  "statusBubbleTopology": {
+    "message": "Path"
+  },
+  "statusBubbleUserMachine": {
+    "message": "User machine"
+  },
+  "statusBubbleWebsite": {
+    "message": "Website"
+  },
+  "statusBubbleRefresh": {
+    "message": "Refresh"
+  },
+  "statusBubbleCopy": {
+    "message": "Copy diagnostics"
+  },
+  "statusBubbleCopied": {
+    "message": "Copied"
+  },
+  "statusBubbleUnknown": {
+    "message": "Unknown"
+  },
   "themeVivid": {
     "message": "Vivid"
   },
