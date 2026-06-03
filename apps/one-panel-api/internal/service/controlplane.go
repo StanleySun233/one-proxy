@@ -21,6 +21,7 @@ type ControlPlane struct {
 	publicRenewWindow  time.Duration
 	enumsByField       map[string]map[string]domain.FieldEnum
 	proxy              *proxyservice.Service
+	proxyStatus        *proxyStatusStore
 }
 
 func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
@@ -40,6 +41,7 @@ func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
 		bootstrapTokenTTL:  parseDuration(cfg.BootstrapTokenTTL, 15*time.Minute),
 		nodeHeartbeatTTL:   parseDuration(cfg.NodeHeartbeatTTL, 2*time.Minute),
 		publicRenewWindow:  parseDuration(cfg.PublicCertRenewWindow, 7*24*time.Hour),
+		proxyStatus:        newProxyStatusStore(5000),
 	}
 	controlPlane.proxy = proxyservice.New(store)
 	return controlPlane
