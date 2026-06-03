@@ -3,8 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const entry = path.join(root, 'background/index.js');
-const output = path.join(root, 'background/service-worker.js');
+const entry = path.join(root, 'tools/background-source/index.js');
+const output = path.join(root, 'background/one-proxy-worker.js');
 
 function importsOf(file) {
   const dir = path.dirname(file);

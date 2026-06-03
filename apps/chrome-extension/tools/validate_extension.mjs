@@ -55,6 +55,9 @@ for (const file of files(root)) {
   }
   if (file.endsWith('.js')) {
     const relative = path.relative(root, file);
+    if (/^background\//.test(relative) && relative !== manifest.background.service_worker) {
+      throw new Error(`unexpected_background_runtime_file:${relative}`);
+    }
     if (/^(background|shared|options|popup)\//.test(relative) && /\bawait\b/.test(readFileSync(file, 'utf8'))) {
       throw new Error(`runtime_file_contains_await:${relative}`);
     }
