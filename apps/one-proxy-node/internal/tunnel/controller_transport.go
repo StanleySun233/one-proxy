@@ -1,8 +1,10 @@
 package tunnel
 
 import (
+	"errors"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/controlplane"
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
@@ -17,8 +19,16 @@ func (c *Controller) writeMessage(conn *websocket.Conn, message Message) error {
 	return err
 }
 
-func (c *Controller) websocketURL(parentNodeID string) (string, error) {
-	base, err := url.Parse(c.parentTunnelURL)
+func (c *Controller) websocketURL(current runtime.Binding, parentNodeID string) (string, error) {
+	parentTunnelURL := c.parentTunnelURL
+	if parentTunnelURL == "" && current.NodeParentID != "" {
+		parentTunnelURL = current.ControlPlaneURL
+	}
+	parentTunnelURL = strings.TrimRight(parentTunnelURL, "/")
+	if parentTunnelURL == "" {
+		return "", errors.New("missing_parent_tunnel_url")
+	}
+	base, err := url.Parse(parentTunnelURL)
 	if err != nil {
 		return "", err
 	}
@@ -37,7 +47,7 @@ func (c *Controller) websocketURL(parentNodeID string) (string, error) {
 
 func (c *Controller) report(current runtime.Binding, status string, lastHeartbeatAt string) {
 	client := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken)
-	address, err := c.websocketURL(current.NodeParentID)
+	address, err := c.websocketURL(current, current.NodeParentID)
 	if err != nil {
 		return
 	}

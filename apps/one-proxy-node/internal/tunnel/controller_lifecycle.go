@@ -10,9 +10,6 @@ import (
 )
 
 func (c *Controller) Run() {
-	if c.parentTunnelURL == "" {
-		return
-	}
 	if c.heartbeatInterval <= 0 {
 		c.heartbeatInterval = 15 * time.Second
 	}
@@ -37,7 +34,7 @@ func (c *Controller) Run() {
 }
 
 func (c *Controller) connect(current runtime.Binding) error {
-	wsURL, err := c.websocketURL(current.NodeParentID)
+	wsURL, err := c.websocketURL(current, current.NodeParentID)
 	if err != nil {
 		return err
 	}
