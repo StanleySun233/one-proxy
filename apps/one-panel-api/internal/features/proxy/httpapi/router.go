@@ -4,21 +4,28 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 	proxyservice "github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/features/proxy/service"
 )
 
 type AccountGuard func(http.HandlerFunc) http.HandlerFunc
 
+type StatusService interface {
+	ExtensionPageStatus(domain.TenantAuthContext, domain.ProxyPageStatusQuery) domain.ProxyPageStatus
+}
+
 type Router struct {
 	mux     *http.ServeMux
 	service *proxyservice.Service
+	status  StatusService
 	guard   AccountGuard
 }
 
-func Register(mux *http.ServeMux, guard AccountGuard, service *proxyservice.Service) {
+func Register(mux *http.ServeMux, guard AccountGuard, service *proxyservice.Service, status StatusService) {
 	router := &Router{
 		mux:     mux,
 		service: service,
+		status:  status,
 		guard:   guard,
 	}
 	router.routes()
@@ -31,6 +38,7 @@ func (r *Router) routes() {
 	r.mux.HandleFunc("/api/v1/proxy/scopes/", r.guard(r.handleScopeByID))
 	r.mux.HandleFunc("/api/v1/proxy/node-links", r.guard(r.handleNodeLinks))
 	r.mux.HandleFunc("/api/v1/proxy/node-links/", r.guard(r.handleNodeLinkByID))
+	r.mux.HandleFunc("/api/v1/proxy/extension/page-status", r.guard(r.handleExtensionPageStatus))
 	r.mux.HandleFunc("/api/v1/proxy", r.guard(r.handleChains))
 	r.mux.HandleFunc("/api/v1/proxy/validate", r.guard(r.handleChainValidate))
 	r.mux.HandleFunc("/api/v1/proxy/preview", r.guard(r.handleChainPreview))
