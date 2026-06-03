@@ -174,7 +174,7 @@ func (c *ControlPlane) ExtensionBootstrapForTenant(account domain.Account, tenan
 					continue
 				}
 				if rule.ActionType == domain.ActionTypeDirect {
-					group.ProxyCIDRs = append(group.ProxyCIDRs, value)
+					group.DirectCIDRs = append(group.DirectCIDRs, value)
 				} else if rule.ActionType == domain.ActionTypeChain {
 					group.ProxyCIDRs = append(group.ProxyCIDRs, value)
 				}
