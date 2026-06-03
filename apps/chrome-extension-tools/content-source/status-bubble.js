@@ -23,6 +23,11 @@
     return `${(Number(bytes || 0) / 1024 / 1024).toFixed(2)} MB`;
   }
 
+  function formatLatency(ms) {
+    const value = Number(ms || 0);
+    return value > 0 ? `${Math.round(value)} ms` : '-';
+  }
+
   function text(value, fallback) {
     const clean = String(value || '').trim();
     return clean || fallback || '-';
@@ -82,6 +87,7 @@
 
   function renderTopology(payload) {
     const rail = el('div', 'opsb-topology');
+    const latency = formatLatency(payload.latencyMs);
     const nodes = [
       { id: 'user', name: t('statusBubbleUserMachine'), kind: 'user' },
       ...((payload.topology || []).map((node) => ({ id: node.id, name: node.name || node.id, kind: 'node' }))),
@@ -89,7 +95,10 @@
     ];
     nodes.forEach((node, index) => {
       if (index > 0) {
-        rail.append(el('div', 'opsb-hop-line'));
+        const connector = el('div', 'opsb-hop-line');
+        connector.append(el('span', 'opsb-hop-latency', latency));
+        connector.append(el('span', 'opsb-hop-segment'));
+        rail.append(connector);
       }
       const item = el('div', 'opsb-hop');
       const icon = el('span', `opsb-hop-icon opsb-hop-${node.kind}`);
@@ -140,7 +149,7 @@
     const stats = el('div', 'opsb-stats');
     stats.append(stat(t('statusBubbleUpload'), formatMb(io.uploadBytes)));
     stats.append(stat(t('statusBubbleDownload'), formatMb(io.downloadBytes)));
-    stats.append(stat(t('statusBubbleLatency'), payload.latencyMs ? `${payload.latencyMs} ms` : '-'));
+    stats.append(stat(t('statusBubbleLatency'), formatLatency(payload.latencyMs)));
     stats.append(stat(t('statusBubbleRequests'), String(page.requestCount || 0)));
     state.panel.append(stats);
 

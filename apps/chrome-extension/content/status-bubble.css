@@ -228,10 +228,27 @@
 }
 
 #one-proxy-status-root .opsb-hop-line {
-  width: 18px;
+  width: 32px;
+  min-height: 30px;
+  flex: 0 0 32px;
+  margin-top: 2px;
+  display: grid;
+  grid-template-rows: 13px 1px;
+  align-items: center;
+  justify-items: center;
+}
+
+#one-proxy-status-root .opsb-hop-latency {
+  color: #475569;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+#one-proxy-status-root .opsb-hop-segment {
+  width: 100%;
   height: 1px;
-  flex: 0 0 18px;
-  margin-top: 15px;
   background: #cbd5e1;
 }
 
