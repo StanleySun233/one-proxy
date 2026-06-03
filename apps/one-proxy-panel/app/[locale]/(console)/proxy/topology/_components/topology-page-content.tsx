@@ -42,15 +42,6 @@ export function NodeTopologyPageContent() {
     transport.transportType === REVERSE_WS_PARENT &&
     transport.status === 'connected'
   );
-  const topologySummary = useMemo(() => {
-    const reverseTunnelUp = links.filter((link) => linkTransportReady(link.sourceNodeId, link.targetNodeId)).length;
-    const reverseTunnelBlocked = Math.max(links.length - reverseTunnelUp, 0);
-    const publicTransportCount = transports.filter((transport) =>
-      transport.transportType === 'public_http' || transport.transportType === 'public_https'
-    ).length;
-    const connectedTransportCount = transports.filter((transport) => transport.status === 'connected').length;
-    return {reverseTunnelUp, reverseTunnelBlocked, publicTransportCount, connectedTransportCount};
-  }, [links, transports, REVERSE_WS_PARENT]);
   const filteredLinks = useMemo(() => {
     return links.filter((link) => {
       const transportReady = linkTransportReady(link.sourceNodeId, link.targetNodeId);
@@ -110,31 +101,6 @@ export function NodeTopologyPageContent() {
             <input className="field-input" onChange={(event) => setAddressFilter(event.target.value)} placeholder={nodesT('address')} value={addressFilter} />
           </ConsoleFilterItem>
         </ConsoleFilterBar>
-
-        <ConsoleList title={nodesT('topologyOverview')}>
-          <div className="topology-summary-grid">
-            <article className="topology-summary-item">
-              <span>{nodesT('topologyLinks')}</span>
-              <strong>{links.length}</strong>
-            </article>
-            <article className="topology-summary-item">
-              <span>{nodesT('reverseTunnelsUp')}</span>
-              <strong>{topologySummary.reverseTunnelUp}</strong>
-            </article>
-            <article className="topology-summary-item">
-              <span>{nodesT('reverseTunnelsBlocked')}</span>
-              <strong>{topologySummary.reverseTunnelBlocked}</strong>
-            </article>
-            <article className="topology-summary-item">
-              <span>{nodesT('runtimeTransports')}</span>
-              <strong>{topologySummary.connectedTransportCount}/{transports.length}</strong>
-            </article>
-            <article className="topology-summary-item">
-              <span>{nodesT('publicTransports')}</span>
-              <strong>{topologySummary.publicTransportCount}</strong>
-            </article>
-          </div>
-        </ConsoleList>
 
         <ConsoleList count={filteredLinks.length} title={nodesT('topologyTitle')}>
           {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending ? (
