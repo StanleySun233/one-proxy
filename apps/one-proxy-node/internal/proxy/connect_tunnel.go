@@ -6,11 +6,13 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/one-proxy-node/internal/domain"
 )
 
 func (s *Server) tunnelDirect(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {
+	tracker.markForward()
 	targetConn, err := net.Dial("tcp", req.Host)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, "connect_failed", "connect_failed")
@@ -31,13 +33,17 @@ func (s *Server) tunnelDirect(w http.ResponseWriter, req *http.Request, tracker 
 		http.Error(w, "hijack_failed", http.StatusInternalServerError)
 		return
 	}
+	tracker.markResponseReceive()
 	_, _ = clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 	bridgeTunnelWithMetrics(clientConn, targetConn, targetConn, tracker)
 }
 
 func (s *Server) tunnelViaProxy(w http.ResponseWriter, req *http.Request, nextHop domain.Node, tracker *proxySessionTracker) {
+	tracker.markForward()
+	connectStarted := time.Now().UTC()
 	proxyConn, err := net.Dial("tcp", net.JoinHostPort(nextHop.PublicHost, strconv.Itoa(nextHop.PublicPort)))
 	if err != nil {
+		tracker.addLinkTiming(s.nodeIDGetter(), nextHop.ID, connectStarted)
 		tracker.finish(0, 0, domain.ProxySessionStatusError, "next_hop_connect_failed", "next_hop_connect_failed")
 		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
 		return
@@ -50,6 +56,7 @@ func (s *Server) tunnelViaProxy(w http.ResponseWriter, req *http.Request, nextHo
 	}
 	reader := bufio.NewReader(proxyConn)
 	line, err := reader.ReadString('\n')
+	tracker.addLinkTiming(s.nodeIDGetter(), nextHop.ID, connectStarted)
 	if err != nil || line == "" || len(line) < 12 || line[9:12] != "200" {
 		proxyConn.Close()
 		tracker.finish(0, 0, domain.ProxySessionStatusError, "next_hop_connect_failed", "next_hop_connect_failed")
@@ -82,13 +89,17 @@ func (s *Server) tunnelViaProxy(w http.ResponseWriter, req *http.Request, nextHo
 		http.Error(w, "hijack_failed", http.StatusInternalServerError)
 		return
 	}
+	tracker.markResponseReceive()
 	_, _ = clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 	bridgeTunnelWithMetrics(clientConn, proxyConn, reader, tracker)
 }
 
 func (s *Server) tunnelViaStream(w http.ResponseWriter, req *http.Request, hop chainHop, tracker *proxySessionTracker) {
 	targetHost, targetPort := targetAddress(req)
+	tracker.markForward()
+	streamStarted := time.Now().UTC()
 	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.tunnelRegistry, hop, targetHost, targetPort)
+	tracker.addLinkTiming(s.nodeIDGetter(), hop.node.ID, streamStarted)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, "next_hop_connect_failed", "next_hop_connect_failed")
 		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
@@ -108,6 +119,7 @@ func (s *Server) tunnelViaStream(w http.ResponseWriter, req *http.Request, hop c
 		http.Error(w, "hijack_failed", http.StatusInternalServerError)
 		return
 	}
+	tracker.markResponseReceive()
 	_, _ = clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 	bridgeTunnelWithMetrics(clientConn, streamConn, streamConn, tracker)
 }

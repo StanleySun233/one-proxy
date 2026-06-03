@@ -52,17 +52,48 @@ func (s *Server) newProxySession(req *http.Request, rule domain.RouteRule, tenan
 		reporter: s.metricsReporter,
 		started:  started,
 		metric: domain.ProxySessionMetric{
-			ID:         fmt.Sprintf("%s-%d", s.nodeIDGetter(), started.UnixNano()),
-			TenantID:   tenantID,
-			NodeID:     s.nodeIDGetter(),
-			ChainID:    rule.ChainID,
-			RouteID:    rule.ID,
-			TargetHost: targetHost,
-			TargetPort: targetPort,
-			Protocol:   protocol,
-			StartedAt:  started.Format(time.RFC3339Nano),
+			ID:          fmt.Sprintf("%s-%d", s.nodeIDGetter(), started.UnixNano()),
+			TenantID:    tenantID,
+			NodeID:      s.nodeIDGetter(),
+			ChainID:     rule.ChainID,
+			RouteID:     rule.ID,
+			TargetHost:  targetHost,
+			TargetPort:  targetPort,
+			Protocol:    protocol,
+			StartedAt:   started.Format(time.RFC3339Nano),
+			ReceiveTSMs: started.UnixMilli(),
 		},
 	}
+}
+
+func (t *proxySessionTracker) markForward() {
+	if t == nil || t.metric.ForwardTSMs > 0 {
+		return
+	}
+	now := time.Now().UTC()
+	t.metric.ForwardTSMs = now.UnixMilli()
+	t.metric.NodeProcessMs = now.Sub(t.started).Milliseconds()
+}
+
+func (t *proxySessionTracker) markResponseReceive() {
+	if t == nil || t.metric.ResponseReceiveTSMs > 0 {
+		return
+	}
+	t.metric.ResponseReceiveTSMs = time.Now().UTC().UnixMilli()
+}
+
+func (t *proxySessionTracker) addLinkTiming(fromNodeID string, toNodeID string, started time.Time) {
+	if t == nil || fromNodeID == "" || toNodeID == "" {
+		return
+	}
+	ended := time.Now().UTC()
+	t.metric.LinkTimings = append(t.metric.LinkTimings, domain.ProxyLinkTiming{
+		FromNodeID: fromNodeID,
+		ToNodeID:   toNodeID,
+		RTTMs:      ended.Sub(started).Milliseconds(),
+		SampleTSMs: ended.UnixMilli(),
+		Count:      1,
+	})
 }
 
 func (t *proxySessionTracker) finish(uploadBytes int64, downloadBytes int64, status string, errorCode string, errorMessage string) {
@@ -71,10 +102,25 @@ func (t *proxySessionTracker) finish(uploadBytes int64, downloadBytes int64, sta
 	}
 	t.once.Do(func() {
 		ended := time.Now().UTC()
+		if t.metric.ForwardTSMs == 0 {
+			t.markForward()
+		}
+		if t.metric.ResponseReceiveTSMs == 0 {
+			t.metric.ResponseReceiveTSMs = ended.UnixMilli()
+		}
 		t.metric.EndedAt = ended.Format(time.RFC3339Nano)
 		t.metric.UploadBytes = uploadBytes
 		t.metric.DownloadBytes = downloadBytes
 		t.metric.LatencyMs = ended.Sub(t.started).Milliseconds()
+		t.metric.ResponseForwardTSMs = ended.UnixMilli()
+		t.metric.ResponseProcessMs = t.metric.ResponseForwardTSMs - t.metric.ResponseReceiveTSMs
+		t.metric.NodeTimings = []domain.ProxyNodeTiming{{
+			NodeID:               t.metric.NodeID,
+			ProcessAvgMs:         t.metric.NodeProcessMs,
+			ResponseProcessAvgMs: t.metric.ResponseProcessMs,
+			SampleTSMs:           t.metric.ResponseForwardTSMs,
+			Count:                1,
+		}}
 		t.metric.Status = status
 		t.metric.ErrorCode = errorCode
 		t.metric.ErrorMessage = errorMessage

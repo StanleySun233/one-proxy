@@ -2,6 +2,7 @@ package service
 
 import (
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,22 @@ type proxyStatusStore struct {
 	limit    int
 	sessions []domain.ProxySessionMetric
 	events   []domain.ProxyAuditEvent
+}
+
+type proxyNodeTimingAggregate struct {
+	nodeID               string
+	processTotal         int64
+	responseProcessTotal int64
+	sampleTSMs           int64
+	count                int
+}
+
+type proxyLinkTimingAggregate struct {
+	fromNodeID string
+	toNodeID   string
+	rttTotal   int64
+	sampleTSMs int64
+	count      int
 }
 
 func newProxyStatusStore(limit int) *proxyStatusStore {
@@ -148,6 +165,8 @@ func (s *proxyStatusStore) pageStatus(tenantID string, query domain.ProxyPageSta
 	defer s.mu.RUnlock()
 	var latencyTotal int64
 	var last domain.ProxySessionMetric
+	nodeTimings := map[string]*proxyNodeTimingAggregate{}
+	linkTimings := map[string]*proxyLinkTimingAggregate{}
 	for _, item := range s.sessions {
 		if !matchesProxySession(item, tenantID, query, domain.ProxyAuditQuery{}) {
 			continue
@@ -165,11 +184,15 @@ func (s *proxyStatusStore) pageStatus(tenantID string, query domain.ProxyPageSta
 		if sessionSeenAt(item).After(sessionSeenAt(last)) {
 			last = item
 		}
+		appendNodeTimings(nodeTimings, item)
+		appendLinkTimings(linkTimings, item)
 	}
 	if !result.Correlated {
 		return result
 	}
 	result.LastSeenAt = sessionSeenAt(last)
+	result.NodeTimings = nodeTimingResults(nodeTimings)
+	result.LinkTimings = linkTimingResults(linkTimings)
 	if result.RequestCount > 0 {
 		result.LatencyMs = latencyTotal / int64(result.RequestCount)
 	}
@@ -181,6 +204,105 @@ func (s *proxyStatusStore) pageStatus(tenantID string, query domain.ProxyPageSta
 	default:
 		result.Status = domain.ProxySessionStatusOK
 	}
+	return result
+}
+
+func appendNodeTimings(items map[string]*proxyNodeTimingAggregate, session domain.ProxySessionMetric) {
+	timings := session.NodeTimings
+	if len(timings) == 0 && (session.NodeProcessMs > 0 || session.ResponseProcessMs > 0) {
+		timings = []domain.ProxyNodeTiming{{
+			NodeID:               session.NodeID,
+			ProcessAvgMs:         session.NodeProcessMs,
+			ResponseProcessAvgMs: session.ResponseProcessMs,
+			SampleTSMs:           session.ResponseForwardTSMs,
+			Count:                1,
+		}}
+	}
+	for _, timing := range timings {
+		if timing.NodeID == "" {
+			continue
+		}
+		count := timing.Count
+		if count <= 0 {
+			count = 1
+		}
+		item := items[timing.NodeID]
+		if item == nil {
+			item = &proxyNodeTimingAggregate{nodeID: timing.NodeID}
+			items[timing.NodeID] = item
+		}
+		item.processTotal += timing.ProcessAvgMs * int64(count)
+		item.responseProcessTotal += timing.ResponseProcessAvgMs * int64(count)
+		item.count += count
+		if timing.SampleTSMs > item.sampleTSMs {
+			item.sampleTSMs = timing.SampleTSMs
+		}
+	}
+}
+
+func appendLinkTimings(items map[string]*proxyLinkTimingAggregate, session domain.ProxySessionMetric) {
+	for _, timing := range session.LinkTimings {
+		if timing.FromNodeID == "" || timing.ToNodeID == "" {
+			continue
+		}
+		count := timing.Count
+		if count <= 0 {
+			count = 1
+		}
+		key := timing.FromNodeID + ">" + timing.ToNodeID
+		item := items[key]
+		if item == nil {
+			item = &proxyLinkTimingAggregate{fromNodeID: timing.FromNodeID, toNodeID: timing.ToNodeID}
+			items[key] = item
+		}
+		item.rttTotal += timing.RTTMs * int64(count)
+		item.count += count
+		if timing.SampleTSMs > item.sampleTSMs {
+			item.sampleTSMs = timing.SampleTSMs
+		}
+	}
+}
+
+func nodeTimingResults(items map[string]*proxyNodeTimingAggregate) []domain.ProxyNodeTiming {
+	result := make([]domain.ProxyNodeTiming, 0, len(items))
+	for _, item := range items {
+		if item.count <= 0 {
+			continue
+		}
+		result = append(result, domain.ProxyNodeTiming{
+			NodeID:               item.nodeID,
+			ProcessAvgMs:         item.processTotal / int64(item.count),
+			ResponseProcessAvgMs: item.responseProcessTotal / int64(item.count),
+			SampleTSMs:           item.sampleTSMs,
+			Count:                item.count,
+		})
+	}
+	sort.Slice(result, func(i int, j int) bool {
+		return result[i].NodeID < result[j].NodeID
+	})
+	return result
+}
+
+func linkTimingResults(items map[string]*proxyLinkTimingAggregate) []domain.ProxyLinkTiming {
+	result := make([]domain.ProxyLinkTiming, 0, len(items))
+	for _, item := range items {
+		if item.count <= 0 {
+			continue
+		}
+		result = append(result, domain.ProxyLinkTiming{
+			FromNodeID: item.fromNodeID,
+			ToNodeID:   item.toNodeID,
+			RTTMs:      item.rttTotal / int64(item.count),
+			SampleTSMs: item.sampleTSMs,
+			Count:      item.count,
+		})
+	}
+	sort.Slice(result, func(i int, j int) bool {
+		if result[i].FromNodeID == result[j].FromNodeID {
+			return result[i].ToNodeID < result[j].ToNodeID
+		}
+		return result[i].FromNodeID < result[j].FromNodeID
+	})
 	return result
 }
 

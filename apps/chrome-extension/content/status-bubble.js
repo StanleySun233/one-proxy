@@ -16,6 +16,9 @@
   };
 
   function t(key) {
+    if (typeof chrome === 'undefined' || !chrome.i18n || !chrome.i18n.getMessage) {
+      return key;
+    }
     return chrome.i18n.getMessage(key) || key;
   }
 
@@ -85,18 +88,33 @@
     return `${text(route.source)} · ${text(route.matchType)} ${text(route.matchValue)}`;
   }
 
+  function nodeTiming(payload, nodeId) {
+    const timing = (payload.nodeTimings || []).find(function (item) {
+      return item && item.nodeId === nodeId;
+    });
+    return timing ? Number(timing.processAvgMs || 0) : null;
+  }
+
+  function linkTiming(payload, fromNodeId, toNodeId) {
+    const timing = (payload.linkTimings || []).find(function (item) {
+      return item && item.fromNodeId === fromNodeId && item.toNodeId === toNodeId;
+    });
+    return timing ? Number(timing.rttMs || 0) : 0;
+  }
+
   function renderTopology(payload) {
     const rail = el('div', 'opsb-topology');
-    const latency = formatLatency(payload.latencyMs);
     const nodes = [
       { id: 'user', name: t('statusBubbleUserMachine'), kind: 'user' },
-      ...((payload.topology || []).map((node) => ({ id: node.id, name: node.name || node.id, kind: 'node' }))),
+      ...((payload.topology || []).map((node) => ({ id: node.id, name: node.name || node.id, kind: 'node', processMs: nodeTiming(payload, node.id) }))),
       { id: 'website', name: payload.page && payload.page.host ? payload.page.host : t('statusBubbleWebsite'), kind: 'web' }
     ];
     nodes.forEach((node, index) => {
       if (index > 0) {
+        const previous = nodes[index - 1];
+        const hopLatency = linkTiming(payload, previous.id, node.id) || (previous.kind === 'node' && node.kind === 'node' ? payload.latencyMs : 0);
         const connector = el('div', 'opsb-hop-line');
-        connector.append(el('span', 'opsb-hop-latency', latency));
+        connector.append(el('span', 'opsb-hop-latency', formatLatency(hopLatency)));
         connector.append(el('span', 'opsb-hop-segment'));
         rail.append(connector);
       }
@@ -105,6 +123,9 @@
       icon.append(svgIcon(node.kind));
       item.append(icon);
       item.append(el('span', 'opsb-hop-name', text(node.name, node.id)));
+      if (node.kind === 'node') {
+        item.append(el('span', 'opsb-hop-process', node.processMs === null ? '-' : `${Math.round(node.processMs)} ms`));
+      }
       rail.append(item);
     });
     return rail;

@@ -63,11 +63,11 @@ body {
 }
 
 .toggle-card.is-on {
-  background: linear-gradient(180deg, rgba(13, 138, 106, 0.18), var(--card));
+  background: var(--accent-soft);
 }
 
 .toggle-card.is-off {
-  background: linear-gradient(180deg, rgba(177, 68, 68, 0.08), var(--card));
+  background: var(--danger-soft);
 }
 
 .toggle-value {

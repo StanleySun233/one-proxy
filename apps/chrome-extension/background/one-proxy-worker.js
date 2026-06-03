@@ -1089,6 +1089,8 @@ function fallbackStatus(metrics) {
     failureCount: metrics ? metrics.failureCount : 0,
     lastErrorCode: metrics ? metrics.lastErrorCode : '',
     lastErrorMessage: metrics ? metrics.lastErrorMessage : '',
+    nodeTimings: [],
+    linkTimings: [],
     policyRevision: '',
     correlated: false
   };
@@ -1149,6 +1151,8 @@ function getStatusBubblePageStatus(message, sender) {
           },
           latencyMs,
           topology: route.topology || [],
+          nodeTimings: Array.isArray(status.nodeTimings) ? status.nodeTimings : [],
+          linkTimings: Array.isArray(status.linkTimings) ? status.linkTimings : [],
           policyRevision: status.policyRevision || state.remote.policyRevision || '',
           configFetchedAt: state.remote.fetchedAt || '',
           lastError: {

@@ -65,7 +65,7 @@
   padding: 14px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.98);
+  background: #ffffff;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
   opacity: 1;
   transition: opacity 180ms ease;
@@ -190,7 +190,7 @@
   flex: 0 0 58px;
   display: grid;
   justify-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 #one-proxy-status-root .opsb-hop-icon {
@@ -225,6 +225,19 @@
   line-height: 1.2;
   text-align: center;
   overflow-wrap: anywhere;
+}
+
+#one-proxy-status-root .opsb-hop-process {
+  max-width: 58px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
 }
 
 #one-proxy-status-root .opsb-hop-line {
