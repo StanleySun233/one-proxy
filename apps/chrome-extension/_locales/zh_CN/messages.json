@@ -292,6 +292,63 @@
   "noLogs": {
     "message": "暂无诊断日志。"
   },
+  "statusBubbleTitle": {
+    "message": "代理状态"
+  },
+  "statusBubbleUpload": {
+    "message": "上传"
+  },
+  "statusBubbleDownload": {
+    "message": "下载"
+  },
+  "statusBubbleLatency": {
+    "message": "延迟"
+  },
+  "statusBubbleRequests": {
+    "message": "请求"
+  },
+  "statusBubbleRoute": {
+    "message": "链路"
+  },
+  "statusBubbleOpenedAt": {
+    "message": "打开时间"
+  },
+  "statusBubbleRequestMix": {
+    "message": "代理 / 直连 / 失败"
+  },
+  "statusBubbleCorrelation": {
+    "message": "IO 来源"
+  },
+  "statusBubbleCorrelated": {
+    "message": "节点关联"
+  },
+  "statusBubbleNotCorrelated": {
+    "message": "未关联"
+  },
+  "statusBubbleLastError": {
+    "message": "最后错误"
+  },
+  "statusBubbleTopology": {
+    "message": "路径"
+  },
+  "statusBubbleUserMachine": {
+    "message": "用户机"
+  },
+  "statusBubbleWebsite": {
+    "message": "网页"
+  },
+  "statusBubbleRefresh": {
+    "message": "刷新"
+  },
+  "statusBubbleCopy": {
+    "message": "复制诊断"
+  },
+  "statusBubbleCopied": {
+    "message": "已复制"
+  },
+  "statusBubbleUnknown": {
+    "message": "未知"
+  },
   "themeVivid": {
     "message": "灵动"
   },
