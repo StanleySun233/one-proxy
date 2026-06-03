@@ -49,10 +49,10 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     {
       key: 'chains',
       label: t('nav.chains'),
-      href: '/chains/access-paths',
+      href: '/chains/network',
       icon: GitBranch,
       items: [
-        {label: t('shell.accessPaths'), href: '/chains/access-paths'},
+        {label: t('shell.accessPaths'), href: '/chains/network'},
         {label: t('shell.nodeTopology'), href: '/chains/topology'},
         {label: t('shell.chainStudio'), href: '/chains/studio'},
         {label: t('shell.routeBoard'), href: '/chains/routes'}
