@@ -11,8 +11,12 @@ if (manifest.manifest_version !== 3) {
   throw new Error('manifest_version_must_be_3');
 }
 
-if (!manifest.background || manifest.background.type !== 'module') {
-  throw new Error('background_service_worker_must_be_module');
+if (!manifest.background) {
+  throw new Error('missing_background');
+}
+
+if (manifest.background.type) {
+  throw new Error('background_service_worker_must_be_classic');
 }
 
 if (!manifest.background.service_worker) {
@@ -24,59 +28,12 @@ if (!existsSync(serviceWorkerPath)) {
   throw new Error(`missing_service_worker_file:${manifest.background.service_worker}`);
 }
 
-if (/\bawait\b/.test(readFileSync(serviceWorkerPath, 'utf8'))) {
+const serviceWorkerSource = readFileSync(serviceWorkerPath, 'utf8');
+if (/\bawait\b/.test(serviceWorkerSource)) {
   throw new Error(`service_worker_entry_contains_await:${manifest.background.service_worker}`);
 }
-
-function stripLineForDepth(line) {
-  return line
-    .replace(/'([^'\\]|\\.)*'/g, "''")
-    .replace(/"([^"\\]|\\.)*"/g, '""')
-    .replace(/`([^`\\]|\\.)*`/g, '``')
-    .replace(/\/\/.*$/, '');
-}
-
-function assertNoTopLevelAwait(file) {
-  const lines = readFileSync(file, 'utf8').split('\n');
-  let depth = 0;
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (depth === 0 && /\bawait\b/.test(stripLineForDepth(line))) {
-      throw new Error(`top_level_await:${path.relative(root, file)}:${index + 1}`);
-    }
-    const stripped = stripLineForDepth(line);
-    for (const char of stripped) {
-      if (char === '{') {
-        depth += 1;
-      } else if (char === '}') {
-        depth = Math.max(0, depth - 1);
-      }
-    }
-  }
-}
-
-function importedModules(file) {
-  const dir = path.dirname(file);
-  const source = readFileSync(file, 'utf8');
-  const imports = [...source.matchAll(/^\s*import\s+(?:[^'"]+\s+from\s+)?['"](.+?)['"]/gm)]
-    .map((match) => match[1])
-    .filter((specifier) => specifier.startsWith('.'))
-    .map((specifier) => path.resolve(dir, specifier.endsWith('.js') ? specifier : `${specifier}.js`));
-  return imports.filter((item) => existsSync(item));
-}
-
-function serviceWorkerGraph(entry) {
-  const seen = new Set();
-  const queue = [entry];
-  while (queue.length) {
-    const file = queue.shift();
-    if (seen.has(file)) {
-      continue;
-    }
-    seen.add(file);
-    queue.push(...importedModules(file));
-  }
-  return [...seen];
+if (/^\s*import\s/m.test(serviceWorkerSource) || /^\s*export\s/m.test(serviceWorkerSource)) {
+  throw new Error(`service_worker_entry_contains_module_syntax:${manifest.background.service_worker}`);
 }
 
 function files(dir) {
@@ -90,10 +47,6 @@ function files(dir) {
     }
   }
   return result;
-}
-
-for (const file of serviceWorkerGraph(serviceWorkerPath)) {
-  assertNoTopLevelAwait(file);
 }
 
 for (const file of files(root)) {

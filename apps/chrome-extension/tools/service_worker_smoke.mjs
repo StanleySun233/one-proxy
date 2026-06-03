@@ -1,10 +1,12 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const extensionPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const manifest = JSON.parse(readFileSync(path.join(extensionPath, 'manifest.json'), 'utf8'));
+const serviceWorkerPath = `/${manifest.background.service_worker}`;
 const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'oneproxy-extension-'));
 
 let context;
@@ -30,7 +32,7 @@ chromium.launchPersistentContext(userDataDir, {
       : context.waitForEvent('serviceworker', { timeout: 15000 });
 
     return serviceWorkerReady.then((serviceWorker) => {
-      if (!serviceWorker.url().endsWith('/background/index.js')) {
+      if (!serviceWorker.url().endsWith(serviceWorkerPath)) {
         throw new Error(`unexpected_service_worker:${serviceWorker.url()}`);
       }
 

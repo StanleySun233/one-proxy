@@ -25,6 +25,9 @@ jobs:
         with:
           node-version-file: '.node-version'
 
+      - name: Build extension service worker
+        run: node apps/chrome-extension/tools/build_background_bundle.mjs
+
       - name: Static extension checks
         run: node apps/chrome-extension/tools/validate_extension.mjs
 
