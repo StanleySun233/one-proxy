@@ -173,6 +173,8 @@ export default function ChainsPage() {
   const chains = chainsQuery.data || [];
   const nodes = nodesQuery.data || [];
   const scopes = scopesQuery.data || [];
+  const nodeNameById = useMemo(() => new Map(nodes.map((node) => [node.id, node.name])), [nodes]);
+  const nodeLabelFor = (nodeId: string) => nodeNameById.get(nodeId) || nodeId;
   const scopeNameById = useMemo(() => new Map(scopes.map((scope) => [scope.id, scope.name])), [scopes]);
   const scopeLabelFor = (scopeId: string) => scopeNameById.get(scopeId) || scopeId;
   const filteredChains = useMemo(() => {
@@ -180,10 +182,10 @@ export default function ChainsPage() {
       (!idFilter.trim() || chain.id.toLowerCase().includes(idFilter.trim().toLowerCase())) &&
       (!nameFilter.trim() || chain.name.toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
       (!destinationScopeFilter.trim() || scopeLabelFor(chain.destinationScope).toLowerCase().includes(destinationScopeFilter.trim().toLowerCase())) &&
-      (!hopsFilter.trim() || chain.hops.join(' ').toLowerCase().includes(hopsFilter.trim().toLowerCase())) &&
+      (!hopsFilter.trim() || chain.hops.map(nodeLabelFor).join(' ').toLowerCase().includes(hopsFilter.trim().toLowerCase())) &&
       (!statusFilter || (statusFilter === 'enabled' ? chain.enabled : !chain.enabled))
     );
-  }, [chains, destinationScopeFilter, hopsFilter, idFilter, nameFilter, scopeNameById, statusFilter]);
+  }, [chains, destinationScopeFilter, hopsFilter, idFilter, nameFilter, nodeNameById, scopeNameById, statusFilter]);
 
   return (
     <AuthGate>
@@ -251,7 +253,7 @@ export default function ChainsPage() {
                       <td>
                         <NameTag kind="chain">{chain.name}</NameTag>
                       </td>
-                      <td className="mono">{chain.hops.join(' → ')}</td>
+                      <td className="mono">{chain.hops.map(nodeLabelFor).join(' → ')}</td>
                       <td><NameTag kind="scope">{scopeLabelFor(chain.destinationScope)}</NameTag></td>
                       <td>
                         <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? t('common.enabled') : t('common.disabled')}</span>
