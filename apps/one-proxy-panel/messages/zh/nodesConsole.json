@@ -39,6 +39,8 @@
   "editNodeDesc": "更新所选节点的元数据、暴露方式和运行状态。",
   "saveChanges": "保存修改",
   "topology": "拓扑",
+  "topologyOverview": "总览",
+  "topologyLinks": "中继关系",
   "topologyTitle": "中继关系",
   "topologyDesc": "结合实时传输状态检查父子链接，以验证 a -> b -> c 隧道覆盖。",
   "publicTransports": "公网传输",

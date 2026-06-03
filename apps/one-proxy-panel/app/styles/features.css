@@ -81,6 +81,37 @@
   color: var(--muted);
 }
 
+.topology-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.topology-summary-item {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-2) 78%, var(--panel) 22%);
+}
+
+.topology-summary-item span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topology-summary-item strong {
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+}
+
 .panel-card {
   display: grid;
   gap: 14px;
@@ -139,6 +170,18 @@
   color: var(--muted);
 }
 
+@media (max-width: 1180px) {
+  .topology-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .topology-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .login-form {
   max-width: 440px;
 }
@@ -149,4 +192,3 @@
   place-items: center;
   padding: 24px;
 }
-

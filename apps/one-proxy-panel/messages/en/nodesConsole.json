@@ -39,6 +39,8 @@
   "editNodeDesc": "Update metadata, exposure, and runtime state for the selected node.",
   "saveChanges": "Save changes",
   "topology": "Topology",
+  "topologyOverview": "Overview",
+  "topologyLinks": "Relay relationships",
   "topologyTitle": "Relay relationships",
   "topologyDesc": "Inspect parent-child links together with live transport state to verify a -> b -> c tunnel overlays.",
   "publicTransports": "Public transports",

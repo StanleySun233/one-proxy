@@ -36,13 +36,24 @@ export function NodeTopologyPageContent() {
   const LINK_TYPE_RELAY = Object.keys(enums?.link_type || {}).find(k => k === 'relay') || 'relay';
   const TRUST_STATE_TRUSTED = Object.keys(enums?.trust_state || {}).find(k => k === 'trusted') || 'trusted';
   const REVERSE_WS_PARENT = transportTypeKeys.find(k => k === 'reverse_ws_parent') || 'reverse_ws_parent';
+  const linkTransportReady = (sourceNodeId: string, targetNodeId: string) => transports.some((transport) =>
+    transport.nodeId === targetNodeId &&
+    transport.parentNodeId === sourceNodeId &&
+    transport.transportType === REVERSE_WS_PARENT &&
+    transport.status === 'connected'
+  );
+  const topologySummary = useMemo(() => {
+    const reverseTunnelUp = links.filter((link) => linkTransportReady(link.sourceNodeId, link.targetNodeId)).length;
+    const reverseTunnelBlocked = Math.max(links.length - reverseTunnelUp, 0);
+    const publicTransportCount = transports.filter((transport) =>
+      transport.transportType === 'public_http' || transport.transportType === 'public_https'
+    ).length;
+    const connectedTransportCount = transports.filter((transport) => transport.status === 'connected').length;
+    return {reverseTunnelUp, reverseTunnelBlocked, publicTransportCount, connectedTransportCount};
+  }, [links, transports, REVERSE_WS_PARENT]);
   const filteredLinks = useMemo(() => {
     return links.filter((link) => {
-      const transportReady = transports.some((transport) =>
-        transport.nodeId === link.targetNodeId &&
-        transport.parentNodeId === link.sourceNodeId &&
-        transport.transportType === REVERSE_WS_PARENT
-      );
+      const transportReady = linkTransportReady(link.sourceNodeId, link.targetNodeId);
       return (!sourceFilter.trim() || [link.sourceNodeId, describeNodeName(link.sourceNodeId, nodesByID)].some((value) => String(value).toLowerCase().includes(sourceFilter.trim().toLowerCase()))) &&
         (!targetFilter.trim() || [link.targetNodeId, describeNodeName(link.targetNodeId, nodesByID)].some((value) => String(value).toLowerCase().includes(targetFilter.trim().toLowerCase()))) &&
         (!typeFilter.trim() || link.linkType.toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
@@ -100,6 +111,31 @@ export function NodeTopologyPageContent() {
           </ConsoleFilterItem>
         </ConsoleFilterBar>
 
+        <ConsoleList title={nodesT('topologyOverview')}>
+          <div className="topology-summary-grid">
+            <article className="topology-summary-item">
+              <span>{nodesT('topologyLinks')}</span>
+              <strong>{links.length}</strong>
+            </article>
+            <article className="topology-summary-item">
+              <span>{nodesT('reverseTunnelsUp')}</span>
+              <strong>{topologySummary.reverseTunnelUp}</strong>
+            </article>
+            <article className="topology-summary-item">
+              <span>{nodesT('reverseTunnelsBlocked')}</span>
+              <strong>{topologySummary.reverseTunnelBlocked}</strong>
+            </article>
+            <article className="topology-summary-item">
+              <span>{nodesT('runtimeTransports')}</span>
+              <strong>{topologySummary.connectedTransportCount}/{transports.length}</strong>
+            </article>
+            <article className="topology-summary-item">
+              <span>{nodesT('publicTransports')}</span>
+              <strong>{topologySummary.publicTransportCount}</strong>
+            </article>
+          </div>
+        </ConsoleList>
+
         <ConsoleList count={filteredLinks.length} title={nodesT('topologyTitle')}>
           {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending ? (
             <AsyncState detail={t('common.loading')} title={nodesT('loadingTopology')} />
@@ -136,11 +172,7 @@ export function NodeTopologyPageContent() {
                 </thead>
                 <tbody>
                   {filteredLinks.map((link) => {
-                    const transportReady = transports.some((transport) =>
-                      transport.nodeId === link.targetNodeId &&
-                      transport.parentNodeId === link.sourceNodeId &&
-                      transport.transportType === REVERSE_WS_PARENT
-                    );
+                    const transportReady = linkTransportReady(link.sourceNodeId, link.targetNodeId);
                     return (
                       <tr key={link.id}>
                         <td>{describeNodeName(link.sourceNodeId, nodesByID)}</td>
