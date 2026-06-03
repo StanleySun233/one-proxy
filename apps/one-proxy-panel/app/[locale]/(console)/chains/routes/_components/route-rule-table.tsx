@@ -14,17 +14,13 @@ type RouteRuleTableProps = {
   deletePending: boolean;
   t: (key: string) => string;
   routesT: (key: string) => string;
-  onEdit: (rule: RouteRule) => void;
-  onDelete: (ruleId: string) => void;
+  onEdit?: (rule: RouteRule) => void;
+  onDelete?: (ruleId: string) => void;
 };
 
 export function RouteRuleTable({routeRules, chains, routeRulesQuery, deletePending, t, routesT, onEdit, onDelete}: RouteRuleTableProps) {
   return (
-    <article className="panel-card">
-      <div className="panel-toolbar">
-        <h3>{routesT('routeRules')}</h3>
-        <span className="badge">{routeRules.length}</span>
-      </div>
+    <>
       {routeRulesQuery.isPending ? (
         <AsyncState detail={t('common.loading')} title={routesT('loadingRules')} />
       ) : routeRulesQuery.isError ? (
@@ -47,7 +43,7 @@ export function RouteRuleTable({routeRules, chains, routeRulesQuery, deletePendi
                 <th>{routesT('chain')}</th>
                 <th>{routesT('scope')}</th>
                 <th>{routesT('status')}</th>
-                <th>{t('common.actions')}</th>
+                {onEdit && onDelete ? <th>{t('common.actions')}</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -69,21 +65,23 @@ export function RouteRuleTable({routeRules, chains, routeRulesQuery, deletePendi
                         {rule.enabled ? t('common.enabled') : t('common.disabled')}
                       </span>
                     </td>
-                    <td>
-                      <div className="inline-cluster">
-                        <button className="secondary-button" onClick={() => onEdit(rule)} type="button">
-                          {t('common.edit')}
-                        </button>
-                        <button
-                          className="danger-button"
-                          disabled={deletePending}
-                          onClick={() => onDelete(rule.id)}
-                          type="button"
-                        >
-                          {t('common.delete')}
-                        </button>
-                      </div>
-                    </td>
+                    {onEdit && onDelete ? (
+                      <td>
+                        <div className="inline-cluster">
+                          <button className="secondary-button" onClick={() => onEdit(rule)} type="button">
+                            {t('common.edit')}
+                          </button>
+                          <button
+                            className="danger-button"
+                            disabled={deletePending}
+                            onClick={() => onDelete(rule.id)}
+                            type="button"
+                          >
+                            {t('common.delete')}
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}
@@ -91,6 +89,6 @@ export function RouteRuleTable({routeRules, chains, routeRulesQuery, deletePendi
           </table>
         </div>
       )}
-    </article>
+    </>
   );
 }

@@ -147,6 +147,67 @@
   color: var(--muted);
 }
 
+.console-page {
+  display: grid;
+  gap: 18px;
+  min-height: calc(100vh - 154px);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 88%, var(--backdrop) 12%);
+}
+
+.console-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.console-page-head p {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.console-page-head h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.console-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.console-page-body {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+@media (max-width: 760px) {
+  .console-page {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .console-page-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .console-page-actions {
+    justify-content: flex-start;
+  }
+}
+
 .panel-card h3 {
   margin: 0;
 }

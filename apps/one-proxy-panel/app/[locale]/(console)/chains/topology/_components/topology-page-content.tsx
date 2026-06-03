@@ -6,13 +6,13 @@ import {useTranslations} from 'next-intl';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
 import {fetchEnums} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {useNodeConsole} from '../../../nodes/_components/use-node-console';
 import {describeNodeName, transportBadgeClassName} from '../../../nodes/_components/node-utils';
 import {CreateNodeLinkForm} from './create-node-link-form';
-import {NodeLinkCard} from './node-link-card';
 
 export function NodeTopologyPageContent() {
   const t = useTranslations();
@@ -23,72 +23,60 @@ export function NodeTopologyPageContent() {
   const transports = nodeConsole.transportsQuery.data || [];
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const [createOpen, setCreateOpen] = useState(false);
   const [editingLinkID, setEditingLinkID] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const editingLink = links.find((link) => link.id === editingLinkID) || null;
-  // Derive enum value references from the enums object
   const transportTypeKeys = Object.keys(enums?.transport_type || {});
-  const PUBLIC_HTTP = transportTypeKeys.find(k => k === 'public_http') || 'public_http';
-  const PUBLIC_HTTPS = transportTypeKeys.find(k => k === 'public_https') || 'public_https';
-  const REVERSE_WS_PARENT = transportTypeKeys.find(k => k === 'reverse_ws_parent') || 'reverse_ws_parent';
-  const CONNECTED = Object.keys(enums?.transport_status || {}).find(k => k === 'connected') || 'connected';
   const LINK_TYPE_RELAY = Object.keys(enums?.link_type || {}).find(k => k === 'relay') || 'relay';
   const TRUST_STATE_TRUSTED = Object.keys(enums?.trust_state || {}).find(k => k === 'trusted') || 'trusted';
-  const transportSummary = useMemo(
-    () => ({
-      publicEndpoints: transports.filter((item) => item.transportType === PUBLIC_HTTP || item.transportType === PUBLIC_HTTPS).length,
-      reverseConnected: transports.filter((item) => item.transportType === REVERSE_WS_PARENT && item.status === CONNECTED).length,
-      reverseBlocked: transports.filter((item) => item.transportType === REVERSE_WS_PARENT && item.status !== CONNECTED).length
-    }),
-    [transports]
-  );
+  const REVERSE_WS_PARENT = transportTypeKeys.find(k => k === 'reverse_ws_parent') || 'reverse_ws_parent';
+  const filteredLinks = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) {
+      return links;
+    }
+    return links.filter((link) =>
+      [link.id, link.sourceNodeId, link.targetNodeId, link.linkType, link.trustState, describeNodeName(link.sourceNodeId, nodesByID), describeNodeName(link.targetNodeId, nodesByID)]
+        .some((value) => String(value || '').toLowerCase().includes(keyword))
+    );
+  }, [links, nodesByID, search]);
+  const filteredTransports = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) {
+      return transports;
+    }
+    return transports.filter((transport) =>
+      [transport.id, transport.nodeId, transport.transportType, transport.direction, transport.status, transport.address, transport.parentNodeId, describeNodeName(transport.nodeId, nodesByID)]
+        .some((value) => String(value || '').toLowerCase().includes(keyword))
+    );
+  }, [nodesByID, search, transports]);
+  const modalOpen = createOpen || Boolean(editingLink);
+  const closeModal = () => {
+    setCreateOpen(false);
+    setEditingLinkID(null);
+  };
 
   return (
     <AuthGate>
-      <div className="page-stack">
-        <section className="metrics-grid">
-          <article className="metric-card panel-card">
-            <span className="metric-label">{nodesT('publicTransports')}</span>
-            <strong>{transportSummary.publicEndpoints}</strong>
-          </article>
-          <article className="metric-card panel-card soft-card">
-            <span className="metric-label">{nodesT('reverseTunnelsUp')}</span>
-            <strong>{transportSummary.reverseConnected}</strong>
-          </article>
-          <article className="metric-card panel-card warm-card">
-            <span className="metric-label">{nodesT('reverseTunnelsBlocked')}</span>
-            <strong>{transportSummary.reverseBlocked}</strong>
-          </article>
-        </section>
+      <ConsolePage
+        actions={nodeConsole.canWrite ? (
+          <button className="primary-button" onClick={() => setCreateOpen(true)} type="button">
+            {nodesT('addLink')}
+          </button>
+        ) : null}
+        eyebrow={nodesT('topology')}
+        title={nodesT('topologyTitle')}
+      >
+        <ConsoleFilterBar>
+          <label className="field-stack">
+            <span>{t('common.search')}</span>
+            <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
+          </label>
+        </ConsoleFilterBar>
 
-        <section className="panel-card">
-          <div className="panel-toolbar">
-            <div>
-              <p className="section-kicker">{nodesT('topology')}</p>
-              <h3>{nodesT('topologyTitle')}</h3>
-            </div>
-            <span className="badge">{links.length}</span>
-          </div>
-          {nodeConsole.canWrite ? (
-            <CreateNodeLinkForm
-              nodes={nodes}
-              pending={nodeConsole.createNodeLink.isPending || nodeConsole.updateNodeLink.isPending}
-              editingLink={editingLink}
-              onCancelEdit={() => setEditingLinkID(null)}
-              onSubmit={(payload) => {
-                if (editingLink) {
-                  nodeConsole.updateNodeLink.mutate(
-                    {linkID: editingLink.id, ...payload},
-                    {onSuccess: () => setEditingLinkID(null)}
-                  );
-                  return;
-                }
-                nodeConsole.createNodeLink.mutate(payload);
-              }}
-              defaultLinkType={LINK_TYPE_RELAY}
-              defaultTrustState={TRUST_STATE_TRUSTED}
-            />
-          ) : null}
-          {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending || nodeConsole.transportsQuery.isPending ? (
+        <ConsoleList count={filteredLinks.length} title={nodesT('topologyTitle')}>
+          {nodeConsole.linksQuery.isPending || nodeConsole.nodesQuery.isPending ? (
             <AsyncState detail={t('common.loading')} title={nodesT('loadingTopology')} />
           ) : nodeConsole.nodesQuery.error ? (
             <AsyncState
@@ -104,6 +92,70 @@ export function NodeTopologyPageContent() {
               onAction={() => void nodeConsole.linksQuery.refetch()}
               title={nodesT('failedTopology')}
             />
+          ) : links.length === 0 ? (
+            <AsyncState detail={nodesT('emptyTopology')} title={t('common.empty')} />
+          ) : filteredLinks.length === 0 ? (
+            <AsyncState detail={t('common.noMatching')} title={t('common.empty')} />
+          ) : (
+            <div className="table-card">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t('common.source')}</th>
+                    <th>{t('common.target')}</th>
+                    <th>{t('common.type')}</th>
+                    <th>{nodesT('trustState')}</th>
+                    <th>{t('common.status')}</th>
+                    {nodeConsole.canWrite ? <th>{t('common.actions')}</th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLinks.map((link) => {
+                    const transportReady = transports.some((transport) =>
+                      transport.nodeId === link.targetNodeId &&
+                      transport.parentNodeId === link.sourceNodeId &&
+                      transport.transportType === REVERSE_WS_PARENT
+                    );
+                    return (
+                      <tr key={link.id}>
+                        <td>{describeNodeName(link.sourceNodeId, nodesByID)}</td>
+                        <td>{describeNodeName(link.targetNodeId, nodesByID)}</td>
+                        <td className="mono">{link.linkType}</td>
+                        <td><span className="badge">{link.trustState}</span></td>
+                        <td><span className={`badge ${transportReady ? 'is-good' : 'is-warn'}`}>{transportReady ? nodesT('reverseTunnelsUp') : nodesT('reverseTunnelsBlocked')}</span></td>
+                        {nodeConsole.canWrite ? (
+                          <td>
+                            <div className="chain-list-actions">
+                              <button className="secondary-button" onClick={() => setEditingLinkID(link.id)} type="button">
+                                {t('common.edit')}
+                              </button>
+                              <button
+                                className="danger-button"
+                                disabled={nodeConsole.deleteNodeLink.isPending}
+                                onClick={() => {
+                                  if (window.confirm(nodesT('deleteLinkConfirm', {id: link.id}))) {
+                                    nodeConsole.deleteNodeLink.mutate(link.id);
+                                  }
+                                }}
+                                type="button"
+                              >
+                                {t('common.delete')}
+                              </button>
+                            </div>
+                          </td>
+                        ) : null}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </ConsoleList>
+
+        <ConsoleList count={filteredTransports.length} title={nodesT('runtimeTransports')}>
+          {nodeConsole.transportsQuery.isPending || nodeConsole.nodesQuery.isPending ? (
+            <AsyncState detail={t('common.loading')} title={nodesT('loadingTransport')} />
           ) : nodeConsole.transportsQuery.error ? (
             <AsyncState
               actionLabel={t('common.retry')}
@@ -111,78 +163,69 @@ export function NodeTopologyPageContent() {
               onAction={() => void nodeConsole.transportsQuery.refetch()}
               title={nodesT('failedTransport')}
             />
-          ) : links.length === 0 ? (
-            <AsyncState detail={nodesT('emptyTopology')} title={t('common.empty')} />
+          ) : filteredTransports.length === 0 ? (
+            <AsyncState detail={search ? t('common.noMatching') : nodesT('noRuntimeTransports')} title={t('common.empty')} />
           ) : (
-            <div className="topology-stack">
-              <div className="nodes-link-grid">
-                {links.map((link) => (
-                  <div key={link.id} className="topology-link-item">
-                    <NodeLinkCard link={link} nodesByID={nodesByID} transports={transports} reverseWsType={REVERSE_WS_PARENT} />
-                    {nodeConsole.canWrite ? (
-                      <div className="inline-actions">
-                        <button className="ghost-button" onClick={() => setEditingLinkID(link.id)} type="button">
-                          {t('common.edit')}
-                        </button>
-                        <button
-                          className="danger-button"
-                          disabled={nodeConsole.deleteNodeLink.isPending}
-                          onClick={() => {
-                            if (window.confirm(nodesT('deleteLinkConfirm', {id: link.id}))) {
-                              nodeConsole.deleteNodeLink.mutate(link.id);
-                            }
-                          }}
-                          type="button"
-                        >
-                          {t('common.delete')}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-              <div className="table-card">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>{t('common.name')}</th>
-                      <th>{t('common.type')}</th>
-                      <th>{nodesT('direction')}</th>
-                      <th>{t('common.status')}</th>
-                      <th>{nodesT('address')}</th>
-                      <th>{t('common.parent')}</th>
-                      <th>{t('common.heartbeat')}</th>
+            <div className="table-card">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t('common.name')}</th>
+                    <th>{t('common.type')}</th>
+                    <th>{nodesT('direction')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{nodesT('address')}</th>
+                    <th>{t('common.parent')}</th>
+                    <th>{t('common.heartbeat')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTransports.map((transport) => (
+                    <tr key={transport.id}>
+                      <td>{describeNodeName(transport.nodeId, nodesByID) || transport.nodeId}</td>
+                      <td className="mono">{transport.transportType}</td>
+                      <td>{transport.direction}</td>
+                      <td>
+                        <span className={transportBadgeClassName(transport.status, enums)}>{transport.status}</span>
+                      </td>
+                      <td className="mono">{transport.address}</td>
+                      <td>{describeNodeName(transport.parentNodeId, nodesByID) || <span className="muted-text">{t('common.root')}</span>}</td>
+                      <td className="mono">{transport.lastHeartbeatAt ? formatISODateTime(transport.lastHeartbeatAt) : <span className="muted-text">{t('common.never')}</span>}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {transports.length === 0 ? (
-                      <tr>
-                        <td className="muted-text" colSpan={7}>
-                          {nodesT('noRuntimeTransports')}
-                        </td>
-                      </tr>
-                    ) : (
-                      transports.map((transport) => (
-                        <tr key={transport.id}>
-                          <td>{describeNodeName(transport.nodeId, nodesByID) || transport.nodeId}</td>
-                          <td className="mono">{transport.transportType}</td>
-                          <td>{transport.direction}</td>
-                          <td>
-                            <span className={transportBadgeClassName(transport.status, enums)}>{transport.status}</span>
-                          </td>
-                          <td className="mono">{transport.address}</td>
-                          <td>{describeNodeName(transport.parentNodeId, nodesByID) || <span className="muted-text">{t('common.root')}</span>}</td>
-                          <td className="mono">{transport.lastHeartbeatAt ? formatISODateTime(transport.lastHeartbeatAt) : <span className="muted-text">{t('common.never')}</span>}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-        </section>
-      </div>
+        </ConsoleList>
+
+        {nodeConsole.canWrite ? (
+          <ConsoleCrudModal
+            onClose={closeModal}
+            open={modalOpen}
+            title={editingLink ? nodesT('saveLink') : nodesT('addLink')}
+          >
+            <CreateNodeLinkForm
+              nodes={nodes}
+              pending={nodeConsole.createNodeLink.isPending || nodeConsole.updateNodeLink.isPending}
+              editingLink={editingLink}
+              onCancelEdit={closeModal}
+              onSubmit={(payload) => {
+                if (editingLink) {
+                  nodeConsole.updateNodeLink.mutate(
+                    {linkID: editingLink.id, ...payload},
+                    {onSuccess: closeModal}
+                  );
+                  return;
+                }
+                nodeConsole.createNodeLink.mutate(payload, {onSuccess: closeModal});
+              }}
+              defaultLinkType={LINK_TYPE_RELAY}
+              defaultTrustState={TRUST_STATE_TRUSTED}
+            />
+          </ConsoleCrudModal>
+        ) : null}
+      </ConsolePage>
     </AuthGate>
   );
 }

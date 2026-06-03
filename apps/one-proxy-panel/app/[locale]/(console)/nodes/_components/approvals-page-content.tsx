@@ -1,11 +1,14 @@
 'use client';
 
+import {useMemo, useState} from 'react';
+import {useTranslations} from 'next-intl';
+
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
 import {NameTag} from '@/components/common/name-tag';
 import {Node, UnconsumedBootstrapToken} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
-import {useTranslations} from 'next-intl';
 
 import {useNodeConsole} from './use-node-console';
 import {statusBadgeClassName} from './node-utils';
@@ -14,6 +17,7 @@ export function NodeApprovalsPageContent() {
   const t = useTranslations();
   const nodesT = useTranslations('nodesConsole');
   const nodeConsole = useNodeConsole();
+  const [search, setSearch] = useState('');
   const pendingNodes = nodeConsole.pendingNodesQuery.data || [];
   const unconsumedTokens = nodeConsole.unconsumedTokensQuery.data || [];
   const allItems: Array<{kind: 'pending'; data: Node} | {kind: 'unconsumed'; data: UnconsumedBootstrapToken}> = [
@@ -21,18 +25,28 @@ export function NodeApprovalsPageContent() {
     ...unconsumedTokens.map((token) => ({kind: 'unconsumed' as const, data: token}))
   ];
   const combinedCount = allItems.length;
+  const filteredItems = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) {
+      return allItems;
+    }
+    return allItems.filter((item) => {
+      const data = item.data;
+      return Object.values(data).some((value) => String(value || '').toLowerCase().includes(keyword));
+    });
+  }, [allItems, search]);
 
   return (
     <AuthGate>
-      <div className="page-stack">
-        <section className="panel-card">
-          <div className="panel-toolbar">
-            <div>
-              <p className="section-kicker">{nodesT('approvals')}</p>
-              <h3>{nodesT('pendingEnrollments')}</h3>
-            </div>
-            <span className="badge">{combinedCount}</span>
-          </div>
+      <ConsolePage eyebrow={nodesT('approvals')} title={nodesT('pendingEnrollments')}>
+        <ConsoleFilterBar>
+          <label className="field-stack">
+            <span>{t('common.search')}</span>
+            <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
+          </label>
+        </ConsoleFilterBar>
+
+        <ConsoleList count={filteredItems.length} title={nodesT('pendingEnrollments')}>
           {nodeConsole.pendingNodesQuery.isPending || nodeConsole.unconsumedTokensQuery.isPending ? (
             <AsyncState detail={t('common.loading')} title={nodesT('loadingPending')} />
           ) : nodeConsole.pendingNodesQuery.error ? (
@@ -44,6 +58,8 @@ export function NodeApprovalsPageContent() {
             />
           ) : combinedCount === 0 ? (
             <AsyncState detail={nodesT('emptyPending')} title={t('common.empty')} />
+          ) : filteredItems.length === 0 ? (
+            <AsyncState detail={t('common.noMatching')} title={t('common.empty')} />
           ) : (
             <div className="table-card">
               <table className="data-table">
@@ -58,7 +74,7 @@ export function NodeApprovalsPageContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allItems.map((item) => {
+                  {filteredItems.map((item) => {
                     if (item.kind === 'pending') {
                       const node = item.data;
                       return (
@@ -147,8 +163,8 @@ export function NodeApprovalsPageContent() {
               </table>
             </div>
           )}
-        </section>
-      </div>
+        </ConsoleList>
+      </ConsolePage>
     </AuthGate>
   );
 }

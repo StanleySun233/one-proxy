@@ -3,14 +3,14 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
-import {useState} from 'react';
+import {useMemo, useState} from 'react';
 import {Edit, Trash2} from 'lucide-react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {NameTag} from '@/components/common/name-tag';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
 import {useAuth} from '@/components/auth-provider';
-import {PageHero} from '@/components/page-hero';
 import {createChain, getChains, getNodes, getScopes, previewChain, probeChain, updateChain} from '@/lib/api';
 import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
@@ -47,6 +47,7 @@ export default function ChainsPage() {
   const [probeResults, setProbeResults] = useState<Record<string, ChainProbeResult>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<CompiledChainConfig | null>(null);
+  const [search, setSearch] = useState('');
 
   const chainsQuery = useQuery({
     queryKey: ['chains', accessToken, activeTenantId],
@@ -170,14 +171,123 @@ export default function ChainsPage() {
   const chains = chainsQuery.data || [];
   const nodes = nodesQuery.data || [];
   const scopes = scopesQuery.data || [];
+  const filteredChains = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) {
+      return chains;
+    }
+    return chains.filter((chain) =>
+      [chain.id, chain.name, chain.destinationScope, chain.hops.join(' ')]
+        .some((value) => String(value || '').toLowerCase().includes(keyword))
+    );
+  }, [chains, search]);
 
   return (
     <AuthGate>
-      <div className="page-stack">
-        <PageHero eyebrow={chainsT('eyebrow')} title={pageT('chainsTitle')} />
+      <ConsolePage
+        actions={canWrite ? (
+          <button className="primary-button" onClick={() => handleOpenEditor()} type="button">
+            {chainsT('createChain')}
+          </button>
+        ) : null}
+        eyebrow={chainsT('eyebrow')}
+        title={pageT('chainsTitle')}
+      >
+        <ConsoleFilterBar>
+          <label className="field-stack">
+            <span>{t('common.search')}</span>
+            <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
+          </label>
+        </ConsoleFilterBar>
 
-        {editorOpen ? (
-          <section className="panel-card">
+        <ConsoleList count={filteredChains.length} title={chainsT('listTitle')}>
+          {chainsQuery.isPending ? (
+            <AsyncState detail={t('common.loading')} title={chainsT('loadingChains')} />
+          ) : chainsQuery.isError ? (
+            <AsyncState
+              actionLabel={t('common.retry')}
+              detail={formatControlPlaneError(chainsQuery.error)}
+              onAction={() => void chainsQuery.refetch()}
+              title={chainsT('failedChains')}
+            />
+          ) : chains.length === 0 ? (
+            <AsyncState detail={chainsT('emptyChains')} title={t('common.empty')} />
+          ) : filteredChains.length === 0 ? (
+            <AsyncState detail={t('common.noMatching')} title={t('common.empty')} />
+          ) : (
+            <div className="table-card">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t('common.id')}</th>
+                    <th>{t('common.name')}</th>
+                    <th>{chainsT('hops')}</th>
+                    <th>{chainsT('destinationScope')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('common.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredChains.map((chain) => (
+                    <tr key={chain.id}>
+                      <td className="mono">{chain.id}</td>
+                      <td>
+                        <NameTag kind="chain">{chain.name}</NameTag>
+                      </td>
+                      <td className="mono">{chain.hops.join(' → ')}</td>
+                      <td><NameTag kind="scope">{chain.destinationScope}</NameTag></td>
+                      <td>
+                        <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? t('common.enabled') : t('common.disabled')}</span>
+                      </td>
+                      <td>
+                        <div className="chain-list-actions">
+                          {canWrite ? (
+                            <button className="secondary-button" onClick={() => handleOpenEditor(chain)} type="button">
+                              <Edit size={14} />
+                              {t('common.edit')}
+                            </button>
+                          ) : null}
+                          <button
+                            className="secondary-button"
+                            disabled={probeChainMutation.isPending}
+                            onClick={() => probeChainMutation.mutate(chain.id)}
+                            type="button"
+                          >
+                            {chainsT('probe')}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </ConsoleList>
+
+        {Object.keys(probeResults).length > 0 && (
+          <ConsoleList count={Object.keys(probeResults).length} title={chainsT('probeResults')}>
+            <div className="stack-list">
+              {Object.entries(probeResults).map(([chainId, result]) => (
+                <div className="stack-item" key={chainId}>
+                  <strong>{result.status === 'connected' ? chainsT('transportReady') : chainsT('transportBlocked')}</strong>
+                  <span className="field-hint">{probeReasonLabel(result.blockingReason || result.message, chainsT)}</span>
+                  {result.resolvedHops.length > 0 && (
+                    <span className="mono">{result.resolvedHops.map((hop) => `${hop.nodeName}:${hop.transportType}`).join(' → ')}</span>
+                  )}
+                  {result.blockingNodeId && <span className="muted-text">{chainsT('blockingNode')}: {result.blockingNodeId}</span>}
+                </div>
+              ))}
+            </div>
+          </ConsoleList>
+        )}
+
+        <ConsoleCrudModal
+          onClose={handleCloseEditor}
+          open={editorOpen}
+          subtitle={chainsT('editorDesc')}
+          title={editingChain ? chainsT('editChain') : chainsT('createChain')}
+        >
             <ChainEditor
               accessToken={accessToken}
               chainName={chainName}
@@ -194,106 +304,14 @@ export default function ChainsPage() {
               previewing={previewMutation.isPending}
               saving={createChainMutation.isPending || updateChainMutation.isPending}
             />
-          </section>
-        ) : (
-          <section className="panel-card">
-            <div className="panel-toolbar">
-              <div>
-                <p className="section-kicker">{chainsT('management')}</p>
-                <h3>{chainsT('listTitle')}</h3>
-              </div>
-              {canWrite ? (
-                <button className="primary-button" onClick={() => handleOpenEditor()} type="button">
-                  {chainsT('createChain')}
-                </button>
-              ) : null}
-            </div>
-
-            {chainsQuery.isPending ? (
-              <AsyncState detail={t('common.loading')} title={chainsT('loadingChains')} />
-            ) : chainsQuery.isError ? (
-              <AsyncState
-                actionLabel={t('common.retry')}
-                detail={formatControlPlaneError(chainsQuery.error)}
-                onAction={() => void chainsQuery.refetch()}
-                title={chainsT('failedChains')}
-              />
-            ) : chains.length === 0 ? (
-              <AsyncState detail={chainsT('emptyChains')} title={t('common.empty')} />
-            ) : (
-              <div className="table-card">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>{t('common.id')}</th>
-                      <th>{t('common.name')}</th>
-                      <th>{chainsT('hops')}</th>
-                      <th>{chainsT('destinationScope')}</th>
-                      <th>{t('common.status')}</th>
-                      <th>{t('common.actions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {chains.map((chain) => (
-                      <tr key={chain.id}>
-                        <td className="mono">{chain.id}</td>
-                        <td>
-                          <NameTag kind="chain">{chain.name}</NameTag>
-                        </td>
-                        <td className="mono">{chain.hops.join(' → ')}</td>
-                        <td><NameTag kind="scope">{chain.destinationScope}</NameTag></td>
-                        <td>
-                          <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? t('common.enabled') : t('common.disabled')}</span>
-                        </td>
-                        <td>
-                          <div className="chain-list-actions">
-                            {canWrite ? (
-                              <button className="secondary-button" onClick={() => handleOpenEditor(chain)} type="button">
-                                <Edit size={14} />
-                                {t('common.edit')}
-                              </button>
-                            ) : null}
-                            <button
-                              className="secondary-button"
-                              disabled={probeChainMutation.isPending}
-                              onClick={() => probeChainMutation.mutate(chain.id)}
-                              type="button"
-                            >
-                              {chainsT('probe')}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {Object.keys(probeResults).length > 0 && (
-              <div className="probe-results-section">
-                <h4>{chainsT('probeResults')}</h4>
-                {Object.entries(probeResults).map(([chainId, result]) => (
-                  <div className="token-box" key={chainId}>
-                    <strong>{result.status === 'connected' ? chainsT('transportReady') : chainsT('transportBlocked')}</strong>
-                    <span className="field-hint">{probeReasonLabel(result.blockingReason || result.message, chainsT)}</span>
-                    {result.resolvedHops.length > 0 && (
-                      <span className="mono">{result.resolvedHops.map((hop) => `${hop.nodeName}:${hop.transportType}`).join(' → ')}</span>
-                    )}
-                    {result.blockingNodeId && <span className="muted-text">{chainsT('blockingNode')}: {result.blockingNodeId}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+        </ConsoleCrudModal>
 
         {previewOpen && previewConfig && (
           <CompilationPreviewModal config={previewConfig} onClose={() => setPreviewOpen(false)} />
         )}
 
         {canWrite ? <AccessPathPanel accessToken={accessToken} chains={chains} nodes={nodes} /> : null}
-      </div>
+      </ConsolePage>
     </AuthGate>
   );
 }

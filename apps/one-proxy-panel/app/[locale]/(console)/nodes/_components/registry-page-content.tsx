@@ -5,13 +5,13 @@ import {useQuery} from '@tanstack/react-query';
 import {useTranslations} from 'next-intl';
 
 import {AuthGate} from '@/components/auth-gate';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
 import {fetchEnums} from '@/lib/api';
 
 import {useNodeConsole} from './use-node-console';
 import {deriveNodeHealthState} from './node-utils';
 import {RegistryNodeEditor} from './registry-node-editor';
 import {RegistryNodeTable} from './registry-node-table';
-import {RegistrySummaryCards} from './registry-summary-cards';
 import {RegistryNodeFormState, RegistryNodeRow} from './types';
 
 export function NodeRegistryPageContent() {
@@ -73,14 +73,6 @@ export function NodeRegistryPageContent() {
 
     return matchesQuery && matchesStatus && matchesMode;
   });
-  const summary = useMemo(() => {
-    return {
-      healthy: nodeRows.filter((node) => node.derivedHealthStatus === 'healthy').length,
-      degraded: nodeRows.filter((node) => node.derivedHealthStatus === 'degraded').length,
-      stale: nodeRows.filter((node) => node.derivedHealthStatus === 'stale').length,
-      unreported: nodeRows.filter((node) => node.derivedHealthStatus === 'unreported').length
-    };
-  }, [nodeRows]);
   const availableModes = Array.from(new Set(nodes.map((node) => node.mode))).sort();
   const editingNode = nodes.find((node) => node.id === editingNodeID) || null;
 
@@ -142,37 +134,70 @@ export function NodeRegistryPageContent() {
 
   return (
     <AuthGate>
-      <div className="page-stack">
-        <RegistrySummaryCards nodesT={nodesT} summary={summary} />
+      <ConsolePage eyebrow={nodesT('registry')} title={nodesT('registryTitle')}>
+        <ConsoleFilterBar>
+          <label className="field-stack">
+            <span>{t('common.search')}</span>
+            <input
+              className="field-input"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={nodesT('registrySearchPlaceholder')}
+              type="search"
+              value={query}
+            />
+          </label>
+          <label className="field-stack">
+            <span>{t('common.status')}</span>
+            <select className="field-select" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
+              <option value="all">{nodesT('allHealthStates')}</option>
+              <option value="healthy">{nodesT('healthyNodes')}</option>
+              <option value="degraded">{nodesT('degradedNodes')}</option>
+              <option value="stale">{nodesT('staleNodes')}</option>
+              <option value="unreported">{nodesT('unreportedNodes')}</option>
+            </select>
+          </label>
+          <label className="field-stack">
+            <span>{t('common.mode')}</span>
+            <select className="field-select" onChange={(event) => setModeFilter(event.target.value)} value={modeFilter}>
+              <option value="all">{nodesT('allModes')}</option>
+              {availableModes.map((mode) => (
+                <option key={mode} value={mode}>
+                  {mode}
+                </option>
+              ))}
+            </select>
+          </label>
+        </ConsoleFilterBar>
 
-        <RegistryNodeTable
-          availableModes={availableModes}
-          deletePending={nodeConsole.deleteNode.isPending}
-          editingNodeID={editingNodeID}
-          enums={enums}
-          filteredNodes={filteredNodes}
-          healthError={nodeConsole.healthQuery.error}
-          healthPending={nodeConsole.healthQuery.isPending}
-          modeFilter={modeFilter}
-          nodeRows={nodeRows}
-          nodes={nodes}
-          nodesByID={nodesByID}
-          nodesError={nodeConsole.nodesQuery.error}
-          nodesPending={nodeConsole.nodesQuery.isPending}
-          nodesT={nodesT}
-          onDelete={deleteNode}
-          onModeFilterChange={setModeFilter}
-          onQueryChange={setQuery}
-          onRetryHealth={() => void nodeConsole.healthQuery.refetch()}
-          onRetryNodes={() => void nodeConsole.nodesQuery.refetch()}
-          onStatusFilterChange={setStatusFilter}
-          onToggleEdit={(nodeID) => setEditingNodeID(editingNodeID === nodeID ? '' : nodeID)}
-          query={query}
-          statusFilter={statusFilter}
-          t={t}
-        />
+        <ConsoleList count={filteredNodes.length} title={nodesT('registryTitle')}>
+          <RegistryNodeTable
+            deletePending={nodeConsole.deleteNode.isPending}
+            editingNodeID={editingNodeID}
+            enums={enums}
+            filteredNodes={filteredNodes}
+            healthError={nodeConsole.healthQuery.error}
+            healthPending={nodeConsole.healthQuery.isPending}
+            nodeRows={nodeRows}
+            nodes={nodes}
+            nodesByID={nodesByID}
+            nodesError={nodeConsole.nodesQuery.error}
+            nodesPending={nodeConsole.nodesQuery.isPending}
+            nodesT={nodesT}
+            onDelete={deleteNode}
+            onRetryHealth={() => void nodeConsole.healthQuery.refetch()}
+            onRetryNodes={() => void nodeConsole.nodesQuery.refetch()}
+            onToggleEdit={(nodeID) => setEditingNodeID(editingNodeID === nodeID ? '' : nodeID)}
+            t={t}
+          />
+        </ConsoleList>
 
-        {editingNode ? (
+        <ConsoleCrudModal
+          onClose={() => setEditingNodeID('')}
+          open={Boolean(editingNode)}
+          subtitle={editingNode?.id}
+          title={nodesT('editNode')}
+        >
+          {editingNode ? (
           <RegistryNodeEditor
             editingNode={editingNode}
             enums={enums}
@@ -186,8 +211,9 @@ export function NodeRegistryPageContent() {
             t={t}
             updatePending={nodeConsole.updateNode.isPending}
           />
-        ) : null}
-      </div>
+          ) : null}
+        </ConsoleCrudModal>
+      </ConsolePage>
     </AuthGate>
   );
 }

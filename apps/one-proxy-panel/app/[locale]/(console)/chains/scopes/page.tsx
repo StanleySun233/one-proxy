@@ -3,14 +3,14 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {Edit, Trash2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
-import {useState} from 'react';
+import {useMemo, useState} from 'react';
 import {toast} from 'sonner';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
 import {useAuth} from '@/components/auth-provider';
 import {NameTag} from '@/components/common/name-tag';
-import {PageHero} from '@/components/page-hero';
 import {createScope, deleteScope, getScopes, updateScope} from '@/lib/api';
 import {Scope} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
@@ -35,6 +35,8 @@ export default function ScopesPage() {
   const activeTenantId = session?.activeTenantId || null;
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
   const [editingScope, setEditingScope] = useState<Scope | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [formState, setFormState] = useState<ScopeFormState>(emptyForm);
 
   const scopesQuery = useQuery({
@@ -48,6 +50,7 @@ export default function ScopesPage() {
     onSuccess: () => {
       toast.success(scopesT('createSuccess'));
       setFormState(emptyForm);
+      setCreateOpen(false);
       queryClient.invalidateQueries({queryKey: ['chains-scopes']});
     },
     onError: (error) => {
@@ -81,6 +84,7 @@ export default function ScopesPage() {
 
   const handleEdit = (scope: Scope) => {
     setEditingScope(scope);
+    setCreateOpen(false);
     setFormState({
       name: scope.name,
       description: scope.description || ''
@@ -89,7 +93,14 @@ export default function ScopesPage() {
 
   const handleCancelEdit = () => {
     setEditingScope(null);
+    setCreateOpen(false);
     setFormState(emptyForm);
+  };
+
+  const handleOpenCreate = () => {
+    setEditingScope(null);
+    setFormState(emptyForm);
+    setCreateOpen(true);
   };
 
   const handleSubmit = () => {
@@ -109,66 +120,42 @@ export default function ScopesPage() {
   };
 
   const scopes = scopesQuery.data || [];
+  const filteredScopes = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) {
+      return scopes;
+    }
+    return scopes.filter((scope) =>
+      [scope.id, scope.name, scope.description].some((value) => String(value || '').toLowerCase().includes(keyword))
+    );
+  }, [scopes, search]);
   const saving = createScopeMutation.isPending || updateScopeMutation.isPending;
+  const modalOpen = createOpen || Boolean(editingScope);
 
   return (
     <AuthGate>
-      <div className="page-stack">
-        <PageHero eyebrow={scopesT('eyebrow')} title={pageT('scopesTitle')} />
-
-        {canWrite ? (
-          <section className="panel-card">
-            <div className="panel-toolbar">
-              <div>
-                <p className="section-kicker">{scopesT('formEyebrow')}</p>
-                <h3>{editingScope ? scopesT('editTitle') : scopesT('createTitle')}</h3>
-              </div>
-              {editingScope ? (
-                <button className="secondary-button" onClick={handleCancelEdit} type="button">
-                  {t('common.cancel')}
-                </button>
-              ) : null}
-            </div>
-
-            <div className="forms-grid">
-              <label className="field-stack">
-                <span>{t('common.name')}</span>
-                <input
-                  className="field-input"
-                  onChange={(event) => setFormState((current) => ({...current, name: event.target.value}))}
-                  placeholder={scopesT('namePlaceholder')}
-                  value={formState.name}
-                />
-              </label>
-              <label className="field-stack" style={{gridColumn: '1 / -1'}}>
-                <span>{scopesT('description')}</span>
-                <textarea
-                  className="field-textarea"
-                  onChange={(event) => setFormState((current) => ({...current, description: event.target.value}))}
-                  placeholder={scopesT('descriptionPlaceholder')}
-                  rows={3}
-                  value={formState.description}
-                />
-              </label>
-            </div>
-
-            <div className="submit-row">
-              <button className="primary-button" disabled={saving} onClick={handleSubmit} type="button">
-                {editingScope ? scopesT('save') : scopesT('create')}
-              </button>
-            </div>
-          </section>
+      <ConsolePage
+        actions={canWrite ? (
+          <button className="primary-button" onClick={handleOpenCreate} type="button">
+            {scopesT('create')}
+          </button>
         ) : null}
+        eyebrow={scopesT('eyebrow')}
+        title={pageT('scopesTitle')}
+      >
+        <ConsoleFilterBar>
+          <label className="field-stack">
+            <span>{t('common.search')}</span>
+            <input
+              className="field-input"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('common.searchPlaceholder')}
+              value={search}
+            />
+          </label>
+        </ConsoleFilterBar>
 
-        <section className="panel-card">
-          <div className="panel-toolbar">
-            <div>
-              <p className="section-kicker">{scopesT('listEyebrow')}</p>
-              <h3>{scopesT('listTitle')}</h3>
-            </div>
-            <span className="badge is-neutral">{scopes.length}</span>
-          </div>
-
+        <ConsoleList count={filteredScopes.length} title={scopesT('listTitle')}>
           {scopesQuery.isPending ? (
             <AsyncState detail={t('common.loading')} title={scopesT('loading')} />
           ) : scopesQuery.isError ? (
@@ -180,6 +167,8 @@ export default function ScopesPage() {
             />
           ) : scopes.length === 0 ? (
             <AsyncState detail={scopesT('empty')} title={t('common.empty')} />
+          ) : filteredScopes.length === 0 ? (
+            <AsyncState detail={t('common.noMatching')} title={t('common.empty')} />
           ) : (
             <div className="table-card">
               <table className="data-table">
@@ -193,7 +182,7 @@ export default function ScopesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {scopes.map((scope) => (
+                  {filteredScopes.map((scope) => (
                     <tr key={scope.id}>
                       <td className="mono">{scope.id}</td>
                       <td><NameTag kind="scope">{scope.name}</NameTag></td>
@@ -228,8 +217,47 @@ export default function ScopesPage() {
               </table>
             </div>
           )}
-        </section>
-      </div>
+        </ConsoleList>
+
+        <ConsoleCrudModal
+          footer={(
+            <>
+              <button className="secondary-button" onClick={handleCancelEdit} type="button">
+                {t('common.cancel')}
+              </button>
+              <button className="primary-button" disabled={saving} onClick={handleSubmit} type="button">
+                {editingScope ? scopesT('save') : scopesT('create')}
+              </button>
+            </>
+          )}
+          onClose={handleCancelEdit}
+          open={modalOpen}
+          subtitle={scopesT('formEyebrow')}
+          title={editingScope ? scopesT('editTitle') : scopesT('createTitle')}
+        >
+          <div className="forms-grid">
+              <label className="field-stack">
+                <span>{t('common.name')}</span>
+                <input
+                  className="field-input"
+                  onChange={(event) => setFormState((current) => ({...current, name: event.target.value}))}
+                  placeholder={scopesT('namePlaceholder')}
+                  value={formState.name}
+                />
+              </label>
+              <label className="field-stack" style={{gridColumn: '1 / -1'}}>
+                <span>{scopesT('description')}</span>
+                <textarea
+                  className="field-textarea"
+                  onChange={(event) => setFormState((current) => ({...current, description: event.target.value}))}
+                  placeholder={scopesT('descriptionPlaceholder')}
+                  rows={3}
+                  value={formState.description}
+                />
+              </label>
+            </div>
+        </ConsoleCrudModal>
+      </ConsolePage>
     </AuthGate>
   );
 }

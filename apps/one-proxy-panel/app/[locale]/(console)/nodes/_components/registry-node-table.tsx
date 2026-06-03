@@ -14,10 +14,6 @@ type RegistryNodeTableProps = {
   filteredNodes: RegistryNodeRow[];
   nodesByID: Map<string, Node>;
   enums: FieldEnumMap | undefined;
-  availableModes: string[];
-  query: string;
-  statusFilter: string;
-  modeFilter: string;
   editingNodeID: string;
   nodesPending: boolean;
   healthPending: boolean;
@@ -26,9 +22,6 @@ type RegistryNodeTableProps = {
   deletePending: boolean;
   t: (key: string) => string;
   nodesT: (key: string, values?: Record<string, string | number>) => string;
-  onQueryChange: (value: string) => void;
-  onStatusFilterChange: (value: string) => void;
-  onModeFilterChange: (value: string) => void;
   onToggleEdit: (nodeID: string) => void;
   onDelete: (node: RegistryNodeRow) => void;
   onRetryNodes: () => void;
@@ -41,10 +34,6 @@ export function RegistryNodeTable({
   filteredNodes,
   nodesByID,
   enums,
-  availableModes,
-  query,
-  statusFilter,
-  modeFilter,
   editingNodeID,
   nodesPending,
   healthPending,
@@ -53,26 +42,13 @@ export function RegistryNodeTable({
   deletePending,
   t,
   nodesT,
-  onQueryChange,
-  onStatusFilterChange,
-  onModeFilterChange,
   onToggleEdit,
   onDelete,
   onRetryNodes,
   onRetryHealth
 }: RegistryNodeTableProps) {
   return (
-    <section className="panel-card">
-      <div className="panel-toolbar">
-        <div>
-          <p className="section-kicker">{nodesT('registry')}</p>
-          <h3>{nodesT('registryTitle')}</h3>
-        </div>
-        <div className="inline-cluster">
-          <span className="badge">{filteredNodes.length} {t('common.shown')}</span>
-          <span className="badge">{nodeRows.length} {t('common.total')}</span>
-        </div>
-      </div>
+    <>
       {nodesPending || healthPending ? (
         <AsyncState detail={t('common.loading')} title={nodesT('loadingRegistry')} />
       ) : nodesError ? (
@@ -91,108 +67,45 @@ export function RegistryNodeTable({
         />
       ) : nodes.length === 0 ? (
         <AsyncState detail={nodesT('emptyRegistry')} title={t('common.empty')} />
+      ) : filteredNodes.length === 0 ? (
+        <AsyncState detail={nodesT('noMatchingNodesDetail')} title={nodesT('noMatchingNodes')} />
       ) : (
-        <div className="registry-stack">
-          <RegistryFilters
-            availableModes={availableModes}
-            modeFilter={modeFilter}
-            nodesT={nodesT}
-            onModeFilterChange={onModeFilterChange}
-            onQueryChange={onQueryChange}
-            onStatusFilterChange={onStatusFilterChange}
-            query={query}
-            statusFilter={statusFilter}
-            t={t}
-          />
-          {filteredNodes.length === 0 ? (
-            <AsyncState detail={nodesT('noMatchingNodesDetail')} title={nodesT('noMatchingNodes')} />
-          ) : (
-            <div className="table-card">
-              <table className="data-table registry-table">
-                <thead>
-                  <tr>
-                    <th>{t('common.name')}</th>
-                    <th>{t('common.status')}</th>
-                    <th>{t('common.mode')}</th>
-                    <th>{t('common.scope')}</th>
-                    <th>{t('common.heartbeat')}</th>
-                    <th>{t('common.policy')}</th>
-                    <th>{nodesT('publicEndpoint')}</th>
-                    <th>{t('common.parent')}</th>
-                    <th>{t('common.id')}</th>
-                    <th>{t('common.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredNodes.map((node) => (
-                    <RegistryNodeTableRow
-                      deletePending={deletePending}
-                      editing={node.id === editingNodeID}
-                      enums={enums}
-                      key={node.id}
-                      node={node}
-                      nodesByID={nodesByID}
-                      nodesT={nodesT}
-                      onDelete={onDelete}
-                      onToggleEdit={onToggleEdit}
-                      t={t}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <div className="table-card">
+          <table className="data-table registry-table">
+            <thead>
+              <tr>
+                <th>{t('common.name')}</th>
+                <th>{t('common.status')}</th>
+                <th>{t('common.mode')}</th>
+                <th>{t('common.scope')}</th>
+                <th>{t('common.heartbeat')}</th>
+                <th>{t('common.policy')}</th>
+                <th>{nodesT('publicEndpoint')}</th>
+                <th>{t('common.parent')}</th>
+                <th>{t('common.id')}</th>
+                <th>{t('common.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredNodes.map((node) => (
+                <RegistryNodeTableRow
+                  deletePending={deletePending}
+                  editing={node.id === editingNodeID}
+                  enums={enums}
+                  key={node.id}
+                  node={node}
+                  nodesByID={nodesByID}
+                  nodesT={nodesT}
+                  onDelete={onDelete}
+                  onToggleEdit={onToggleEdit}
+                  t={t}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
-    </section>
-  );
-}
-
-function RegistryFilters({
-  availableModes,
-  query,
-  statusFilter,
-  modeFilter,
-  t,
-  nodesT,
-  onQueryChange,
-  onStatusFilterChange,
-  onModeFilterChange
-}: Pick<RegistryNodeTableProps, 'availableModes' | 'query' | 'statusFilter' | 'modeFilter' | 't' | 'nodesT' | 'onQueryChange' | 'onStatusFilterChange' | 'onModeFilterChange'>) {
-  return (
-    <div className="registry-toolbar">
-      <label className="field-stack registry-filter">
-        <span>{t('common.search')}</span>
-        <input
-          className="field-input"
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={nodesT('registrySearchPlaceholder')}
-          type="search"
-          value={query}
-        />
-      </label>
-      <label className="field-stack registry-filter registry-filter-short">
-        <span>{t('common.status')}</span>
-        <select className="field-select" onChange={(event) => onStatusFilterChange(event.target.value)} value={statusFilter}>
-          <option value="all">{nodesT('allHealthStates')}</option>
-          <option value="healthy">{nodesT('healthyNodes')}</option>
-          <option value="degraded">{nodesT('degradedNodes')}</option>
-          <option value="stale">{nodesT('staleNodes')}</option>
-          <option value="unreported">{nodesT('unreportedNodes')}</option>
-        </select>
-      </label>
-      <label className="field-stack registry-filter registry-filter-short">
-        <span>{t('common.mode')}</span>
-        <select className="field-select" onChange={(event) => onModeFilterChange(event.target.value)} value={modeFilter}>
-          <option value="all">{nodesT('allModes')}</option>
-          {availableModes.map((mode) => (
-            <option key={mode} value={mode}>
-              {mode}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
+    </>
   );
 }
 

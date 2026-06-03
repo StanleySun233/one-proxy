@@ -4,6 +4,7 @@ import {useCallback} from 'react';
 import {useTranslations} from 'next-intl';
 
 import {AuthGate} from '@/components/auth-gate';
+import {ConsoleList, ConsolePage} from '@/components/console-template';
 
 import {BootstrapTokenTab} from './bootstrap-token-tab';
 import {BootstrapFormValues} from './types';
@@ -31,12 +32,8 @@ export function NodeBootstrapPageContent() {
 
   return (
     <AuthGate>
-      <div className="page-stack">
-        <section className="panel-card nodes-single-panel">
-          <div>
-            <p className="section-kicker">{nodesT('bootstrap')}</p>
-            <h3>{nodesT('bootstrapToken')}</h3>
-          </div>
+      <ConsolePage eyebrow={nodesT('bootstrap')} title={nodesT('bootstrapToken')}>
+        <ConsoleList title={nodesT('bootstrapToken')}>
           <BootstrapTokenTab
             form={nodeConsole.bootstrapForm}
             latestToken={nodeConsole.latestToken}
@@ -45,8 +42,8 @@ export function NodeBootstrapPageContent() {
             scopes={nodeConsole.scopesQuery.data || []}
             onSubmit={handleBootstrap}
           />
-        </section>
-      </div>
+        </ConsoleList>
+      </ConsolePage>
     </AuthGate>
   );
 }

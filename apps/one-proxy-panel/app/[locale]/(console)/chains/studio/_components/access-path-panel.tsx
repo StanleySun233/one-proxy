@@ -7,6 +7,7 @@ import {useMemo, useState} from 'react';
 import {toast} from 'sonner';
 
 import {AsyncState} from '@/components/async-state';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList} from '@/components/console-template';
 import {NameTag} from '@/components/common/name-tag';
 import {createNodeAccessPath, deleteNodeAccessPath, fetchEnums, getNodeAccessPaths, updateNodeAccessPath} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
@@ -112,6 +113,8 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
   const accessPathsT = useTranslations('accessPaths');
   const queryClient = useQueryClient();
   const [editingPath, setEditingPath] = useState<NodeAccessPath | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [formState, setFormState] = useState<AccessPathFormState>(emptyForm);
 
   const pathsQuery = useQuery({
@@ -132,6 +135,7 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
     onSuccess: () => {
       toast.success(accessPathsT('createSuccess'));
       setFormState(emptyForm);
+      setCreateOpen(false);
       queryClient.invalidateQueries({queryKey: ['chains-access-paths']});
     },
     onError: (error) => toast.error(formatControlPlaneError(error))
@@ -163,12 +167,20 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
 
   const handleEdit = (path: NodeAccessPath) => {
     setEditingPath(path);
+    setCreateOpen(false);
     setFormState(pathFormValues(path));
   };
 
   const handleCancelEdit = () => {
     setEditingPath(null);
+    setCreateOpen(false);
     setFormState(emptyForm);
+  };
+
+  const handleOpenCreate = () => {
+    setEditingPath(null);
+    setFormState(emptyForm);
+    setCreateOpen(true);
   };
 
   const handleSubmit = () => {
@@ -191,22 +203,112 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
   const authOptions = enumOptions(enums.access_auth_mode);
   const selectedChain = chainById.get(formState.chainId);
   const saving = createMutation.isPending || updateMutation.isPending;
+  const filteredPaths = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) {
+      return paths;
+    }
+    return paths.filter((path) =>
+      [path.id, path.name, path.chainId, path.protocol, path.serviceType, path.targetHost, path.listenHost]
+        .some((value) => String(value || '').toLowerCase().includes(keyword))
+    );
+  }, [paths, search]);
+  const modalOpen = createOpen || Boolean(editingPath);
 
   return (
-    <section className="panel-card">
-      <div className="panel-toolbar">
-        <div>
-          <p className="section-kicker">{accessPathsT('formEyebrow')}</p>
-          <h3>{editingPath ? accessPathsT('editTitle') : accessPathsT('createTitle')}</h3>
-        </div>
-        {editingPath ? (
-          <button className="secondary-button" onClick={handleCancelEdit} type="button">
-            {t('common.cancel')}
-          </button>
-        ) : null}
-      </div>
+    <>
+      <ConsoleFilterBar actions={(
+        <button className="primary-button" onClick={handleOpenCreate} type="button">
+          {accessPathsT('create')}
+        </button>
+      )}>
+        <label className="field-stack">
+          <span>{t('common.search')}</span>
+          <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
+        </label>
+      </ConsoleFilterBar>
 
-      <div className="forms-grid">
+      <ConsoleList count={filteredPaths.length} title={accessPathsT('listTitle')}>
+        {pathsQuery.isPending ? (
+          <AsyncState detail={t('common.loading')} title={accessPathsT('loading')} />
+        ) : pathsQuery.isError ? (
+          <AsyncState actionLabel={t('common.retry')} detail={formatControlPlaneError(pathsQuery.error)} onAction={() => void pathsQuery.refetch()} title={accessPathsT('failed')} />
+        ) : paths.length === 0 ? (
+          <AsyncState detail={accessPathsT('empty')} title={t('common.empty')} />
+        ) : filteredPaths.length === 0 ? (
+          <AsyncState detail={t('common.noMatching')} title={t('common.empty')} />
+        ) : (
+          <div className="table-card">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{t('common.name')}</th>
+                  <th>{accessPathsT('chain')}</th>
+                  <th>{accessPathsT('protocol')}</th>
+                  <th>{t('common.target')}</th>
+                  <th>{accessPathsT('listen')}</th>
+                  <th>{t('common.status')}</th>
+                  <th>{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPaths.map((path) => (
+                  <tr key={path.id}>
+                    <td><NameTag kind="node">{path.name}</NameTag></td>
+                    <td>{chainById.get(path.chainId)?.name || path.chainId}</td>
+                    <td className="mono">{path.protocol} / {path.serviceType}</td>
+                    <td className="mono">{path.targetHost}:{path.targetPort}</td>
+                    <td className="mono">{path.listenHost || '*'}:{path.listenPort}</td>
+                    <td><span className={`badge ${path.enabled ? 'is-success' : 'is-neutral'}`}>{path.enabled ? t('common.enabled') : t('common.disabled')}</span></td>
+                    <td>
+                      <div className="chain-list-actions">
+                        <button className="secondary-button" onClick={() => handleEdit(path)} type="button">
+                          <Edit size={14} />
+                          {t('common.edit')}
+                        </button>
+                        <button
+                          className="danger-button"
+                          disabled={deleteMutation.isPending}
+                          onClick={() => {
+                            if (window.confirm(accessPathsT('deleteConfirm'))) {
+                              deleteMutation.mutate(path.id);
+                            }
+                          }}
+                          type="button"
+                        >
+                          <Trash2 size={14} />
+                          {t('common.delete')}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ConsoleList>
+
+      <ConsoleCrudModal
+        footer={(
+          <>
+            <span className="muted-text">
+              {selectedChain ? `${accessPathsT('chainPath')}: ${selectedChain.hops.map((hop) => nodeById.get(hop)?.name || hop).join(' -> ')}` : accessPathsT('selectChain')}
+            </span>
+            <button className="secondary-button" onClick={handleCancelEdit} type="button">
+              {t('common.cancel')}
+            </button>
+            <button className="primary-button" disabled={saving} onClick={handleSubmit} type="button">
+              {editingPath ? accessPathsT('save') : accessPathsT('create')}
+            </button>
+          </>
+        )}
+        onClose={handleCancelEdit}
+        open={modalOpen}
+        subtitle={accessPathsT('formEyebrow')}
+        title={editingPath ? accessPathsT('editTitle') : accessPathsT('createTitle')}
+      >
+        <div className="forms-grid">
         <label className="field-stack">
           <span>{accessPathsT('chain')}</span>
           <select className="field-select" onChange={(event) => setField('chainId', event.target.value)} value={formState.chainId}>
@@ -268,80 +370,7 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
           </button>
         </label>
       </div>
-
-      <div className="submit-row">
-        <span className="muted-text">
-          {selectedChain ? `${accessPathsT('chainPath')}: ${selectedChain.hops.map((hop) => nodeById.get(hop)?.name || hop).join(' -> ')}` : accessPathsT('selectChain')}
-        </span>
-        <button className="primary-button" disabled={saving} onClick={handleSubmit} type="button">
-          {editingPath ? accessPathsT('save') : accessPathsT('create')}
-        </button>
-      </div>
-
-      <div className="panel-toolbar">
-        <div>
-          <p className="section-kicker">{accessPathsT('listEyebrow')}</p>
-          <h3>{accessPathsT('listTitle')}</h3>
-        </div>
-        <span className="badge is-neutral">{paths.length}</span>
-      </div>
-
-      {pathsQuery.isPending ? (
-        <AsyncState detail={t('common.loading')} title={accessPathsT('loading')} />
-      ) : pathsQuery.isError ? (
-        <AsyncState actionLabel={t('common.retry')} detail={formatControlPlaneError(pathsQuery.error)} onAction={() => void pathsQuery.refetch()} title={accessPathsT('failed')} />
-      ) : paths.length === 0 ? (
-        <AsyncState detail={accessPathsT('empty')} title={t('common.empty')} />
-      ) : (
-        <div className="table-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{t('common.name')}</th>
-                <th>{accessPathsT('chain')}</th>
-                <th>{accessPathsT('protocol')}</th>
-                <th>{t('common.target')}</th>
-                <th>{accessPathsT('listen')}</th>
-                <th>{t('common.status')}</th>
-                <th>{t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paths.map((path) => (
-                <tr key={path.id}>
-                  <td><NameTag kind="node">{path.name}</NameTag></td>
-                  <td>{chainById.get(path.chainId)?.name || path.chainId}</td>
-                  <td className="mono">{path.protocol} / {path.serviceType}</td>
-                  <td className="mono">{path.targetHost}:{path.targetPort}</td>
-                  <td className="mono">{path.listenHost || '*'}:{path.listenPort}</td>
-                  <td><span className={`badge ${path.enabled ? 'is-success' : 'is-neutral'}`}>{path.enabled ? t('common.enabled') : t('common.disabled')}</span></td>
-                  <td>
-                    <div className="chain-list-actions">
-                      <button className="secondary-button" onClick={() => handleEdit(path)} type="button">
-                        <Edit size={14} />
-                        {t('common.edit')}
-                      </button>
-                      <button
-                        className="danger-button"
-                        disabled={deleteMutation.isPending}
-                        onClick={() => {
-                          if (window.confirm(accessPathsT('deleteConfirm'))) {
-                            deleteMutation.mutate(path.id);
-                          }
-                        }}
-                        type="button"
-                      >
-                        <Trash2 size={14} />
-                        {t('common.delete')}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+      </ConsoleCrudModal>
+    </>
   );
 }

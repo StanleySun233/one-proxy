@@ -58,9 +58,8 @@ export function RouteRuleForm({
   validateMatchValue
 }: RouteRuleFormProps) {
   return (
-    <article className="panel-card">
+    <div className="sub-grid">
       <div className="inline-cluster" style={{gap: 8}}>
-        <h3>{editingRule ? routesT('editRule') : routesT('createRule')}</h3>
         {validationPending && <span className="badge is-neutral">{t('common.validating')}</span>}
         {!validationPending && validationResult && (
           <span className={`badge ${validationResult.valid ? 'is-good' : 'is-danger'}`}>
@@ -201,6 +200,6 @@ export function RouteRuleForm({
           ) : null}
         </div>
       </form>
-    </article>
+    </div>
   );
 }

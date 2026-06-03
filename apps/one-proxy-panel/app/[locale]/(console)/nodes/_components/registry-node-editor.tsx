@@ -35,14 +35,7 @@ export function RegistryNodeEditor({
   const nodeStatusOptions = enums?.node_status ? Object.entries(enums.node_status).map(([value, item]) => ({value, label: item.name})) : [];
 
   return (
-    <section className="node-editor-card">
-      <div className="panel-toolbar">
-        <div>
-          <p className="section-kicker">{t('common.update')}</p>
-          <h3>{nodesT('editNode')}</h3>
-        </div>
-        <span className="badge mono">{editingNode.id}</span>
-      </div>
+    <div>
       <div className="forms-grid">
         <label className="field-stack">
           <span>{t('common.name')}</span>
@@ -119,6 +112,6 @@ export function RegistryNodeEditor({
           {t('common.close')}
         </button>
       </div>
-    </section>
+    </div>
   );
 }
