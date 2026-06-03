@@ -193,7 +193,7 @@ export default function ChainsPage() {
         eyebrow={chainsT('eyebrow')}
         title={pageT('chainsTitle')}
       >
-        <ConsoleFilterBar>
+        <ConsoleFilterBar title={t('common.filter')}>
           <label className="field-stack">
             <span>{t('common.search')}</span>
             <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />

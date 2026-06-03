@@ -135,7 +135,7 @@ export function NodeRegistryPageContent() {
   return (
     <AuthGate>
       <ConsolePage eyebrow={nodesT('registry')} title={nodesT('registryTitle')}>
-        <ConsoleFilterBar>
+        <ConsoleFilterBar title={t('common.filter')}>
           <label className="field-stack">
             <span>{t('common.search')}</span>
             <input

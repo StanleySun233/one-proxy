@@ -162,17 +162,26 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  min-height: 62px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line);
 }
 
-.console-page-head p {
+.console-page-title {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.console-page-title p {
   margin: 0 0 4px;
   color: var(--muted);
   font-size: 12px;
+  line-height: 16px;
 }
 
-.console-page-head h3 {
+.console-page-title h3 {
   margin: 0;
   font-size: 18px;
   line-height: 1.25;
@@ -201,6 +210,7 @@
   .console-page-head {
     align-items: stretch;
     flex-direction: column;
+    min-height: 0;
   }
 
   .console-page-actions {

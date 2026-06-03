@@ -12,7 +12,7 @@ export function ConsolePage({eyebrow, title, actions, children}: ConsolePageProp
   return (
     <section className="console-page">
       <div className="console-page-head">
-        <div>
+        <div className="console-page-title">
           {eyebrow ? <p>{eyebrow}</p> : null}
           <h3>{title}</h3>
         </div>
@@ -23,9 +23,10 @@ export function ConsolePage({eyebrow, title, actions, children}: ConsolePageProp
   );
 }
 
-export function ConsoleFilterBar({children, actions}: {children?: ReactNode; actions?: ReactNode}) {
+export function ConsoleFilterBar({title, children, actions}: {title?: ReactNode; children?: ReactNode; actions?: ReactNode}) {
   return (
     <div className="console-filter-bar">
+      {title ? <div className="console-filter-title">{title}</div> : null}
       <div className="console-filter-fields">{children}</div>
       {actions ? <div className="console-filter-actions">{actions}</div> : null}
     </div>

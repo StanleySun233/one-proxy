@@ -143,7 +143,7 @@ export default function ScopesPage() {
         eyebrow={scopesT('eyebrow')}
         title={pageT('scopesTitle')}
       >
-        <ConsoleFilterBar>
+        <ConsoleFilterBar title={t('common.filter')}>
           <label className="field-stack">
             <span>{t('common.search')}</span>
             <input

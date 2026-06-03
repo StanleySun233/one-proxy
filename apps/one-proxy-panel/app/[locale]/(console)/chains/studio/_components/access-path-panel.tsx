@@ -217,7 +217,7 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
 
   return (
     <>
-      <ConsoleFilterBar actions={(
+      <ConsoleFilterBar title={t('common.filter')} actions={(
         <button className="primary-button" onClick={handleOpenCreate} type="button">
           {accessPathsT('create')}
         </button>
