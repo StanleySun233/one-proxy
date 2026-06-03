@@ -122,6 +122,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("init proxy server failed: %v", err)
 	}
+	if manager.Bound() {
+		current := manager.Current()
+		proxyHandler.SetProxySessionReporter(controlplane.New(current.ControlPlaneURL, current.NodeAccessToken))
+	}
 	proxyHandler.SetDirectStreamOpener(directRegistry)
 	mux := http.NewServeMux()
 	mux.Handle("/", proxyHandler)
@@ -141,6 +145,7 @@ func main() {
 		mux.Handle("/api/v1/node-agent/heartbeat", forwarder)
 		mux.Handle("/api/v1/node-agent/cert/renew", forwarder)
 		mux.Handle("/api/v1/node-agent/transports", forwarder)
+		mux.Handle("/api/v1/node-agent/proxy-sessions", forwarder)
 		mux.Handle("/api/v1/node-agent/direct/candidates", forwarder)
 		mux.Handle("/api/v1/node-agent/direct/link-plan", forwarder)
 		mux.Handle("/api/v1/node-agent/direct/status", forwarder)

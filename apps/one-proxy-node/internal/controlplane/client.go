@@ -153,6 +153,21 @@ func (c *Client) ValidateProxyToken(ctx context.Context, tokenHash string) (Prox
 	return envelope.Data, nil
 }
 
+func (c *Client) ReportProxySessions(ctx context.Context, input domain.ProxySessionMetricsInput) error {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/node-agent/proxy-sessions", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+	var result domain.ProxySessionMetricsResult
+	return c.do(req, &result)
+}
+
 func (c *Client) ExchangeEnrollment(nodeID string, enrollmentSecret string) (domain.ApproveNodeEnrollmentResult, error) {
 	body, err := json.Marshal(domain.ExchangeNodeEnrollmentInput{
 		NodeID:           nodeID,
