@@ -6,7 +6,7 @@ import {useTranslations} from 'next-intl';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
-import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
 import {fetchEnums} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
@@ -65,14 +65,12 @@ export function NodeTopologyPageContent() {
             {nodesT('addLink')}
           </button>
         ) : null}
-        eyebrow={nodesT('topology')}
-        title={nodesT('topologyTitle')}
+        title={t('shell.nodeTopology')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <label className="field-stack">
-            <span>{t('common.search')}</span>
+          <ConsoleFilterItem label={`${t('common.source')} / ${t('common.target')} / ${t('common.type')} / ${nodesT('trustState')}`} match={t('common.contains')}>
             <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
-          </label>
+          </ConsoleFilterItem>
         </ConsoleFilterBar>
 
         <ConsoleList count={filteredLinks.length} title={nodesT('topologyTitle')}>

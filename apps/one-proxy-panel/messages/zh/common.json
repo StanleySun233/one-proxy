@@ -45,6 +45,8 @@
   "disabled": "已禁用",
   "search": "搜索",
   "filter": "筛选",
+  "contains": "包含",
+  "equals": "等于",
   "all": "全部",
   "shown": "已显示",
   "total": "共",

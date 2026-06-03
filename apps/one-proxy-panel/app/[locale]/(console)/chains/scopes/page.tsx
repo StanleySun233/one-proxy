@@ -8,7 +8,7 @@ import {toast} from 'sonner';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
-import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
 import {useAuth} from '@/components/auth-provider';
 import {NameTag} from '@/components/common/name-tag';
 import {createScope, deleteScope, getScopes, updateScope} from '@/lib/api';
@@ -27,7 +27,6 @@ const emptyForm: ScopeFormState = {
 
 export default function ScopesPage() {
   const t = useTranslations();
-  const pageT = useTranslations('pages');
   const scopesT = useTranslations('chainsScopes');
   const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
@@ -140,19 +139,17 @@ export default function ScopesPage() {
             {scopesT('create')}
           </button>
         ) : null}
-        eyebrow={scopesT('eyebrow')}
-        title={pageT('scopesTitle')}
+        title={t('shell.scopeBoard')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <label className="field-stack">
-            <span>{t('common.search')}</span>
+          <ConsoleFilterItem label={`${t('common.id')} / ${t('common.name')} / ${scopesT('description')}`} match={t('common.contains')}>
             <input
               className="field-input"
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('common.searchPlaceholder')}
               value={search}
             />
-          </label>
+          </ConsoleFilterItem>
         </ConsoleFilterBar>
 
         <ConsoleList count={filteredScopes.length} title={scopesT('listTitle')}>

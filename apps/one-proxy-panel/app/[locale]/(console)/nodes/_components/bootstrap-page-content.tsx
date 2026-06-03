@@ -32,7 +32,7 @@ export function NodeBootstrapPageContent() {
 
   return (
     <AuthGate>
-      <ConsolePage eyebrow={nodesT('bootstrap')} title={nodesT('bootstrapToken')}>
+      <ConsolePage title={nodesT('bootstrapToken')}>
         <ConsoleList title={nodesT('bootstrapToken')}>
           <BootstrapTokenTab
             form={nodeConsole.bootstrapForm}

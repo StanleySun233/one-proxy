@@ -8,7 +8,7 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 
 import {AuthGate} from '@/components/auth-gate';
 import {AsyncState} from '@/components/async-state';
-import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
 import {useAuth} from '@/components/auth-provider';
 import {createRouteRule, deleteRouteRule, fetchEnums, getChains, getPolicyRevisions, getRouteRules, getScopes, publishPolicy, updateRouteRule} from '@/lib/api';
 import {RouteRule} from '@/lib/types';
@@ -23,7 +23,6 @@ import {validateMatchValue} from './_lib/validation';
 
 export default function RoutesPage() {
   const t = useTranslations();
-  const pageT = useTranslations('pages');
   const routesT = useTranslations('chainsRoutes');
   const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
@@ -214,29 +213,25 @@ export default function RoutesPage() {
             </button>
           </>
         ) : null}
-        eyebrow={t('shell.routeBoard')}
-        title={pageT('routesTitle')}
+        title={t('shell.routeBoard')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <label className="field-stack">
-            <span>{t('common.search')}</span>
+          <ConsoleFilterItem label={`${routesT('match')} / ${routesT('chain')} / ${routesT('scope')}`} match={t('common.contains')}>
             <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
-          </label>
-          <label className="field-stack">
-            <span>{routesT('actionType')}</span>
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={routesT('actionType')} match={t('common.equals')}>
             <select className="field-select" onChange={(event) => setActionFilter(event.target.value)} value={actionFilter}>
               <option value="">{t('common.all')}</option>
               {actionTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
-          </label>
-          <label className="field-stack">
-            <span>{routesT('status')}</span>
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={routesT('status')} match={t('common.equals')}>
             <select className="field-select" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
               <option value="">{t('common.all')}</option>
               <option value="enabled">{t('common.enabled')}</option>
               <option value="disabled">{t('common.disabled')}</option>
             </select>
-          </label>
+          </ConsoleFilterItem>
         </ConsoleFilterBar>
 
         <ConsoleList count={filteredRouteRules.length} title={routesT('routeRules')}>

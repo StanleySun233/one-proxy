@@ -70,6 +70,34 @@
   min-width: 0;
 }
 
+.console-filter-item {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.console-filter-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.console-filter-item-head span:first-child {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.console-filter-item-head span:last-child {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .console-filter-actions {
   display: flex;
   justify-content: flex-end;

@@ -9,7 +9,7 @@ import {Edit, Trash2} from 'lucide-react';
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {NameTag} from '@/components/common/name-tag';
-import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
 import {useAuth} from '@/components/auth-provider';
 import {createChain, getChains, getNodes, getScopes, previewChain, probeChain, updateChain} from '@/lib/api';
 import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/types';
@@ -31,7 +31,6 @@ function probeReasonLabel(reason: string, chainsT: ReturnType<typeof useTranslat
 
 export default function ChainsPage() {
   const t = useTranslations();
-  const pageT = useTranslations('pages');
   const chainsT = useTranslations('chains');
   const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
@@ -190,14 +189,12 @@ export default function ChainsPage() {
             {chainsT('createChain')}
           </button>
         ) : null}
-        eyebrow={chainsT('eyebrow')}
-        title={pageT('chainsTitle')}
+        title={t('shell.chainStudio')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <label className="field-stack">
-            <span>{t('common.search')}</span>
+          <ConsoleFilterItem label={`${t('common.name')} / ${chainsT('destinationScope')} / ${chainsT('hops')}`} match={t('common.contains')}>
             <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
-          </label>
+          </ConsoleFilterItem>
         </ConsoleFilterBar>
 
         <ConsoleList count={filteredChains.length} title={chainsT('listTitle')}>

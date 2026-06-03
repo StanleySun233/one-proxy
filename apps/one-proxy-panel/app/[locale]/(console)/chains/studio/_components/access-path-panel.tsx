@@ -7,7 +7,7 @@ import {useMemo, useState} from 'react';
 import {toast} from 'sonner';
 
 import {AsyncState} from '@/components/async-state';
-import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList} from '@/components/console-template';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList} from '@/components/console-template';
 import {NameTag} from '@/components/common/name-tag';
 import {createNodeAccessPath, deleteNodeAccessPath, fetchEnums, getNodeAccessPaths, updateNodeAccessPath} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
@@ -222,10 +222,9 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
           {accessPathsT('create')}
         </button>
       )}>
-        <label className="field-stack">
-          <span>{t('common.search')}</span>
+        <ConsoleFilterItem label={`${t('common.name')} / ${accessPathsT('chain')} / ${accessPathsT('protocol')} / ${t('common.target')} / ${accessPathsT('listen')}`} match={t('common.contains')}>
           <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
-        </label>
+        </ConsoleFilterItem>
       </ConsoleFilterBar>
 
       <ConsoleList count={filteredPaths.length} title={accessPathsT('listTitle')}>

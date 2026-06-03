@@ -5,7 +5,7 @@ import {useQuery} from '@tanstack/react-query';
 import {useTranslations} from 'next-intl';
 
 import {AuthGate} from '@/components/auth-gate';
-import {ConsoleCrudModal, ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
 import {fetchEnums} from '@/lib/api';
 
 import {useNodeConsole} from './use-node-console';
@@ -134,10 +134,9 @@ export function NodeRegistryPageContent() {
 
   return (
     <AuthGate>
-      <ConsolePage eyebrow={nodesT('registry')} title={nodesT('registryTitle')}>
+      <ConsolePage title={t('shell.nodeRegistry')}>
         <ConsoleFilterBar title={t('common.filter')}>
-          <label className="field-stack">
-            <span>{t('common.search')}</span>
+          <ConsoleFilterItem label={`${t('common.name')} / ${t('common.id')} / ${t('common.scope')} / ${t('common.parent')} / ${nodesT('publicEndpoint')}`} match={t('common.contains')}>
             <input
               className="field-input"
               onChange={(event) => setQuery(event.target.value)}
@@ -145,9 +144,8 @@ export function NodeRegistryPageContent() {
               type="search"
               value={query}
             />
-          </label>
-          <label className="field-stack">
-            <span>{t('common.status')}</span>
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.status')} match={t('common.equals')}>
             <select className="field-select" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
               <option value="all">{nodesT('allHealthStates')}</option>
               <option value="healthy">{nodesT('healthyNodes')}</option>
@@ -155,9 +153,8 @@ export function NodeRegistryPageContent() {
               <option value="stale">{nodesT('staleNodes')}</option>
               <option value="unreported">{nodesT('unreportedNodes')}</option>
             </select>
-          </label>
-          <label className="field-stack">
-            <span>{t('common.mode')}</span>
+          </ConsoleFilterItem>
+          <ConsoleFilterItem label={t('common.mode')} match={t('common.equals')}>
             <select className="field-select" onChange={(event) => setModeFilter(event.target.value)} value={modeFilter}>
               <option value="all">{nodesT('allModes')}</option>
               {availableModes.map((mode) => (
@@ -166,7 +163,7 @@ export function NodeRegistryPageContent() {
                 </option>
               ))}
             </select>
-          </label>
+          </ConsoleFilterItem>
         </ConsoleFilterBar>
 
         <ConsoleList count={filteredNodes.length} title={nodesT('registryTitle')}>

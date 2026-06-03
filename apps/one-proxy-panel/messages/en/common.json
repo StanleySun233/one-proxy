@@ -45,6 +45,8 @@
   "disabled": "Disabled",
   "search": "Search",
   "filter": "Filter",
+  "contains": "contains",
+  "equals": "equals",
   "all": "All",
   "shown": "Shown",
   "total": "Total",

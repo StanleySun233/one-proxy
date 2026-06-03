@@ -5,7 +5,7 @@ import {useTranslations} from 'next-intl';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
-import {ConsoleFilterBar, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
 import {NameTag} from '@/components/common/name-tag';
 import {Node, UnconsumedBootstrapToken} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
@@ -38,12 +38,11 @@ export function NodeApprovalsPageContent() {
 
   return (
     <AuthGate>
-      <ConsolePage eyebrow={nodesT('approvals')} title={nodesT('pendingEnrollments')}>
+      <ConsolePage title={t('shell.nodeApprovals')}>
         <ConsoleFilterBar title={t('common.filter')}>
-          <label className="field-stack">
-            <span>{t('common.search')}</span>
+          <ConsoleFilterItem label={`${t('common.name')} / ${t('common.type')} / ${t('common.target')} / ${t('common.status')}`} match={t('common.contains')}>
             <input className="field-input" onChange={(event) => setSearch(event.target.value)} placeholder={t('common.searchPlaceholder')} value={search} />
-          </label>
+          </ConsoleFilterItem>
         </ConsoleFilterBar>
 
         <ConsoleList count={filteredItems.length} title={nodesT('pendingEnrollments')}>

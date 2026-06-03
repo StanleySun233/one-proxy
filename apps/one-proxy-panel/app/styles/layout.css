@@ -162,7 +162,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 62px;
+  min-height: 48px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line);
 }
@@ -170,15 +170,7 @@
 .console-page-title {
   display: grid;
   align-content: center;
-  gap: 4px;
   min-width: 0;
-}
-
-.console-page-title p {
-  margin: 0 0 4px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 16px;
 }
 
 .console-page-title h3 {
