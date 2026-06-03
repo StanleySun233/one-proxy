@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-const extensionPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const extensionPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../chrome-extension');
 const manifest = JSON.parse(readFileSync(path.join(extensionPath, 'manifest.json'), 'utf8'));
 const serviceWorkerPath = `/${manifest.background.service_worker}`;
 const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'oneproxy-extension-'));

@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../chrome-extension');
 const manifestPath = path.join(root, 'manifest.json');
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 
@@ -53,6 +53,9 @@ for (const file of files(root)) {
   if (file.endsWith('.json')) {
     JSON.parse(readFileSync(file, 'utf8'));
   }
+  if (file.endsWith('.html') && /type=["']module["']/.test(readFileSync(file, 'utf8'))) {
+    throw new Error(`runtime_html_contains_module_script:${path.relative(root, file)}`);
+  }
   if (file.endsWith('.js')) {
     const relative = path.relative(root, file);
     if (/^background\//.test(relative) && relative !== manifest.background.service_worker) {
@@ -60,6 +63,9 @@ for (const file of files(root)) {
     }
     if (/^(background|shared|options|popup)\//.test(relative) && /\bawait\b/.test(readFileSync(file, 'utf8'))) {
       throw new Error(`runtime_file_contains_await:${relative}`);
+    }
+    if (/^(background|shared|options|popup)\//.test(relative) && (/^\s*import\s/m.test(readFileSync(file, 'utf8')) || /^\s*export\s/m.test(readFileSync(file, 'utf8')))) {
+      throw new Error(`runtime_file_contains_module_syntax:${relative}`);
     }
     execFileSync(process.execPath, ['--check', file], { stdio: 'inherit' });
   }
