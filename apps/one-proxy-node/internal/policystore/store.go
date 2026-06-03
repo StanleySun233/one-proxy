@@ -18,7 +18,8 @@ type Snapshot struct {
 
 type tenantPayload struct {
 	Snapshots []struct {
-		Payload Snapshot `json:"payload"`
+		TenantID string   `json:"tenantId"`
+		Payload  Snapshot `json:"payload"`
 	} `json:"snapshots"`
 }
 
@@ -68,10 +69,21 @@ func decodeSnapshot(payload string) (Snapshot, error) {
 }
 
 func mergeSnapshots(items []struct {
-	Payload Snapshot `json:"payload"`
+	TenantID string   `json:"tenantId"`
+	Payload  Snapshot `json:"payload"`
 }) Snapshot {
 	merged := Snapshot{}
 	for _, item := range items {
+		for index := range item.Payload.Chains {
+			if item.Payload.Chains[index].TenantID == "" {
+				item.Payload.Chains[index].TenantID = item.TenantID
+			}
+		}
+		for index := range item.Payload.RouteRules {
+			if item.Payload.RouteRules[index].TenantID == "" {
+				item.Payload.RouteRules[index].TenantID = item.TenantID
+			}
+		}
 		merged.Nodes = append(merged.Nodes, item.Payload.Nodes...)
 		merged.Links = append(merged.Links, item.Payload.Links...)
 		merged.Chains = append(merged.Chains, item.Payload.Chains...)

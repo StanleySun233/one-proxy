@@ -51,4 +51,7 @@ func TestStoreUpdateReadsTenantWrappedPayload(t *testing.T) {
 	if len(snapshot.Nodes) != 1 || len(snapshot.Chains) != 1 || len(snapshot.RouteRules) != 1 {
 		t.Fatalf("snapshot = %+v", snapshot)
 	}
+	if snapshot.Chains[0].TenantID != "1" || snapshot.RouteRules[0].TenantID != "1" {
+		t.Fatalf("tenant ids were not propagated: %+v", snapshot)
+	}
 }

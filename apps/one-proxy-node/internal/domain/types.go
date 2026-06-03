@@ -38,6 +38,7 @@ type NodeLink struct {
 
 type Chain struct {
 	ID               string   `json:"id"`
+	TenantID         string   `json:"tenantId,omitempty"`
 	Name             string   `json:"name"`
 	DestinationScope string   `json:"destinationScope"`
 	Enabled          bool     `json:"enabled"`
@@ -46,6 +47,7 @@ type Chain struct {
 
 type RouteRule struct {
 	ID               string `json:"id"`
+	TenantID         string `json:"tenantId,omitempty"`
 	Priority         int    `json:"priority"`
 	MatchType        string `json:"matchType"`
 	MatchValue       string `json:"matchValue"`
