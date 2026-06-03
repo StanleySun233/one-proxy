@@ -16,10 +16,13 @@
   };
 
   function t(key) {
-    if (typeof chrome === 'undefined' || !chrome.i18n || !chrome.i18n.getMessage) {
+    const api = globalThis.chrome;
+    const i18n = api && api.i18n;
+    const getMessage = i18n && i18n.getMessage;
+    if (typeof getMessage !== 'function') {
       return key;
     }
-    return chrome.i18n.getMessage(key) || key;
+    return getMessage.call(i18n, key) || key;
   }
 
   function formatMb(bytes) {
