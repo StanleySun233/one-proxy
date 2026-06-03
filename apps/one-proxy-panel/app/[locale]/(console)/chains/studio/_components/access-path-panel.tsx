@@ -258,7 +258,14 @@ export function AccessPathPanel({accessToken, chains, nodes}: {accessToken: stri
         </label>
         <label className="field-stack">
           <span>{accessPathsT('enabled')}</span>
-          <input checked={formState.enabled} onChange={(event) => setField('enabled', event.target.checked)} type="checkbox" />
+          <button
+            className={`toggle-button${formState.enabled ? ' is-active' : ''}`}
+            onClick={() => setField('enabled', !formState.enabled)}
+            type="button"
+          >
+            <span>{formState.enabled ? accessPathsT('enabled') : t('common.disabled')}</span>
+            <span className="toggle-button-track"><span /></span>
+          </button>
         </label>
       </div>
 
