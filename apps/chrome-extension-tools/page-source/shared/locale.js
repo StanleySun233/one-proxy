@@ -1,11 +1,22 @@
 const messages = new Map();
 
 export function text(key, substitutions) {
+  if (!chrome.i18n || typeof chrome.i18n.getMessage !== 'function') {
+    throw new Error('chrome_i18n_unavailable');
+  }
   if (substitutions) {
-    return chrome.i18n.getMessage(key, substitutions) || key;
+    const message = chrome.i18n.getMessage(key, substitutions);
+    if (!message) {
+      throw new Error(`missing_i18n_message:${key}`);
+    }
+    return message;
   }
   if (!messages.has(key)) {
-    messages.set(key, chrome.i18n.getMessage(key) || key);
+    const message = chrome.i18n.getMessage(key);
+    if (!message) {
+      throw new Error(`missing_i18n_message:${key}`);
+    }
+    messages.set(key, message);
   }
   return messages.get(key);
 }

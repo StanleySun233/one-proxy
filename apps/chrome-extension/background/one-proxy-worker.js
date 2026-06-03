@@ -1024,12 +1024,75 @@ function registerPageMetrics() {
   }
 }
 
+const STATUS_BUBBLE_LABELS = [
+  'account',
+  'activeGroup',
+  'policyRevision',
+  'syncedAt',
+  'tenant',
+  'statusBubbleTitle',
+  'statusBubbleUpload',
+  'statusBubbleDownload',
+  'statusBubbleLatency',
+  'statusBubbleRequests',
+  'statusBubbleRoute',
+  'statusBubbleOpenedAt',
+  'statusBubbleRequestMixShort',
+  'statusBubbleCorrelation',
+  'statusBubbleCorrelated',
+  'statusBubbleNotCorrelated',
+  'statusBubbleLastError',
+  'statusBubbleTopology',
+  'statusBubbleUserMachine',
+  'statusBubbleWebsite',
+  'statusBubbleRefresh',
+  'statusBubbleCopy',
+  'statusBubbleCopied',
+  'statusBubbleUnknown'
+];
+
 function tenantFrom(state) {
   const membership = state.session.tenantMemberships.find((item) => item.tenantId === state.session.activeTenantId);
   return {
     id: state.session.activeTenantId || '',
     name: (membership && membership.tenantName) || state.session.activeTenantId || ''
   };
+}
+
+function labels() {
+  return Object.fromEntries(STATUS_BUBBLE_LABELS.map((key) => {
+    const message = chrome.i18n.getMessage(key);
+    if (!message) {
+      throw new Error(`missing_i18n_message:${key}`);
+    }
+    return [key, message];
+  }));
+}
+
+function entryProbeUrl(group) {
+  if (!group || !group.proxyHost || !group.proxyPort) {
+    throw new Error('status_bubble_entry_proxy_required');
+  }
+  return `http://${group.proxyHost}:${group.proxyPort}/healthz`;
+}
+
+function measureEntryLatency(group) {
+  const startedAt = Date.now();
+  return fetch(entryProbeUrl(group), { cache: 'no-store' })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`status_bubble_entry_probe_failed:${response.status}`);
+      }
+      return Date.now() - startedAt;
+    });
+}
+
+function entryNodeId(route) {
+  const first = route.topology && route.topology[0];
+  if (!first || !first.id) {
+    throw new Error('status_bubble_entry_node_required');
+  }
+  return first.id;
 }
 
 function colorFor(status, latencyMs, routeMode) {
@@ -1115,7 +1178,10 @@ function getStatusBubblePageStatus(message, sender) {
           display: false
         };
       }
-      return requestRemoteStatus(state, route, routeInfo).then((remoteStatus) => {
+      return Promise.all([
+        requestRemoteStatus(state, route, routeInfo),
+        measureEntryLatency(group)
+      ]).then(([remoteStatus, entryLatencyMs]) => {
         if (!remoteStatus) {
           throw new Error('status_bubble_page_status_required');
         }
@@ -1142,8 +1208,18 @@ function getStatusBubblePageStatus(message, sender) {
           },
           latencyMs,
           topology: route.topology || [],
+          labels: labels(),
           nodeTimings: Array.isArray(status.nodeTimings) ? status.nodeTimings : [],
-          linkTimings: Array.isArray(status.linkTimings) ? status.linkTimings : [],
+          linkTimings: [
+            {
+              fromNodeId: 'user',
+              toNodeId: entryNodeId(route),
+              rttMs: entryLatencyMs,
+              sampleTsMs: Date.now(),
+              count: 1
+            },
+            ...(Array.isArray(status.linkTimings) ? status.linkTimings : [])
+          ],
           policyRevision: status.policyRevision || state.remote.policyRevision || '',
           configFetchedAt: state.remote.fetchedAt || '',
           lastError: {

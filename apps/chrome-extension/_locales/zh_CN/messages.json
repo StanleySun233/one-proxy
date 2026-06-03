@@ -316,6 +316,9 @@
   "statusBubbleRequestMix": {
     "message": "代理 / 直连 / 失败"
   },
+  "statusBubbleRequestMixShort": {
+    "message": "代 / 直 / 败"
+  },
   "statusBubbleCorrelation": {
     "message": "IO 来源"
   },

@@ -164,8 +164,6 @@
 
 #one-proxy-status-root .opsb-subtitle {
   margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #e5e7eb;
   color: #111827;
   font-size: 12px;
   font-weight: 700;
@@ -180,7 +178,7 @@
 
 #one-proxy-status-root .opsb-path-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr) 20px minmax(0, 1fr) 20px minmax(0, 1fr);
   align-items: start;
   min-width: 0;
 }

@@ -316,6 +316,9 @@
   "statusBubbleRequestMix": {
     "message": "Proxy / Direct / Failed"
   },
+  "statusBubbleRequestMixShort": {
+    "message": "P / D / F"
+  },
   "statusBubbleCorrelation": {
     "message": "IO source"
   },

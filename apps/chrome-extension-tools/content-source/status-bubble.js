@@ -15,18 +15,13 @@
     dragOffset: { x: 0, y: 0 }
   };
 
-  function t(key) {
-    const api = globalThis.chrome;
-    const i18n = api && api.i18n;
-    const getMessage = i18n && i18n.getMessage;
-    if (typeof getMessage !== 'function') {
-      throw new Error('chrome_i18n_unavailable');
+  function label(key) {
+    const labels = state.payload && state.payload.labels;
+    const value = labels && labels[key];
+    if (!value) {
+      throw new Error(`missing_status_bubble_label:${key}`);
     }
-    const message = getMessage.call(i18n, key);
-    if (!message) {
-      throw new Error(`missing_i18n_message:${key}`);
-    }
-    return message;
+    return value;
   }
 
   function formatMb(bytes) {
@@ -105,7 +100,7 @@
   function routeText(payload) {
     const route = payload.route || {};
     if (!route.matchType && !route.matchValue) {
-      return text(route.source, t('statusBubbleUnknown'));
+      return text(route.source, label('statusBubbleUnknown'));
     }
     return `${text(route.source)} · ${text(route.matchType)} ${text(route.matchValue)}`;
   }
@@ -151,9 +146,9 @@
     const rail = el('div', 'opsb-topology');
     const websiteHost = payload.page && payload.page.host ? payload.page.host : '';
     const nodes = [
-      { id: 'user', name: t('statusBubbleUserMachine'), kind: 'user' },
+      { id: 'user', name: label('statusBubbleUserMachine'), kind: 'user' },
       ...((payload.topology || []).map((node) => ({ id: node.id, name: node.name || node.id, kind: 'node', processMs: nodeTiming(payload, node.id) }))),
-      { id: websiteHost || 'website', name: websiteHost || t('statusBubbleWebsite'), kind: 'web' }
+      { id: websiteHost || 'website', name: websiteHost || label('statusBubbleWebsite'), kind: 'web' }
     ];
     for (let start = 0; start < nodes.length; start += 4) {
       const rowIndex = start / 4;
@@ -184,9 +179,9 @@
   function copyDiagnostics(button) {
     const value = diagnosticsPayload();
     const done = function () {
-      button.textContent = t('statusBubbleCopied');
+      button.textContent = label('statusBubbleCopied');
       window.setTimeout(function () {
-        button.textContent = t('statusBubbleCopy');
+        button.textContent = label('statusBubbleCopy');
       }, 1200);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -202,42 +197,42 @@
     const page = payload.page || {};
     const io = payload.io || {};
     const header = el('div', 'opsb-panel-head');
-    header.append(el('div', 'opsb-title', t('statusBubbleTitle')));
+    header.append(el('div', 'opsb-title', label('statusBubbleTitle')));
     const status = el('div', `opsb-status opsb-${payload.color || 'gray'}`, text(payload.status, 'unknown'));
     header.append(status);
     state.panel.append(header);
 
     const stats = el('div', 'opsb-stats');
-    stats.append(stat(t('statusBubbleUpload'), formatMb(io.uploadBytes)));
-    stats.append(stat(t('statusBubbleDownload'), formatMb(io.downloadBytes)));
-    stats.append(stat(t('statusBubbleLatency'), formatLatency(payload.latencyMs)));
-    stats.append(stat(t('statusBubbleRequests'), String(page.requestCount || 0)));
+    stats.append(stat(label('statusBubbleUpload'), formatMb(io.uploadBytes)));
+    stats.append(stat(label('statusBubbleDownload'), formatMb(io.downloadBytes)));
+    stats.append(stat(label('statusBubbleLatency'), formatLatency(payload.latencyMs)));
+    stats.append(stat(label('statusBubbleRequests'), String(page.requestCount || 0)));
     state.panel.append(stats);
 
     const section = el('div', 'opsb-section');
-    section.append(row(t('account'), payload.account));
-    section.append(row(t('tenant'), payload.tenant && payload.tenant.name));
-    section.append(row(t('activeGroup'), payload.group && payload.group.name));
-    section.append(row(t('statusBubbleRoute'), routeText(payload)));
-    section.append(row(t('policyRevision'), payload.policyRevision));
-    section.append(row(t('syncedAt'), formatDateTime(payload.configFetchedAt)));
-    section.append(row(t('statusBubbleOpenedAt'), formatDateTime(page.openedAt)));
-    section.append(row(t('statusBubbleRequestMix'), `${page.proxiedRequestCount || 0} / ${page.directRequestCount || 0} / ${page.failureCount || 0}`));
-    section.append(row(t('statusBubbleCorrelation'), io.correlated ? t('statusBubbleCorrelated') : t('statusBubbleNotCorrelated')));
-    section.append(row(t('statusBubbleLastError'), payload.lastError && (payload.lastError.code || payload.lastError.message) ? `${payload.lastError.code || ''} ${payload.lastError.message || ''}` : '-'));
+    section.append(row(label('account'), payload.account));
+    section.append(row(label('tenant'), payload.tenant && payload.tenant.name));
+    section.append(row(label('activeGroup'), payload.group && payload.group.name));
+    section.append(row(label('statusBubbleRoute'), routeText(payload)));
+    section.append(row(label('policyRevision'), payload.policyRevision));
+    section.append(row(label('syncedAt'), formatDateTime(payload.configFetchedAt)));
+    section.append(row(label('statusBubbleOpenedAt'), formatDateTime(page.openedAt)));
+    section.append(row(label('statusBubbleRequestMixShort'), `${page.proxiedRequestCount || 0} / ${page.directRequestCount || 0} / ${page.failureCount || 0}`));
+    section.append(row(label('statusBubbleCorrelation'), io.correlated ? label('statusBubbleCorrelated') : label('statusBubbleNotCorrelated')));
+    section.append(row(label('statusBubbleLastError'), payload.lastError && (payload.lastError.code || payload.lastError.message) ? `${payload.lastError.code || ''} ${payload.lastError.message || ''}` : '-'));
     state.panel.append(section);
 
-    const topoTitle = el('div', 'opsb-subtitle', t('statusBubbleTopology'));
+    const topoTitle = el('div', 'opsb-subtitle', label('statusBubbleTopology'));
     state.panel.append(topoTitle);
     state.panel.append(renderTopology(payload));
 
     const actions = el('div', 'opsb-actions');
-    const refresh = el('button', 'opsb-button', t('statusBubbleRefresh'));
+    const refresh = el('button', 'opsb-button', label('statusBubbleRefresh'));
     refresh.type = 'button';
     refresh.addEventListener('click', function () {
       refreshStatus(true);
     });
-    const copy = el('button', 'opsb-button', t('statusBubbleCopy'));
+    const copy = el('button', 'opsb-button', label('statusBubbleCopy'));
     copy.type = 'button';
     copy.addEventListener('click', function () {
       copyDiagnostics(copy);
@@ -319,7 +314,6 @@
     state.root.id = ROOT_ID;
     state.icon = el('button', 'opsb-icon');
     state.icon.type = 'button';
-    state.icon.title = t('statusBubbleTitle');
     state.icon.append(svgIcon('node'));
     state.panel = el('div', 'opsb-panel');
     state.root.append(state.icon);
@@ -354,6 +348,7 @@
       return;
     }
     ensureRoot();
+    state.icon.title = label('statusBubbleTitle');
     state.root.classList.remove('opsb-red', 'opsb-yellow', 'opsb-green', 'opsb-gray');
     state.root.classList.add(`opsb-${payload.color || 'gray'}`);
     if (state.opened) {
