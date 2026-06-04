@@ -221,25 +221,22 @@ export function AuditBusinessPage() {
   return (
     <AuthGate>
       <ConsolePage title={auditT('businessTitle')}>
-        <DateRangeFilter from={from} onFromChange={setFrom} onToChange={setTo} to={to} />
-        <section className="metrics-grid">
-          <article className="metric-card panel-card">
-            <span>{auditT('businessEvents')}</span>
-            <strong>{businessQuery.isPending ? '-' : business?.summary.total ?? 0}</strong>
-          </article>
-        </section>
         <BusinessAuditList
           actor={businessActor}
           events={business?.items || []}
+          from={from}
           isError={businessQuery.isError}
           isPending={businessQuery.isPending}
           onActorChange={setBusinessActor}
+          onFromChange={setFrom}
           onOutcomeChange={setBusinessOutcome}
           onRefetch={() => void businessQuery.refetch()}
           onResourceChange={setBusinessResource}
+          onToChange={setTo}
           outcome={businessOutcome}
           queryError={businessQuery.error}
           resource={businessResource}
+          to={to}
         />
       </ConsolePage>
     </AuthGate>
@@ -268,52 +265,28 @@ export function AuditNetworkPage() {
   });
 
   const network = networkQuery.data;
-  const summary = network?.summary;
-  const tenantTraffic = tenantGroups(summary);
-  const userTraffic = userGroups(summary);
-  const nodeTraffic = nodeGroups(summary);
-  const targetTraffic = targetGroups(summary);
-  const decisionCounts = decisionCountsFromMap(summary?.decisionCount);
-  const totalBytes = (summary?.bytesIn || sumGroups(tenantTraffic, 'bytesIn')) + (summary?.bytesOut || sumGroups(tenantTraffic, 'bytesOut'));
 
   return (
     <AuthGate>
       <ConsolePage title={auditT('networkTitle')}>
-        <DateRangeFilter from={from} onFromChange={setFrom} onToChange={setTo} to={to} />
-        <section className="metrics-grid">
-          <article className="metric-card panel-card soft-card">
-            <span>{auditT('networkSessions')}</span>
-            <strong>{networkQuery.isPending ? '-' : summary?.total ?? 0}</strong>
-          </article>
-          <article className="metric-card panel-card warm-card">
-            <span>{auditT('deniedTraffic')}</span>
-            <strong>{networkQuery.isPending ? '-' : decisionCounts.find((item) => item.decision === 'deny')?.count ?? 0}</strong>
-          </article>
-          <article className="metric-card panel-card">
-            <span>{auditT('totalTraffic')}</span>
-            <strong>{networkQuery.isPending ? '-' : bytesLabel(totalBytes)}</strong>
-          </article>
-        </section>
-        <section className="two-column-grid">
-          <AuditGroupPanel groups={tenantTraffic} title={auditT('tenantTraffic')} />
-          <AuditGroupPanel groups={userTraffic} title={auditT('userTraffic')} />
-          <AuditGroupPanel groups={nodeTraffic} title={auditT('nodeTraffic')} />
-          <AuditGroupPanel groups={targetTraffic} title={auditT('topTargets')} />
-        </section>
         <NetworkAuditList
           actor={networkActor}
           decision={networkDecision}
+          from={from}
           isError={networkQuery.isError}
           isPending={networkQuery.isPending}
           networkNode={networkNode}
           onActorChange={setNetworkActor}
           onDecisionChange={setNetworkDecision}
+          onFromChange={setFrom}
           onNodeChange={setNetworkNode}
           onRefetch={() => void networkQuery.refetch()}
           onTargetChange={setNetworkTarget}
+          onToChange={setTo}
           queryError={networkQuery.error}
           sessions={network?.items || []}
           target={networkTarget}
+          to={to}
         />
       </ConsolePage>
     </AuthGate>
@@ -353,15 +326,19 @@ function AuditGroupPanel({groups, title}: {groups: AuditGroup[]; title: string})
 function BusinessAuditList(props: {
   actor: string;
   events: AuditEvent[];
+  from: string;
   isError: boolean;
   isPending: boolean;
   onActorChange: (value: string) => void;
+  onFromChange: (value: string) => void;
   onOutcomeChange: (value: string) => void;
   onRefetch: () => void;
   onResourceChange: (value: string) => void;
+  onToChange: (value: string) => void;
   outcome: string;
   queryError: unknown;
   resource: string;
+  to: string;
 }) {
   const t = useTranslations();
   const auditT = useTranslations('pages.audit');
@@ -369,6 +346,12 @@ function BusinessAuditList(props: {
   return (
     <>
       <ConsoleFilterBar title={auditT('businessFilters')}>
+        <ConsoleFilterItem label={auditT('from')} match={t('common.equals')}>
+          <input className="field-input" onChange={(event) => props.onFromChange(event.target.value)} type="date" value={props.from} />
+        </ConsoleFilterItem>
+        <ConsoleFilterItem label={auditT('to')} match={t('common.equals')}>
+          <input className="field-input" onChange={(event) => props.onToChange(event.target.value)} type="date" value={props.to} />
+        </ConsoleFilterItem>
         <ConsoleFilterItem label={auditT('actor')} match={t('common.contains')}>
           <input className="field-input" onChange={(event) => props.onActorChange(event.target.value)} placeholder={auditT('actor')} value={props.actor} />
         </ConsoleFilterItem>
@@ -428,17 +411,21 @@ function BusinessAuditList(props: {
 function NetworkAuditList(props: {
   actor: string;
   decision: string;
+  from: string;
   isError: boolean;
   isPending: boolean;
   networkNode: string;
   onActorChange: (value: string) => void;
   onDecisionChange: (value: string) => void;
+  onFromChange: (value: string) => void;
   onNodeChange: (value: string) => void;
   onRefetch: () => void;
   onTargetChange: (value: string) => void;
+  onToChange: (value: string) => void;
   queryError: unknown;
   sessions: NetworkSession[];
   target: string;
+  to: string;
 }) {
   const t = useTranslations();
   const auditT = useTranslations('pages.audit');
@@ -446,6 +433,12 @@ function NetworkAuditList(props: {
   return (
     <>
       <ConsoleFilterBar title={auditT('networkFilters')}>
+        <ConsoleFilterItem label={auditT('from')} match={t('common.equals')}>
+          <input className="field-input" onChange={(event) => props.onFromChange(event.target.value)} type="date" value={props.from} />
+        </ConsoleFilterItem>
+        <ConsoleFilterItem label={auditT('to')} match={t('common.equals')}>
+          <input className="field-input" onChange={(event) => props.onToChange(event.target.value)} type="date" value={props.to} />
+        </ConsoleFilterItem>
         <ConsoleFilterItem label={auditT('actor')} match={t('common.contains')}>
           <input className="field-input" onChange={(event) => props.onActorChange(event.target.value)} placeholder={auditT('actor')} value={props.actor} />
         </ConsoleFilterItem>
