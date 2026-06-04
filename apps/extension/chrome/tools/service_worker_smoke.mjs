@@ -10,6 +10,7 @@ const serviceWorkerPath = `/${manifest.background.service_worker}`;
 const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'oneproxy-extension-'));
 
 let context;
+let optionsPage;
 function cleanup() {
   const close = context ? context.close() : Promise.resolve();
   return close.finally(() => {
@@ -38,7 +39,10 @@ chromium.launchPersistentContext(userDataDir, {
 
       const extensionId = new URL(serviceWorker.url()).host;
       return context.newPage()
-        .then((page) => page.goto(`chrome-extension://${extensionId}/options/index.html`).then(() => page))
+        .then((page) => {
+          optionsPage = page;
+          return page.goto(`chrome-extension://${extensionId}/options/index.html`).then(() => page);
+        })
         .then((page) => page.evaluate(() => new Promise((resolve, reject) => {
           const manifest = chrome.runtime.getManifest();
           chrome.storage.local.set({ oneProxyServiceWorkerSmoke: 'ok' }, () => {
@@ -122,7 +126,7 @@ chromium.launchPersistentContext(userDataDir, {
               return originalFetch(url, options);
             };
             globalThis.__oneProxySmokeRequests = requests;
-          }).then(() => page.evaluate(() => chrome.runtime.sendMessage({
+          }).then(() => optionsPage.evaluate(() => chrome.runtime.sendMessage({
             type: 'login',
             controlPlaneUrl: 'https://panel.oneproxy.test',
             account: 'admin',
@@ -140,7 +144,7 @@ chromium.launchPersistentContext(userDataDir, {
             if (!bootstrap || bootstrap.accessToken !== 'access-token' || bootstrap.tenantId !== 'tenant-1') {
               throw new Error('service_worker_bootstrap_missing_one_proxy_headers');
             }
-            return page.evaluate(() => chrome.runtime.sendMessage({ type: 'sync-remote-config' }));
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'sync-remote-config' }));
           }).then((syncResult) => {
             if (syncResult.error) {
               throw new Error(syncResult.error);
