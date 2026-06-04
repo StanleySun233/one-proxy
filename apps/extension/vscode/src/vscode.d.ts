@@ -21,6 +21,12 @@ declare module 'vscode' {
     ignoreFocusOut?: boolean;
   };
 
+  export type QuickPickItem = {
+    label: string;
+    description?: string;
+    detail?: string;
+  };
+
   export type WorkspaceConfiguration = {
     get<T>(section: string): T | undefined;
   };
@@ -36,7 +42,7 @@ declare module 'vscode' {
 
   export const window: {
     showInputBox(options?: InputBoxOptions): Promise<string | undefined>;
-    showQuickPick<T extends { label: string }>(items: T[], options?: QuickPickOptions): Promise<T | undefined>;
+    showQuickPick<T extends QuickPickItem>(items: T[], options?: QuickPickOptions): Promise<T | undefined>;
     showInformationMessage(message: string): Promise<string | undefined>;
   };
 

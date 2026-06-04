@@ -3,6 +3,11 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
+type ApiEnvelope<T> = {
+  data?: T;
+  message?: string;
+};
+
 type LoginResponse = {
   account: { account: string };
   accessToken: string;
@@ -31,38 +36,68 @@ type Session = {
   proxyTokenExpiresAt: string;
 };
 
+type Node = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  publicHost?: string;
+  publicPort?: number;
+};
+
+type NodeAccessPath = {
+  id: string;
+  name: string;
+  protocol: string;
+  serviceType: string;
+  targetHost: string;
+  targetPort: number;
+  entryNodeId: string;
+  enabled: boolean;
+};
+
+type SshConnection = {
+  pathId: string;
+  pathName: string;
+  hostAlias: string;
+  user: string;
+  targetHost: string;
+  targetPort: number;
+  entryHost: string;
+  entryPort: number;
+  proxyEnabled: boolean;
+};
+
 const sessionKey = 'oneproxy.session';
+const sshConnectionKey = 'oneproxy.sshConnection';
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('oneproxy.login', () => login(context)),
+    vscode.commands.registerCommand('oneproxy.selectSshTarget', () => selectSshTarget(context)),
     vscode.commands.registerCommand('oneproxy.writeSshConfig', () => writeSshConfig(context)),
-    vscode.commands.registerCommand('oneproxy.connectRemoteSsh', () => connectRemoteSsh(context))
+    vscode.commands.registerCommand('oneproxy.connectRemoteSsh', () => connectRemoteSsh(context)),
+    vscode.commands.registerCommand('oneproxy.setSshProxyMode', () => setSshProxyMode(context))
   );
 }
 
 export function deactivate() {}
 
 async function login(context: vscode.ExtensionContext) {
-  const panelUrl = await prompt('Panel URL', 'https://panel.example.com');
+  const panelUrl = trimUrl(await prompt('Panel URL', 'https://panel.example.com'));
   const account = await prompt('Account');
   const password = await prompt('Password', undefined, true);
-  const response = await fetch(`${trimUrl(panelUrl)}/api/auth/login`, {
+  const payload = await requestEnvelope<LoginResponse>(`${panelUrl}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ account, password })
-  });
-  const payload = await response.json() as { data?: LoginResponse; message?: string };
-  if (!response.ok || !payload.data) {
-    throw new Error(payload.message || 'login_failed');
-  }
-  const tenantId = await selectTenant(payload.data);
-  const bootstrap = await extensionBootstrap(trimUrl(panelUrl), payload.data.accessToken, tenantId);
+  }, 'login_failed');
+  const tenantId = await selectTenant(payload);
+  const bootstrap = await extensionBootstrap(panelUrl, payload.accessToken, tenantId);
   const session: Session = {
-    panelUrl: trimUrl(panelUrl),
-    account: payload.data.account.account,
-    accessToken: payload.data.accessToken,
-    refreshToken: payload.data.refreshToken,
+    panelUrl,
+    account: payload.account.account,
+    accessToken: payload.accessToken,
+    refreshToken: payload.refreshToken,
     tenantId,
     proxyToken: bootstrap.proxyToken,
     proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt
@@ -71,27 +106,162 @@ async function login(context: vscode.ExtensionContext) {
   vscode.window.showInformationMessage(`Logged in as ${session.account} tenant ${session.tenantId}`);
 }
 
+async function selectSshTarget(context: vscode.ExtensionContext): Promise<SshConnection> {
+  const current = await readSshConnection(context);
+  const items = await listSshConnections(context, current);
+  const selected = await vscode.window.showQuickPick(items, { title: 'SSH target', ignoreFocusOut: true });
+  if (!selected) {
+    throw new Error('ssh_target_required');
+  }
+  const user = await prompt('SSH user', selected.connection.user || os.userInfo().username);
+  const connection = { ...selected.connection, user };
+  await storeSshConnection(context, connection);
+  await writeConnectionSshConfig(context, connection);
+  vscode.window.showInformationMessage(`SSH config updated: ${connection.hostAlias}`);
+  return connection;
+}
+
 async function writeSshConfig(context: vscode.ExtensionContext) {
-  const session = await readSession(context);
-  const entryHost = await prompt('OneProxy node host', '172.20.116.58');
-  const entryPort = await prompt('OneProxy node port', '2333');
-  const targetHost = await prompt('Target host', '172.20.116.91');
-  const targetPort = await prompt('Target SSH port', '22');
-  const user = await prompt('SSH user', os.userInfo().username);
-  const hostAlias = config().get<string>('sshConfigHost') || 'oneproxy-remote';
-  const cliPath = config().get<string>('cliPath') || 'oneproxy';
-  const tokenFile = await writeTokenFile(session.proxyToken);
-  const block = sshConfigBlock({ hostAlias, user, targetHost, targetPort, entryHost, entryPort, cliPath, tokenFile });
-  await upsertSshConfigBlock(hostAlias, block);
-  vscode.window.showInformationMessage(`SSH config updated: ${hostAlias}`);
+  const connection = await ensureSshConnection(context);
+  await writeConnectionSshConfig(context, connection);
+  vscode.window.showInformationMessage(`SSH config updated: ${connection.hostAlias}`);
 }
 
 async function connectRemoteSsh(context: vscode.ExtensionContext) {
   await ensureRemoteSshInstalled();
-  const hostAlias = config().get<string>('sshConfigHost') || 'oneproxy-remote';
-  await writeSshConfig(context);
-  const uri = vscode.Uri.parse(`vscode-remote://ssh-remote+${encodeURIComponent(hostAlias)}/`);
+  const connection = await ensureSshConnection(context);
+  await writeConnectionSshConfig(context, connection);
+  const uri = vscode.Uri.parse(`vscode-remote://ssh-remote+${encodeURIComponent(connection.hostAlias)}/`);
   await vscode.commands.executeCommand('vscode.openFolder', uri, true);
+}
+
+async function setSshProxyMode(context: vscode.ExtensionContext) {
+  const connection = await ensureSshConnection(context);
+  const selected = await vscode.window.showQuickPick([
+    { label: 'Use OneProxy', description: 'Route Remote-SSH through the selected OneProxy entry node.', proxyEnabled: true },
+    { label: 'Direct', description: 'Connect to the target host without ProxyCommand.', proxyEnabled: false }
+  ], { title: 'SSH proxy mode', ignoreFocusOut: true });
+  if (!selected) {
+    throw new Error('proxy_mode_required');
+  }
+  const next = { ...connection, proxyEnabled: selected.proxyEnabled };
+  await storeSshConnection(context, next);
+  await writeConnectionSshConfig(context, next);
+  vscode.window.showInformationMessage(`SSH proxy mode: ${selected.label}`);
+}
+
+async function ensureSshConnection(context: vscode.ExtensionContext): Promise<SshConnection> {
+  const connection = await readSshConnection(context);
+  return connection || selectSshTarget(context);
+}
+
+async function listSshConnections(context: vscode.ExtensionContext, current: SshConnection | null) {
+  const [paths, nodes] = await Promise.all([
+    apiRequest<NodeAccessPath[]>(context, '/api/proxy/paths'),
+    apiRequest<Node[]>(context, '/api/nodes')
+  ]);
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const items = paths
+    .filter((item) => item.enabled && (item.protocol === 'ssh' || item.serviceType === 'ssh'))
+    .map((item) => {
+      const entryNode = nodesById.get(item.entryNodeId);
+      if (!entryNode || !entryNode.enabled || !entryNode.publicHost || !entryNode.publicPort) {
+        return null;
+      }
+      const connection: SshConnection = {
+        pathId: item.id,
+        pathName: item.name,
+        hostAlias: current && current.pathId === item.id ? current.hostAlias : sshAlias(item),
+        user: current && current.pathId === item.id ? current.user : os.userInfo().username,
+        targetHost: item.targetHost,
+        targetPort: item.targetPort,
+        entryHost: entryNode.publicHost,
+        entryPort: entryNode.publicPort,
+        proxyEnabled: current && current.pathId === item.id ? current.proxyEnabled : true
+      };
+      return {
+        label: item.name || item.id,
+        description: `${item.targetHost}:${item.targetPort}`,
+        detail: `Entry ${entryNode.name || entryNode.id} ${entryNode.publicHost}:${entryNode.publicPort}`,
+        connection
+      };
+    })
+    .filter((item): item is { label: string; description: string; detail: string; connection: SshConnection } => item !== null);
+  if (items.length === 0) {
+    throw new Error('no_ssh_access_path');
+  }
+  return items;
+}
+
+async function writeConnectionSshConfig(context: vscode.ExtensionContext, connection: SshConnection) {
+  let tokenFile = '';
+  if (connection.proxyEnabled) {
+    const session = await syncProxyToken(context);
+    tokenFile = await writeTokenFile(session.proxyToken);
+  }
+  const cliPath = config().get<string>('cliPath') || 'oneproxy';
+  const block = sshConfigBlock({ ...connection, cliPath, tokenFile });
+  await upsertSshConfigBlock(connection.hostAlias, block);
+}
+
+async function apiRequest<T>(context: vscode.ExtensionContext, apiPath: string): Promise<T> {
+  const session = await readSession(context);
+  const response = await fetch(`${session.panelUrl}${apiPath}`, {
+    headers: authHeaders(session)
+  });
+  if (response.status === 401) {
+    const refreshed = await refreshSession(context, session);
+    const retry = await fetch(`${refreshed.panelUrl}${apiPath}`, {
+      headers: authHeaders(refreshed)
+    });
+    return readEnvelope<T>(retry, 'request_failed');
+  }
+  return readEnvelope<T>(response, 'request_failed');
+}
+
+async function syncProxyToken(context: vscode.ExtensionContext): Promise<Session> {
+  const session = await readSession(context);
+  const result = await extensionBootstrapWithRefresh(context, session);
+  const next = {
+    ...result.session,
+    proxyToken: result.bootstrap.proxyToken,
+    proxyTokenExpiresAt: result.bootstrap.proxyTokenExpiresAt
+  };
+  await context.secrets.store(sessionKey, JSON.stringify(next));
+  return next;
+}
+
+async function extensionBootstrapWithRefresh(context: vscode.ExtensionContext, session: Session): Promise<{ session: Session; bootstrap: BootstrapResponse }> {
+  const response = await fetch(`${session.panelUrl}/api/proxy/extension/bootstrap`, {
+    headers: authHeaders(session)
+  });
+  if (response.status !== 401) {
+    return { session, bootstrap: await readEnvelope<BootstrapResponse>(response, 'bootstrap_failed') };
+  }
+  const refreshed = await refreshSession(context, session);
+  const retry = await fetch(`${refreshed.panelUrl}/api/proxy/extension/bootstrap`, {
+    headers: authHeaders(refreshed)
+  });
+  return { session: refreshed, bootstrap: await readEnvelope<BootstrapResponse>(retry, 'bootstrap_failed') };
+}
+
+async function refreshSession(context: vscode.ExtensionContext, session: Session): Promise<Session> {
+  const payload = await requestEnvelope<LoginResponse>(`${session.panelUrl}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { 'X-One-Proxy-Refresh-Token': session.refreshToken }
+  }, 'refresh_failed');
+  const tenantId = payload.tenantMemberships.find((item) => item.tenantId === session.tenantId)
+    ? session.tenantId
+    : await selectTenant(payload);
+  const next = {
+    ...session,
+    account: payload.account.account,
+    accessToken: payload.accessToken,
+    refreshToken: payload.refreshToken,
+    tenantId
+  };
+  await context.secrets.store(sessionKey, JSON.stringify(next));
+  return next;
 }
 
 async function readSession(context: vscode.ExtensionContext): Promise<Session> {
@@ -100,6 +270,15 @@ async function readSession(context: vscode.ExtensionContext): Promise<Session> {
     throw new Error('not_logged_in');
   }
   return JSON.parse(raw) as Session;
+}
+
+async function readSshConnection(context: vscode.ExtensionContext): Promise<SshConnection | null> {
+  const raw = await context.secrets.get(sshConnectionKey);
+  return raw ? JSON.parse(raw) as SshConnection : null;
+}
+
+async function storeSshConnection(context: vscode.ExtensionContext, connection: SshConnection) {
+  await context.secrets.store(sshConnectionKey, JSON.stringify(connection));
 }
 
 async function selectTenant(session: LoginResponse): Promise<string> {
@@ -130,9 +309,18 @@ async function extensionBootstrap(panelUrl: string, accessToken: string, tenantI
       'X-One-Proxy-Tenant-ID': tenantId
     }
   });
-  const payload = await response.json() as { data?: BootstrapResponse; message?: string };
+  return readEnvelope<BootstrapResponse>(response, 'bootstrap_failed');
+}
+
+async function requestEnvelope<T>(url: string, init: RequestInit, fallback: string): Promise<T> {
+  const response = await fetch(url, init);
+  return readEnvelope<T>(response, fallback);
+}
+
+async function readEnvelope<T>(response: Response, fallback: string): Promise<T> {
+  const payload = await response.json() as ApiEnvelope<T>;
   if (!response.ok || !payload.data) {
-    throw new Error(payload.message || 'bootstrap_failed');
+    throw new Error(payload.message || fallback);
   }
   return payload.data;
 }
@@ -153,7 +341,14 @@ async function prompt(title: string, value?: string, password = false): Promise<
 }
 
 function trimUrl(value: string): string {
-  return value.trim().replace(/\/$/, '');
+  return value.trim().replace(/\/+$/, '');
+}
+
+function authHeaders(session: Session): Record<string, string> {
+  return {
+    'X-One-Proxy-Access-Token': session.accessToken,
+    'X-One-Proxy-Tenant-ID': session.tenantId
+  };
 }
 
 function config() {
@@ -169,24 +364,17 @@ async function writeTokenFile(token: string): Promise<string> {
   return tokenFile;
 }
 
-function sshConfigBlock(input: {
-  hostAlias: string;
-  user: string;
-  targetHost: string;
-  targetPort: string;
-  entryHost: string;
-  entryPort: string;
-  cliPath: string;
-  tokenFile: string;
-}): string {
-  return [
+function sshConfigBlock(input: SshConnection & { cliPath: string; tokenFile: string }): string {
+  const lines = [
     `Host ${input.hostAlias}`,
     `  HostName ${input.targetHost}`,
     `  Port ${input.targetPort}`,
-    `  User ${input.user}`,
-    `  ProxyCommand ${shellQuote(input.cliPath)} proxy-command --entry-host ${shellQuote(input.entryHost)} --entry-port ${shellQuote(input.entryPort)} --target-host %h --target-port %p --token-file ${shellQuote(input.tokenFile)}`,
-    ''
-  ].join('\n');
+    `  User ${input.user}`
+  ];
+  if (input.proxyEnabled) {
+    lines.push(`  ProxyCommand ${shellQuote(input.cliPath)} proxy-command --entry-host ${shellQuote(input.entryHost)} --entry-port ${shellQuote(String(input.entryPort))} --target-host %h --target-port %p --token-file ${shellQuote(input.tokenFile)}`);
+  }
+  return `${lines.join('\n')}\n`;
 }
 
 async function upsertSshConfigBlock(hostAlias: string, block: string) {
@@ -204,6 +392,16 @@ async function upsertSshConfigBlock(hostAlias: string, block: string) {
   const pattern = new RegExp(`(^|\\n)Host ${escapeRegExp(hostAlias)}\\n(?:[ \\t].*\\n?)*`, 'm');
   const next = current.match(pattern) ? current.replace(pattern, `\n${block}`) : `${current.trimEnd()}\n\n${block}`;
   await fs.writeFile(configPath, next.trimStart(), { mode: 0o600 });
+}
+
+function sshAlias(item: NodeAccessPath): string {
+  const prefix = config().get<string>('sshConfigHostPrefix') || 'oneproxy';
+  return `${prefix}-${slug(item.name || item.id)}-${slug(item.id)}`;
+}
+
+function slug(value: string): string {
+  const clean = value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  return clean || 'ssh';
 }
 
 function escapeRegExp(value: string): string {

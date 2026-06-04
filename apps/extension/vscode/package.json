@@ -12,8 +12,10 @@
   ],
   "activationEvents": [
     "onCommand:oneproxy.login",
+    "onCommand:oneproxy.selectSshTarget",
     "onCommand:oneproxy.writeSshConfig",
-    "onCommand:oneproxy.connectRemoteSsh"
+    "onCommand:oneproxy.connectRemoteSsh",
+    "onCommand:oneproxy.setSshProxyMode"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -23,12 +25,20 @@
         "title": "OneProxy: Login"
       },
       {
+        "command": "oneproxy.selectSshTarget",
+        "title": "OneProxy: Select SSH Target"
+      },
+      {
         "command": "oneproxy.writeSshConfig",
         "title": "OneProxy: Write SSH Config"
       },
       {
         "command": "oneproxy.connectRemoteSsh",
         "title": "OneProxy: Connect with Remote-SSH"
+      },
+      {
+        "command": "oneproxy.setSshProxyMode",
+        "title": "OneProxy: Set SSH Proxy Mode"
       }
     ],
     "configuration": {
@@ -39,10 +49,10 @@
           "default": "oneproxy",
           "description": "Path to the oneproxy CLI."
         },
-        "oneproxy.sshConfigHost": {
+        "oneproxy.sshConfigHostPrefix": {
           "type": "string",
-          "default": "oneproxy-remote",
-          "description": "SSH host alias managed by OneProxy."
+          "default": "oneproxy",
+          "description": "Prefix for SSH host aliases managed by OneProxy."
         }
       }
     }

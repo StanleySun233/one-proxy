@@ -1,0 +1,56 @@
+name: camelbot-deploy
+
+on:
+  workflow_run:
+    workflows:
+      - one-proxy-panel-image
+      - one-proxy-node-image
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: camelbot-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check deployment secrets
+        env:
+          CAMELBOT_SSH_HOST: ${{ secrets.CAMELBOT_SSH_HOST }}
+          CAMELBOT_SSH_USER: ${{ secrets.CAMELBOT_SSH_USER }}
+          CAMELBOT_SSH_PRIVATE_KEY: ${{ secrets.CAMELBOT_SSH_PRIVATE_KEY }}
+          CAMELBOT_DEPLOY_COMMAND: ${{ secrets.CAMELBOT_DEPLOY_COMMAND }}
+        run: |
+          test -n "$CAMELBOT_SSH_HOST"
+          test -n "$CAMELBOT_SSH_USER"
+          test -n "$CAMELBOT_SSH_PRIVATE_KEY"
+          test -n "$CAMELBOT_DEPLOY_COMMAND"
+
+      - name: Prepare SSH key
+        env:
+          CAMELBOT_SSH_HOST: ${{ secrets.CAMELBOT_SSH_HOST }}
+          CAMELBOT_SSH_PRIVATE_KEY: ${{ secrets.CAMELBOT_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$CAMELBOT_SSH_PRIVATE_KEY" > ~/.ssh/camelbot
+          chmod 600 ~/.ssh/camelbot
+          ssh-keyscan -H "$CAMELBOT_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Update camelbot images
+        env:
+          CAMELBOT_SSH_HOST: ${{ secrets.CAMELBOT_SSH_HOST }}
+          CAMELBOT_SSH_PORT: ${{ secrets.CAMELBOT_SSH_PORT || 22 }}
+          CAMELBOT_SSH_USER: ${{ secrets.CAMELBOT_SSH_USER }}
+          CAMELBOT_DEPLOY_COMMAND: ${{ secrets.CAMELBOT_DEPLOY_COMMAND }}
+        run: |
+          ssh -i ~/.ssh/camelbot \
+            -p "$CAMELBOT_SSH_PORT" \
+            "$CAMELBOT_SSH_USER@$CAMELBOT_SSH_HOST" \
+            "$CAMELBOT_DEPLOY_COMMAND"

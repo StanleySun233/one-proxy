@@ -13,8 +13,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "types": [
-      "node",
-      "vscode"
+      "node"
     ],
     "typeRoots": [
       "./node_modules/@types",
