@@ -134,7 +134,7 @@ func (r *Router) handleTenantMemberships(w http.ResponseWriter, req *http.Reques
 }
 
 func tenantPath(path string) (string, string) {
-	raw := strings.Trim(resourceID(path, "/api/v1/tenants/"), "/")
+	raw := strings.Trim(resourceID(path, "/api/tenants/"), "/")
 	if raw == "" {
 		return "", ""
 	}

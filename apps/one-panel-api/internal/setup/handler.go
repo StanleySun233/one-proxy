@@ -29,10 +29,10 @@ func NewSetupHandler(envFilePath string, transitionFn func() error) *SetupHandle
 
 func (h *SetupHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/healthz", h.handleHealthz)
-	mux.HandleFunc("/api/v1/setup/status", h.handleStatus)
-	mux.HandleFunc("/api/v1/setup/test-connection", h.handleTestConnection)
-	mux.HandleFunc("/api/v1/setup/generate-key", h.handleGenerateKey)
-	mux.HandleFunc("/api/v1/setup/init", h.handleInit)
+	mux.HandleFunc("/api/setup/status", h.handleStatus)
+	mux.HandleFunc("/api/setup/test", h.handleTestConnection)
+	mux.HandleFunc("/api/setup/key", h.handleGenerateKey)
+	mux.HandleFunc("/api/setup/init", h.handleInit)
 }
 
 // --- Response helpers ---

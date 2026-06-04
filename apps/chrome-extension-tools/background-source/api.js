@@ -61,7 +61,7 @@ export function login(controlPlaneUrl, account, password) {
   if (!normalizedControlPlaneUrl) {
     return Promise.reject(new Error('missing_control_plane_url'));
   }
-  return fetch(`${normalizedControlPlaneUrl}/api/v1/auth/login`, {
+  return fetch(`${normalizedControlPlaneUrl}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ account, password })
@@ -122,7 +122,7 @@ export function refreshSession(sourceState) {
     if (!state.controlPlaneUrl || !state.session.refreshToken) {
       throw new Error('missing_refresh_token');
     }
-    return fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/v1/auth/refresh`, {
+    return fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: state.session.refreshToken })
@@ -161,7 +161,7 @@ export function syncRemoteConfig(sourceState) {
     if (!state.session.activeTenantId) {
       throw new Error('tenant_required');
     }
-    return apiRequest(state, '/api/v1/extension/bootstrap')
+    return apiRequest(state, '/api/extension/bootstrap')
       .then((data) => {
         const nextState = mergeState({
           ...state,
@@ -199,7 +199,7 @@ export function getExtensionPageStatus(state, params) {
   if (params.chainId) {
     query.set('chainId', params.chainId);
   }
-  return apiRequest(state, `/api/v1/proxy/extension/page-status?${query.toString()}`);
+  return apiRequest(state, `/api/proxy/extension/page-status?${query.toString()}`);
 }
 
 export function selectTenant(tenantId) {
@@ -226,7 +226,7 @@ export function selectTenant(tenantId) {
 export function logout() {
   return getState().then((state) => {
     const logoutRequest = state.controlPlaneUrl && state.session.accessToken
-      ? fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/v1/auth/logout`, {
+      ? fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/auth/logout`, {
         method: 'POST',
         headers: authHeaders(state.session.accessToken)
       }).catch(() => {})

@@ -40,6 +40,7 @@ func (s *Service) RouteRulesWithDetails(tenantCtx domain.TenantAuthContext) []pr
 			ChainID:          rule.ChainID,
 			DestinationScope: rule.DestinationScope,
 			Enabled:          rule.Enabled,
+			Permission:       rule.Permission,
 		}
 		if rule.ChainID != "" {
 			if chain, ok := chainMap[rule.ChainID]; ok {
@@ -123,7 +124,7 @@ func (s *Service) DeleteRouteRule(tenantCtx domain.TenantAuthContext, ruleID str
 	}); err != nil {
 		return err
 	}
-	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && s.store.CountRouteRuleBindings(ruleID) > 1 {
+	if !tenantCtx.SuperAdmin && s.store.CountRouteRuleBindings(ruleID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return s.store.DeleteRouteRule(ruleID)

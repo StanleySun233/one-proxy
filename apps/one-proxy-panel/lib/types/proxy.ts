@@ -1,6 +1,7 @@
 import type {ActionType, MatchType, NodeMode, ProbeResultStatus, TransportStatus, TransportType} from './common';
+import type {ResourcePermissionMetadata} from './grants';
 
-export type Chain = {
+export type Chain = ResourcePermissionMetadata & {
   id: string;
   name: string;
   destinationScope: string;
@@ -54,7 +55,7 @@ export type ChainPreviewResult = {
   compiledConfig: CompiledChainConfig;
 };
 
-export type RouteRule = {
+export type RouteRule = ResourcePermissionMetadata & {
   id: string;
   priority: number;
   matchType: MatchType;
@@ -93,7 +94,7 @@ export type RouteRuleValidationResult = {
   scopeValidation: ScopeValidation;
 };
 
-export type Scope = {
+export type Scope = ResourcePermissionMetadata & {
   id: string;
   name: string;
   description: string;

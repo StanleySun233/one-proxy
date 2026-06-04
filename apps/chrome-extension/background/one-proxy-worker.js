@@ -620,7 +620,7 @@ function login(controlPlaneUrl, account, password) {
   if (!normalizedControlPlaneUrl) {
     return Promise.reject(new Error('missing_control_plane_url'));
   }
-  return fetch(`${normalizedControlPlaneUrl}/api/v1/auth/login`, {
+  return fetch(`${normalizedControlPlaneUrl}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ account, password })
@@ -681,7 +681,7 @@ function refreshSession(sourceState) {
     if (!state.controlPlaneUrl || !state.session.refreshToken) {
       throw new Error('missing_refresh_token');
     }
-    return fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/v1/auth/refresh`, {
+    return fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: state.session.refreshToken })
@@ -720,7 +720,7 @@ function syncRemoteConfig(sourceState) {
     if (!state.session.activeTenantId) {
       throw new Error('tenant_required');
     }
-    return apiRequest(state, '/api/v1/extension/bootstrap')
+    return apiRequest(state, '/api/extension/bootstrap')
       .then((data) => {
         const nextState = mergeState({
           ...state,
@@ -758,7 +758,7 @@ function getExtensionPageStatus(state, params) {
   if (params.chainId) {
     query.set('chainId', params.chainId);
   }
-  return apiRequest(state, `/api/v1/proxy/extension/page-status?${query.toString()}`);
+  return apiRequest(state, `/api/proxy/extension/page-status?${query.toString()}`);
 }
 
 function selectTenant(tenantId) {
@@ -785,7 +785,7 @@ function selectTenant(tenantId) {
 function logout() {
   return getState().then((state) => {
     const logoutRequest = state.controlPlaneUrl && state.session.accessToken
-      ? fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/v1/auth/logout`, {
+      ? fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/auth/logout`, {
         method: 'POST',
         headers: authHeaders(state.session.accessToken)
       }).catch(() => {})
@@ -848,7 +848,7 @@ function runProxyProbes(state, targetUrl, route) {
     return probeProtocols().map((protocol) => ({ protocol, status: 'skipped', latencyMs: 0, message: 'proxy_not_applied' }));
   }
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
-  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/v1/control-relay/probe`;
+  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control-relay/probe`;
   return Promise.all(probeProtocols().map((protocol) => runNodeProbe(endpoint, {
     protocol,
     remainingHopNodeIds,
@@ -1112,7 +1112,7 @@ function entryNodeId(route) {
 }
 
 function requestNodePathHealth(group, route) {
-  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/v1/control-relay/probe`;
+  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control-relay/probe`;
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
   return fetch(endpoint, {
     method: 'POST',

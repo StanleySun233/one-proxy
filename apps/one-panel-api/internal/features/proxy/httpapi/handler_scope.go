@@ -36,7 +36,7 @@ func (r *Router) handleScopes(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleScopeByID(w http.ResponseWriter, req *http.Request) {
-	scopeID := strings.TrimPrefix(req.URL.Path, "/api/v1/proxy/scopes/")
+	scopeID := strings.TrimPrefix(req.URL.Path, "/api/proxy/scopes/")
 	if scopeID == "" {
 		writeError(w, http.StatusNotFound, "scope_not_found")
 		return

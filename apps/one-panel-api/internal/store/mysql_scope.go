@@ -21,12 +21,12 @@ func (s *MySQLStore) ListScopesForTenant(tenantCtx domain.TenantAuthContext) []p
 		return s.ListScopes()
 	}
 	rows, err := s.db.Query(
-		`SELECT s.id, s.create_id, s.owner_id, s.name, COALESCE(s.description, ''), s.created_at, s.updated_at
+		`SELECT s.id, s.create_id, s.owner_id, s.name, COALESCE(s.description, ''), s.created_at, s.updated_at, ts.permission
 		 FROM scopes s
 		 JOIN tenant_scopes ts ON ts.scope_id = s.id
-		 WHERE ts.tenant_id = ?
+		 WHERE ts.tenant_id = ? AND ts.permission IN (?, ?)
 		 ORDER BY s.name`,
-		tenantCtx.ActiveTenant.TenantID,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 	)
 	return s.scanScopes(rows, err)
 }
@@ -36,11 +36,19 @@ func (s *MySQLStore) scanScopes(rows *sql.Rows, err error) []proxy.Scope {
 		return nil
 	}
 	defer rows.Close()
+	columns, _ := rows.Columns()
+	hasPermission := len(columns) == 8
 	items := make([]proxy.Scope, 0)
 	for rows.Next() {
 		var item proxy.Scope
-		if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.Description, &item.CreatedAt, &item.UpdatedAt); err != nil {
-			continue
+		if hasPermission {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.Description, &item.CreatedAt, &item.UpdatedAt, &item.Permission); err != nil {
+				continue
+			}
+		} else {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.Description, &item.CreatedAt, &item.UpdatedAt); err != nil {
+				continue
+			}
 		}
 		items = append(items, item)
 	}

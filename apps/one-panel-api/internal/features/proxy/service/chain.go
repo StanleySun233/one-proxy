@@ -42,6 +42,7 @@ func (s *Service) ChainsWithDetails(tenantCtx domain.TenantAuthContext) []proxy.
 			Enabled:          chain.Enabled,
 			Hops:             chain.Hops,
 			HopDetails:       hopDetails,
+			Permission:       chain.Permission,
 		})
 	}
 
@@ -81,6 +82,7 @@ func (s *Service) GetChain(tenantCtx domain.TenantAuthContext, chainID string) (
 		Enabled:          chain.Enabled,
 		Hops:             chain.Hops,
 		HopDetails:       hopDetails,
+		Permission:       chain.Permission,
 	}, nil
 }
 
@@ -206,7 +208,7 @@ func (s *Service) DeleteChain(tenantCtx domain.TenantAuthContext, chainID string
 	}); err != nil {
 		return err
 	}
-	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && s.store.CountChainBindings(chainID) > 1 {
+	if !tenantCtx.SuperAdmin && s.store.CountChainBindings(chainID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return s.store.DeleteChain(chainID)

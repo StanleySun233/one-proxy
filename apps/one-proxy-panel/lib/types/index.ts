@@ -27,6 +27,7 @@ export type {
 } from './proxy';
 export type { Group, GroupDetail } from './groups';
 export type {Tenant, TenantCreatedResult, TenantMembershipAccount} from './tenants';
+export type {ResourceBinding, ResourceBindingPayload, ResourceBindingPermission, ResourceBindingType, ResourcePermissionMetadata} from './grants';
 export type {
   APIResponse,
   AccountRole,

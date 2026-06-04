@@ -9,6 +9,7 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 import {AuthGate} from '@/components/auth-gate';
 import {AsyncState} from '@/components/async-state';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {useAuth} from '@/components/auth-provider';
 import {createRouteRule, deleteRouteRule, fetchEnums, getChains, getPolicyRevisions, getRouteRules, getScopes, publishPolicy, updateRouteRule} from '@/lib/api';
 import {RouteRule} from '@/lib/types';
@@ -29,6 +30,7 @@ export default function RoutesPage() {
   const accessToken = session?.accessToken || '';
   const activeTenantId = session?.activeTenantId || null;
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
+  const globalSuperAdmin = session?.account.role === 'super_admin';
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const matchTypeKeys = Object.keys(enums?.match_type || {});
   const actionTypeKeys = Object.keys(enums?.action_type || {});
@@ -44,6 +46,7 @@ export default function RoutesPage() {
   const selectedChainId = form.watch('chainId');
   const [regexTesterOpen, setRegexTesterOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState('');
+  const [grantRule, setGrantRule] = useState<RouteRule | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [matchFilter, setMatchFilter] = useState('');
   const [chainFilter, setChainFilter] = useState('');
@@ -258,6 +261,8 @@ export default function RoutesPage() {
           <RouteRuleTable
             chains={chains}
             deletePending={deleteRuleMutation.isPending}
+            globalSuperAdmin={globalSuperAdmin}
+            onGrant={canWrite ? setGrantRule : undefined}
             onDelete={canWrite ? deleteRoute : undefined}
             onEdit={canWrite ? startEdit : undefined}
             routeRules={filteredRouteRules}
@@ -341,6 +346,17 @@ export default function RoutesPage() {
         {regexTesterOpen && (
           <RegexTesterModal initialPattern={form.getValues('matchValue')} onClose={() => setRegexTesterOpen(false)} />
         )}
+
+        {grantRule ? (
+          <ResourceGrantModal
+            onChanged={() => queryClient.invalidateQueries({queryKey: ['route-rules']})}
+            onClose={() => setGrantRule(null)}
+            open={Boolean(grantRule)}
+            resourceId={grantRule.id}
+            resourceName={grantRule.matchValue || String(grantRule.priority)}
+            resourceType="route_rule"
+          />
+        ) : null}
       </ConsolePage>
     </AuthGate>
   );

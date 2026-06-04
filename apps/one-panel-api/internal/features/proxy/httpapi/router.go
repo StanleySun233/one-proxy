@@ -32,21 +32,21 @@ func Register(mux *http.ServeMux, guard AccountGuard, service *proxyservice.Serv
 }
 
 func (r *Router) routes() {
-	r.mux.HandleFunc("/api/v1/proxy/access-paths", r.guard(r.handleAccessPaths))
-	r.mux.HandleFunc("/api/v1/proxy/access-paths/", r.guard(r.handleAccessPathByID))
-	r.mux.HandleFunc("/api/v1/proxy/scopes", r.guard(r.handleScopes))
-	r.mux.HandleFunc("/api/v1/proxy/scopes/", r.guard(r.handleScopeByID))
-	r.mux.HandleFunc("/api/v1/proxy/node-links", r.guard(r.handleNodeLinks))
-	r.mux.HandleFunc("/api/v1/proxy/node-links/", r.guard(r.handleNodeLinkByID))
-	r.mux.HandleFunc("/api/v1/proxy/extension/page-status", r.guard(r.handleExtensionPageStatus))
-	r.mux.HandleFunc("/api/v1/proxy", r.guard(r.handleChains))
-	r.mux.HandleFunc("/api/v1/proxy/validate", r.guard(r.handleChainValidate))
-	r.mux.HandleFunc("/api/v1/proxy/preview", r.guard(r.handleChainPreview))
-	r.mux.HandleFunc("/api/v1/proxy/", r.guard(r.handleChainByID))
-	r.mux.HandleFunc("/api/v1/proxy/routes", r.guard(r.handleRouteRules))
-	r.mux.HandleFunc("/api/v1/proxy/routes/validate", r.guard(r.handleRouteRuleValidate))
-	r.mux.HandleFunc("/api/v1/proxy/routes/suggestions", r.guard(r.handleRouteRuleSuggestions))
-	r.mux.HandleFunc("/api/v1/proxy/routes/", r.guard(r.handleRouteRuleByID))
+	r.mux.HandleFunc("/api/proxy/paths", r.guard(r.handleAccessPaths))
+	r.mux.HandleFunc("/api/proxy/paths/", r.guard(r.handleAccessPathByID))
+	r.mux.HandleFunc("/api/proxy/scopes", r.guard(r.handleScopes))
+	r.mux.HandleFunc("/api/proxy/scopes/", r.guard(r.handleScopeByID))
+	r.mux.HandleFunc("/api/proxy/links", r.guard(r.handleNodeLinks))
+	r.mux.HandleFunc("/api/proxy/links/", r.guard(r.handleNodeLinkByID))
+	r.mux.HandleFunc("/api/proxy/extension/page-status", r.guard(r.handleExtensionPageStatus))
+	r.mux.HandleFunc("/api/proxy", r.guard(r.handleChains))
+	r.mux.HandleFunc("/api/proxy/validate", r.guard(r.handleChainValidate))
+	r.mux.HandleFunc("/api/proxy/preview", r.guard(r.handleChainPreview))
+	r.mux.HandleFunc("/api/proxy/", r.guard(r.handleChainByID))
+	r.mux.HandleFunc("/api/proxy/routes", r.guard(r.handleRouteRules))
+	r.mux.HandleFunc("/api/proxy/routes/validate", r.guard(r.handleRouteRuleValidate))
+	r.mux.HandleFunc("/api/proxy/routes/suggestions", r.guard(r.handleRouteRuleSuggestions))
+	r.mux.HandleFunc("/api/proxy/routes/", r.guard(r.handleRouteRuleByID))
 }
 
 func resourceID(path string, prefix string) string {

@@ -99,21 +99,21 @@ paths:
       responses:
         "200":
           description: Envelope health response
-  /api/v1/auth/login:
+  /api/auth/login:
     post:
       responses:
         "200":
           description: Envelope account session response including tenantMemberships and activeTenantId
         "401":
           description: Invalid credentials
-  /api/v1/auth/refresh:
+  /api/auth/refresh:
     post:
       responses:
         "200":
           description: Envelope refreshed account session response including tenantMemberships and activeTenantId
         "401":
           description: Invalid refresh token
-  /api/v1/auth/logout:
+  /api/auth/logout:
     post:
       security:
         - controlPlaneBearer: []
@@ -122,14 +122,14 @@ paths:
           description: Envelope logout response
         "401":
           description: Invalid access token
-  /api/v1/overview:
+  /api/overview:
     get:
       security:
         - controlPlaneBearer: []
       responses:
         "200":
           description: Envelope overview response
-  /api/v1/extension/bootstrap:
+  /api/extension/bootstrap:
     get:
       security:
         - controlPlaneBearer: []
@@ -138,7 +138,7 @@ paths:
       responses:
         "200":
           description: Envelope tenant-scoped extension bootstrap response including proxyToken
-  /api/v1/accounts:
+  /api/accounts:
     get:
       security:
         - controlPlaneBearer: []
@@ -155,7 +155,7 @@ paths:
       responses:
         "201":
           description: Envelope account created response
-  /api/v1/accounts/{accountId}:
+  /api/accounts/{accountId}:
     patch:
       security:
         - controlPlaneBearer: []
@@ -164,7 +164,7 @@ paths:
       responses:
         "200":
           description: Envelope account updated response
-  /api/v1/tenants:
+  /api/tenants:
     get:
       security:
         - controlPlaneBearer: []
@@ -188,7 +188,7 @@ paths:
       responses:
         "201":
           description: Envelope tenant created response with initial tenant_admin membership
-  /api/v1/tenants/{tenantId}:
+  /api/tenants/{tenantId}:
     get:
       security:
         - controlPlaneBearer: []
@@ -228,7 +228,7 @@ paths:
       responses:
         "200":
           description: Envelope tenant deleted response
-  /api/v1/tenants/{tenantId}/memberships:
+  /api/tenants/{tenantId}/memberships:
     get:
       security:
         - controlPlaneBearer: []
@@ -242,7 +242,7 @@ paths:
       responses:
         "200":
           description: Envelope tenant membership list response
-  /api/v1/tenants/{tenantId}/memberships/{accountId}:
+  /api/tenants/{tenantId}/memberships/{accountId}:
     put:
       security:
         - controlPlaneBearer: []
@@ -291,7 +291,7 @@ paths:
       responses:
         "200":
           description: Envelope tenant membership deleted response
-  /api/v1/nodes:
+  /api/nodes:
     get:
       security:
         - controlPlaneBearer: []
@@ -308,7 +308,7 @@ paths:
       responses:
         "201":
           description: Envelope node created response
-  /api/v1/nodes/{nodeId}:
+  /api/nodes/{nodeId}:
     patch:
       security:
         - controlPlaneBearer: []
@@ -325,21 +325,32 @@ paths:
       responses:
         "200":
           description: Envelope node deleted response
-  /api/v1/nodes/bootstrap-token:
+  /api/nodes/{nodeId}/manage-access:
+    get:
+      security:
+        - controlPlaneBearer: []
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: Envelope node manage-access response
+        "403":
+          description: Account cannot manage this node
+  /api/nodes/bootstrap/token:
     post:
       security:
         - controlPlaneBearer: []
       responses:
         "201":
           description: Envelope bootstrap token response
-  /api/v1/nodes/enroll:
+  /api/nodes/enroll:
     post:
       responses:
         "201":
           description: Envelope pending node enrollment response
         "400":
           description: Invalid enrollment payload
-  /api/v1/nodes/approve/{nodeId}:
+  /api/nodes/approve/{nodeId}:
     post:
       security:
         - controlPlaneBearer: []
@@ -348,14 +359,23 @@ paths:
           description: Envelope node approval response with node token and trust material
         "400":
           description: Invalid approval request
-  /api/v1/nodes/exchange:
+  /api/nodes/exchange:
     post:
       responses:
         "200":
           description: Envelope node enrollment exchange response
         "400":
           description: Invalid enrollment exchange payload
-  /api/v1/proxy:
+  /api/proxy/extension/page-status:
+    get:
+      security:
+        - controlPlaneBearer: []
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: Envelope extension page status response
+  /api/proxy:
     get:
       security:
         - controlPlaneBearer: []
@@ -372,7 +392,7 @@ paths:
       responses:
         "201":
           description: Envelope chain created response
-  /api/v1/proxy/{chainId}:
+  /api/proxy/{chainId}:
     patch:
       security:
         - controlPlaneBearer: []
@@ -389,7 +409,7 @@ paths:
       responses:
         "200":
           description: Envelope chain deleted response
-  /api/v1/proxy/scopes:
+  /api/proxy/scopes:
     get:
       security:
         - controlPlaneBearer: []
@@ -406,7 +426,7 @@ paths:
       responses:
         "201":
           description: Envelope chain scope created response
-  /api/v1/proxy/scopes/{scopeId}:
+  /api/proxy/scopes/{scopeId}:
     patch:
       security:
         - controlPlaneBearer: []
@@ -423,7 +443,7 @@ paths:
       responses:
         "200":
           description: Envelope chain scope deleted response
-  /api/v1/proxy/node-links:
+  /api/proxy/links:
     get:
       security:
         - controlPlaneBearer: []
@@ -440,7 +460,7 @@ paths:
       responses:
         "201":
           description: Envelope node link created response
-  /api/v1/proxy/node-links/{linkId}:
+  /api/proxy/links/{linkId}:
     patch:
       security:
         - controlPlaneBearer: []
@@ -457,7 +477,7 @@ paths:
       responses:
         "200":
           description: Envelope node link deleted response
-  /api/v1/proxy/routes:
+  /api/proxy/routes:
     get:
       security:
         - controlPlaneBearer: []
@@ -474,7 +494,7 @@ paths:
       responses:
         "201":
           description: Envelope route rule created response
-  /api/v1/proxy/routes/{ruleId}:
+  /api/proxy/routes/{ruleId}:
     patch:
       security:
         - controlPlaneBearer: []
@@ -491,7 +511,7 @@ paths:
       responses:
         "200":
           description: Envelope route rule deleted response
-  /api/v1/policies/revisions:
+  /api/policies/revisions:
     get:
       security:
         - controlPlaneBearer: []
@@ -500,7 +520,7 @@ paths:
       responses:
         "200":
           description: Envelope policy revision list response
-  /api/v1/policies/publish:
+  /api/policies/publish:
     post:
       security:
         - controlPlaneBearer: []
@@ -511,7 +531,7 @@ paths:
           description: Envelope policy publish response
         "400":
           description: Invalid policy graph
-  /api/v1/nodes/health:
+  /api/nodes/health:
     get:
       security:
         - controlPlaneBearer: []
@@ -520,7 +540,7 @@ paths:
       responses:
         "200":
           description: Envelope node health list response
-  /api/v1/node-agent/policy:
+  /api/node-agent/policy:
     get:
       security:
         - nodeBearer: []
@@ -529,7 +549,7 @@ paths:
           description: Envelope node policy payload
         "401":
           description: Invalid node token
-  /api/v1/node-agent/heartbeat:
+  /api/node-agent/heartbeat:
     post:
       security:
         - nodeBearer: []
@@ -538,7 +558,7 @@ paths:
           description: Envelope node health updated response
         "401":
           description: Invalid node token
-  /api/v1/node-agent/proxy-token/validate:
+  /api/node-agent/proxy-token/validate:
     post:
       security:
         - nodeBearer: []
@@ -547,7 +567,7 @@ paths:
           description: Envelope proxy token validation response
         "401":
           description: Invalid node token or proxy token
-  /api/v1/node-agent/cert/renew:
+  /api/node-agent/cert/renew:
     post:
       security:
         - nodeBearer: []

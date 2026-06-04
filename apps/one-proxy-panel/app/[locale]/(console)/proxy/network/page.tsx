@@ -18,6 +18,7 @@ export default function ChainAccessPathsPage() {
   const accessToken = session?.accessToken || '';
   const activeTenantId = session?.activeTenantId || null;
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
+  const globalSuperAdmin = session?.account.role === 'super_admin';
   const [createRequestKey, setCreateRequestKey] = useState(0);
 
   const chainsQuery = useQuery({
@@ -42,7 +43,7 @@ export default function ChainAccessPathsPage() {
         ) : null}
         title={t('shell.accessPaths')}
       >
-        {canWrite ? <AccessPathPanel accessToken={accessToken} activeTenantId={activeTenantId} chains={chainsQuery.data || []} createRequestKey={createRequestKey} nodes={nodesQuery.data || []} /> : null}
+        <AccessPathPanel accessToken={accessToken} activeTenantId={activeTenantId} canWrite={canWrite} chains={chainsQuery.data || []} createRequestKey={createRequestKey} globalSuperAdmin={globalSuperAdmin} nodes={nodesQuery.data || []} />
       </ConsolePage>
     </AuthGate>
   );

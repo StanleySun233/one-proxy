@@ -1,0 +1,15 @@
+# Project Index
+
+## Active
+
+| Date | Requirement | Status | Roadmap |
+|------|-------------|--------|---------|
+| 20260604 | node-local-console | in-progress | [→](./20260604/node-local-console/dev-roadmap.md) |
+| 20260604 | tenant-resource-sharing | in-progress | [→](./20260604/tenant-resource-sharing/dev-roadmap.md) |
+| 20260602 | tenant-access-model | in-progress | [→](./20260602/tenant-access-model/dev-roadmap.md) |
+| 20260602 | direct-peer-transport | planned | [→](./20260602/direct-peer-transport/dev-roadmap.md) |
+
+## Completed
+
+| Date | Requirement | Roadmap |
+|------|-------------|---------|

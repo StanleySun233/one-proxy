@@ -51,35 +51,35 @@ export function previewChain(accessToken: string, tenantId: string | null, paylo
 }
 
 export function getNodeLinks(accessToken: string, tenantId: string | null) {
-  return request<NodeLink[]>('/proxy/node-links', {accessToken, tenantId});
+  return request<NodeLink[]>('/proxy/links', {accessToken, tenantId});
 }
 
 export function createNodeLink(accessToken: string, tenantId: string | null, payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) {
-  return request<NodeLink>('/proxy/node-links', {method: 'POST', accessToken, tenantId, body: payload});
+  return request<NodeLink>('/proxy/links', {method: 'POST', accessToken, tenantId, body: payload});
 }
 
 export function updateNodeLink(accessToken: string, tenantId: string | null, linkID: string, payload: {sourceNodeId: string; targetNodeId: string; linkType: string; trustState: string}) {
-  return request<NodeLink>(`/proxy/node-links/${linkID}`, {method: 'PATCH', accessToken, tenantId, body: payload});
+  return request<NodeLink>(`/proxy/links/${linkID}`, {method: 'PATCH', accessToken, tenantId, body: payload});
 }
 
 export function deleteNodeLink(accessToken: string, tenantId: string | null, linkID: string) {
-  return request<{status: string}>(`/proxy/node-links/${linkID}`, {method: 'DELETE', accessToken, tenantId});
+  return request<{status: string}>(`/proxy/links/${linkID}`, {method: 'DELETE', accessToken, tenantId});
 }
 
 export function getNodeAccessPaths(accessToken: string, tenantId: string | null) {
-  return request<NodeAccessPath[]>('/proxy/access-paths', {accessToken, tenantId});
+  return request<NodeAccessPath[]>('/proxy/paths', {accessToken, tenantId});
 }
 
 export function createNodeAccessPath(accessToken: string, tenantId: string | null, payload: NodeAccessPathPayload) {
-  return request<NodeAccessPath>('/proxy/access-paths', {method: 'POST', accessToken, tenantId, body: payload});
+  return request<NodeAccessPath>('/proxy/paths', {method: 'POST', accessToken, tenantId, body: payload});
 }
 
 export function updateNodeAccessPath(accessToken: string, tenantId: string | null, pathID: string, payload: NodeAccessPathPayload & {enabled: boolean}) {
-  return request<NodeAccessPath>(`/proxy/access-paths/${pathID}`, {method: 'PATCH', accessToken, tenantId, body: payload});
+  return request<NodeAccessPath>(`/proxy/paths/${pathID}`, {method: 'PATCH', accessToken, tenantId, body: payload});
 }
 
 export function deleteNodeAccessPath(accessToken: string, tenantId: string | null, pathID: string) {
-  return request<{status: string}>(`/proxy/access-paths/${pathID}`, {method: 'DELETE', accessToken, tenantId});
+  return request<{status: string}>(`/proxy/paths/${pathID}`, {method: 'DELETE', accessToken, tenantId});
 }
 
 export function getRouteRules(accessToken: string, tenantId: string | null) {

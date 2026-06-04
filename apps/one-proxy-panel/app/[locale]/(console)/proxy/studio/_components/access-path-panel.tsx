@@ -1,7 +1,7 @@
 'use client';
 
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {Edit, Trash2} from 'lucide-react';
+import {Edit, Share2, Trash2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
@@ -9,6 +9,7 @@ import {toast} from 'sonner';
 import {AsyncState} from '@/components/async-state';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList} from '@/components/console-template';
 import {NameTag} from '@/components/common/name-tag';
+import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {createNodeAccessPath, deleteNodeAccessPath, fetchEnums, getNodeAccessPaths, updateNodeAccessPath} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 import type {Chain, FieldEnumEntry, Node, NodeAccessPath, NodeAccessPathPayload} from '@/lib/types';
@@ -111,20 +112,25 @@ function submitPayload(form: AccessPathFormState, chains: Chain[]): NodeAccessPa
 export function AccessPathPanel({
   accessToken,
   activeTenantId,
+  canWrite,
   chains,
   createRequestKey = 0,
+  globalSuperAdmin,
   nodes
 }: {
   accessToken: string;
   activeTenantId: string | null;
+  canWrite: boolean;
   chains: Chain[];
   createRequestKey?: number;
+  globalSuperAdmin: boolean;
   nodes: Node[];
 }) {
   const t = useTranslations();
   const accessPathsT = useTranslations('accessPaths');
   const queryClient = useQueryClient();
   const [editingPath, setEditingPath] = useState<NodeAccessPath | null>(null);
+  const [grantPath, setGrantPath] = useState<NodeAccessPath | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [nameFilter, setNameFilter] = useState('');
   const [chainFilter, setChainFilter] = useState('');
@@ -292,41 +298,52 @@ export function AccessPathPanel({
                   <th>{t('common.target')}</th>
                   <th>{accessPathsT('listen')}</th>
                   <th>{t('common.status')}</th>
-                  <th>{t('common.actions')}</th>
+                  {canWrite ? <th>{t('common.actions')}</th> : null}
                 </tr>
               </thead>
               <tbody>
-                {filteredPaths.map((path) => (
-                  <tr key={path.id}>
-                    <td><NameTag kind="node">{path.name}</NameTag></td>
-                    <td>{chainById.get(path.chainId)?.name || t('common.unknown')}</td>
-                    <td className="mono">{path.protocol} / {path.serviceType}</td>
-                    <td className="mono">{path.targetHost}:{path.targetPort}</td>
-                    <td className="mono">{path.listenHost || '*'}:{path.listenPort}</td>
-                    <td><span className={`badge ${path.enabled ? 'is-success' : 'is-neutral'}`}>{path.enabled ? t('common.enabled') : t('common.disabled')}</span></td>
-                    <td>
-                      <div className="chain-list-actions">
-                        <button className="secondary-button" onClick={() => handleEdit(path)} type="button">
-                          <Edit size={14} />
-                          {t('common.edit')}
-                        </button>
-                        <button
-                          className="danger-button"
-                          disabled={deleteMutation.isPending}
-                          onClick={() => {
-                            if (window.confirm(accessPathsT('deleteConfirm'))) {
-                              deleteMutation.mutate(path.id);
-                            }
-                          }}
-                          type="button"
-                        >
-                          <Trash2 size={14} />
-                          {t('common.delete')}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredPaths.map((path) => {
+                  const canManage = globalSuperAdmin || path.permission === 'manage';
+                  return (
+                    <tr key={path.id}>
+                      <td><NameTag kind="node">{path.name}</NameTag></td>
+                      <td>{chainById.get(path.chainId)?.name || t('common.unknown')}</td>
+                      <td className="mono">{path.protocol} / {path.serviceType}</td>
+                      <td className="mono">{path.targetHost}:{path.targetPort}</td>
+                      <td className="mono">{path.listenHost || '*'}:{path.listenPort}</td>
+                      <td><span className={`badge ${path.enabled ? 'is-success' : 'is-neutral'}`}>{path.enabled ? t('common.enabled') : t('common.disabled')}</span></td>
+                      {canWrite ? (
+                        <td>
+                          <div className="chain-list-actions">
+                            {canManage ? (
+                              <button className="secondary-button" onClick={() => setGrantPath(path)} type="button">
+                                <Share2 size={14} />
+                                {t('common.grant')}
+                              </button>
+                            ) : null}
+                            <button className="secondary-button" disabled={!canManage} onClick={() => handleEdit(path)} type="button">
+                              <Edit size={14} />
+                              {t('common.edit')}
+                            </button>
+                            <button
+                              className="danger-button"
+                              disabled={deleteMutation.isPending || !canManage}
+                              onClick={() => {
+                                if (window.confirm(accessPathsT('deleteConfirm'))) {
+                                  deleteMutation.mutate(path.id);
+                                }
+                              }}
+                              type="button"
+                            >
+                              <Trash2 size={14} />
+                              {t('common.delete')}
+                            </button>
+                          </div>
+                        </td>
+                      ) : null}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -415,6 +432,17 @@ export function AccessPathPanel({
         </label>
       </div>
       </ConsoleCrudModal>
+
+      {grantPath ? (
+        <ResourceGrantModal
+          onChanged={() => queryClient.invalidateQueries({queryKey: ['proxy-access-paths']})}
+          onClose={() => setGrantPath(null)}
+          open={Boolean(grantPath)}
+          resourceId={grantPath.id}
+          resourceName={grantPath.name}
+          resourceType="access_path"
+        />
+      ) : null}
     </>
   );
 }

@@ -44,7 +44,7 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 		r.handleChainProbe(w, req)
 		return
 	}
-	chainID := resourceID(req.URL.Path, "/api/v1/proxy/")
+	chainID := resourceID(req.URL.Path, "/api/proxy/")
 	if chainID == "" {
 		writeError(w, http.StatusBadRequest, "missing_chain_id")
 		return
@@ -86,7 +86,7 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleChainProbe(w http.ResponseWriter, req *http.Request) {
-	chainID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/proxy/"), "/probe")
+	chainID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/proxy/"), "/probe")
 	chainID = strings.TrimSuffix(chainID, "/")
 	if chainID == "" {
 		writeError(w, http.StatusBadRequest, "missing_chain_id")

@@ -34,7 +34,7 @@ func (r *Router) handleNodeOnboardingTasks(w http.ResponseWriter, req *http.Requ
 }
 
 func (r *Router) handleNodeOnboardingTaskByID(w http.ResponseWriter, req *http.Request) {
-	taskID := resourceID(req.URL.Path, "/api/v1/node-onboarding-tasks/")
+	taskID := resourceID(req.URL.Path, "/api/onboarding/tasks/")
 	if taskID == "" {
 		writeError(w, http.StatusBadRequest, "missing_task_id")
 		return

@@ -23,6 +23,7 @@ type SessionStore interface {
 
 type TenantStore interface {
 	ListTenants(account domain.Account) []domain.Tenant
+	ListAllTenants() []domain.Tenant
 	GetTenant(tenantID string) (domain.Tenant, bool)
 	CreateTenant(name string, initialAdminAccountID string, createID string) (domain.Tenant, error)
 	UpdateTenant(tenantID string, name string) (domain.Tenant, error)
@@ -32,6 +33,11 @@ type TenantStore interface {
 	GetTenantMembership(accountID string, tenantID string) (domain.TenantMembership, bool)
 	UpsertTenantMembership(tenantID string, accountID string, role domain.TenantRole, createID string) (domain.TenantMembership, error)
 	DeleteTenantMembership(tenantID string, accountID string) error
+	ListTenantResourceBindings(resourceType domain.ResourceType, resourceID string) ([]domain.TenantResourceBinding, error)
+	UpsertTenantResourceBinding(resourceType domain.ResourceType, resourceID string, tenantID string, permission domain.BindingPermission, createID string) (domain.TenantResourceBinding, error)
+	DeleteTenantResourceBinding(resourceType domain.ResourceType, resourceID string, tenantID string) error
+	TenantResourceBindingPermission(tenantCtx domain.TenantAuthContext, resourceType domain.ResourceType, resourceID string) (domain.BindingPermission, bool)
+	CountTenantResourceManageBindings(resourceType domain.ResourceType, resourceID string) int
 }
 
 type NodeStore interface {

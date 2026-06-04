@@ -36,6 +36,7 @@ export function useNodeConsole() {
   const accessToken = session?.accessToken || '';
   const activeTenantId = session?.activeTenantId || null;
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
+  const globalSuperAdmin = session?.account.role === 'super_admin';
 
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodeModeKeys = Object.keys(enums?.node_mode || {});
@@ -257,6 +258,7 @@ export function useNodeConsole() {
     accessToken,
     activeTenantId,
     canWrite,
+    globalSuperAdmin,
     bootstrapForm,
     nodesQuery,
     scopesQuery,

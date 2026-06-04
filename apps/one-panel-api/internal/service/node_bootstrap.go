@@ -55,7 +55,7 @@ func (c *ControlPlane) DeleteBootstrapToken(tenantCtx domain.TenantAuthContext, 
 	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
 		return newError(403, "tenant_role_forbidden")
 	}
-	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") {
+	if !tenantCtx.SuperAdmin {
 		found := false
 		for _, item := range c.store.ListUnconsumedBootstrapTokens() {
 			if item.ID != tokenID {

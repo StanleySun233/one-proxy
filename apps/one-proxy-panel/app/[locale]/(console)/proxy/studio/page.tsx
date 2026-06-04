@@ -4,12 +4,13 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
 import {useMemo, useState} from 'react';
-import {Edit, Trash2} from 'lucide-react';
+import {Edit, Share2} from 'lucide-react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {NameTag} from '@/components/common/name-tag';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {useAuth} from '@/components/auth-provider';
 import {createChain, getChains, getNodes, getScopes, previewChain, probeChain, updateChain} from '@/lib/api';
 import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/types';
@@ -36,9 +37,11 @@ export default function ChainsPage() {
   const accessToken = session?.accessToken || '';
   const activeTenantId = session?.activeTenantId || null;
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
+  const globalSuperAdmin = session?.account.role === 'super_admin';
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingChain, setEditingChain] = useState<Chain | null>(null);
+  const [grantChain, setGrantChain] = useState<Chain | null>(null);
   const [chainName, setChainName] = useState('');
   const [destinationScope, setDestinationScope] = useState('');
   const [hops, setHops] = useState<string[]>([]);
@@ -241,36 +244,45 @@ export default function ChainsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredChains.map((chain) => (
-                    <tr key={chain.id}>
-                      <td>
-                        <NameTag kind="chain">{chain.name}</NameTag>
-                      </td>
-                      <td className="mono">{chain.hops.map(nodeLabelFor).join(' → ')}</td>
-                      <td><NameTag kind="scope">{scopeLabelFor(chain.destinationScope)}</NameTag></td>
-                      <td>
-                        <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? t('common.enabled') : t('common.disabled')}</span>
-                      </td>
-                      <td>
-                        <div className="chain-list-actions">
-                          {canWrite ? (
-                            <button className="secondary-button" onClick={() => handleOpenEditor(chain)} type="button">
-                              <Edit size={14} />
-                              {t('common.edit')}
+                  {filteredChains.map((chain) => {
+                    const canManage = globalSuperAdmin || chain.permission === 'manage';
+                    return (
+                      <tr key={chain.id}>
+                        <td>
+                          <NameTag kind="chain">{chain.name}</NameTag>
+                        </td>
+                        <td className="mono">{chain.hops.map(nodeLabelFor).join(' -> ')}</td>
+                        <td><NameTag kind="scope">{scopeLabelFor(chain.destinationScope)}</NameTag></td>
+                        <td>
+                          <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? t('common.enabled') : t('common.disabled')}</span>
+                        </td>
+                        <td>
+                          <div className="chain-list-actions">
+                            {canWrite && canManage ? (
+                              <button className="secondary-button" onClick={() => setGrantChain(chain)} type="button">
+                                <Share2 size={14} />
+                                {t('common.grant')}
+                              </button>
+                            ) : null}
+                            {canWrite ? (
+                              <button className="secondary-button" disabled={!canManage} onClick={() => handleOpenEditor(chain)} type="button">
+                                <Edit size={14} />
+                                {t('common.edit')}
+                              </button>
+                            ) : null}
+                            <button
+                              className="secondary-button"
+                              disabled={probeChainMutation.isPending}
+                              onClick={() => probeChainMutation.mutate(chain.id)}
+                              type="button"
+                            >
+                              {chainsT('probe')}
                             </button>
-                          ) : null}
-                          <button
-                            className="secondary-button"
-                            disabled={probeChainMutation.isPending}
-                            onClick={() => probeChainMutation.mutate(chain.id)}
-                            type="button"
-                          >
-                            {chainsT('probe')}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -322,6 +334,17 @@ export default function ChainsPage() {
         {previewOpen && previewConfig && (
           <CompilationPreviewModal config={previewConfig} onClose={() => setPreviewOpen(false)} />
         )}
+
+        {grantChain ? (
+          <ResourceGrantModal
+            onChanged={() => queryClient.invalidateQueries({queryKey: ['proxy-chains']})}
+            onClose={() => setGrantChain(null)}
+            open={Boolean(grantChain)}
+            resourceId={grantChain.id}
+            resourceName={grantChain.name}
+            resourceType="chain"
+          />
+        ) : null}
       </ConsolePage>
     </AuthGate>
   );

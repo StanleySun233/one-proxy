@@ -2,11 +2,13 @@
 
 import {useMemo, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
+import {Share2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {fetchEnums} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
@@ -25,6 +27,7 @@ export function NodeTopologyPageContent() {
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingLinkID, setEditingLinkID] = useState<string | null>(null);
+  const [grantLinkID, setGrantLinkID] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState('');
   const [targetFilter, setTargetFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -32,6 +35,7 @@ export function NodeTopologyPageContent() {
   const [statusFilter, setStatusFilter] = useState('');
   const [addressFilter, setAddressFilter] = useState('');
   const editingLink = links.find((link) => link.id === editingLinkID) || null;
+  const grantLink = links.find((link) => link.id === grantLinkID) || null;
   const transportTypeKeys = Object.keys(enums?.transport_type || {});
   const LINK_TYPE_RELAY = Object.keys(enums?.link_type || {}).find(k => k === 'relay') || 'relay';
   const TRUST_STATE_TRUSTED = Object.keys(enums?.trust_state || {}).find(k => k === 'trusted') || 'trusted';
@@ -139,6 +143,7 @@ export function NodeTopologyPageContent() {
                 <tbody>
                   {filteredLinks.map((link) => {
                     const transportReady = linkTransportReady(link.sourceNodeId, link.targetNodeId);
+                    const canManage = nodeConsole.globalSuperAdmin || link.permission === 'manage';
                     return (
                       <tr key={link.id}>
                         <td>{describeNodeName(link.sourceNodeId, nodesByID)}</td>
@@ -149,12 +154,18 @@ export function NodeTopologyPageContent() {
                         {nodeConsole.canWrite ? (
                           <td>
                             <div className="chain-list-actions">
-                              <button className="secondary-button" onClick={() => setEditingLinkID(link.id)} type="button">
+                              {canManage ? (
+                                <button className="secondary-button" onClick={() => setGrantLinkID(link.id)} type="button">
+                                  <Share2 size={14} />
+                                  {t('common.grant')}
+                                </button>
+                              ) : null}
+                              <button className="secondary-button" disabled={!canManage} onClick={() => setEditingLinkID(link.id)} type="button">
                                 {t('common.edit')}
                               </button>
                               <button
                                 className="danger-button"
-                                disabled={nodeConsole.deleteNodeLink.isPending}
+                                disabled={nodeConsole.deleteNodeLink.isPending || !canManage}
                                 onClick={() => {
                                   if (window.confirm(nodesT('deleteLinkConfirm'))) {
                                     nodeConsole.deleteNodeLink.mutate(link.id);
@@ -247,6 +258,17 @@ export function NodeTopologyPageContent() {
               defaultTrustState={TRUST_STATE_TRUSTED}
             />
           </ConsoleCrudModal>
+        ) : null}
+
+        {grantLink ? (
+          <ResourceGrantModal
+            onChanged={() => void nodeConsole.linksQuery.refetch()}
+            onClose={() => setGrantLinkID(null)}
+            open={Boolean(grantLink)}
+            resourceId={grantLink.id}
+            resourceName={`${describeNodeName(grantLink.sourceNodeId, nodesByID)} -> ${describeNodeName(grantLink.targetNodeId, nodesByID)}`}
+            resourceType="node_link"
+          />
         ) : null}
       </ConsolePage>
     </AuthGate>

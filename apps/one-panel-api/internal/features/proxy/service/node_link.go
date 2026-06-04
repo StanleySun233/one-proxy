@@ -53,7 +53,7 @@ func (s *Service) DeleteNodeLink(tenantCtx domain.TenantAuthContext, linkID stri
 	}); err != nil {
 		return err
 	}
-	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && s.store.CountNodeLinkBindings(linkID) > 1 {
+	if !tenantCtx.SuperAdmin && s.store.CountNodeLinkBindings(linkID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return s.store.DeleteNodeLink(linkID)

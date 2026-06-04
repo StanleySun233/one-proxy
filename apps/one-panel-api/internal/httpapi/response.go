@@ -93,7 +93,7 @@ func (r *Router) requireAccount(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if account.MustRotatePassword {
-			if !(req.Method == http.MethodPatch && req.URL.Path == "/api/v1/accounts/"+account.ID) {
+			if !(req.Method == http.MethodPatch && req.URL.Path == "/api/accounts/"+account.ID) {
 				writeError(w, http.StatusForbidden, "password_rotation_required")
 				return
 			}
@@ -117,21 +117,21 @@ func (r *Router) requireAccount(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func isPasswordRotationRequest(req *http.Request, account domain.Account) bool {
-	return account.MustRotatePassword && req.Method == http.MethodPatch && req.URL.Path == "/api/v1/accounts/"+account.ID
+	return account.MustRotatePassword && req.Method == http.MethodPatch && req.URL.Path == "/api/accounts/"+account.ID
 }
 
 func requiresTenantContext(req *http.Request) bool {
-	if req.URL.Path == "/api/v1/auth/logout" {
+	if req.URL.Path == "/api/auth/logout" {
 		return false
 	}
-	if req.URL.Path == "/api/v1/tenants" && (req.Method == http.MethodGet || req.Method == http.MethodPost) {
+	if req.URL.Path == "/api/tenants" && (req.Method == http.MethodGet || req.Method == http.MethodPost) {
 		return false
 	}
-	return strings.HasPrefix(req.URL.Path, "/api/v1/") || strings.HasPrefix(req.URL.Path, "/api/audit/")
+	return strings.HasPrefix(req.URL.Path, "/api/") || strings.HasPrefix(req.URL.Path, "/api/audit/")
 }
 
 func allowsSuperAdminTenantBypass(req *http.Request) bool {
-	return req.URL.Path != "/api/v1/extension/bootstrap"
+	return req.URL.Path != "/api/extension/bootstrap"
 }
 
 func accountFromContext(ctx context.Context) (domain.Account, bool) {

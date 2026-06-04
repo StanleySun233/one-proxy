@@ -21,12 +21,12 @@ func (s *MySQLStore) ListNodesForTenant(tenantCtx domain.TenantAuthContext) []do
 		return s.ListNodes()
 	}
 	rows, err := s.db.Query(
-		`SELECT n.id, n.create_id, n.owner_id, n.name, n.mode, n.scope_key, COALESCE(n.parent_node_id, ''), n.enabled, n.status, COALESCE(n.public_host, ''), COALESCE(n.public_port, 0)
+		`SELECT n.id, n.create_id, n.owner_id, n.name, n.mode, n.scope_key, COALESCE(n.parent_node_id, ''), n.enabled, n.status, COALESCE(n.public_host, ''), COALESCE(n.public_port, 0), tn.permission
 		 FROM nodes n
 		 JOIN tenant_nodes tn ON tn.node_id = n.id
-		 WHERE tn.tenant_id = ?
+		 WHERE tn.tenant_id = ? AND tn.permission IN (?, ?)
 		 ORDER BY n.name`,
-		tenantCtx.ActiveTenant.TenantID,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 	)
 	return s.scanNodes(rows, err)
 }
@@ -36,12 +36,20 @@ func (s *MySQLStore) scanNodes(rows *sql.Rows, err error) []domain.Node {
 		return nil
 	}
 	defer rows.Close()
+	columns, _ := rows.Columns()
+	hasPermission := len(columns) == 12
 	items := make([]domain.Node, 0)
 	for rows.Next() {
 		var item domain.Node
 		var enabled int
-		if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.Mode, &item.ScopeKey, &item.ParentNodeID, &enabled, &item.Status, &item.PublicHost, &item.PublicPort); err != nil {
-			continue
+		if hasPermission {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.Mode, &item.ScopeKey, &item.ParentNodeID, &enabled, &item.Status, &item.PublicHost, &item.PublicPort, &item.Permission); err != nil {
+				continue
+			}
+		} else {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.Mode, &item.ScopeKey, &item.ParentNodeID, &enabled, &item.Status, &item.PublicHost, &item.PublicPort); err != nil {
+				continue
+			}
 		}
 		item.Enabled = enabled == 1
 		items = append(items, item)
@@ -195,7 +203,10 @@ func (s *MySQLStore) tenantResourcePermission(tenantCtx domain.TenantAuthContext
 		fmt.Sprintf(`SELECT permission FROM %s WHERE tenant_id = ? AND %s = ?`, table, idColumn),
 		tenantCtx.ActiveTenant.TenantID, resourceID,
 	).Scan(&permission)
-	return permission, err == nil
+	if err != nil || (permission != domain.BindingPermissionUse && permission != domain.BindingPermissionManage) {
+		return "", false
+	}
+	return permission, true
 }
 
 func (s *MySQLStore) countTenantResourceBindings(table string, idColumn string, resourceID string) int {

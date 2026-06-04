@@ -31,7 +31,11 @@ func (r *Router) handleNodeByID(w http.ResponseWriter, req *http.Request) {
 		r.handleNodeReject(w, req)
 		return
 	}
-	nodeID := resourceID(req.URL.Path, "/api/v1/nodes/")
+	if strings.HasSuffix(req.URL.Path, "/manage-access") {
+		r.handleNodeManageAccess(w, req)
+		return
+	}
+	nodeID := resourceID(req.URL.Path, "/api/nodes/")
 	if nodeID == "" {
 		writeError(w, http.StatusBadRequest, "missing_node_id")
 		return
@@ -65,12 +69,35 @@ func (r *Router) handleNodeByID(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (r *Router) handleNodeManageAccess(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	nodeID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/nodes/"), "/manage-access")
+	if nodeID == "" {
+		writeError(w, http.StatusBadRequest, "missing_node_id")
+		return
+	}
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	result := r.service.NodeManageAccess(tenantCtx, nodeID)
+	if !result.Allowed {
+		writeError(w, http.StatusForbidden, result.Reason)
+		return
+	}
+	writeSuccess(w, http.StatusOK, result)
+}
+
 func (r *Router) handleNodeApprove(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		writeMethodNotAllowed(w, "POST")
 		return
 	}
-	nodeID := resourceID(req.URL.Path, "/api/v1/nodes/approve/")
+	nodeID := resourceID(req.URL.Path, "/api/nodes/approve/")
 	if nodeID == "" {
 		writeError(w, http.StatusBadRequest, "missing_node_id")
 		return
@@ -135,7 +162,7 @@ func (r *Router) handleUnconsumedBootstrapTokens(w http.ResponseWriter, req *htt
 }
 
 func (r *Router) handleBootstrapTokenByID(w http.ResponseWriter, req *http.Request) {
-	tokenID := resourceID(req.URL.Path, "/api/v1/nodes/bootstrap-tokens/")
+	tokenID := resourceID(req.URL.Path, "/api/nodes/bootstrap/tokens/")
 	if tokenID == "" {
 		writeError(w, http.StatusBadRequest, "missing_bootstrap_token_id")
 		return
@@ -216,7 +243,7 @@ func (r *Router) handleNodeReject(w http.ResponseWriter, req *http.Request) {
 		writeMethodNotAllowed(w, "POST")
 		return
 	}
-	nodeID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/nodes/"), "/reject")
+	nodeID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/nodes/"), "/reject")
 	if nodeID == "" {
 		writeError(w, http.StatusBadRequest, "missing_node_id")
 		return

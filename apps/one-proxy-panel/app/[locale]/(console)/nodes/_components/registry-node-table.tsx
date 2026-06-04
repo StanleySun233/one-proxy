@@ -1,5 +1,7 @@
 'use client';
 
+import {Share2} from 'lucide-react';
+
 import {AsyncState} from '@/components/async-state';
 import {NameTag} from '@/components/common/name-tag';
 import {FieldEnumMap, Node, Scope} from '@/lib/types';
@@ -20,9 +22,12 @@ type RegistryNodeTableProps = {
   healthPending: boolean;
   nodesError: Error | null;
   healthError: Error | null;
+  canWrite: boolean;
+  globalSuperAdmin: boolean;
   deletePending: boolean;
   t: (key: string) => string;
   nodesT: (key: string, values?: Record<string, string | number>) => string;
+  onGrant: (nodeID: string) => void;
   onToggleEdit: (nodeID: string) => void;
   onDelete: (node: RegistryNodeRow) => void;
   onRetryNodes: () => void;
@@ -41,9 +46,12 @@ export function RegistryNodeTable({
   healthPending,
   nodesError,
   healthError,
+  canWrite,
+  globalSuperAdmin,
   deletePending,
   t,
   nodesT,
+  onGrant,
   onToggleEdit,
   onDelete,
   onRetryNodes,
@@ -86,7 +94,7 @@ export function RegistryNodeTable({
                 <th>{t('common.policy')}</th>
                 <th>{nodesT('publicEndpoint')}</th>
                 <th>{t('common.parent')}</th>
-                <th>{t('common.actions')}</th>
+                {canWrite ? <th>{t('common.actions')}</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -95,10 +103,13 @@ export function RegistryNodeTable({
                   deletePending={deletePending}
                   editing={node.id === editingNodeID}
                   enums={enums}
+                  canWrite={canWrite}
+                  globalSuperAdmin={globalSuperAdmin}
                   key={node.id}
                   node={node}
                   nodesByID={nodesByID}
                   nodesT={nodesT}
+                  onGrant={onGrant}
                   onDelete={onDelete}
                   scopeName={node.scopeKey ? scopeById.get(node.scopeKey)?.name || t('common.unknown') : ''}
                   onToggleEdit={onToggleEdit}
@@ -118,10 +129,13 @@ function RegistryNodeTableRow({
   nodesByID,
   enums,
   editing,
+  canWrite,
+  globalSuperAdmin,
   deletePending,
   t,
   nodesT,
   scopeName,
+  onGrant,
   onToggleEdit,
   onDelete
 }: {
@@ -129,13 +143,17 @@ function RegistryNodeTableRow({
   nodesByID: Map<string, Node>;
   enums: FieldEnumMap | undefined;
   editing: boolean;
+  canWrite: boolean;
+  globalSuperAdmin: boolean;
   deletePending: boolean;
   t: (key: string) => string;
   nodesT: (key: string, values?: Record<string, string | number>) => string;
   scopeName: string;
+  onGrant: (nodeID: string) => void;
   onToggleEdit: (nodeID: string) => void;
   onDelete: (node: RegistryNodeRow) => void;
 }) {
+  const canManage = globalSuperAdmin || node.permission === 'manage';
   return (
     <tr className={editing ? 'is-active-row' : ''}>
       <td>
@@ -158,16 +176,24 @@ function RegistryNodeTableRow({
       <td>{node.policyRevisionId || <span className="muted-text">{t('common.unassigned')}</span>}</td>
       <td>{node.publicHost ? `${node.publicHost}:${node.publicPort}` : <span className="muted-text">{nodesT('noPublicEndpoint')}</span>}</td>
       <td>{describeNodeName(node.parentNodeId, nodesByID) || <span className="muted-text">{t('common.root')}</span>}</td>
-      <td>
-        <div className="registry-actions">
-          <button className="secondary-button" onClick={() => onToggleEdit(node.id)} type="button">
-            {editing ? t('common.cancel') : t('common.edit')}
-          </button>
-          <button className="danger-button" disabled={deletePending} onClick={() => onDelete(node)} type="button">
-            {t('common.delete')}
-          </button>
-        </div>
-      </td>
+      {canWrite ? (
+        <td>
+          <div className="registry-actions">
+            {canManage ? (
+              <button className="secondary-button" onClick={() => onGrant(node.id)} type="button">
+                <Share2 size={14} />
+                {t('common.grant')}
+              </button>
+            ) : null}
+            <button className="secondary-button" disabled={!canManage} onClick={() => onToggleEdit(node.id)} type="button">
+              {editing ? t('common.cancel') : t('common.edit')}
+            </button>
+            <button className="danger-button" disabled={deletePending || !canManage} onClick={() => onDelete(node)} type="button">
+              {t('common.delete')}
+            </button>
+          </div>
+        </td>
+      ) : null}
     </tr>
   );
 }

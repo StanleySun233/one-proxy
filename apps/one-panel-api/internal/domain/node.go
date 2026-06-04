@@ -12,6 +12,7 @@ type Node struct {
 	Status       string `json:"status"`
 	PublicHost   string `json:"publicHost,omitempty"`
 	PublicPort   int    `json:"publicPort,omitempty"`
+	Permission   string `json:"permission,omitempty"`
 	ReviewedBy   string `json:"reviewedBy,omitempty"`
 	ReviewedAt   string `json:"reviewedAt,omitempty"`
 	RejectReason string `json:"rejectReason,omitempty"`
@@ -45,6 +46,7 @@ type NodeLink struct {
 	TargetNodeID string `json:"targetNodeId"`
 	LinkType     string `json:"linkType"`
 	TrustState   string `json:"trustState"`
+	Permission   string `json:"permission,omitempty"`
 }
 
 type CreateNodeLinkInput struct {
@@ -83,6 +85,7 @@ type NodeAccessPath struct {
 	AuthMode       string            `json:"authMode"`
 	Options        map[string]string `json:"options"`
 	Enabled        bool              `json:"enabled"`
+	Permission     string            `json:"permission,omitempty"`
 }
 
 type CreateNodeAccessPathInput struct {

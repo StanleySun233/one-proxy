@@ -8,6 +8,7 @@ type Scope struct {
 	Description string `json:"description"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
+	Permission  string `json:"permission,omitempty"`
 }
 
 type CreateScopeInput struct {

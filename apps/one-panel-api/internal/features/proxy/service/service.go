@@ -34,10 +34,10 @@ func newError(status int, code string) *Error {
 }
 
 func (s *Service) requireTenantResourceManage(tenantCtx domain.TenantAuthContext, permission func() (domain.BindingPermission, bool)) error {
-	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
+	if tenantCtx.SuperAdmin {
 		return nil
 	}
-	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
+	if tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
 		return newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
 	bindingPermission, ok := permission()

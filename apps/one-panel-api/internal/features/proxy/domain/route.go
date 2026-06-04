@@ -11,6 +11,7 @@ type RouteRule struct {
 	ChainID          string `json:"chainId,omitempty"`
 	DestinationScope string `json:"destinationScope,omitempty"`
 	Enabled          bool   `json:"enabled"`
+	Permission       string `json:"permission,omitempty"`
 }
 
 type RouteRuleWithDetails struct {
@@ -25,6 +26,7 @@ type RouteRuleWithDetails struct {
 	Chain            *ChainWithDetails `json:"chain,omitempty"`
 	DestinationScope string            `json:"destinationScope,omitempty"`
 	Enabled          bool              `json:"enabled"`
+	Permission       string            `json:"permission,omitempty"`
 }
 
 type CreateRouteRuleInput struct {

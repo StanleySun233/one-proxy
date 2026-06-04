@@ -49,7 +49,7 @@ func (r *Router) handleGroupByID(w http.ResponseWriter, req *http.Request) {
 		r.handleGroupScopes(w, req)
 		return
 	}
-	groupID := resourceID(req.URL.Path, "/api/v1/groups/")
+	groupID := resourceID(req.URL.Path, "/api/groups/")
 	if groupID == "" {
 		writeError(w, http.StatusBadRequest, "missing_group_id")
 		return
@@ -89,7 +89,7 @@ func (r *Router) handleGroupAccounts(w http.ResponseWriter, req *http.Request) {
 	if !r.requireSuperAdmin(w, req) {
 		return
 	}
-	groupID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/groups/"), "/accounts")
+	groupID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/groups/"), "/accounts")
 	if groupID == "" {
 		writeError(w, http.StatusBadRequest, "missing_group_id")
 		return
@@ -122,7 +122,7 @@ func (r *Router) handleGroupScopes(w http.ResponseWriter, req *http.Request) {
 	if !r.requireSuperAdmin(w, req) {
 		return
 	}
-	groupID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/v1/groups/"), "/scopes")
+	groupID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/groups/"), "/scopes")
 	if groupID == "" {
 		writeError(w, http.StatusBadRequest, "missing_group_id")
 		return

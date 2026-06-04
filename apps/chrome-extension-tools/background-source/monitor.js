@@ -46,7 +46,7 @@ function runProxyProbes(state, targetUrl, route) {
     return probeProtocols().map((protocol) => ({ protocol, status: 'skipped', latencyMs: 0, message: 'proxy_not_applied' }));
   }
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
-  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/v1/control-relay/probe`;
+  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control-relay/probe`;
   return Promise.all(probeProtocols().map((protocol) => runNodeProbe(endpoint, {
     protocol,
     remainingHopNodeIds,

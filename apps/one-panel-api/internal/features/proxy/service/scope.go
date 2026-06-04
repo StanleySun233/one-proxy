@@ -47,7 +47,7 @@ func (s *Service) DeleteScope(tenantCtx maindomain.TenantAuthContext, scopeID st
 	}); err != nil {
 		return err
 	}
-	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && s.store.CountScopeBindings(scopeID) > 1 {
+	if !tenantCtx.SuperAdmin && s.store.CountScopeBindings(scopeID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	if s.scopeInUse(scopeID) {

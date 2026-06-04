@@ -20,6 +20,7 @@ export { getChains, createChain, updateChain, probeChain, validateChain, preview
 export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAccounts, setGroupScopes } from './groups';
 export { getAccounts, createAccount, updateAccount, deleteAccount } from './accounts';
 export { getTenants, createTenant, updateTenant, deleteTenant, getTenantMembers, upsertTenantMember, deleteTenantMember } from './tenants';
+export { getGrantTenants, getResourceBindings, upsertResourceBinding, deleteResourceBinding } from './grants';
 export { getPolicyRevisions, publishPolicy } from './policies';
 export { getSetupStatus, testSetupConnection, generateSetupKey, submitSetupInit } from './setup';
 export { fetchEnums } from './enums';

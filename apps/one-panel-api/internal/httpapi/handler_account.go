@@ -43,7 +43,7 @@ func (r *Router) handleAccounts(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleAccountByID(w http.ResponseWriter, req *http.Request) {
-	accountID := resourceID(req.URL.Path, "/api/v1/accounts/")
+	accountID := resourceID(req.URL.Path, "/api/accounts/")
 	if accountID == "" {
 		writeError(w, http.StatusBadRequest, "missing_account_id")
 		return

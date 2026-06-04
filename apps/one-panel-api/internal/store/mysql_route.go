@@ -20,12 +20,12 @@ func (s *MySQLStore) ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext)
 		return s.ListRouteRules()
 	}
 	rows, err := s.db.Query(
-		`SELECT rr.id, rr.create_id, rr.owner_id, rr.priority, rr.match_type, rr.match_value, rr.action_type, COALESCE(rr.chain_id, ''), COALESCE(rr.destination_scope, ''), rr.enabled
+		`SELECT rr.id, rr.create_id, rr.owner_id, rr.priority, rr.match_type, rr.match_value, rr.action_type, COALESCE(rr.chain_id, ''), COALESCE(rr.destination_scope, ''), rr.enabled, trr.permission
 		 FROM route_rules rr
 		 JOIN tenant_route_rules trr ON trr.route_rule_id = rr.id
-		 WHERE trr.tenant_id = ?
+		 WHERE trr.tenant_id = ? AND trr.permission IN (?, ?)
 		 ORDER BY rr.priority ASC`,
-		tenantCtx.ActiveTenant.TenantID,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 	)
 	return s.scanRouteRules(rows, err)
 }
@@ -35,12 +35,20 @@ func (s *MySQLStore) scanRouteRules(rows *sql.Rows, err error) []proxy.RouteRule
 		return nil
 	}
 	defer rows.Close()
+	columns, _ := rows.Columns()
+	hasPermission := len(columns) == 11
 	items := make([]proxy.RouteRule, 0)
 	for rows.Next() {
 		var item proxy.RouteRule
 		var enabled int
-		if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Priority, &item.MatchType, &item.MatchValue, &item.ActionType, &item.ChainID, &item.DestinationScope, &enabled); err != nil {
-			continue
+		if hasPermission {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Priority, &item.MatchType, &item.MatchValue, &item.ActionType, &item.ChainID, &item.DestinationScope, &enabled, &item.Permission); err != nil {
+				continue
+			}
+		} else {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Priority, &item.MatchType, &item.MatchValue, &item.ActionType, &item.ChainID, &item.DestinationScope, &enabled); err != nil {
+				continue
+			}
 		}
 		item.Enabled = enabled == 1
 		items = append(items, item)

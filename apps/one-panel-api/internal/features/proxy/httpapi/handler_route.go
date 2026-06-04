@@ -39,7 +39,7 @@ func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
-	ruleID := resourceID(req.URL.Path, "/api/v1/proxy/routes/")
+	ruleID := resourceID(req.URL.Path, "/api/proxy/routes/")
 	if ruleID == "" {
 		writeError(w, http.StatusBadRequest, "missing_rule_id")
 		return

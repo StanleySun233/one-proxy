@@ -24,12 +24,12 @@ func (s *MySQLStore) ListNodeAccessPathsForTenant(tenantCtx domain.TenantAuthCon
 	rows, err := s.db.Query(
 		`SELECT nap.id, nap.create_id, nap.owner_id, COALESCE(nap.chain_id, ''), nap.name, nap.mode, nap.protocol, nap.service_type, COALESCE(nap.target_node_id, ''), COALESCE(nap.entry_node_id, ''), nap.relay_node_ids_json,
 		        COALESCE(nap.listen_host, ''), COALESCE(nap.listen_port, 0), nap.target_protocol, COALESCE(nap.target_host, ''), COALESCE(nap.target_port, 0),
-		        COALESCE(nap.target_sni, ''), nap.tls_mode, nap.auth_mode, COALESCE(nap.options_json, '{}'), nap.enabled
+		        COALESCE(nap.target_sni, ''), nap.tls_mode, nap.auth_mode, COALESCE(nap.options_json, '{}'), nap.enabled, tap.permission
 		 FROM node_access_paths nap
 		 JOIN tenant_access_paths tap ON tap.access_path_id = nap.id
-		 WHERE tap.tenant_id = ?
+		 WHERE tap.tenant_id = ? AND tap.permission IN (?, ?)
 		 ORDER BY nap.name`,
-		tenantCtx.ActiveTenant.TenantID,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 	)
 	return s.scanNodeAccessPaths(rows, err)
 }
@@ -39,18 +39,30 @@ func (s *MySQLStore) scanNodeAccessPaths(rows *sql.Rows, err error) []domain.Nod
 		return nil
 	}
 	defer rows.Close()
+	columns, _ := rows.Columns()
+	hasPermission := len(columns) == 22
 	items := make([]domain.NodeAccessPath, 0)
 	for rows.Next() {
 		var item domain.NodeAccessPath
 		var relayJSON string
 		var optionsJSON string
 		var enabled int
-		if err := rows.Scan(
-			&item.ID, &item.CreateID, &item.OwnerID, &item.ChainID, &item.Name, &item.Mode, &item.Protocol, &item.ServiceType, &item.TargetNodeID, &item.EntryNodeID, &relayJSON,
-			&item.ListenHost, &item.ListenPort, &item.TargetProtocol, &item.TargetHost, &item.TargetPort,
-			&item.TargetSNI, &item.TLSMode, &item.AuthMode, &optionsJSON, &enabled,
-		); err != nil {
-			continue
+		if hasPermission {
+			if err := rows.Scan(
+				&item.ID, &item.CreateID, &item.OwnerID, &item.ChainID, &item.Name, &item.Mode, &item.Protocol, &item.ServiceType, &item.TargetNodeID, &item.EntryNodeID, &relayJSON,
+				&item.ListenHost, &item.ListenPort, &item.TargetProtocol, &item.TargetHost, &item.TargetPort,
+				&item.TargetSNI, &item.TLSMode, &item.AuthMode, &optionsJSON, &enabled, &item.Permission,
+			); err != nil {
+				continue
+			}
+		} else {
+			if err := rows.Scan(
+				&item.ID, &item.CreateID, &item.OwnerID, &item.ChainID, &item.Name, &item.Mode, &item.Protocol, &item.ServiceType, &item.TargetNodeID, &item.EntryNodeID, &relayJSON,
+				&item.ListenHost, &item.ListenPort, &item.TargetProtocol, &item.TargetHost, &item.TargetPort,
+				&item.TargetSNI, &item.TLSMode, &item.AuthMode, &optionsJSON, &enabled,
+			); err != nil {
+				continue
+			}
 		}
 		item.RelayNodeIDs = decodeJSONStringSlice(relayJSON)
 		item.Options = decodeJSONMap(optionsJSON)

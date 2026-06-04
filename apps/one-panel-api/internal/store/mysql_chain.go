@@ -35,12 +35,12 @@ func (s *MySQLStore) ListChainsForTenant(tenantCtx domain.TenantAuthContext) []p
 		return s.ListChains()
 	}
 	rows, err := s.db.Query(
-		`SELECT c.id, c.create_id, c.owner_id, c.name, c.destination_scope, c.enabled
+		`SELECT c.id, c.create_id, c.owner_id, c.name, c.destination_scope, c.enabled, tc.permission
 		 FROM chains c
 		 JOIN tenant_chains tc ON tc.chain_id = c.id
-		 WHERE tc.tenant_id = ?
+		 WHERE tc.tenant_id = ? AND tc.permission IN (?, ?)
 		 ORDER BY c.name`,
-		tenantCtx.ActiveTenant.TenantID,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 	)
 	return s.scanChains(rows, err)
 }
@@ -50,12 +50,20 @@ func (s *MySQLStore) scanChains(rows *sql.Rows, err error) []proxy.Chain {
 		return nil
 	}
 	defer rows.Close()
+	columns, _ := rows.Columns()
+	hasPermission := len(columns) == 7
 	items := make([]proxy.Chain, 0)
 	for rows.Next() {
 		var item proxy.Chain
 		var enabled int
-		if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.DestinationScope, &enabled); err != nil {
-			continue
+		if hasPermission {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.DestinationScope, &enabled, &item.Permission); err != nil {
+				continue
+			}
+		} else {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.Name, &item.DestinationScope, &enabled); err != nil {
+				continue
+			}
 		}
 		item.Enabled = enabled == 1
 		item.Hops = s.loadChainHops(item.ID)

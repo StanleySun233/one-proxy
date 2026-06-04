@@ -35,7 +35,7 @@ func (r *Router) handleNodeLinks(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleNodeLinkByID(w http.ResponseWriter, req *http.Request) {
-	linkID := resourceID(req.URL.Path, "/api/v1/proxy/node-links/")
+	linkID := resourceID(req.URL.Path, "/api/proxy/links/")
 	if linkID == "" {
 		writeError(w, http.StatusBadRequest, "missing_node_link_id")
 		return

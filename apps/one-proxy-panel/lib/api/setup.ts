@@ -6,14 +6,14 @@ export function getSetupStatus() {
 }
 
 export function testSetupConnection(payload: TestConnectionRequest) {
-  return request<TestConnectionResult>('/setup/test-connection', {
+  return request<TestConnectionResult>('/setup/test', {
     method: 'POST',
     body: payload,
   });
 }
 
 export function generateSetupKey() {
-  return request<GenerateKeyResult>('/setup/generate-key');
+  return request<GenerateKeyResult>('/setup/key');
 }
 
 export function submitSetupInit(payload: InitRequest) {

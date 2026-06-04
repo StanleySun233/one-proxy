@@ -18,12 +18,12 @@ func (s *MySQLStore) ListNodeLinksForTenant(tenantCtx domain.TenantAuthContext) 
 		return s.ListNodeLinks()
 	}
 	rows, err := s.db.Query(
-		`SELECT nl.id, nl.create_id, nl.owner_id, nl.source_node_id, nl.target_node_id, nl.link_type, nl.trust_state
+		`SELECT nl.id, nl.create_id, nl.owner_id, nl.source_node_id, nl.target_node_id, nl.link_type, nl.trust_state, tnl.permission
 		 FROM node_links nl
 		 JOIN tenant_node_links tnl ON tnl.node_link_id = nl.id
-		 WHERE tnl.tenant_id = ?
+		 WHERE tnl.tenant_id = ? AND tnl.permission IN (?, ?)
 		 ORDER BY nl.source_node_id, nl.target_node_id`,
-		tenantCtx.ActiveTenant.TenantID,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 	)
 	return s.scanNodeLinks(rows, err)
 }
@@ -33,11 +33,19 @@ func (s *MySQLStore) scanNodeLinks(rows *sql.Rows, err error) []domain.NodeLink 
 		return nil
 	}
 	defer rows.Close()
+	columns, _ := rows.Columns()
+	hasPermission := len(columns) == 8
 	items := make([]domain.NodeLink, 0)
 	for rows.Next() {
 		var item domain.NodeLink
-		if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.SourceNodeID, &item.TargetNodeID, &item.LinkType, &item.TrustState); err != nil {
-			continue
+		if hasPermission {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.SourceNodeID, &item.TargetNodeID, &item.LinkType, &item.TrustState, &item.Permission); err != nil {
+				continue
+			}
+		} else {
+			if err := rows.Scan(&item.ID, &item.CreateID, &item.OwnerID, &item.SourceNodeID, &item.TargetNodeID, &item.LinkType, &item.TrustState); err != nil {
+				continue
+			}
 		}
 		items = append(items, item)
 	}

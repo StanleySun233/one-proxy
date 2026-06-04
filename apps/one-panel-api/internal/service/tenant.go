@@ -39,6 +39,13 @@ func (c *ControlPlane) Tenants(account domain.Account) []domain.Tenant {
 	return c.store.ListTenants(account)
 }
 
+func (c *ControlPlane) GrantTenants(account domain.Account, tenantCtx domain.TenantAuthContext) ([]domain.Tenant, error) {
+	if account.Role != domain.AccountRoleSuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
+		return nil, newError(http.StatusForbidden, "tenant_role_forbidden")
+	}
+	return c.store.ListAllTenants(), nil
+}
+
 func (c *ControlPlane) CreateTenant(actor domain.Account, input CreateTenantInput) (TenantCreatedResult, error) {
 	if actor.Role != domain.AccountRoleSuperAdmin {
 		return TenantCreatedResult{}, newError(http.StatusForbidden, "tenant_role_forbidden")

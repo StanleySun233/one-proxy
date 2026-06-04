@@ -35,7 +35,7 @@ func (r *Router) handleAccessPaths(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleAccessPathByID(w http.ResponseWriter, req *http.Request) {
-	pathID := resourceID(req.URL.Path, "/api/v1/proxy/access-paths/")
+	pathID := resourceID(req.URL.Path, "/api/proxy/paths/")
 	if pathID == "" {
 		writeError(w, http.StatusBadRequest, "missing_path_id")
 		return

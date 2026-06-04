@@ -63,17 +63,44 @@ func (c *ControlPlane) DeleteNode(tenantCtx domain.TenantAuthContext, nodeID str
 	}); err != nil {
 		return err
 	}
-	if !(tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "") && c.store.CountNodeBindings(nodeID) > 1 {
+	if !tenantCtx.SuperAdmin && c.store.CountNodeBindings(nodeID) > 1 {
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return c.store.DeleteNode(nodeID)
 }
 
-func (c *ControlPlane) requireTenantResourceManage(tenantCtx domain.TenantAuthContext, permission func() (domain.BindingPermission, bool)) error {
-	if tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.TenantID == "" {
-		return nil
+type NodeManageAccessResult struct {
+	NodeID     string                   `json:"nodeId"`
+	Allowed    bool                     `json:"allowed"`
+	Reason     string                   `json:"reason"`
+	Permission domain.BindingPermission `json:"permission"`
+}
+
+func (c *ControlPlane) NodeManageAccess(tenantCtx domain.TenantAuthContext, nodeID string) NodeManageAccessResult {
+	result := NodeManageAccessResult{NodeID: nodeID, Reason: "resource_binding_forbidden"}
+	if nodeID == "" {
+		result.Reason = "missing_node_id"
+		return result
 	}
 	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
+		result.Reason = "tenant_role_forbidden"
+		return result
+	}
+	permission, ok := c.store.NodeBindingPermission(tenantCtx, nodeID)
+	if !ok || permission != domain.BindingPermissionManage {
+		return result
+	}
+	result.Allowed = true
+	result.Reason = ""
+	result.Permission = permission
+	return result
+}
+
+func (c *ControlPlane) requireTenantResourceManage(tenantCtx domain.TenantAuthContext, permission func() (domain.BindingPermission, bool)) error {
+	if tenantCtx.SuperAdmin {
+		return nil
+	}
+	if tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
 		return newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
 	bindingPermission, ok := permission()

@@ -6,6 +6,7 @@ import {useTranslations} from 'next-intl';
 
 import {AuthGate} from '@/components/auth-gate';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {fetchEnums} from '@/lib/api';
 
 import {useNodeConsole} from './use-node-console';
@@ -28,6 +29,7 @@ export function NodeRegistryPageContent() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [modeFilter, setModeFilter] = useState('all');
   const [editingNodeID, setEditingNodeID] = useState('');
+  const [grantNodeID, setGrantNodeID] = useState('');
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodeModeKeys = Object.keys(enums?.node_mode || {});
   const nodeStatusKeys = Object.keys(enums?.node_status || {});
@@ -75,6 +77,7 @@ export function NodeRegistryPageContent() {
   });
   const availableModes = Array.from(new Set(nodes.map((node) => node.mode))).sort();
   const editingNode = nodes.find((node) => node.id === editingNodeID) || null;
+  const grantNode = nodes.find((node) => node.id === grantNodeID) || null;
 
   useEffect(() => {
     if (!editingNode) {
@@ -177,10 +180,12 @@ export function NodeRegistryPageContent() {
 
         <ConsoleList count={filteredNodes.length} title={nodesT('registryTitle')}>
           <RegistryNodeTable
+            canWrite={nodeConsole.canWrite}
             deletePending={nodeConsole.deleteNode.isPending}
             editingNodeID={editingNodeID}
             enums={enums}
             filteredNodes={filteredNodes}
+            globalSuperAdmin={nodeConsole.globalSuperAdmin}
             healthError={nodeConsole.healthQuery.error}
             healthPending={nodeConsole.healthQuery.isPending}
             nodeRows={nodeRows}
@@ -190,6 +195,7 @@ export function NodeRegistryPageContent() {
             nodesPending={nodeConsole.nodesQuery.isPending}
             nodesT={nodesT}
             onDelete={deleteNode}
+            onGrant={(nodeID) => setGrantNodeID(nodeID)}
             onRetryHealth={() => void nodeConsole.healthQuery.refetch()}
             onRetryNodes={() => void nodeConsole.nodesQuery.refetch()}
             onToggleEdit={(nodeID) => setEditingNodeID(editingNodeID === nodeID ? '' : nodeID)}
@@ -220,6 +226,17 @@ export function NodeRegistryPageContent() {
           />
           ) : null}
         </ConsoleCrudModal>
+
+        {grantNode ? (
+          <ResourceGrantModal
+            onChanged={() => void nodeConsole.nodesQuery.refetch()}
+            onClose={() => setGrantNodeID('')}
+            open={Boolean(grantNode)}
+            resourceId={grantNode.id}
+            resourceName={grantNode.name}
+            resourceType="node"
+          />
+        ) : null}
       </ConsolePage>
     </AuthGate>
   );

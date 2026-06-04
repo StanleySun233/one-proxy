@@ -1,7 +1,7 @@
 'use client';
 
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {Edit, Trash2} from 'lucide-react';
+import {Edit, Share2, Trash2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import {useMemo, useState} from 'react';
 import {toast} from 'sonner';
@@ -9,6 +9,7 @@ import {toast} from 'sonner';
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {useAuth} from '@/components/auth-provider';
 import {NameTag} from '@/components/common/name-tag';
 import {createScope, deleteScope, getScopes, updateScope} from '@/lib/api';
@@ -33,7 +34,9 @@ export default function ScopesPage() {
   const accessToken = session?.accessToken || '';
   const activeTenantId = session?.activeTenantId || null;
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
+  const globalSuperAdmin = session?.account.role === 'super_admin';
   const [editingScope, setEditingScope] = useState<Scope | null>(null);
+  const [grantScope, setGrantScope] = useState<Scope | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [nameFilter, setNameFilter] = useState('');
   const [descriptionFilter, setDescriptionFilter] = useState('');
@@ -182,13 +185,19 @@ export default function ScopesPage() {
                       {canWrite ? (
                         <td>
                           <div className="chain-list-actions">
-                            <button className="secondary-button" onClick={() => handleEdit(scope)} type="button">
+                            {globalSuperAdmin || scope.permission === 'manage' ? (
+                              <button className="secondary-button" onClick={() => setGrantScope(scope)} type="button">
+                                <Share2 size={14} />
+                                {t('common.grant')}
+                              </button>
+                            ) : null}
+                            <button className="secondary-button" disabled={!globalSuperAdmin && scope.permission !== 'manage'} onClick={() => handleEdit(scope)} type="button">
                               <Edit size={14} />
                               {t('common.edit')}
                             </button>
                             <button
                               className="danger-button"
-                              disabled={deleteScopeMutation.isPending}
+                              disabled={deleteScopeMutation.isPending || (!globalSuperAdmin && scope.permission !== 'manage')}
                               onClick={() => {
                                 if (window.confirm(scopesT('deleteConfirm'))) {
                                   deleteScopeMutation.mutate(scope.id);
@@ -248,6 +257,17 @@ export default function ScopesPage() {
               </label>
             </div>
         </ConsoleCrudModal>
+
+        {grantScope ? (
+          <ResourceGrantModal
+            onChanged={() => queryClient.invalidateQueries({queryKey: ['proxy-scopes']})}
+            onClose={() => setGrantScope(null)}
+            open={Boolean(grantScope)}
+            resourceId={grantScope.id}
+            resourceName={grantScope.name}
+            resourceType="scope"
+          />
+        ) : null}
       </ConsolePage>
     </AuthGate>
   );

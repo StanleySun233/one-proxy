@@ -8,6 +8,7 @@ type Chain struct {
 	DestinationScope string   `json:"destinationScope"`
 	Enabled          bool     `json:"enabled"`
 	Hops             []string `json:"hops"`
+	Permission       string   `json:"permission,omitempty"`
 }
 
 type ChainWithDetails struct {
@@ -19,6 +20,7 @@ type ChainWithDetails struct {
 	Enabled          bool             `json:"enabled"`
 	Hops             []string         `json:"hops"`
 	HopDetails       []ChainHopDetail `json:"hopDetails"`
+	Permission       string           `json:"permission,omitempty"`
 }
 
 type ChainHopDetail struct {

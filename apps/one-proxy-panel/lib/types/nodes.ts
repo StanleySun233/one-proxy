@@ -14,8 +14,9 @@ import type {
   TransportType,
   TrustState
 } from './common';
+import type {ResourcePermissionMetadata} from './grants';
 
-export type Node = {
+export type Node = ResourcePermissionMetadata & {
   id: string;
   name: string;
   mode: NodeMode;
@@ -30,7 +31,7 @@ export type Node = {
   rejectReason?: string;
 };
 
-export type NodeLink = {
+export type NodeLink = ResourcePermissionMetadata & {
   id: string;
   sourceNodeId: string;
   targetNodeId: string;
@@ -38,7 +39,7 @@ export type NodeLink = {
   trustState: TrustState;
 };
 
-export type NodeAccessPath = {
+export type NodeAccessPath = ResourcePermissionMetadata & {
   id: string;
   chainId: string;
   name: string;

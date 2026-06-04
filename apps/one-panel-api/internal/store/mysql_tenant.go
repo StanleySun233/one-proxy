@@ -7,7 +7,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/one-panel-api/internal/domain"
 )
 
-func (s *MySQLStore) listAllTenants() []domain.Tenant {
+func (s *MySQLStore) ListAllTenants() []domain.Tenant {
 	rows, err := s.db.Query(
 		`SELECT id, name, created_at, updated_at
 		 FROM tenants
@@ -30,7 +30,7 @@ func (s *MySQLStore) listAllTenants() []domain.Tenant {
 
 func (s *MySQLStore) ListTenants(account domain.Account) []domain.Tenant {
 	if account.Role == domain.AccountRoleSuperAdmin {
-		return s.listAllTenants()
+		return s.ListAllTenants()
 	}
 	rows, err := s.db.Query(
 		`SELECT t.id, t.name, t.created_at, t.updated_at

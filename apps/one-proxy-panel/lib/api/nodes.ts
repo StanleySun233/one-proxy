@@ -45,7 +45,7 @@ export function deleteNode(accessToken: string, tenantId: string | null, nodeID:
 }
 
 export function getNodeTransports(accessToken: string, tenantId: string | null) {
-  return request<NodeTransport[]>('/node-transports', {accessToken, tenantId});
+  return request<NodeTransport[]>('/transports', {accessToken, tenantId});
 }
 
 export function createBootstrapToken(
@@ -53,7 +53,7 @@ export function createBootstrapToken(
   tenantId: string | null,
   payload: {targetType: string; targetId: string; nodeName: string; nodeMode: string; scopeKey: string; parentNodeId: string; publicHost: string; publicPort: number}
 ) {
-  return request<BootstrapToken>('/nodes/bootstrap-token', {
+  return request<BootstrapToken>('/nodes/bootstrap/token', {
     method: 'POST',
     accessToken,
     tenantId,
@@ -62,11 +62,11 @@ export function createBootstrapToken(
 }
 
 export function getUnconsumedBootstrapTokens(accessToken: string, tenantId: string | null) {
-  return request<UnconsumedBootstrapToken[]>('/nodes/bootstrap-tokens/unconsumed', {accessToken, tenantId});
+  return request<UnconsumedBootstrapToken[]>('/nodes/bootstrap/tokens/unconsumed', {accessToken, tenantId});
 }
 
 export function deleteBootstrapToken(accessToken: string, tenantId: string | null, tokenID: string) {
-  return request<{status: string}>(`/nodes/bootstrap-tokens/${tokenID}`, {
+  return request<{status: string}>(`/nodes/bootstrap/tokens/${tokenID}`, {
     method: 'DELETE',
     accessToken,
     tenantId
