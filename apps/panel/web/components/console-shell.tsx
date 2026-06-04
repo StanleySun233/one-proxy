@@ -100,10 +100,12 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     {
       key: 'audit',
       label: t('nav.audit'),
-      href: '/audit',
+      href: '/audit/dashboard',
       icon: FileSearch,
       items: [
-        {label: t('shell.auditConsole'), href: '/audit'}
+        {label: t('shell.auditDashboard'), href: '/audit/dashboard'},
+        {label: t('shell.auditNetwork'), href: '/audit/network'},
+        {label: t('shell.auditBusiness'), href: '/audit/business'}
       ]
     },
     ...(isSuperAdmin || isTenantAdmin ? [{

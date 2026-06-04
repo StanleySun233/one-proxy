@@ -24,6 +24,9 @@
   "healthOverview": "健康总览",
   "healthHeartbeat": "心跳监控",
   "auditConsole": "审计台",
+  "auditDashboard": "看板",
+  "auditNetwork": "网络",
+  "auditBusiness": "业务",
   "accountCreate": "创建账号",
   "accountList": "账号查询",
   "tenantList": "租户"

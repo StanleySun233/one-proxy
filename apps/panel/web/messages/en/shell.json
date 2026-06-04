@@ -24,6 +24,9 @@
   "healthOverview": "Health overview",
   "healthHeartbeat": "Heartbeat monitor",
   "auditConsole": "Audit console",
+  "auditDashboard": "Dashboard",
+  "auditNetwork": "Network",
+  "auditBusiness": "Business",
   "accountCreate": "Create account",
   "accountList": "Account list",
   "tenantList": "Tenants"

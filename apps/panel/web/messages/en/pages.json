@@ -13,6 +13,9 @@
   "accountsDesc": "Accounts, tenants and tenant memberships.",
   "audit": {
     "title": "Audit console",
+    "dashboardTitle": "Audit dashboard",
+    "networkTitle": "Network audit",
+    "businessTitle": "Business audit",
     "from": "From",
     "to": "To",
     "businessTab": "Business",

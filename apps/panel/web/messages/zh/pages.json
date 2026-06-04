@@ -13,6 +13,9 @@
   "accountsDesc": "账号、租户与租户成员权限。",
   "audit": {
     "title": "审计台",
+    "dashboardTitle": "审计看板",
+    "networkTitle": "网络审计",
+    "businessTitle": "业务审计",
     "from": "开始",
     "to": "结束",
     "businessTab": "业务",
