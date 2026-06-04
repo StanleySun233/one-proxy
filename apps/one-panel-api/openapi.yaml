@@ -300,14 +300,6 @@ paths:
       responses:
         "200":
           description: Envelope node list response
-    post:
-      security:
-        - controlPlaneBearer: []
-      parameters:
-        - $ref: "#/components/parameters/TenantIDHeader"
-      responses:
-        "201":
-          description: Envelope node created response
   /api/nodes/{nodeId}:
     patch:
       security:
