@@ -25,10 +25,11 @@ type responseEnvelope[T any] struct {
 }
 
 type ProxyTokenValidation struct {
-	Valid           bool   `json:"valid"`
-	ExpiresAt       string `json:"expiresAt"`
-	CacheTTLSeconds int    `json:"cacheTtlSeconds"`
-	AllowLocalProxy bool   `json:"allowLocalProxy"`
+	Valid           bool    `json:"valid"`
+	ExpiresAt       string  `json:"expiresAt"`
+	CacheTTLSeconds int     `json:"cacheTtlSeconds"`
+	AllowLocalProxy bool    `json:"allowLocalProxy"`
+	ActiveTenantID  *string `json:"activeTenantId"`
 }
 
 type NodeAuthValidation struct {

@@ -71,14 +71,16 @@ func NewServerWithAuthorizer(store *policystore.Store, nodeIDGetter func() strin
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if s.reverseTarget != nil && !isForwardProxyRequest(req) {
-		if !s.authorizeReverse(w, req) {
+		validation, ok := s.authorizeReverse(w, req)
+		if !ok {
 			return
 		}
 		if isWebSocketUpgrade(req) {
 			s.upgradeReverse(w, req)
 			return
 		}
-		s.forwardReverse(w, req)
+		tracker := s.newReverseProxySession(req, validation.TenantID)
+		s.forwardReverse(w, req, tracker)
 		return
 	}
 	validation, ok := s.authorizeForwardRequest(w, req)

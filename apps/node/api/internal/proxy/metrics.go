@@ -6,6 +6,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -63,6 +65,45 @@ func (s *Server) newProxySession(req *http.Request, rule domain.RouteRule, tenan
 			StartedAt:   started.Format(time.RFC3339Nano),
 			ReceiveTSMs: started.UnixMilli(),
 		},
+	}
+}
+
+func (s *Server) newReverseProxySession(req *http.Request, tenantID string) *proxySessionTracker {
+	if s.metricsReporter == nil {
+		return nil
+	}
+	targetHost, targetPort := targetURLAddress(s.reverseTarget)
+	started := time.Now().UTC()
+	return &proxySessionTracker{
+		reporter: s.metricsReporter,
+		started:  started,
+		metric: domain.ProxySessionMetric{
+			ID:          fmt.Sprintf("%s-%d", s.nodeIDGetter(), started.UnixNano()),
+			TenantID:    tenantID,
+			NodeID:      s.nodeIDGetter(),
+			TargetHost:  targetHost,
+			TargetPort:  targetPort,
+			Protocol:    domain.ProxySessionProtocolHTTP,
+			StartedAt:   started.Format(time.RFC3339Nano),
+			ReceiveTSMs: started.UnixMilli(),
+		},
+	}
+}
+
+func targetURLAddress(target *url.URL) (string, int) {
+	if target == nil {
+		return "", 0
+	}
+	port := target.Port()
+	if port != "" {
+		value, _ := strconv.Atoi(port)
+		return target.Hostname(), value
+	}
+	switch target.Scheme {
+	case "https", "wss":
+		return target.Hostname(), 443
+	default:
+		return target.Hostname(), 80
 	}
 }
 

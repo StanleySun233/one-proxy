@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
 )
 
-func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request) {
+func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {
 	outbound := req.Clone(req.Context())
 	outbound.Header = req.Header.Clone()
 	outbound.RequestURI = ""
@@ -18,13 +20,21 @@ func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request) {
 	removeHopByHopHeaders(outbound.Header)
 	removeReverseAuthCredentials(outbound)
 	setForwardedHeaders(outbound, req)
+	var uploadBytes int64
+	if outbound.Body != nil {
+		outbound.Body = countingReadCloser{ReadCloser: outbound.Body, bytes: &uploadBytes}
+	}
 
 	transport := &http.Transport{}
+	defer transport.CloseIdleConnections()
+	tracker.markForward()
 	resp, err := transport.RoundTrip(outbound)
 	if err != nil {
+		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, "reverse_forward_failed", "reverse_forward_failed")
 		http.Error(w, "reverse_forward_failed", http.StatusBadGateway)
 		return
 	}
+	tracker.markResponseReceive()
 	defer resp.Body.Close()
 	removeHopByHopHeaders(resp.Header)
 	for key, values := range resp.Header {
@@ -33,7 +43,9 @@ func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, resp.Body)
+	var downloadBytes int64
+	_, _ = io.Copy(countingWriter{Writer: w, bytes: &downloadBytes}, resp.Body)
+	tracker.finish(uploadBytes, downloadBytes, domain.ProxySessionStatusOK, "", "")
 }
 
 func (s *Server) upgradeReverse(w http.ResponseWriter, req *http.Request) {

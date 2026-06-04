@@ -1,11 +1,14 @@
 package proxy
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/policystore"
 	"github.com/gorilla/websocket"
 )
@@ -121,6 +124,47 @@ func TestReverseQueryTokenSetsCookieAndStripsCredentials(t *testing.T) {
 	}
 	if len(validator.validations) != 1 || validator.validations[0] != sha256Hex("query-token") {
 		t.Fatalf("validation hashes = %v", validator.validations)
+	}
+}
+
+func TestReverseTargetReportsProxySessionMetrics(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != "upload" {
+			t.Fatalf("body = %q", body)
+		}
+		_, _ = w.Write([]byte("reply"))
+	}))
+	defer origin.Close()
+	validator := &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour), tenantID: "tenant-1"}
+	server, err := NewServerWithOptions(policystore.New(""), func() string { return "node-1" }, nil, origin.URL, AuthConfig{
+		Validator: validator,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
+	server.SetProxySessionReporter(reporter)
+
+	req := httptest.NewRequest(http.MethodPost, "http://proxy.local/api", strings.NewReader("upload"))
+	req.URL.Scheme = ""
+	req.URL.Host = ""
+	req.Header.Set(reverseHeaderName, "reverse-token")
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%q", resp.Code, resp.Body.String())
+	}
+
+	session := receiveSession(t, reporter.sessions)
+	if session.TenantID != "tenant-1" || session.NodeID != "node-1" {
+		t.Fatalf("session identity = %+v", session)
+	}
+	if session.Protocol != domain.ProxySessionProtocolHTTP || session.UploadBytes != 6 || session.DownloadBytes != 5 || session.Status != domain.ProxySessionStatusOK {
+		t.Fatalf("session metrics = %+v", session)
 	}
 }
 

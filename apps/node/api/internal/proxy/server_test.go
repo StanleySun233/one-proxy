@@ -27,6 +27,7 @@ type recordingTokenValidator struct {
 	valid           bool
 	expiresAt       time.Time
 	allowLocalProxy bool
+	tenantID        string
 }
 
 type recordingSessionReporter struct {
@@ -35,7 +36,7 @@ type recordingSessionReporter struct {
 
 func (v *recordingTokenValidator) ValidateProxyToken(_ context.Context, tokenHash string) (TokenValidation, error) {
 	v.validations = append(v.validations, tokenHash)
-	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt, AllowLocalProxy: v.allowLocalProxy}, nil
+	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt, AllowLocalProxy: v.allowLocalProxy, TenantID: v.tenantID}, nil
 }
 
 func (r recordingSessionReporter) ReportProxySessions(_ context.Context, input domain.ProxySessionMetricsInput) error {

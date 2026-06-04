@@ -27,12 +27,14 @@ type TokenValidation struct {
 	ExpiresAt       time.Time
 	CacheTTL        time.Duration
 	AllowLocalProxy bool
+	TenantID        string
 }
 
 type cachedTokenValidation struct {
 	valid           bool
 	expiresAt       time.Time
 	allowLocalProxy bool
+	tenantID        string
 }
 
 type TokenAuthorizer struct {
@@ -65,6 +67,7 @@ func (a *TokenAuthorizer) Authorize(ctx context.Context, token string) TokenVali
 			Valid:           validation.valid,
 			ExpiresAt:       validation.expiresAt,
 			AllowLocalProxy: validation.allowLocalProxy,
+			TenantID:        validation.tenantID,
 		}
 	}
 	result, err := a.auth.Validator.ValidateProxyToken(ctx, hash)
@@ -86,28 +89,31 @@ func (a *TokenAuthorizer) Authorize(ctx context.Context, token string) TokenVali
 		valid:           result.Valid,
 		expiresAt:       expiresAt,
 		allowLocalProxy: result.AllowLocalProxy,
+		tenantID:        result.TenantID,
 	})
 	return TokenValidation{
 		Valid:           result.Valid && now.Before(expiresAt),
 		ExpiresAt:       expiresAt,
 		AllowLocalProxy: result.AllowLocalProxy,
+		TenantID:        result.TenantID,
 	}
 }
 
-func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) bool {
+func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) (TokenValidation, bool) {
 	token, source := reverseToken(req)
 	if s.auth.Validator == nil {
-		return true
+		return TokenValidation{Valid: true}, true
 	}
-	if token == "" || !s.validateToken(req.Context(), token) {
+	validation := s.authorizer.Authorize(req.Context(), token)
+	if token == "" || !validation.Valid {
 		w.Header().Set("X-One-Proxy-Authenticate", "required")
 		http.Error(w, "reverse_auth_required", http.StatusUnauthorized)
-		return false
+		return TokenValidation{}, false
 	}
 	if source == reverseTokenSourceQuery {
 		s.setReverseTokenCookie(w, req, token)
 	}
-	return true
+	return validation, true
 }
 
 func (s *Server) authorizeForward(w http.ResponseWriter, req *http.Request) bool {
@@ -127,10 +133,6 @@ func (s *Server) authorizeForwardRequest(w http.ResponseWriter, req *http.Reques
 		return TokenValidation{}, false
 	}
 	return validation, true
-}
-
-func (s *Server) validateToken(ctx context.Context, token string) bool {
-	return s.authorizer.Validate(ctx, token)
 }
 
 func (s *Server) setReverseTokenCookie(w http.ResponseWriter, req *http.Request, token string) {
