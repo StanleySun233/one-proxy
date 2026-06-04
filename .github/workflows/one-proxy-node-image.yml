@@ -4,18 +4,20 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/one-proxy-node/**'
+      - 'apps/node/api/**'
+      - 'apps/node/web/**'
       - 'docker/one-proxy-node.Dockerfile'
       - '.github/workflows/one-proxy-node-image.yml'
-      - '!apps/one-proxy-node/api/go.mod'
-      - '!apps/one-proxy-node/api/go.sum'
+      - '!apps/node/api/go.mod'
+      - '!apps/node/api/go.sum'
   pull_request:
     paths:
-      - 'apps/one-proxy-node/**'
+      - 'apps/node/api/**'
+      - 'apps/node/web/**'
       - 'docker/one-proxy-node.Dockerfile'
       - '.github/workflows/one-proxy-node-image.yml'
-      - '!apps/one-proxy-node/api/go.mod'
-      - '!apps/one-proxy-node/api/go.sum'
+      - '!apps/node/api/go.mod'
+      - '!apps/node/api/go.sum'
   workflow_run:
     workflows: ['one-proxy-node-base-image']
     types: [completed]
@@ -52,7 +54,7 @@ jobs:
             RANGE="HEAD~1...HEAD"
           fi
           changed="$(git diff --name-only "$RANGE" || true)"
-          if printf '%s\n' "$changed" | grep -Eq '^(docker/one-proxy-node-base\.Dockerfile|apps/one-proxy-node/api/go\.(mod|sum))$'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(docker/one-proxy-node-base\.Dockerfile|apps/node/api/go\.(mod|sum))$'; then
             echo "skip_final=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip_final=false" >> "$GITHUB_OUTPUT"

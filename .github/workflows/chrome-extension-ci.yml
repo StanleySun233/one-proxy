@@ -4,13 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/chrome-extension/**'
-      - 'apps/chrome-extension-tools/**'
+      - 'apps/extension/chrome/**'
+      - 'apps/extension/chrome/tools/**'
       - '.github/workflows/chrome-extension-ci.yml'
   pull_request:
     paths:
-      - 'apps/chrome-extension/**'
-      - 'apps/chrome-extension-tools/**'
+      - 'apps/extension/chrome/**'
+      - 'apps/extension/chrome/tools/**'
       - '.github/workflows/chrome-extension-ci.yml'
   workflow_dispatch:
 
@@ -28,10 +28,10 @@ jobs:
           node-version-file: '.node-version'
 
       - name: Build extension service worker
-        run: node apps/chrome-extension-tools/build_background_bundle.mjs
+        run: node apps/extension/chrome/tools/build_background_bundle.mjs
 
       - name: Static extension checks
-        run: node apps/chrome-extension-tools/validate_extension.mjs
+        run: node apps/extension/chrome/tools/validate_extension.mjs
 
       - name: Install Playwright
         run: |
@@ -39,4 +39,4 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Service worker smoke test
-        run: xvfb-run --auto-servernum node apps/chrome-extension-tools/service_worker_smoke.mjs
+        run: xvfb-run --auto-servernum node apps/extension/chrome/tools/service_worker_smoke.mjs

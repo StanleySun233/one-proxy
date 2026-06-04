@@ -4,26 +4,26 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/one-panel-api/**'
-      - 'apps/one-proxy-panel/**'
+      - 'apps/panel/api/**'
+      - 'apps/panel/web/**'
       - 'docker/one-proxy-panel.Dockerfile'
       - 'docker/one-proxy-panel-start.sh'
       - '.github/workflows/one-proxy-panel-image.yml'
-      - '!apps/one-panel-api/go.mod'
-      - '!apps/one-panel-api/go.sum'
-      - '!apps/one-proxy-panel/package.json'
-      - '!apps/one-proxy-panel/package-lock.json'
+      - '!apps/panel/api/go.mod'
+      - '!apps/panel/api/go.sum'
+      - '!apps/panel/web/package.json'
+      - '!apps/panel/web/package-lock.json'
   pull_request:
     paths:
-      - 'apps/one-panel-api/**'
-      - 'apps/one-proxy-panel/**'
+      - 'apps/panel/api/**'
+      - 'apps/panel/web/**'
       - 'docker/one-proxy-panel.Dockerfile'
       - 'docker/one-proxy-panel-start.sh'
       - '.github/workflows/one-proxy-panel-image.yml'
-      - '!apps/one-panel-api/go.mod'
-      - '!apps/one-panel-api/go.sum'
-      - '!apps/one-proxy-panel/package.json'
-      - '!apps/one-proxy-panel/package-lock.json'
+      - '!apps/panel/api/go.mod'
+      - '!apps/panel/api/go.sum'
+      - '!apps/panel/web/package.json'
+      - '!apps/panel/web/package-lock.json'
   workflow_run:
     workflows: ['one-proxy-panel-base-image']
     types: [completed]
@@ -60,7 +60,7 @@ jobs:
             RANGE="HEAD~1...HEAD"
           fi
           changed="$(git diff --name-only "$RANGE" || true)"
-          if printf '%s\n' "$changed" | grep -Eq '^(docker/one-proxy-panel-base\.Dockerfile|apps/one-proxy-panel/package\.json|apps/one-proxy-panel/package-lock\.json|apps/one-panel-api/go\.(mod|sum))$'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(docker/one-proxy-panel-base\.Dockerfile|apps/panel/web/package\.json|apps/panel/web/package-lock\.json|apps/panel/api/go\.(mod|sum))$'; then
             echo "skip_final=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip_final=false" >> "$GITHUB_OUTPUT"

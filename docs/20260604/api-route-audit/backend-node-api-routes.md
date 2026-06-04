@@ -5,7 +5,7 @@
 
 ## Tasks
 
-- [ ] update apps/one-proxy-node/api controlplane clients, relay probes, tunnel path defaults, and route registrations to approved canonical paths
+- [ ] update apps/node/api controlplane clients, relay probes, tunnel path defaults, and route registrations to approved canonical paths
   - Commit: pending
 - [ ] update docker/one-proxy-node.env.example route defaults to approved canonical paths
   - Commit: pending

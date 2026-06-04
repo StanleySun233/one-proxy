@@ -4,18 +4,18 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/one-panel-api/go.mod'
-      - 'apps/one-panel-api/go.sum'
-      - 'apps/one-proxy-panel/package.json'
-      - 'apps/one-proxy-panel/package-lock.json'
+      - 'apps/panel/api/go.mod'
+      - 'apps/panel/api/go.sum'
+      - 'apps/panel/web/package.json'
+      - 'apps/panel/web/package-lock.json'
       - 'docker/one-proxy-panel-base.Dockerfile'
       - '.github/workflows/one-proxy-panel-base-image.yml'
   pull_request:
     paths:
-      - 'apps/one-panel-api/go.mod'
-      - 'apps/one-panel-api/go.sum'
-      - 'apps/one-proxy-panel/package.json'
-      - 'apps/one-proxy-panel/package-lock.json'
+      - 'apps/panel/api/go.mod'
+      - 'apps/panel/api/go.sum'
+      - 'apps/panel/web/package.json'
+      - 'apps/panel/web/package-lock.json'
       - 'docker/one-proxy-panel-base.Dockerfile'
       - '.github/workflows/one-proxy-panel-base-image.yml'
   workflow_dispatch:

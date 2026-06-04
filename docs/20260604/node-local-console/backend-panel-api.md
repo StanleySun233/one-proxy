@@ -5,7 +5,7 @@
 
 ## Tasks
 
-- [ ] modify apps/one-panel-api routes for `/api/*` and node manage-access validation
+- [ ] modify apps/panel/api routes for `/api/*` and node manage-access validation
   - Status: completed after user manual approval
   - Commit: pending PM-coordinated commit
 
@@ -13,4 +13,4 @@
 
 | Date | Blocker | Status |
 |------|---------|--------|
-| 2026-06-04 | User manual approval is required before any apps/one-panel-api development starts. | resolved |
+| 2026-06-04 | User manual approval is required before any apps/panel/api development starts. | resolved |

@@ -26,22 +26,22 @@ Each task represents one atomic, file-scoped unit of work. No two engineers may 
 - [x] panel-api-routes: write approved canonical route table and old-to-new migration table
 
 ### Backend Tasks
-- [x] panel-api-routes: update apps/one-panel-api/internal/httpapi route registration and resourceID prefixes to approved canonical paths
-- [x] panel-api-routes: update apps/one-panel-api/internal/features/proxy/httpapi route registration and resourceID prefixes to approved canonical paths
-- [x] panel-api-routes: update apps/one-panel-api/internal/controlrelay and apps/one-panel-api/openapi.yaml to approved canonical paths
-- [x] node-api-routes: update apps/one-proxy-node/api controlplane clients, relay probes, tunnel path defaults, and route registrations to approved canonical paths
+- [x] panel-api-routes: update apps/panel/api/internal/httpapi route registration and resourceID prefixes to approved canonical paths
+- [x] panel-api-routes: update apps/panel/api/internal/features/proxy/httpapi route registration and resourceID prefixes to approved canonical paths
+- [x] panel-api-routes: update apps/panel/api/internal/controlrelay and apps/panel/api/openapi.yaml to approved canonical paths
+- [x] node-api-routes: update apps/node/api controlplane clients, relay probes, tunnel path defaults, and route registrations to approved canonical paths
 - [x] node-api-routes: update docker/one-proxy-node.env.example route defaults to approved canonical paths
 
 ### Frontend Tasks
-- [x] panel-web-routes: update apps/one-proxy-panel/lib/api client base and request paths to approved canonical paths
-- [x] panel-web-routes: replace apps/one-proxy-panel/app/api/v1 proxy route with approved unversioned proxy route
-- [x] extension-routes: update apps/chrome-extension-tools/background-source API and probe paths to approved canonical paths
-- [x] extension-routes: update apps/chrome-extension/background/one-proxy-worker.js generated runtime paths to approved canonical paths
+- [x] panel-web-routes: update apps/panel/web/lib/api client base and request paths to approved canonical paths
+- [x] panel-web-routes: replace apps/panel/web/app/api/v1 proxy route with approved unversioned proxy route
+- [x] extension-routes: update apps/extension/chrome/tools/background-source API and probe paths to approved canonical paths
+- [x] extension-routes: update apps/extension/chrome/background/one-proxy-worker.js generated runtime paths to approved canonical paths
 - [x] node-web-routes: no node-local API path rename required
 
 ### Testing
 - [x] route-contract-test: run route inventory checks ensuring no dashed API segments and no `/api/v1` references remain in source-owned API code
-- [x] route-contract-test: run Go tests for apps/one-panel-api and apps/one-proxy-node/api
+- [x] route-contract-test: run Go tests for apps/panel/api and apps/node/api
 - [x] route-contract-test: run syntax checks allowed by project rules for node web and extension code
 - [ ] route-contract-test: panel web type check is blocked by stale `.next/types` cache
 

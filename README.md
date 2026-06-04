@@ -2,10 +2,10 @@
 
 ## Structure
 
-- `apps/chrome-extension`: user-side Chrome extension
-- `apps/one-panel-api`: Go control-plane backend
-- `apps/one-proxy-panel`: Next.js admin console
-- `apps/one-proxy-node`: Go proxy node
+- `apps/extension/chrome`: user-side Chrome extension
+- `apps/panel/api`: Go control-plane backend
+- `apps/panel/web`: Next.js admin console
+- `apps/node/api`: Go proxy node
 - `docker/`: container build and startup assets
 
 ## Current Direction
@@ -13,7 +13,7 @@
 - Chrome extension stays plain JavaScript for now
 - backend moves to Go
 - admin web moves to Next.js
-- one-panel-api uses MySQL 8.0, while one-proxy-node keeps local SQLite state
+- `apps/panel/api` uses MySQL 8.0, while `apps/node/api` keeps local SQLite state
 
 ## Docker Run
 

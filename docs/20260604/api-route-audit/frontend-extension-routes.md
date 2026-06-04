@@ -5,9 +5,9 @@
 
 ## Tasks
 
-- [ ] update apps/chrome-extension-tools/background-source API and probe paths to approved canonical paths
+- [ ] update apps/extension/chrome/tools/background-source API and probe paths to approved canonical paths
   - Commit: pending
-- [ ] update apps/chrome-extension/background/one-proxy-worker.js generated runtime paths to approved canonical paths
+- [ ] update apps/extension/chrome/background/one-proxy-worker.js generated runtime paths to approved canonical paths
   - Commit: pending
 
 ## Blockers

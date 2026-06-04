@@ -220,15 +220,15 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-apps/one-panel-api/tmp/
-apps/one-panel-api/runtime/*.db
-apps/one-proxy-node/tmp/
-apps/one-proxy-node/runtime/*.json
-apps/one-proxy-panel/.next/
-apps/one-proxy-panel/node_modules/
+apps/panel/api/tmp/
+apps/panel/api/runtime/*.db
+apps/node/api/tmp/
+apps/node/api/runtime/*.json
+apps/panel/web/.next/
+apps/panel/web/node_modules/
 *.tsbuildinfo
-!apps/one-proxy-panel/lib/
-!apps/one-proxy-panel/lib/*.ts
+!apps/panel/web/lib/
+!apps/panel/web/lib/*.ts
 
 runtime/*.log
 runtime/*.out

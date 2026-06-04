@@ -1,0 +1,22 @@
+{
+  "name": "one-proxy-node-console-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node --check src/main.js && node --check scripts/build.mjs"
+  },
+  "oneProxyNodeConsole": {
+    "staticOutput": "dist",
+    "appShell": "dist/index.html",
+    "routes": [
+      "/console/login",
+      "/console/overview",
+      "/console/health",
+      "/console/audit",
+      "/console/policy",
+      "/console/diagnostics"
+    ]
+  }
+}

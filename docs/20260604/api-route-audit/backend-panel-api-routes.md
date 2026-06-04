@@ -7,13 +7,13 @@
 
 - [ ] write api-contract.md with approved canonical route table and old-to-new migration table
   - Commit: pending
-- [ ] update apps/one-panel-api/internal/httpapi route registration and resourceID prefixes to approved canonical paths
+- [ ] update apps/panel/api/internal/httpapi route registration and resourceID prefixes to approved canonical paths
   - Commit: pending
-- [ ] update apps/one-panel-api/internal/features/proxy/httpapi route registration and resourceID prefixes to approved canonical paths
+- [ ] update apps/panel/api/internal/features/proxy/httpapi route registration and resourceID prefixes to approved canonical paths
   - Commit: pending
-- [ ] update apps/one-panel-api/internal/setup route registration to approved canonical paths
+- [ ] update apps/panel/api/internal/setup route registration to approved canonical paths
   - Commit: pending
-- [ ] update apps/one-panel-api/internal/controlrelay and apps/one-panel-api/openapi.yaml to approved canonical paths
+- [ ] update apps/panel/api/internal/controlrelay and apps/panel/api/openapi.yaml to approved canonical paths
   - Commit: pending
 
 ## Blockers

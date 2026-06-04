@@ -8,10 +8,10 @@ ENV PATH=/usr/local/go/bin:$PATH
 
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git tzdata && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /base/apps/one-proxy-panel
-COPY apps/one-proxy-panel/package.json apps/one-proxy-panel/package-lock.json ./
+WORKDIR /base/apps/panel/web
+COPY apps/panel/web/package.json apps/panel/web/package-lock.json ./
 RUN npm ci
 
-WORKDIR /base/apps/one-panel-api
-COPY apps/one-panel-api/go.mod apps/one-panel-api/go.sum ./
+WORKDIR /base/apps/panel/api
+COPY apps/panel/api/go.mod apps/panel/api/go.sum ./
 RUN go mod download

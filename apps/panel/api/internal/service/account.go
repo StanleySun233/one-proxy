@@ -1,0 +1,182 @@
+package service
+
+import (
+	"context"
+	"net/http"
+	"time"
+
+	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/auth"
+	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
+)
+
+func (c *ControlPlane) Accounts() []domain.Account {
+	return c.store.ListAccounts()
+}
+
+func (c *ControlPlane) CreateAccount(input domain.CreateAccountInput) (domain.Account, error) {
+	if input.Account == "" || input.Password == "" || input.Role == "" {
+		return domain.Account{}, invalidInput("invalid_account_payload")
+	}
+	if input.Role != domain.AccountRoleSuperAdmin && input.Role != domain.AccountRoleUser {
+		return domain.Account{}, invalidInput("invalid_account_role")
+	}
+	return c.store.CreateAccount(input)
+}
+
+func (c *ControlPlane) UpdateAccount(accountID string, input domain.UpdateAccountInput) (domain.Account, error) {
+	if accountID == "" {
+		return domain.Account{}, invalidInput("missing_account_id")
+	}
+	if input.Role != "" && input.Role != domain.AccountRoleSuperAdmin && input.Role != domain.AccountRoleUser {
+		return domain.Account{}, invalidInput("invalid_account_role")
+	}
+	return c.store.UpdateAccount(accountID, input)
+}
+
+func (c *ControlPlane) DeleteAccount(accountID string) error {
+	if accountID == "" {
+		return invalidInput("missing_account_id")
+	}
+	account, ok := c.accountByID(accountID)
+	if !ok || account.Account == "admin" {
+		return c.store.DeleteAccount(accountID)
+	}
+	for _, membership := range c.store.ListTenantMemberships(accountID) {
+		if membership.Role != domain.TenantRoleAdmin {
+			continue
+		}
+		if err := c.store.DeleteTenantMembership(membership.TenantID, accountID); err != nil {
+			return err
+		}
+		if err := c.ensureTenantAdminContinuity(membership.TenantID, accountID); err != nil {
+			return err
+		}
+	}
+	return c.store.DeleteAccount(accountID)
+}
+
+func (c *ControlPlane) Login(account string, password string) (domain.LoginResult, bool) {
+	return c.store.Authenticate(account, password)
+}
+
+func (c *ControlPlane) AuthenticateAccessToken(accessToken string) (domain.Account, bool) {
+	return c.store.AuthenticateAccessToken(accessToken)
+}
+
+func (c *ControlPlane) RefreshSession(refreshToken string) (domain.LoginResult, bool) {
+	return c.store.RefreshSession(refreshToken)
+}
+
+func (c *ControlPlane) Logout(accessToken string) bool {
+	return c.store.Logout(accessToken)
+}
+
+func (c *ControlPlane) ResolveTenantAuthContext(account domain.Account, tenantID string, allowSuperAdminBypass bool) (domain.TenantAuthContext, error) {
+	if account.Role == domain.AccountRoleSuperAdmin && allowSuperAdminBypass {
+		ctx := domain.TenantAuthContext{
+			Account:    account,
+			SuperAdmin: true,
+		}
+		if tenantID == "" {
+			return ctx, nil
+		}
+		tenant, ok := c.store.GetTenant(tenantID)
+		if !ok {
+			return domain.TenantAuthContext{}, newError(http.StatusBadRequest, "tenant_invalid")
+		}
+		ctx.ActiveTenant = domain.TenantMembership{
+			TenantID:   tenant.ID,
+			TenantName: tenant.Name,
+			Role:       domain.TenantRoleAdmin,
+			JoinedAt:   tenant.CreatedAt,
+		}
+		return ctx, nil
+	}
+	if tenantID == "" {
+		return domain.TenantAuthContext{}, newError(http.StatusBadRequest, "tenant_required")
+	}
+	if _, ok := c.store.GetTenant(tenantID); !ok {
+		return domain.TenantAuthContext{}, newError(http.StatusBadRequest, "tenant_invalid")
+	}
+	membership, ok := c.store.GetTenantMembership(account.ID, tenantID)
+	if !ok {
+		return domain.TenantAuthContext{}, newError(http.StatusForbidden, "tenant_forbidden")
+	}
+	return domain.TenantAuthContext{
+		Account:      account,
+		ActiveTenant: membership,
+	}, nil
+}
+
+func (c *ControlPlane) IssueProxyToken(account domain.Account, tenantCtx domain.TenantAuthContext) (string, string, bool) {
+	token, err := auth.RandomToken()
+	if err != nil {
+		return "", "", false
+	}
+	expiresAt := time.Now().UTC().Add(c.sessionTTL).Format(time.RFC3339)
+	activeTenantID := tenantCtx.ActiveTenant.TenantID
+	record := domain.ProxyTokenRecord{
+		Account:           account,
+		ExpiresAt:         expiresAt,
+		TenantMemberships: []domain.TenantMembership{tenantCtx.ActiveTenant},
+		ActiveTenantID:    &activeTenantID,
+	}
+	if err := c.proxyTokens.Put(context.Background(), auth.TokenHash(token), record, c.sessionTTL); err != nil {
+		return "", "", false
+	}
+	return token, expiresAt, true
+}
+
+func (c *ControlPlane) ValidateProxyTokenHash(tokenHash string, nodeID string) domain.ProxyTokenValidation {
+	if tokenHash == "" {
+		return domain.ProxyTokenValidation{}
+	}
+	record, ok := c.proxyTokens.Get(context.Background(), tokenHash)
+	if !ok {
+		return domain.ProxyTokenValidation{}
+	}
+	expiresAt, err := time.Parse(time.RFC3339, record.ExpiresAt)
+	if err != nil || time.Now().UTC().After(expiresAt) {
+		return domain.ProxyTokenValidation{}
+	}
+	cacheTTL := c.proxyTokenCacheTTL
+	remaining := time.Until(expiresAt)
+	if remaining < cacheTTL {
+		cacheTTL = remaining
+	}
+	if cacheTTL < time.Second {
+		return domain.ProxyTokenValidation{}
+	}
+	return domain.ProxyTokenValidation{
+		Valid:             true,
+		Account:           record.Account,
+		ExpiresAt:         record.ExpiresAt,
+		CacheTTLSeconds:   int(cacheTTL.Seconds()),
+		TenantMemberships: record.TenantMemberships,
+		ActiveTenantID:    record.ActiveTenantID,
+		AllowLocalProxy:   c.proxyTokenAllowsNode(record, nodeID),
+	}
+}
+
+func (c *ControlPlane) proxyTokenAllowsNode(record domain.ProxyTokenRecord, nodeID string) bool {
+	if record.ActiveTenantID == nil || *record.ActiveTenantID == "" || nodeID == "" {
+		return false
+	}
+	var membership domain.TenantMembership
+	for _, item := range record.TenantMemberships {
+		if item.TenantID == *record.ActiveTenantID {
+			membership = item
+			break
+		}
+	}
+	if membership.TenantID == "" {
+		return false
+	}
+	tenantCtx := domain.TenantAuthContext{
+		Account:      record.Account,
+		ActiveTenant: membership,
+		SuperAdmin:   record.Account.Role == domain.AccountRoleSuperAdmin,
+	}
+	_, ok := c.store.NodeBindingPermission(tenantCtx, nodeID)
+	return ok
+}

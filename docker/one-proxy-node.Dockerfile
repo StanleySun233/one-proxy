@@ -1,14 +1,14 @@
 ARG NODE_BASE_IMAGE=oneproxy-node-base:latest
 
 FROM node:26-bookworm AS web-builder
-WORKDIR /workspace/apps/one-proxy-node/web
-COPY apps/one-proxy-node/web ./
+WORKDIR /workspace/apps/node/web
+COPY apps/node/web ./
 RUN npm run build
 
 FROM ${NODE_BASE_IMAGE} AS builder
-WORKDIR /workspace/apps/one-proxy-node/api
-COPY apps/one-proxy-node/api ./
-COPY --from=web-builder /workspace/apps/one-proxy-node/web/dist /out/web
+WORKDIR /workspace/apps/node/api
+COPY apps/node/api ./
+COPY --from=web-builder /workspace/apps/node/web/dist /out/web
 RUN mkdir -p /out/runtime /out/web /out/zoneinfo && cp -a /usr/share/zoneinfo/. /out/zoneinfo/ && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/one-proxy-node ./cmd/one-proxy-node
 
 FROM ${NODE_BASE_IMAGE}
