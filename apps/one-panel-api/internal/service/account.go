@@ -17,12 +17,18 @@ func (c *ControlPlane) CreateAccount(input domain.CreateAccountInput) (domain.Ac
 	if input.Account == "" || input.Password == "" || input.Role == "" {
 		return domain.Account{}, invalidInput("invalid_account_payload")
 	}
+	if input.Role != domain.AccountRoleSuperAdmin && input.Role != domain.AccountRoleUser {
+		return domain.Account{}, invalidInput("invalid_account_role")
+	}
 	return c.store.CreateAccount(input)
 }
 
 func (c *ControlPlane) UpdateAccount(accountID string, input domain.UpdateAccountInput) (domain.Account, error) {
 	if accountID == "" {
 		return domain.Account{}, invalidInput("missing_account_id")
+	}
+	if input.Role != "" && input.Role != domain.AccountRoleSuperAdmin && input.Role != domain.AccountRoleUser {
+		return domain.Account{}, invalidInput("invalid_account_role")
 	}
 	return c.store.UpdateAccount(accountID, input)
 }

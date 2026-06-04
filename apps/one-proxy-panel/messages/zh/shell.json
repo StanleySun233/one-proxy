@@ -25,19 +25,5 @@
   "healthHeartbeat": "心跳监控",
   "accountCreate": "创建账号",
   "accountList": "账号查询",
-  "tenantList": "租户",
-  "groupList": "用户组",
-  "groupCreate": "创建用户组",
-  "groupEdit": "编辑用户组",
-  "groupName": "组名称",
-  "groupNamePlaceholder": "例如开发团队",
-  "groupDescription": "描述",
-  "groupDescriptionPlaceholder": "可选描述",
-  "groupEnabled": "启用",
-  "groupScopes": "允许的范围",
-  "groupAccounts": "成员",
-  "groupDeleteConfirm": "确定要删除此用户组吗？",
-  "groupCreateSuccess": "用户组已创建",
-  "groupUpdateSuccess": "用户组已更新",
-  "groupDeleteSuccess": "用户组已删除"
+  "tenantList": "租户"
 }

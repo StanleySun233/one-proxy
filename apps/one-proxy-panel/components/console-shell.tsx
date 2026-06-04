@@ -19,7 +19,7 @@ import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {useAuth} from '@/components/auth-provider';
 import {CapsuleSelect, CapsuleSelectGroup} from '@/components/common/capsule-select';
 import {Link, usePathname, useRouter} from '@/i18n/navigation';
-import {getPendingNodes} from '@/lib/api';
+import {getPendingNodes, getTenants} from '@/lib/api';
 
 export function ConsoleShell({children}: {children: ReactNode}) {
   const t = useTranslations();
@@ -31,20 +31,26 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
   const activeTenantId = session?.activeTenantId || null;
-  const tenantOptions = tenantMemberships.map((membership) => ({
-    value: membership.tenantId,
-    label: membership.tenantName
+  const isSuperAdmin = session?.account.role === 'super_admin';
+  const superAdminTenantsQuery = useQuery({
+    queryKey: ['tenants', accessToken, 'shell'],
+    queryFn: () => getTenants(accessToken),
+    enabled: !!accessToken && isSuperAdmin
+  });
+  const tenantOptions = (isSuperAdmin ? superAdminTenantsQuery.data || [] : tenantMemberships).map((tenant) => ({
+    value: 'tenantId' in tenant ? tenant.tenantId : tenant.id,
+    label: 'tenantName' in tenant ? tenant.tenantName : tenant.name
   }));
-  const showTenantSwitcher = tenantMemberships.length > 0;
-  const tenantSelectOptions = activeTenant ? tenantOptions : [{value: '', label: t('shell.tenantPlaceholder')}, ...tenantOptions];
-
+  const selectedTenantOption = tenantOptions.find((option) => option.value === activeTenantId);
+  const tenantSelectOptions = selectedTenantOption ? tenantOptions : [{value: '', label: t('shell.tenantPlaceholder')}, ...tenantOptions];
+  const showTenantSwitcher = tenantOptions.length > 0;
+  const isTenantAdmin = tenantMemberships.some((membership) => membership.role === 'tenant_admin');
   const pendingQuery = useQuery({
     queryKey: ['pending-nodes', accessToken, activeTenantId],
     queryFn: () => getPendingNodes(accessToken, activeTenantId),
     enabled: !!accessToken && (!!activeTenantId || tenantMemberships.length === 0),
     refetchInterval: 30000
   });
-
   const pendingCount = (pendingQuery.data || []).length;
   const navSections = [
     {
@@ -90,17 +96,16 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         {label: t('shell.healthHeartbeat'), href: '/health/heartbeat'}
       ]
     },
-    {
+    ...(isSuperAdmin || isTenantAdmin ? [{
       key: 'accounts',
       label: t('nav.accounts'),
-      href: '/accounts/list',
+      href: isSuperAdmin ? '/accounts/list' : '/accounts/tenants',
       icon: Users,
       items: [
-        {label: t('shell.accountList'), href: '/accounts/list'},
-        {label: t('shell.tenantList'), href: '/accounts/tenants'},
-        {label: t('shell.groupList'), href: '/accounts/groups'}
+        ...(isSuperAdmin ? [{label: t('shell.accountList'), href: '/accounts/list'}] : []),
+        {label: t('shell.tenantList'), href: '/accounts/tenants'}
       ]
-    }
+    }] : [])
   ];
   const activeSection =
     navSections.find((section) =>
@@ -125,6 +130,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   };
 
   const accountInitial = session?.account.account?.slice(0, 1).toUpperCase() || 'U';
+  const accountRoleLabel = activeTenant?.role || session?.account.role || t('shell.tagline');
   const themeValue = resolvedTheme === 'light' ? 'light' : 'dark';
 
   const handleThemeChange = (value: string) => {
@@ -190,7 +196,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
             <div className="console-user-avatar">{accountInitial}</div>
             <div className="console-user-copy">
               <strong>{session?.account.account || t('shell.name')}</strong>
-              <span>{session?.account.role || t('shell.tagline')}</span>
+              <span>{accountRoleLabel}</span>
             </div>
             {session ? (
               <button className="secondary-button" onClick={() => void logout()} type="button">

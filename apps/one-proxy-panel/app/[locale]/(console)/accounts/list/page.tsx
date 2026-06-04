@@ -28,6 +28,7 @@ export default function AccountListPage() {
   const {session} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
+  const isSuperAdmin = session?.account.role === 'super_admin';
 
   const [editAccount, setEditAccount] = useState<{id: string; account: string; role: string; status: string} | null>(null);
   const [nameFilter, setNameFilter] = useState('');
@@ -36,7 +37,7 @@ export default function AccountListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const accountRoleKeys = Object.keys(enums?.account_role || {});
-  const DEFAULT_ROLE = accountRoleKeys.find(k => k === 'operator') || 'operator';
+  const DEFAULT_ROLE = accountRoleKeys.find(k => k === 'user') || 'user';
   const accountRoleOptions = enums?.account_role ? Object.entries(enums.account_role).map(([value, item]) => ({value, label: item.name})) : [];
   const createForm = useForm<AccountFormValues>({
     defaultValues: {
@@ -87,7 +88,7 @@ export default function AccountListPage() {
   return (
     <AuthGate>
       <ConsolePage
-        actions={<button className="primary-button" onClick={() => setCreateOpen(true)} type="button">{accountsT('createTitle')}</button>}
+        actions={isSuperAdmin ? <button className="primary-button" onClick={() => setCreateOpen(true)} type="button">{accountsT('createTitle')}</button> : null}
         title={accountsT('listTitle')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
@@ -130,7 +131,7 @@ export default function AccountListPage() {
                     <th>{t('common.name')}</th>
                     <th>{accountsT('fieldRole')}</th>
                     <th>{accountsT('fieldStatus')}</th>
-                    <th>{t('common.actions')}</th>
+                    {isSuperAdmin ? <th>{t('common.actions')}</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -139,27 +140,29 @@ export default function AccountListPage() {
                       <td><NameTag kind="account">{account.account}</NameTag></td>
                       <td><span className="badge is-neutral">{account.role}</span></td>
                       <td>{account.status}</td>
-                      <td>
-                        <div className="chain-list-actions">
-                          <button className="secondary-button" onClick={() => setEditAccount(account)} type="button">
-                            {t('common.edit')}
-                          </button>
-                          {account.account !== 'admin' ? (
-                            <button
-                              className="danger-button"
-                              disabled={deleteAccountMutation.isPending}
-                              onClick={() => {
-                                if (window.confirm(accountsT('deleteConfirm', {name: account.account}))) {
-                                  deleteAccountMutation.mutate(account.id);
-                                }
-                              }}
-                              type="button"
-                            >
-                              {t('common.delete')}
+                      {isSuperAdmin ? (
+                        <td>
+                          <div className="chain-list-actions">
+                            <button className="secondary-button" onClick={() => setEditAccount(account)} type="button">
+                              {t('common.edit')}
                             </button>
-                          ) : null}
-                        </div>
-                      </td>
+                            {account.account !== 'admin' ? (
+                              <button
+                                className="danger-button"
+                                disabled={deleteAccountMutation.isPending}
+                                onClick={() => {
+                                  if (window.confirm(accountsT('deleteConfirm', {name: account.account}))) {
+                                    deleteAccountMutation.mutate(account.id);
+                                  }
+                                }}
+                                type="button"
+                              >
+                                {t('common.delete')}
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -168,62 +171,64 @@ export default function AccountListPage() {
           )}
         </ConsoleList>
 
-        <ConsoleCrudModal
-          footer={(
-            <>
-              <button className="secondary-button" onClick={() => setCreateOpen(false)} type="button">{t('common.cancel')}</button>
-              <button className="primary-button" disabled={createAccountMutation.isPending} onClick={() => void createForm.handleSubmit((values) => {
-                createAccountMutation.mutate({
-                  account: values.account.trim(),
-                  password: values.password,
-                  role: values.role.trim()
-                });
-              })()} type="button">
-                {createAccountMutation.isPending ? t('common.submitting') : accountsT('createTitle')}
-              </button>
-            </>
-          )}
-          onClose={() => setCreateOpen(false)}
-          open={createOpen}
-          title={accountsT('createTitle')}
-        >
-          <div className="sub-grid">
-            <div className="field-stack">
-              <span>{accountsT('fieldAccount')}</span>
-              <input
-                aria-invalid={createForm.formState.errors.account ? 'true' : 'false'}
-                className="field-input"
-                placeholder={accountsT('placeholderAccount')}
-                {...createForm.register('account', {required: accountsT('accountRequired')})}
-              />
-              {createForm.formState.errors.account ? <p className="error-text">{createForm.formState.errors.account.message}</p> : null}
+        {isSuperAdmin ? (
+          <ConsoleCrudModal
+            footer={(
+              <>
+                <button className="secondary-button" onClick={() => setCreateOpen(false)} type="button">{t('common.cancel')}</button>
+                <button className="primary-button" disabled={createAccountMutation.isPending} onClick={() => void createForm.handleSubmit((values) => {
+                  createAccountMutation.mutate({
+                    account: values.account.trim(),
+                    password: values.password,
+                    role: values.role.trim()
+                  });
+                })()} type="button">
+                  {createAccountMutation.isPending ? t('common.submitting') : accountsT('createTitle')}
+                </button>
+              </>
+            )}
+            onClose={() => setCreateOpen(false)}
+            open={createOpen}
+            title={accountsT('createTitle')}
+          >
+            <div className="sub-grid">
+              <div className="field-stack">
+                <span>{accountsT('fieldAccount')}</span>
+                <input
+                  aria-invalid={createForm.formState.errors.account ? 'true' : 'false'}
+                  className="field-input"
+                  placeholder={accountsT('placeholderAccount')}
+                  {...createForm.register('account', {required: accountsT('accountRequired')})}
+                />
+                {createForm.formState.errors.account ? <p className="error-text">{createForm.formState.errors.account.message}</p> : null}
+              </div>
+              <div className="field-stack">
+                <span>{accountsT('fieldPassword')}</span>
+                <input
+                  aria-invalid={createForm.formState.errors.password ? 'true' : 'false'}
+                  className="field-input"
+                  type="password"
+                  {...createForm.register('password', {
+                    required: accountsT('passwordRequired'),
+                    minLength: {value: 8, message: accountsT('passwordMinLength')}
+                  })}
+                />
+                {createForm.formState.errors.password ? <p className="error-text">{createForm.formState.errors.password.message}</p> : null}
+              </div>
+              <div className="field-stack">
+                <span>{accountsT('fieldRole')}</span>
+                <select className="field-select" {...createForm.register('role', {required: accountsT('roleRequired')})}>
+                  {accountRoleOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                {createForm.formState.errors.role ? <p className="error-text">{createForm.formState.errors.role.message}</p> : null}
+              </div>
             </div>
-            <div className="field-stack">
-              <span>{accountsT('fieldPassword')}</span>
-              <input
-                aria-invalid={createForm.formState.errors.password ? 'true' : 'false'}
-                className="field-input"
-                type="password"
-                {...createForm.register('password', {
-                  required: accountsT('passwordRequired'),
-                  minLength: {value: 8, message: accountsT('passwordMinLength')}
-                })}
-              />
-              {createForm.formState.errors.password ? <p className="error-text">{createForm.formState.errors.password.message}</p> : null}
-            </div>
-            <div className="field-stack">
-              <span>{accountsT('fieldRole')}</span>
-              <select className="field-select" {...createForm.register('role', {required: accountsT('roleRequired')})}>
-                {accountRoleOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-              {createForm.formState.errors.role ? <p className="error-text">{createForm.formState.errors.role.message}</p> : null}
-            </div>
-          </div>
-        </ConsoleCrudModal>
+          </ConsoleCrudModal>
+        ) : null}
 
-        {editAccount ? (
+        {isSuperAdmin && editAccount ? (
           <EditAccountDialog
             accessToken={accessToken}
             account={editAccount}

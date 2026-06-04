@@ -10,5 +10,5 @@
   "healthTitle": "健康与告警",
   "healthDesc": "节点心跳与证书状态。",
   "accountsTitle": "账号与角色",
-  "accountsDesc": "账号、角色与操作权限。"
+  "accountsDesc": "账号、租户与租户成员权限。"
 }

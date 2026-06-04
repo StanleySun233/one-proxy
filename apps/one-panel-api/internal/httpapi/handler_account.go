@@ -13,14 +13,19 @@ func (r *Router) handleAccounts(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid_access_token")
 		return
 	}
-	if account.Role != domain.AccountRoleSuperAdmin {
-		writeError(w, http.StatusForbidden, "account_role_forbidden")
-		return
-	}
 	switch req.Method {
 	case http.MethodGet:
+		tenantCtx, tenantOK := tenantAuthContextFromContext(req.Context())
+		if account.Role != domain.AccountRoleSuperAdmin && (!tenantOK || tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin) {
+			writeError(w, http.StatusForbidden, "account_role_forbidden")
+			return
+		}
 		writeSuccess(w, http.StatusOK, r.service.Accounts())
 	case http.MethodPost:
+		if account.Role != domain.AccountRoleSuperAdmin {
+			writeError(w, http.StatusForbidden, "account_role_forbidden")
+			return
+		}
 		var payload domain.CreateAccountInput
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")

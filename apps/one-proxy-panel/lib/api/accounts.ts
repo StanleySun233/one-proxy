@@ -1,8 +1,8 @@
 import { request } from './client';
 import type { Account } from '@/lib/types';
 
-export function getAccounts(accessToken: string) {
-  return request<Account[]>('/accounts', {accessToken});
+export function getAccounts(accessToken: string, tenantId?: string | null) {
+  return request<Account[]>('/accounts', {accessToken, tenantId});
 }
 
 export function createAccount(accessToken: string, payload: {account: string; password: string; role: string}) {

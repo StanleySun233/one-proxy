@@ -10,5 +10,5 @@
   "healthTitle": "Health and alerts",
   "healthDesc": "Node heartbeats and certificate state.",
   "accountsTitle": "Accounts and roles",
-  "accountsDesc": "Account, role and operator permissions."
+  "accountsDesc": "Accounts, tenants and tenant memberships."
 }

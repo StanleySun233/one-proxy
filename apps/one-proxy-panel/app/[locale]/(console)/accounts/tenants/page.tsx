@@ -29,8 +29,13 @@ export default function TenantsPage() {
   const [memberTenant, setMemberTenant] = useState<Tenant | null>(null);
   const [formState, setFormState] = useState<TenantFormState>({name: '', initialAdminAccountId: ''});
 
-  const {session} = useAuth();
+  const {session, tenantMemberships} = useAuth();
   const accessToken = session?.accessToken || '';
+  const isSuperAdmin = session?.account.role === 'super_admin';
+  const tenantRoleById = new Map(tenantMemberships.map((membership) => [membership.tenantId, membership.role]));
+  const canManageAnyTenant = isSuperAdmin || tenantMemberships.some((membership) => membership.role === 'tenant_admin');
+  const canManageTenant = (tenantId: string) => isSuperAdmin || tenantRoleById.get(tenantId) === 'tenant_admin';
+  const accountListTenantId = tenantMemberships.find((membership) => membership.role === 'tenant_admin')?.tenantId || null;
 
   const tenantsQuery = useQuery({
     queryKey: ['tenants', accessToken],
@@ -38,9 +43,9 @@ export default function TenantsPage() {
     enabled: !!accessToken
   });
   const accountsQuery = useQuery({
-    queryKey: ['accounts', accessToken],
-    queryFn: () => getAccounts(accessToken),
-    enabled: !!accessToken
+    queryKey: ['accounts', accessToken, accountListTenantId],
+    queryFn: () => getAccounts(accessToken, accountListTenantId),
+    enabled: !!accessToken && (isSuperAdmin || !!accountListTenantId)
   });
   const memberQueries = useQueries({
     queries: (tenantsQuery.data || []).map((tenant) => ({
@@ -121,7 +126,7 @@ export default function TenantsPage() {
   return (
     <AuthGate>
       <ConsolePage
-        actions={<button className="primary-button" onClick={openCreate} type="button">{accountsT('tenantCreate')}</button>}
+        actions={isSuperAdmin ? <button className="primary-button" onClick={openCreate} type="button">{accountsT('tenantCreate')}</button> : null}
         title={accountsT('tenantListTitle')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
@@ -147,35 +152,40 @@ export default function TenantsPage() {
                     <th>{t('common.name')}</th>
                     <th>{accountsT('tenantMembers')}</th>
                     <th>{t('common.updated')}</th>
-                    <th>{t('common.actions')}</th>
+                    {canManageAnyTenant ? <th>{t('common.actions')}</th> : null}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTenants.map((tenant) => {
                     const members = membersByTenantId.get(tenant.id) || [];
+                    const canManageThisTenant = canManageTenant(tenant.id);
                     return (
                       <tr key={tenant.id}>
                         <td><NameTag kind="group">{tenant.name}</NameTag></td>
                         <td>{members.length}</td>
                         <td className="mono">{formatISODateTime(tenant.updatedAt)}</td>
-                        <td>
-                          <div className="chain-list-actions">
-                            <button className="secondary-button" onClick={() => setMemberTenant(tenant)} type="button">{accountsT('tenantMembers')}</button>
-                            <button className="secondary-button" onClick={() => openEdit(tenant)} type="button">{t('common.edit')}</button>
-                            <button
-                              className="danger-button"
-                              disabled={deleteMutation.isPending}
-                              onClick={() => {
-                                if (window.confirm(accountsT('tenantDeleteConfirm', {name: tenant.name}))) {
-                                  deleteMutation.mutate(tenant.id);
-                                }
-                              }}
-                              type="button"
-                            >
-                              {t('common.delete')}
-                            </button>
-                          </div>
-                        </td>
+                        {canManageAnyTenant ? (
+                          <td>
+                            {canManageThisTenant ? (
+                              <div className="chain-list-actions">
+                                <button className="secondary-button" onClick={() => setMemberTenant(tenant)} type="button">{accountsT('tenantMembers')}</button>
+                                <button className="secondary-button" onClick={() => openEdit(tenant)} type="button">{t('common.edit')}</button>
+                                <button
+                                  className="danger-button"
+                                  disabled={deleteMutation.isPending}
+                                  onClick={() => {
+                                    if (window.confirm(accountsT('tenantDeleteConfirm', {name: tenant.name}))) {
+                                      deleteMutation.mutate(tenant.id);
+                                    }
+                                  }}
+                                  type="button"
+                                >
+                                  {t('common.delete')}
+                                </button>
+                              </div>
+                            ) : null}
+                          </td>
+                        ) : null}
                       </tr>
                     );
                   })}
@@ -185,7 +195,8 @@ export default function TenantsPage() {
           )}
         </ConsoleList>
 
-        <ConsoleCrudModal
+        {canManageAnyTenant ? (
+          <ConsoleCrudModal
           footer={(
             <>
               <button className="secondary-button" onClick={closeForm} type="button">{t('common.cancel')}</button>
@@ -213,9 +224,10 @@ export default function TenantsPage() {
               </label>
             ) : null}
           </div>
-        </ConsoleCrudModal>
+          </ConsoleCrudModal>
+        ) : null}
 
-        {memberTenant ? (
+        {memberTenant && canManageTenant(memberTenant.id) ? (
           <TenantMembersModal
             accessToken={accessToken}
             accounts={accounts}

@@ -26,7 +26,7 @@ const (
 // Account role constants
 const (
 	AccountRoleSuperAdmin = "super_admin"
-	AccountRoleOperator   = "operator"
+	AccountRoleUser       = "user"
 )
 
 // Account status constants

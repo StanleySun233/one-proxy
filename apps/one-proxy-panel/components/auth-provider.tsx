@@ -32,7 +32,10 @@ function sortTenantMemberships(tenantMemberships: TenantMembership[]) {
   });
 }
 
-function resolveActiveTenantId(tenantMemberships: TenantMembership[], activeTenantId: string | null | undefined) {
+function resolveActiveTenantId(tenantMemberships: TenantMembership[], activeTenantId: string | null | undefined, accountRole: string) {
+  if (accountRole === 'super_admin') {
+    return activeTenantId || null;
+  }
   if (activeTenantId && tenantMemberships.some((membership) => membership.tenantId === activeTenantId)) {
     return activeTenantId;
   }
@@ -46,7 +49,7 @@ function normalizeSession(session: Session): Session {
   return {
     ...session,
     tenantMemberships,
-    activeTenantId: resolveActiveTenantId(tenantMemberships, session.activeTenantId)
+    activeTenantId: resolveActiveTenantId(tenantMemberships, session.activeTenantId, session.account.role)
   };
 }
 
@@ -147,7 +150,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
         if (!session) {
           return null;
         }
-        if (tenantId && !session.tenantMemberships.some((membership) => membership.tenantId === tenantId)) {
+        if (tenantId && session.account.role !== 'super_admin' && !session.tenantMemberships.some((membership) => membership.tenantId === tenantId)) {
           return session;
         }
 

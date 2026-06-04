@@ -446,7 +446,7 @@ INSERT IGNORE INTO field_enum (id, field, value, name, meta) VALUES
 ('enum-node_status-pending', 'node_status', 'pending', 'Pending', '{"color":"#6b7280","className":"is-muted"}'),
 ('enum-node_status-inactive', 'node_status', 'inactive', 'Inactive', '{"color":"#9ca3af","className":"is-muted"}'),
 ('enum-account_role-super_admin', 'account_role', 'super_admin', 'Super Admin', '{}'),
-('enum-account_role-operator', 'account_role', 'operator', 'Operator', '{}'),
+('enum-account_role-user', 'account_role', 'user', 'User', '{}'),
 ('enum-tenant_role-tenant_admin', 'tenant_role', 'tenant_admin', 'Tenant Admin', '{}'),
 ('enum-tenant_role-user', 'tenant_role', 'user', 'User', '{}'),
 ('enum-binding_permission-manage', 'binding_permission', 'manage', 'Manage', '{}'),
