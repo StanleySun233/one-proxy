@@ -56,7 +56,7 @@ export function RegistryNodeEditor({
           <select className="field-select" onChange={(event) => onFormChange({...formState, scopeKey: event.target.value})} value={formState.scopeKey}>
             <option value="">{t('common.noScope')}</option>
             {scopes.map((scope) => (
-              <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
+              <option key={scope.id} value={scope.id}>{scope.name}</option>
             ))}
           </select>
         </label>

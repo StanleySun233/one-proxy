@@ -45,7 +45,6 @@ export default function ChainsPage() {
   const [probeResults, setProbeResults] = useState<Record<string, ChainProbeResult>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<CompiledChainConfig | null>(null);
-  const [idFilter, setIdFilter] = useState('');
   const [nameFilter, setNameFilter] = useState('');
   const [destinationScopeFilter, setDestinationScopeFilter] = useState('');
   const [hopsFilter, setHopsFilter] = useState('');
@@ -174,18 +173,17 @@ export default function ChainsPage() {
   const nodes = nodesQuery.data || [];
   const scopes = scopesQuery.data || [];
   const nodeNameById = useMemo(() => new Map(nodes.map((node) => [node.id, node.name])), [nodes]);
-  const nodeLabelFor = (nodeId: string) => nodeNameById.get(nodeId) || nodeId;
+  const nodeLabelFor = (nodeId: string) => nodeNameById.get(nodeId) || t('common.unknown');
   const scopeNameById = useMemo(() => new Map(scopes.map((scope) => [scope.id, scope.name])), [scopes]);
-  const scopeLabelFor = (scopeId: string) => scopeNameById.get(scopeId) || scopeId;
+  const scopeLabelFor = (scopeId: string) => scopeNameById.get(scopeId) || t('common.unknown');
   const filteredChains = useMemo(() => {
     return chains.filter((chain) =>
-      (!idFilter.trim() || chain.id.toLowerCase().includes(idFilter.trim().toLowerCase())) &&
       (!nameFilter.trim() || chain.name.toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
       (!destinationScopeFilter.trim() || scopeLabelFor(chain.destinationScope).toLowerCase().includes(destinationScopeFilter.trim().toLowerCase())) &&
       (!hopsFilter.trim() || chain.hops.map(nodeLabelFor).join(' ').toLowerCase().includes(hopsFilter.trim().toLowerCase())) &&
       (!statusFilter || (statusFilter === 'enabled' ? chain.enabled : !chain.enabled))
     );
-  }, [chains, destinationScopeFilter, hopsFilter, idFilter, nameFilter, nodeNameById, scopeNameById, statusFilter]);
+  }, [chains, destinationScopeFilter, hopsFilter, nameFilter, nodeNameById, scopeNameById, statusFilter]);
 
   return (
     <AuthGate>
@@ -198,9 +196,6 @@ export default function ChainsPage() {
         title={t('shell.chainStudio')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <ConsoleFilterItem label={t('common.id')} match={t('common.contains')}>
-            <input className="field-input" onChange={(event) => setIdFilter(event.target.value)} placeholder={t('common.id')} value={idFilter} />
-          </ConsoleFilterItem>
           <ConsoleFilterItem label={t('common.name')} match={t('common.contains')}>
             <input className="field-input" onChange={(event) => setNameFilter(event.target.value)} placeholder={t('common.name')} value={nameFilter} />
           </ConsoleFilterItem>
@@ -238,7 +233,6 @@ export default function ChainsPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>{t('common.id')}</th>
                     <th>{t('common.name')}</th>
                     <th>{chainsT('hops')}</th>
                     <th>{chainsT('destinationScope')}</th>
@@ -249,7 +243,6 @@ export default function ChainsPage() {
                 <tbody>
                   {filteredChains.map((chain) => (
                     <tr key={chain.id}>
-                      <td className="mono">{chain.id}</td>
                       <td>
                         <NameTag kind="chain">{chain.name}</NameTag>
                       </td>
@@ -294,7 +287,7 @@ export default function ChainsPage() {
                   {result.resolvedHops.length > 0 && (
                     <span className="mono">{result.resolvedHops.map((hop) => `${hop.nodeName}:${hop.transportType}`).join(' → ')}</span>
                   )}
-                  {result.blockingNodeId && <span className="muted-text">{chainsT('blockingNode')}: {result.blockingNodeId}</span>}
+                  {result.blockingNodeId && <span className="muted-text">{chainsT('blockingNode')}: {nodeLabelFor(result.blockingNodeId)}</span>}
                 </div>
               ))}
             </div>

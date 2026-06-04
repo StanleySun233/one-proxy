@@ -26,6 +26,7 @@ export type {
   Scope,
 } from './proxy';
 export type { Group, GroupDetail } from './groups';
+export type {Tenant, TenantCreatedResult, TenantMembershipAccount} from './tenants';
 export type {
   APIResponse,
   AccountRole,

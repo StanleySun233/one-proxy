@@ -163,7 +163,7 @@ export function BootstrapTokenTab({
         <select className="field-select" {...form.register('scopeKey', {required: t('nodes.bootstrap.scopeKeyRequired')})}>
           <option value="">{t('nodes.bootstrap.scopeKeyPlaceholder')}</option>
           {scopes.map((scope) => (
-            <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
+            <option key={scope.id} value={scope.id}>{scope.name}</option>
           ))}
         </select>
       </div>
@@ -172,7 +172,7 @@ export function BootstrapTokenTab({
         <select className="field-input" {...form.register('parentNodeId')}>
           <option value="">{t('nodes.bootstrap.noParent')}</option>
           {nodes.map((node) => (
-            <option key={node.id} value={node.id}>{node.id} - {node.name}</option>
+            <option key={node.id} value={node.id}>{node.name}</option>
           ))}
         </select>
       </div>

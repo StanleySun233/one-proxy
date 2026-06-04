@@ -12,7 +12,7 @@ import {ConsoleFilterBar, ConsoleFilterItem} from '@/components/console-template
 import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {PageHero} from '@/components/page-hero';
-import {fetchEnums, getNodeHealth, getNodeHealthHistory, getNodes} from '@/lib/api';
+import {fetchEnums, getNodeHealth, getNodeHealthHistory, getNodes, getScopes} from '@/lib/api';
 import {FieldEnumMap} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
@@ -28,7 +28,6 @@ export default function HeartbeatPage() {
   const activeTenantId = session?.activeTenantId || null;
 
   const [nameFilter, setNameFilter] = useState('');
-  const [idFilter, setIdFilter] = useState('');
   const [modeFilter, setModeFilter] = useState('');
   const [scopeFilter, setScopeFilter] = useState('');
   const [policyFilter, setPolicyFilter] = useState('');
@@ -50,11 +49,18 @@ export default function HeartbeatPage() {
     refetchInterval: 5000
   });
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const scopesQuery = useQuery({
+    queryKey: ['proxy-scopes', accessToken, activeTenantId],
+    queryFn: () => getScopes(accessToken, activeTenantId),
+    enabled: !!accessToken
+  });
 
   const nodes = nodesQuery.data || [];
   const health = healthQuery.data || [];
+  const scopes = scopesQuery.data || [];
 
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const scopeNameByID = useMemo(() => new Map(scopes.map((scope) => [scope.id, scope.name])), [scopes]);
 
   const healthRows = useMemo(() => buildHealthRows(nodes, health, enums), [health, nodes, enums]);
 
@@ -84,15 +90,15 @@ export default function HeartbeatPage() {
       if (parentFilter !== 'all' && item.parentNodeId !== parentFilter) {
         return false;
       }
+      const scopeName = scopeNameByID.get(item.scopeKey) || '';
       return (!nameFilter.trim() || item.name.toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
-        (!idFilter.trim() || item.nodeId.toLowerCase().includes(idFilter.trim().toLowerCase())) &&
         (!modeFilter.trim() || item.mode.toLowerCase().includes(modeFilter.trim().toLowerCase())) &&
-        (!scopeFilter.trim() || item.scopeKey.toLowerCase().includes(scopeFilter.trim().toLowerCase())) &&
+        (!scopeFilter.trim() || scopeName.toLowerCase().includes(scopeFilter.trim().toLowerCase())) &&
         (!policyFilter.trim() || item.policyRevisionId.toLowerCase().includes(policyFilter.trim().toLowerCase())) &&
         (!listenerFilter.trim() || item.listenerSummary.toLowerCase().includes(listenerFilter.trim().toLowerCase())) &&
         (!certificateFilter.trim() || item.certSummary.toLowerCase().includes(certificateFilter.trim().toLowerCase()));
     });
-  }, [certificateFilter, healthFilter, healthRows, idFilter, listenerFilter, modeFilter, nameFilter, parentFilter, policyFilter, scopeFilter]);
+  }, [certificateFilter, healthFilter, healthRows, listenerFilter, modeFilter, nameFilter, parentFilter, policyFilter, scopeFilter, scopeNameByID]);
 
   const handleToggleExpand = useCallback((nodeId: string) => {
     setExpandedNodeId((prev) => (prev === nodeId ? null : nodeId));
@@ -147,9 +153,6 @@ export default function HeartbeatPage() {
                     value={nameFilter}
                   />
                 </ConsoleFilterItem>
-                <ConsoleFilterItem label={common('id')} match={common('contains')}>
-                  <input className="field-input" onChange={(event) => setIdFilter(event.target.value)} placeholder={common('id')} value={idFilter} />
-                </ConsoleFilterItem>
                 <ConsoleFilterItem label={healthT('derivedState')} match={common('equals')}>
                   <select className="field-select" onChange={(event) => setHealthFilter(event.target.value)} value={healthFilter}>
                     <option value="all">{healthT('allStates')}</option>
@@ -200,6 +203,7 @@ export default function HeartbeatPage() {
                           accessToken={accessToken}
                           activeTenantId={activeTenantId}
                           enums={enums}
+                          scopeName={scopeNameByID.get(item.scopeKey) || ''}
                           onToggle={() => handleToggleExpand(item.nodeId)}
                         />
                       ))}
@@ -221,6 +225,7 @@ function ExpandableRow({
   accessToken,
   activeTenantId,
   enums,
+  scopeName,
   onToggle
 }: {
   item: HealthRow;
@@ -228,6 +233,7 @@ function ExpandableRow({
   accessToken: string;
   activeTenantId: string | null;
   enums: FieldEnumMap | undefined;
+  scopeName: string;
   onToggle: () => void;
 }) {
   const common = useTranslations('common');
@@ -256,7 +262,7 @@ function ExpandableRow({
         <td>
           <div className="registry-name-cell">
             <NameTag kind="node">{item.name}</NameTag>
-            <span className="muted-text">{item.scopeKey || item.nodeId}</span>
+            {scopeName ? <span className="muted-text">{scopeName}</span> : null}
           </div>
         </td>
         <td>

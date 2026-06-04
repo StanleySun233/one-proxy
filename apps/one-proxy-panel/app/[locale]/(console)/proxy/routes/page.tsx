@@ -155,7 +155,7 @@ export default function RoutesPage() {
         return true;
       }
       const keyword = matchFilter.trim().toLowerCase();
-      return [rule.id, rule.matchType, rule.matchValue]
+      return [rule.matchType, rule.matchValue]
         .some((value) => String(value || '').toLowerCase().includes(keyword));
     });
   }, [actionFilter, chainFilter, matchFilter, routeRules, scopeFilter, statusFilter]);
@@ -263,6 +263,7 @@ export default function RoutesPage() {
             routeRules={filteredRouteRules}
             routeRulesQuery={routeRulesQuery}
             routesT={routesT}
+            scopes={scopes}
             t={t}
           />
         </ConsoleList>

@@ -156,7 +156,7 @@ export function NodeTopologyPageContent() {
                                 className="danger-button"
                                 disabled={nodeConsole.deleteNodeLink.isPending}
                                 onClick={() => {
-                                  if (window.confirm(nodesT('deleteLinkConfirm', {id: link.id}))) {
+                                  if (window.confirm(nodesT('deleteLinkConfirm'))) {
                                     nodeConsole.deleteNodeLink.mutate(link.id);
                                   }
                                 }}
@@ -205,7 +205,7 @@ export function NodeTopologyPageContent() {
                 <tbody>
                   {filteredTransports.map((transport) => (
                     <tr key={transport.id}>
-                      <td>{describeNodeName(transport.nodeId, nodesByID) || transport.nodeId}</td>
+                      <td>{describeNodeName(transport.nodeId, nodesByID) || t('common.unknown')}</td>
                       <td className="mono">{transport.transportType}</td>
                       <td>{transport.direction}</td>
                       <td>

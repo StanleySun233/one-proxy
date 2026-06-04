@@ -19,6 +19,7 @@ export {
 export { getChains, createChain, updateChain, probeChain, validateChain, previewChain, getNodeLinks, createNodeLink, updateNodeLink, deleteNodeLink, getNodeAccessPaths, createNodeAccessPath, updateNodeAccessPath, deleteNodeAccessPath, getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule, getScopes, createScope, updateScope, deleteScope } from './proxy';
 export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAccounts, setGroupScopes } from './groups';
 export { getAccounts, createAccount, updateAccount, deleteAccount } from './accounts';
+export { getTenants, createTenant, updateTenant, deleteTenant, getTenantMembers, upsertTenantMember, deleteTenantMember } from './tenants';
 export { getPolicyRevisions, publishPolicy } from './policies';
 export { getSetupStatus, testSetupConnection, generateSetupKey, submitSetupInit } from './setup';
 export { fetchEnums } from './enums';

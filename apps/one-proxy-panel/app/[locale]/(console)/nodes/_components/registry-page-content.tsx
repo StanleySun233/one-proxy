@@ -22,7 +22,6 @@ export function NodeRegistryPageContent() {
   const scopes = nodeConsole.scopesQuery.data || [];
   const healthRows = nodeConsole.healthQuery.data || [];
   const [nameFilter, setNameFilter] = useState('');
-  const [idFilter, setIdFilter] = useState('');
   const [scopeFilter, setScopeFilter] = useState('');
   const [parentFilter, setParentFilter] = useState('');
   const [publicEndpointFilter, setPublicEndpointFilter] = useState('');
@@ -46,6 +45,7 @@ export function NodeRegistryPageContent() {
   });
   const healthByNodeID = useMemo(() => new Map(healthRows.map((item) => [item.nodeId, item])), [healthRows]);
   const nodesByID = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const scopeNameByID = useMemo(() => new Map(scopes.map((scope) => [scope.id, scope.name])), [scopes]);
   const nodeRows: RegistryNodeRow[] = useMemo(
     () =>
       nodes.map((node) => {
@@ -63,14 +63,15 @@ export function NodeRegistryPageContent() {
   );
   const filteredNodes = nodeRows.filter((node) => {
     const matchesName = !nameFilter.trim() || node.name.toLowerCase().includes(nameFilter.trim().toLowerCase());
-    const matchesId = !idFilter.trim() || node.id.toLowerCase().includes(idFilter.trim().toLowerCase());
-    const matchesScope = !scopeFilter.trim() || node.scopeKey.toLowerCase().includes(scopeFilter.trim().toLowerCase());
-    const matchesParent = !parentFilter.trim() || node.parentNodeId.toLowerCase().includes(parentFilter.trim().toLowerCase());
+    const scopeName = scopeNameByID.get(node.scopeKey) || '';
+    const parentName = nodesByID.get(node.parentNodeId)?.name || '';
+    const matchesScope = !scopeFilter.trim() || scopeName.toLowerCase().includes(scopeFilter.trim().toLowerCase());
+    const matchesParent = !parentFilter.trim() || parentName.toLowerCase().includes(parentFilter.trim().toLowerCase());
     const matchesPublicEndpoint = !publicEndpointFilter.trim() || `${node.publicHost || ''}:${node.publicPort || ''}`.toLowerCase().includes(publicEndpointFilter.trim().toLowerCase());
     const matchesStatus = statusFilter === 'all' || node.derivedHealthStatus === statusFilter;
     const matchesMode = modeFilter === 'all' || node.mode === modeFilter;
 
-    return matchesName && matchesId && matchesScope && matchesParent && matchesPublicEndpoint && matchesStatus && matchesMode;
+    return matchesName && matchesScope && matchesParent && matchesPublicEndpoint && matchesStatus && matchesMode;
   });
   const availableModes = Array.from(new Set(nodes.map((node) => node.mode))).sort();
   const editingNode = nodes.find((node) => node.id === editingNodeID) || null;
@@ -98,7 +99,7 @@ export function NodeRegistryPageContent() {
   }, [editingNodeID, nodes]);
 
   const deleteNode = (node: RegistryNodeRow) => {
-    if (!window.confirm(nodesT('deleteNodeConfirm', {name: node.name, id: node.id}))) {
+    if (!window.confirm(nodesT('deleteNodeConfirm', {name: node.name}))) {
       return;
     }
     if (editingNodeID === node.id) {
@@ -143,9 +144,6 @@ export function NodeRegistryPageContent() {
               type="search"
               value={nameFilter}
             />
-          </ConsoleFilterItem>
-          <ConsoleFilterItem label={t('common.id')} match={t('common.contains')}>
-            <input className="field-input" onChange={(event) => setIdFilter(event.target.value)} placeholder={t('common.id')} value={idFilter} />
           </ConsoleFilterItem>
           <ConsoleFilterItem label={t('common.scope')} match={t('common.contains')}>
             <input className="field-input" onChange={(event) => setScopeFilter(event.target.value)} placeholder={t('common.scope')} value={scopeFilter} />
@@ -195,6 +193,7 @@ export function NodeRegistryPageContent() {
             onRetryHealth={() => void nodeConsole.healthQuery.refetch()}
             onRetryNodes={() => void nodeConsole.nodesQuery.refetch()}
             onToggleEdit={(nodeID) => setEditingNodeID(editingNodeID === nodeID ? '' : nodeID)}
+            scopes={scopes}
             t={t}
           />
         </ConsoleList>
@@ -202,7 +201,7 @@ export function NodeRegistryPageContent() {
         <ConsoleCrudModal
           onClose={() => setEditingNodeID('')}
           open={Boolean(editingNode)}
-          subtitle={editingNode?.id}
+          subtitle={editingNode?.name}
           title={nodesT('editNode')}
         >
           {editingNode ? (

@@ -40,7 +40,7 @@ export function CreateNodeLinkForm({
         <select className="field-select" onChange={(e) => setSourceNodeId(e.target.value)} value={sourceNodeId}>
           <option value="">{nodesT('selectSource')}</option>
           {nodes.map((n) => (
-            <option key={n.id} value={n.id}>{n.id} - {n.name} ({n.mode})</option>
+            <option key={n.id} value={n.id}>{n.name} ({n.mode})</option>
           ))}
         </select>
       </label>
@@ -49,7 +49,7 @@ export function CreateNodeLinkForm({
         <select className="field-select" onChange={(e) => setTargetNodeId(e.target.value)} value={targetNodeId}>
           <option value="">{nodesT('selectTarget')}</option>
           {nodes.map((n) => (
-            <option key={n.id} value={n.id}>{n.id} - {n.name} ({n.mode})</option>
+            <option key={n.id} value={n.id}>{n.name} ({n.mode})</option>
           ))}
         </select>
       </label>

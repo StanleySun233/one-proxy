@@ -2,7 +2,7 @@
 
 import {AsyncState} from '@/components/async-state';
 import {NameTag} from '@/components/common/name-tag';
-import {FieldEnumMap, Node} from '@/lib/types';
+import {FieldEnumMap, Node, Scope} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 import {describeNodeName, healthBadgeClassName, statusBadgeClassName} from './node-utils';
@@ -13,6 +13,7 @@ type RegistryNodeTableProps = {
   nodeRows: RegistryNodeRow[];
   filteredNodes: RegistryNodeRow[];
   nodesByID: Map<string, Node>;
+  scopes: Scope[];
   enums: FieldEnumMap | undefined;
   editingNodeID: string;
   nodesPending: boolean;
@@ -33,6 +34,7 @@ export function RegistryNodeTable({
   nodeRows,
   filteredNodes,
   nodesByID,
+  scopes,
   enums,
   editingNodeID,
   nodesPending,
@@ -47,6 +49,8 @@ export function RegistryNodeTable({
   onRetryNodes,
   onRetryHealth
 }: RegistryNodeTableProps) {
+  const scopeById = new Map(scopes.map((scope) => [scope.id, scope]));
+
   return (
     <>
       {nodesPending || healthPending ? (
@@ -82,7 +86,6 @@ export function RegistryNodeTable({
                 <th>{t('common.policy')}</th>
                 <th>{nodesT('publicEndpoint')}</th>
                 <th>{t('common.parent')}</th>
-                <th>{t('common.id')}</th>
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
@@ -97,6 +100,7 @@ export function RegistryNodeTable({
                   nodesByID={nodesByID}
                   nodesT={nodesT}
                   onDelete={onDelete}
+                  scopeName={node.scopeKey ? scopeById.get(node.scopeKey)?.name || t('common.unknown') : ''}
                   onToggleEdit={onToggleEdit}
                   t={t}
                 />
@@ -117,6 +121,7 @@ function RegistryNodeTableRow({
   deletePending,
   t,
   nodesT,
+  scopeName,
   onToggleEdit,
   onDelete
 }: {
@@ -127,6 +132,7 @@ function RegistryNodeTableRow({
   deletePending: boolean;
   t: (key: string) => string;
   nodesT: (key: string, values?: Record<string, string | number>) => string;
+  scopeName: string;
   onToggleEdit: (nodeID: string) => void;
   onDelete: (node: RegistryNodeRow) => void;
 }) {
@@ -147,12 +153,11 @@ function RegistryNodeTableRow({
         </div>
       </td>
       <td>{node.mode}</td>
-      <td>{node.scopeKey ? <NameTag kind="scope">{node.scopeKey}</NameTag> : <span className="muted-text">{t('common.noScope')}</span>}</td>
+      <td>{scopeName ? <NameTag kind="scope">{scopeName}</NameTag> : <span className="muted-text">{t('common.noScope')}</span>}</td>
       <td className="mono">{node.heartbeatAt ? formatISODateTime(node.heartbeatAt) : <span className="muted-text">{t('common.never')}</span>}</td>
       <td>{node.policyRevisionId || <span className="muted-text">{t('common.unassigned')}</span>}</td>
       <td>{node.publicHost ? `${node.publicHost}:${node.publicPort}` : <span className="muted-text">{nodesT('noPublicEndpoint')}</span>}</td>
       <td>{describeNodeName(node.parentNodeId, nodesByID) || <span className="muted-text">{t('common.root')}</span>}</td>
-      <td className="mono registry-id-cell">{node.id}</td>
       <td>
         <div className="registry-actions">
           <button className="secondary-button" onClick={() => onToggleEdit(node.id)} type="button">

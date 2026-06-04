@@ -13,7 +13,7 @@ import {Link} from '@/i18n/navigation';
 import {getNodes, getOverview, getPendingNodes} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
-export default function OverviewPage() {
+export default function OverviewDashboardPage() {
   const t = useTranslations();
   const {session} = useAuth();
   const accessToken = session?.accessToken || '';

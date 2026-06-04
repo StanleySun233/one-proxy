@@ -57,6 +57,8 @@ export function RouteRuleForm({
   onOpenRegexTester,
   validateMatchValue
 }: RouteRuleFormProps) {
+  const scopeNameById = new Map(scopes.map((scope) => [scope.id, scope.name]));
+
   return (
     <div className="sub-grid">
       <div className="inline-cluster" style={{gap: 8}}>
@@ -156,7 +158,7 @@ export function RouteRuleForm({
           {selectedChain && actionType === 'chain' ? (
             <div className="field-hint">
               <span className="muted-text">
-                {routesT('destinationScope')}: <strong>{selectedChain.destinationScope}</strong>
+                {routesT('destinationScope')}: <strong>{scopeNameById.get(selectedChain.destinationScope) || t('common.unknown')}</strong>
               </span>
             </div>
           ) : null}
@@ -173,7 +175,7 @@ export function RouteRuleForm({
           >
             <option value="">{routesT('destinationScopePlaceholder')}</option>
             {scopes.map((scope) => (
-              <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
+              <option key={scope.id} value={scope.id}>{scope.name}</option>
             ))}
           </select>
           {form.formState.errors.destinationScope ? <p className="error-text">{form.formState.errors.destinationScope.message}</p> : null}

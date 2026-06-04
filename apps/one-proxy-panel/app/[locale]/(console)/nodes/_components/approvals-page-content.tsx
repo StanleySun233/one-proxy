@@ -23,6 +23,8 @@ export function NodeApprovalsPageContent() {
   const [statusFilter, setStatusFilter] = useState('');
   const pendingNodes = nodeConsole.pendingNodesQuery.data || [];
   const unconsumedTokens = nodeConsole.unconsumedTokensQuery.data || [];
+  const scopes = nodeConsole.scopesQuery.data || [];
+  const scopeNameById = useMemo(() => new Map(scopes.map((scope) => [scope.id, scope.name])), [scopes]);
   const allItems: Array<{kind: 'pending'; data: Node} | {kind: 'unconsumed'; data: UnconsumedBootstrapToken}> = [
     ...pendingNodes.map((node) => ({kind: 'pending' as const, data: node})),
     ...unconsumedTokens.map((token) => ({kind: 'unconsumed' as const, data: token}))
@@ -32,18 +34,20 @@ export function NodeApprovalsPageContent() {
     return allItems.filter((item) => {
       if (item.kind === 'pending') {
         const node = item.data;
+        const scopeName = scopeNameById.get(node.scopeKey) || '';
         return (!nameFilter.trim() || String(node.name || '').toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
           (!typeFilter.trim() || node.mode.toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
-          (!targetFilter.trim() || node.id.toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
+          (!targetFilter.trim() || scopeName.toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
           (!statusFilter.trim() || node.status.toLowerCase().includes(statusFilter.trim().toLowerCase()));
       }
       const token = item.data;
+      const scopeName = scopeNameById.get(token.scopeKey) || '';
       return (!nameFilter.trim() || String(token.nodeName || '').toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
         (!typeFilter.trim() || nodesT('unconnected').toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
-        (!targetFilter.trim() || String(token.targetId || '').toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
+        (!targetFilter.trim() || scopeName.toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
         (!statusFilter.trim() || t('common.unused').toLowerCase().includes(statusFilter.trim().toLowerCase()));
     });
-  }, [allItems, nameFilter, nodesT, statusFilter, t, targetFilter, typeFilter]);
+  }, [allItems, nameFilter, nodesT, scopeNameById, statusFilter, t, targetFilter, typeFilter]);
 
   return (
     <AuthGate>
@@ -94,11 +98,12 @@ export function NodeApprovalsPageContent() {
                   {filteredItems.map((item) => {
                     if (item.kind === 'pending') {
                       const node = item.data;
+                      const scopeName = scopeNameById.get(node.scopeKey) || '';
                       return (
                         <tr key={node.id}>
                           <td>{node.name ? <NameTag kind="node">{node.name}</NameTag> : <span className="muted-text">{t('common.notSpecified')}</span>}</td>
                           <td>{node.mode}</td>
-                          <td className="mono">{node.id.substring(0, 12)}</td>
+                          <td>{scopeName ? <NameTag kind="scope">{scopeName}</NameTag> : <span className="muted-text">{t('common.unknown')}</span>}</td>
                           <td>
                             <span className={statusBadgeClassName(node.status)}>{node.status}</span>
                           </td>
@@ -117,7 +122,7 @@ export function NodeApprovalsPageContent() {
                                 className="danger-button"
                                 disabled={nodeConsole.deleteNode.isPending}
                                 onClick={() => {
-                                  if (!window.confirm(nodesT('deletePendingConfirm', {name: node.name || node.id}))) {
+                                  if (!window.confirm(nodesT('deletePendingConfirm', {name: node.name || t('common.unknown')}))) {
                                     return;
                                   }
                                   nodeConsole.deleteNode.mutate(node.id);
@@ -130,7 +135,7 @@ export function NodeApprovalsPageContent() {
                                 className="danger-button"
                                 disabled={nodeConsole.rejectNode.isPending}
                                 onClick={() => {
-                                  if (!window.confirm(nodesT('rejectEnrollmentConfirm', {name: node.name || node.id}))) {
+                                  if (!window.confirm(nodesT('rejectEnrollmentConfirm', {name: node.name || t('common.unknown')}))) {
                                     return;
                                   }
                                   nodeConsole.rejectNode.mutate({nodeId: node.id});
@@ -145,11 +150,12 @@ export function NodeApprovalsPageContent() {
                       );
                     }
                     const token = item.data;
+                    const scopeName = scopeNameById.get(token.scopeKey) || '';
                     return (
                       <tr key={token.id}>
                         <td>{token.nodeName || <span className="muted-text">{t('common.notSpecified')}</span>}</td>
                         <td><span className="badge is-neutral">{nodesT('unconnected')}</span></td>
-                        <td className="mono">{token.targetId || <span className="muted-text">{t('common.newNode')}</span>}</td>
+                        <td>{scopeName ? <NameTag kind="scope">{scopeName}</NameTag> : <span className="muted-text">{t('common.newNode')}</span>}</td>
                         <td>
                           <span className="badge is-neutral">{t('common.unused')}</span>
                         </td>
@@ -163,7 +169,7 @@ export function NodeApprovalsPageContent() {
                             className="danger-button"
                             disabled={nodeConsole.deleteBootstrapToken.isPending}
                             onClick={() => {
-                              if (!window.confirm(nodesT('deleteBootstrapTokenConfirm', {name: token.nodeName || token.id}))) {
+                              if (!window.confirm(nodesT('deleteBootstrapTokenConfirm', {name: token.nodeName || t('common.unknown')}))) {
                                 return;
                               }
                               nodeConsole.deleteBootstrapToken.mutate(token.id);

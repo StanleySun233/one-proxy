@@ -6,7 +6,7 @@ export function describeNodeName(nodeID: string, nodesByID: Map<string, Node>) {
   if (!nodeID) {
     return '';
   }
-  return nodesByID.get(nodeID)?.name || nodeID;
+  return nodesByID.get(nodeID)?.name || '';
 }
 
 export function deriveNodeHealthState(item?: NodeHealth, enums?: FieldEnumMap) {

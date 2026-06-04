@@ -30,7 +30,7 @@ export type FieldEnumMap = Record<string, Record<string, FieldEnumEntry>>;
 
 export type NodeMode = 'edge' | 'relay';
 export type NodeStatus = 'healthy' | 'degraded' | 'pending' | 'inactive';
-export type AccountRole = 'super_admin';
+export type AccountRole = 'super_admin' | 'operator';
 export type AccountStatus = 'active' | 'disabled';
 export type PathMode = 'direct' | 'relay_chain' | 'upstream_pull';
 export type AccessProtocol = 'http' | 'tcp' | 'tls' | 'ssh' | 'rdp' | 'socks5' | 'ss5' | 'udp';

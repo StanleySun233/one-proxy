@@ -5,6 +5,7 @@ import {useEffect, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
 
+import {ConsoleCrudModal} from '@/components/console-template';
 import {
   createGroup,
   getAccounts,
@@ -147,95 +148,96 @@ export default function GroupDialog({open, onClose, onSaved, accessToken, active
   const accounts = accountsQuery.data || [];
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div className="dialog-panel" onClick={(e) => e.stopPropagation()} style={{maxWidth: 560, maxHeight: '90vh', overflowY: 'auto'}}>
-        <h3>{isEdit ? `Edit group: ${group!.name}` : t('shell.groupCreate')}</h3>
-        <div className="sub-grid">
-          <div className="field-stack">
-            <span>{t('shell.groupName')}</span>
+    <ConsoleCrudModal
+      footer={(
+        <>
+          <button className="secondary-button" onClick={onClose} type="button">
+            {t('common.cancel')}
+          </button>
+          <button className="primary-button" disabled={isPending} onClick={handleSave} type="button">
+            {isPending ? t('common.submitting') : isEdit ? t('common.save') : t('shell.groupCreate')}
+          </button>
+        </>
+      )}
+      onClose={onClose}
+      open={open}
+      title={isEdit ? t('shell.groupEdit') : t('shell.groupCreate')}
+    >
+      <div className="sub-grid">
+        <div className="field-stack">
+          <span>{t('shell.groupName')}</span>
+          <input
+            className="field-input"
+            placeholder={t('shell.groupNamePlaceholder')}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="field-stack">
+          <span>{t('shell.groupDescription')}</span>
+          <textarea
+            className="field-textarea"
+            placeholder={t('shell.groupDescriptionPlaceholder')}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <div className="field-stack">
+          <label className="inline-cluster" style={{justifyContent: 'flex-start'}}>
             <input
-              className="field-input"
-              placeholder={t('shell.groupNamePlaceholder')}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
             />
-          </div>
-          <div className="field-stack">
-            <span>{t('shell.groupDescription')}</span>
-            <textarea
-              className="field-textarea"
-              placeholder={t('shell.groupDescriptionPlaceholder')}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-          <div className="field-stack">
-            <label className="inline-cluster" style={{justifyContent: 'flex-start'}}>
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-              />
-              <span>{t('shell.groupEnabled')}</span>
-            </label>
-          </div>
+            <span>{t('shell.groupEnabled')}</span>
+          </label>
+        </div>
 
-          <div className="field-stack">
-            <span>{t('shell.groupAccounts')}</span>
-            {accountsQuery.isPending ? (
-              <p className="muted-text">{t('common.loading')}</p>
-            ) : accounts.length === 0 ? (
-              <p className="muted-text">{t('common.empty')}</p>
-            ) : (
-              <div className="check-list">
-                {accounts.map((account) => (
-                  <label className="inline-cluster" key={account.id} style={{justifyContent: 'flex-start'}}>
-                    <input
-                      type="checkbox"
-                      checked={selectedAccounts.includes(account.id)}
-                      onChange={() => toggleAccount(account.id)}
-                    />
-                    <span>{account.account}</span>
-                    <span className="badge is-neutral">{account.role}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
+        <div className="field-stack">
+          <span>{t('shell.groupAccounts')}</span>
+          {accountsQuery.isPending ? (
+            <p className="muted-text">{t('common.loading')}</p>
+          ) : accounts.length === 0 ? (
+            <p className="muted-text">{t('common.empty')}</p>
+          ) : (
+            <div className="check-list">
+              {accounts.map((account) => (
+                <label className="inline-cluster" key={account.id} style={{justifyContent: 'flex-start'}}>
+                  <input
+                    type="checkbox"
+                    checked={selectedAccounts.includes(account.id)}
+                    onChange={() => toggleAccount(account.id)}
+                  />
+                  <span>{account.account}</span>
+                  <span className="badge is-neutral">{account.role}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
-          <div className="field-stack">
-            <span>{t('shell.groupScopes')}</span>
-            {scopesQuery.isPending ? (
-              <p className="muted-text">{t('common.loading')}</p>
-            ) : scopes.length === 0 ? (
-              <p className="muted-text">{t('common.empty')}</p>
-            ) : (
-              <div className="check-list">
-                {scopes.map((scope) => (
-                  <label className="inline-cluster" key={scope.id} style={{justifyContent: 'flex-start'}}>
-                    <input
-                      type="checkbox"
-                      checked={selectedScopes.includes(scope.id)}
-                      onChange={() => toggleScope(scope.id)}
-                    />
-                    <span>{scope.name}</span>
-                    <span className="badge is-neutral">{scope.id}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="submit-row">
-            <button className="secondary-button" onClick={onClose} type="button">
-              {t('common.cancel')}
-            </button>
-            <button className="primary-button" disabled={isPending} onClick={handleSave} type="button">
-              {isPending ? t('common.submitting') : isEdit ? t('common.save') : t('shell.groupCreate')}
-            </button>
-          </div>
+        <div className="field-stack">
+          <span>{t('shell.groupScopes')}</span>
+          {scopesQuery.isPending ? (
+            <p className="muted-text">{t('common.loading')}</p>
+          ) : scopes.length === 0 ? (
+            <p className="muted-text">{t('common.empty')}</p>
+          ) : (
+            <div className="check-list">
+              {scopes.map((scope) => (
+                <label className="inline-cluster" key={scope.id} style={{justifyContent: 'flex-start'}}>
+                  <input
+                    type="checkbox"
+                    checked={selectedScopes.includes(scope.id)}
+                    onChange={() => toggleScope(scope.id)}
+                  />
+                  <span>{scope.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </ConsoleCrudModal>
   );
 }

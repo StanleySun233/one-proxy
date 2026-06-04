@@ -5,6 +5,7 @@ import {useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
 
+import {ConsoleCrudModal} from '@/components/console-template';
 import {fetchEnums, updateAccount} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
@@ -22,6 +23,7 @@ export default function EditAccountDialog({open, onClose, account, onSaved, acce
   const [role, setRole] = useState(account.role);
   const [status, setStatus] = useState(account.status);
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
+  const accountRoleOptions = enums?.account_role ? Object.entries(enums.account_role).map(([value, item]) => ({value, label: item.name})) : [];
   const accountStatusOptions = enums?.account_status ? Object.entries(enums.account_status).map(([value, item]) => ({value, label: item.name})) : [];
 
   const updateMutation = useMutation({
@@ -48,44 +50,47 @@ export default function EditAccountDialog({open, onClose, account, onSaved, acce
   if (!open) return null;
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div className="dialog-panel" onClick={(e) => e.stopPropagation()}>
-        <h3>{t('accounts.editTitle', {name: account.account})}</h3>
-        <div className="sub-grid">
-          <div className="field-stack">
-            <span>{t('accounts.fieldPassword')}</span>
-            <input
-              className="field-input"
-              type="password"
-              placeholder={t('accounts.placeholderPasswordKeep')}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div className="field-stack">
-            <span>{t('accounts.fieldRole')}</span>
-            <input
-              className="field-input"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-            />
-          </div>
-          <div className="field-stack">
-            <span>{t('accounts.fieldStatus')}</span>
-            <select className="field-input" value={status} onChange={(e) => setStatus(e.target.value)}>
-              {accountStatusOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="submit-row">
-            <button className="secondary-button" onClick={onClose} type="button">{t('common.cancel')}</button>
-            <button className="primary-button" disabled={updateMutation.isPending} onClick={handleSave} type="button">
-              {updateMutation.isPending ? t('common.saving') : t('common.save')}
-            </button>
-          </div>
+    <ConsoleCrudModal
+      footer={(
+        <>
+          <button className="secondary-button" onClick={onClose} type="button">{t('common.cancel')}</button>
+          <button className="primary-button" disabled={updateMutation.isPending} onClick={handleSave} type="button">
+            {updateMutation.isPending ? t('common.saving') : t('common.save')}
+          </button>
+        </>
+      )}
+      onClose={onClose}
+      open={open}
+      title={t('accounts.editTitle', {name: account.account})}
+    >
+      <div className="sub-grid">
+        <div className="field-stack">
+          <span>{t('accounts.fieldPassword')}</span>
+          <input
+            className="field-input"
+            type="password"
+            placeholder={t('accounts.placeholderPasswordKeep')}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+        <div className="field-stack">
+          <span>{t('accounts.fieldRole')}</span>
+          <select className="field-select" value={role} onChange={(e) => setRole(e.target.value)}>
+            {accountRoleOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field-stack">
+          <span>{t('accounts.fieldStatus')}</span>
+          <select className="field-select" value={status} onChange={(e) => setStatus(e.target.value)}>
+            {accountStatusOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
       </div>
-    </div>
+    </ConsoleCrudModal>
   );
 }

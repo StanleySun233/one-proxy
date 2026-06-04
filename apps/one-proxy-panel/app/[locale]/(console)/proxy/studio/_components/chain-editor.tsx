@@ -76,7 +76,7 @@ export function ChainEditor({
       return {
         id: `hop-${index}`,
         nodeId,
-        nodeName: node?.name || `${t('common.name')} ${nodeId}`,
+        nodeName: node?.name || t('common.unknown'),
         nodeMode: node?.mode || 'unknown'
       };
     });
@@ -172,7 +172,7 @@ export function ChainEditor({
           <select className="field-select" onChange={(e) => onScopeChange(e.target.value)} value={destinationScope}>
             <option value="">{chainsT('destinationScopePlaceholder')}</option>
             {scopes.map((scope) => (
-              <option key={scope.id} value={scope.id}>{scope.name} ({scope.id})</option>
+              <option key={scope.id} value={scope.id}>{scope.name}</option>
             ))}
           </select>
         </label>
@@ -208,7 +208,7 @@ export function ChainEditor({
                 <option value="">{chainsT('selectNode')}</option>
                 {availableNodes.map((node) => (
                   <option key={node.id} value={node.id}>
-                    {node.id} - {node.name} ({node.mode})
+                    {node.name} ({node.mode})
                   </option>
                 ))}
               </select>
@@ -271,7 +271,6 @@ function SortableHopCard({item, index, onRemove}: {item: HopItem; index: number;
           <NameTag kind="node">{item.nodeName}</NameTag>
           <span className="badge is-neutral">{item.nodeMode}</span>
         </div>
-        <span className="muted-text mono">ID: {item.nodeId}</span>
       </div>
       <button className="hop-card-remove" onClick={onRemove} type="button">
         <X size={16} />

@@ -5,6 +5,7 @@ import {
   ChevronRight,
   GitBranch,
   Languages,
+  LayoutDashboard,
   ShieldCheck,
   Shirt,
   Users,
@@ -47,17 +48,25 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const pendingCount = (pendingQuery.data || []).length;
   const navSections = [
     {
+      key: 'overview',
+      label: t('nav.overview'),
+      href: '/overview/dashboard',
+      icon: LayoutDashboard,
+      items: [
+        {label: t('shell.overviewDashboard'), href: '/overview/dashboard'}
+      ]
+    },
+    {
       key: 'proxy',
       label: t('nav.proxy'),
-      href: '/proxy/overview',
+      href: '/proxy/scopes',
       icon: GitBranch,
       items: [
-        {label: t('nav.overview'), href: '/proxy/overview'},
+        {label: t('shell.scopeBoard'), href: '/proxy/scopes'},
         {label: t('shell.nodeTopology'), href: '/proxy/topology'},
         {label: t('shell.chainStudio'), href: '/proxy/studio'},
         {label: t('shell.routeBoard'), href: '/proxy/routes'},
-        {label: t('shell.accessPaths'), href: '/proxy/network'},
-        {label: t('shell.scopeBoard'), href: '/proxy/scopes'}
+        {label: t('shell.accessPaths'), href: '/proxy/network'}
       ]
     },
     {
@@ -84,11 +93,11 @@ export function ConsoleShell({children}: {children: ReactNode}) {
     {
       key: 'accounts',
       label: t('nav.accounts'),
-      href: '/accounts/create',
+      href: '/accounts/list',
       icon: Users,
       items: [
-        {label: t('shell.accountCreate'), href: '/accounts/create'},
         {label: t('shell.accountList'), href: '/accounts/list'},
+        {label: t('shell.tenantList'), href: '/accounts/tenants'},
         {label: t('shell.groupList'), href: '/accounts/groups'}
       ]
     }

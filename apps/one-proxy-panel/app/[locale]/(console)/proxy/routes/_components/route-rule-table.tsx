@@ -4,12 +4,13 @@ import {UseQueryResult} from '@tanstack/react-query';
 
 import {AsyncState} from '@/components/async-state';
 import {NameTag} from '@/components/common/name-tag';
-import {Chain, RouteRule} from '@/lib/types';
+import {Chain, RouteRule, Scope} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 type RouteRuleTableProps = {
   routeRules: RouteRule[];
   chains: Chain[];
+  scopes: Scope[];
   routeRulesQuery: UseQueryResult<RouteRule[], Error>;
   deletePending: boolean;
   t: (key: string) => string;
@@ -18,7 +19,9 @@ type RouteRuleTableProps = {
   onDelete?: (ruleId: string) => void;
 };
 
-export function RouteRuleTable({routeRules, chains, routeRulesQuery, deletePending, t, routesT, onEdit, onDelete}: RouteRuleTableProps) {
+export function RouteRuleTable({routeRules, chains, scopes, routeRulesQuery, deletePending, t, routesT, onEdit, onDelete}: RouteRuleTableProps) {
+  const scopeById = new Map(scopes.map((scope) => [scope.id, scope]));
+
   return (
     <>
       {routeRulesQuery.isPending ? (
@@ -49,7 +52,8 @@ export function RouteRuleTable({routeRules, chains, routeRulesQuery, deletePendi
             <tbody>
               {routeRules.map((rule) => {
                 const chain = chains.find((c) => c.id === rule.chainId);
-                const chainName = chain?.name || rule.chainId;
+                const chainName = chain?.name || '';
+                const scopeName = rule.destinationScope ? scopeById.get(rule.destinationScope)?.name || t('common.unknown') : '';
                 return (
                   <tr key={rule.id}>
                     <td>{rule.priority}</td>
@@ -59,7 +63,7 @@ export function RouteRuleTable({routeRules, chains, routeRulesQuery, deletePendi
                     </td>
                     <td>{rule.actionType}</td>
                     <td>{chainName ? <NameTag kind="chain">{chainName}</NameTag> : '-'}</td>
-                    <td>{rule.destinationScope ? <NameTag kind="scope">{rule.destinationScope}</NameTag> : '-'}</td>
+                    <td>{scopeName ? <NameTag kind="scope">{scopeName}</NameTag> : '-'}</td>
                     <td>
                       <span className={rule.enabled ? 'badge is-good' : 'badge'}>
                         {rule.enabled ? t('common.enabled') : t('common.disabled')}

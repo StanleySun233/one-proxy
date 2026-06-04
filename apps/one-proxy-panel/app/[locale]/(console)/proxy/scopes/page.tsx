@@ -35,7 +35,6 @@ export default function ScopesPage() {
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
   const [editingScope, setEditingScope] = useState<Scope | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [idFilter, setIdFilter] = useState('');
   const [nameFilter, setNameFilter] = useState('');
   const [descriptionFilter, setDescriptionFilter] = useState('');
   const [formState, setFormState] = useState<ScopeFormState>(emptyForm);
@@ -123,11 +122,10 @@ export default function ScopesPage() {
   const scopes = scopesQuery.data || [];
   const filteredScopes = useMemo(() => {
     return scopes.filter((scope) =>
-      (!idFilter.trim() || scope.id.toLowerCase().includes(idFilter.trim().toLowerCase())) &&
       (!nameFilter.trim() || scope.name.toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
       (!descriptionFilter.trim() || String(scope.description || '').toLowerCase().includes(descriptionFilter.trim().toLowerCase()))
     );
-  }, [descriptionFilter, idFilter, nameFilter, scopes]);
+  }, [descriptionFilter, nameFilter, scopes]);
   const saving = createScopeMutation.isPending || updateScopeMutation.isPending;
   const modalOpen = createOpen || Boolean(editingScope);
 
@@ -142,14 +140,6 @@ export default function ScopesPage() {
         title={t('shell.scopeBoard')}
       >
         <ConsoleFilterBar title={t('common.filter')}>
-          <ConsoleFilterItem label={t('common.id')} match={t('common.contains')}>
-            <input
-              className="field-input"
-              onChange={(event) => setIdFilter(event.target.value)}
-              placeholder={t('common.id')}
-              value={idFilter}
-            />
-          </ConsoleFilterItem>
           <ConsoleFilterItem label={t('common.name')} match={t('common.contains')}>
             <input className="field-input" onChange={(event) => setNameFilter(event.target.value)} placeholder={t('common.name')} value={nameFilter} />
           </ConsoleFilterItem>
@@ -177,7 +167,6 @@ export default function ScopesPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>{t('common.id')}</th>
                     <th>{t('common.name')}</th>
                     <th>{scopesT('description')}</th>
                     <th>{scopesT('updatedAt')}</th>
@@ -187,7 +176,6 @@ export default function ScopesPage() {
                 <tbody>
                   {filteredScopes.map((scope) => (
                     <tr key={scope.id}>
-                      <td className="mono">{scope.id}</td>
                       <td><NameTag kind="scope">{scope.name}</NameTag></td>
                       <td>{scope.description || <span className="muted-text">-</span>}</td>
                       <td className="mono">{scope.updatedAt}</td>

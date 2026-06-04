@@ -146,6 +146,7 @@ export function AccessPathPanel({
 
   const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const chainById = useMemo(() => new Map(chains.map((chain) => [chain.id, chain])), [chains]);
+  const nodeNameFor = (nodeId: string) => nodeById.get(nodeId)?.name || t('common.unknown');
 
   const createMutation = useMutation({
     mutationFn: (payload: NodeAccessPathPayload) => createNodeAccessPath(accessToken, activeTenantId, payload),
@@ -298,7 +299,7 @@ export function AccessPathPanel({
                 {filteredPaths.map((path) => (
                   <tr key={path.id}>
                     <td><NameTag kind="node">{path.name}</NameTag></td>
-                    <td>{chainById.get(path.chainId)?.name || path.chainId}</td>
+                    <td>{chainById.get(path.chainId)?.name || t('common.unknown')}</td>
                     <td className="mono">{path.protocol} / {path.serviceType}</td>
                     <td className="mono">{path.targetHost}:{path.targetPort}</td>
                     <td className="mono">{path.listenHost || '*'}:{path.listenPort}</td>
@@ -336,7 +337,7 @@ export function AccessPathPanel({
         footer={(
           <>
             <span className="muted-text">
-              {selectedChain ? `${accessPathsT('chainPath')}: ${selectedChain.hops.map((hop) => nodeById.get(hop)?.name || hop).join(' -> ')}` : accessPathsT('selectChain')}
+              {selectedChain ? `${accessPathsT('chainPath')}: ${selectedChain.hops.map(nodeNameFor).join(' -> ')}` : accessPathsT('selectChain')}
             </span>
             <button className="secondary-button" onClick={handleCancelEdit} type="button">
               {t('common.cancel')}
