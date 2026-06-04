@@ -34,3 +34,57 @@ func TestProxyAwareHandlerBypassesServeMuxRedirectForConnect(t *testing.T) {
 		t.Fatalf("status = %d", resp.Code)
 	}
 }
+
+func TestNodeRouteSplitHandlerProxiesAbsoluteRootURL(t *testing.T) {
+	consoleCalled := false
+	proxyCalled := false
+	consoleWeb := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		consoleCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+	proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		proxyCalled = true
+		w.WriteHeader(http.StatusNoContent)
+	})
+	req := httptest.NewRequest(http.MethodGet, "http://172.20.116.91:2333/", nil)
+	resp := httptest.NewRecorder()
+
+	nodeRouteSplitHandler(consoleWeb, proxyHandler).ServeHTTP(resp, req)
+
+	if consoleCalled {
+		t.Fatal("console handler was called")
+	}
+	if !proxyCalled {
+		t.Fatal("proxy handler was not called")
+	}
+	if resp.Code != http.StatusNoContent {
+		t.Fatalf("status = %d", resp.Code)
+	}
+}
+
+func TestNodeRouteSplitHandlerServesConsoleForLocalRoot(t *testing.T) {
+	consoleCalled := false
+	proxyCalled := false
+	consoleWeb := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		consoleCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+	proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		proxyCalled = true
+		w.WriteHeader(http.StatusNoContent)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	resp := httptest.NewRecorder()
+
+	nodeRouteSplitHandler(consoleWeb, proxyHandler).ServeHTTP(resp, req)
+
+	if !consoleCalled {
+		t.Fatal("console handler was not called")
+	}
+	if proxyCalled {
+		t.Fatal("proxy handler was called")
+	}
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d", resp.Code)
+	}
+}

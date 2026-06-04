@@ -328,6 +328,10 @@ func proxyAwareHandler(proxyHandler http.Handler, mux http.Handler) http.Handler
 
 func nodeRouteSplitHandler(consoleWeb http.Handler, proxyHandler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL != nil && req.URL.IsAbs() {
+			proxyHandler.ServeHTTP(w, req)
+			return
+		}
 		if req.URL.Path == "/" || localconsole.ConsoleRoute(req.URL.Path) || localconsole.StaticAssetRoute(req.URL.Path) {
 			consoleWeb.ServeHTTP(w, req)
 			return
