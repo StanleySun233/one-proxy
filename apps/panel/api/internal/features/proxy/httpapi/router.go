@@ -14,18 +14,24 @@ type StatusService interface {
 	ExtensionPageStatus(domain.TenantAuthContext, domain.ProxyPageStatusQuery) domain.ProxyPageStatus
 }
 
+type AuditService interface {
+	RecordBusinessAuditEvent(domain.CreateBusinessAuditEventInput) (domain.BusinessAuditEvent, error)
+}
+
 type Router struct {
 	mux     *http.ServeMux
 	service *proxyservice.Service
 	status  StatusService
+	audit   AuditService
 	guard   AccountGuard
 }
 
-func Register(mux *http.ServeMux, guard AccountGuard, service *proxyservice.Service, status StatusService) {
+func Register(mux *http.ServeMux, guard AccountGuard, service *proxyservice.Service, status StatusService, audit AuditService) {
 	router := &Router{
 		mux:     mux,
 		service: service,
 		status:  status,
+		audit:   audit,
 		guard:   guard,
 	}
 	router.routes()

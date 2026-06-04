@@ -29,6 +29,21 @@ export type { Group, GroupDetail } from './groups';
 export type {Tenant, TenantCreatedResult, TenantMembershipAccount} from './tenants';
 export type {ResourceBinding, ResourceBindingPayload, ResourceBindingPermission, ResourceBindingType, ResourcePermissionMetadata} from './grants';
 export type {
+  AuditBusinessEventsResult,
+  AuditBusinessSummary,
+  AuditDashboard,
+  AuditDecision,
+  AuditDecisionCount,
+  AuditEvent,
+  AuditGroup,
+  AuditOutcome,
+  AuditQuery,
+  NetworkAuditQuery,
+  NetworkAuditSessionsResult,
+  NetworkAuditSummary,
+  NetworkSession,
+} from './audit';
+export type {
   APIResponse,
   AccountRole,
   AccountStatus,

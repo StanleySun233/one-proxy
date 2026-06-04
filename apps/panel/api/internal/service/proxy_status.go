@@ -72,6 +72,39 @@ func (c *ControlPlane) IngestProxySessions(nodeID string, input domain.ProxySess
 		}
 	}
 	c.proxyStatus.append(items, events)
+	for _, item := range items {
+		decision := domain.NetworkDecisionAllow
+		if item.Status == domain.ProxySessionStatusError {
+			decision = domain.NetworkDecisionDeny
+		}
+		endedAt := item.StartedAt
+		if item.EndedAt != nil {
+			endedAt = *item.EndedAt
+		}
+		if _, err := c.RecordNetworkAuditSession(domain.CreateNetworkAuditSessionInput{
+			ID:          item.ID,
+			TenantID:    item.TenantID,
+			StartedAt:   item.StartedAt,
+			EndedAt:     endedAt,
+			ActorType:   "proxy",
+			EntryNodeID: item.NodeID,
+			ExitNodeID:  item.NodeID,
+			TargetHost:  item.TargetHost,
+			TargetPort:  item.TargetPort,
+			Scheme:      item.Protocol,
+			RouteID:     item.RouteID,
+			ChainID:     item.ChainID,
+			Decision:    decision,
+			DenyReason:  item.ErrorMessage,
+			BytesIn:     item.UploadBytes,
+			BytesOut:    item.DownloadBytes,
+			DurationMs:  item.LatencyMs,
+			ErrorCode:   item.ErrorCode,
+			ReceivedAt:  item.ReceivedAt,
+		}); err != nil {
+			return domain.ProxySessionIngestResult{}, err
+		}
+	}
 	return domain.ProxySessionIngestResult{Status: "ok"}, nil
 }
 

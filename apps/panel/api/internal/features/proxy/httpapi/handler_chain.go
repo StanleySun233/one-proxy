@@ -2,6 +2,7 @@ package proxyhttpapi
 
 import (
 	"encoding/json"
+	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
 	proxy "github.com/StanleySun233/python-proxy/apps/panel/api/internal/features/proxy/domain"
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/httpctx"
 	"net/http"
@@ -33,6 +34,12 @@ func (r *Router) handleChains(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "create_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.chain.create",
+			ResourceType: "chain",
+			ResourceID:   item.ID,
+			ResourceName: item.Name,
+		})
 		writeSuccess(w, http.StatusCreated, item)
 	default:
 		writeMethodNotAllowed(w, "GET, POST")
@@ -73,12 +80,23 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.chain.update",
+			ResourceType: "chain",
+			ResourceID:   item.ID,
+			ResourceName: item.Name,
+		})
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
 		if err := r.service.DeleteChain(tenantCtx, chainID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.chain.delete",
+			ResourceType: "chain",
+			ResourceID:   chainID,
+		})
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
 		writeMethodNotAllowed(w, "GET, PATCH, DELETE")

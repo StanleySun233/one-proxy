@@ -3,5 +3,6 @@
   "nodes": "Nodes",
   "proxy": "Proxy",
   "health": "Health",
+  "audit": "Audit",
   "accounts": "Accounts"
 }

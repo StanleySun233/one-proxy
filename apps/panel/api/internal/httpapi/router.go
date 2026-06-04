@@ -35,6 +35,9 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/auth/login", r.handleLogin)
 	r.mux.HandleFunc("/api/auth/refresh", r.handleRefresh)
 	r.mux.HandleFunc("/api/auth/logout", r.requireAccount(r.handleLogout))
+	r.mux.HandleFunc("/api/audit/business/events", r.requireAccount(r.handleAuditBusinessEvents))
+	r.mux.HandleFunc("/api/audit/network/sessions", r.requireAccount(r.handleAuditNetworkSessions))
+	r.mux.HandleFunc("/api/audit/dashboard", r.requireAccount(r.handleAuditDashboard))
 	r.mux.HandleFunc("/api/audit/proxy/sessions", r.requireAccount(r.handleAuditProxySessions))
 	r.mux.HandleFunc("/api/audit/proxy/events", r.requireAccount(r.handleAuditProxyEvents))
 	r.mux.HandleFunc("/api/proxy/extension/bootstrap", r.requireAccount(r.handleExtensionBootstrap))
@@ -71,5 +74,5 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/node/agent/direct/status", r.requireNode(r.handleDirectStatus))
 	r.mux.HandleFunc("/api/node/agent/proxy/token/validate", r.requireNode(r.handleProxyTokenValidate))
 	r.mux.HandleFunc("/api/node/agent/proxy/sessions", r.requireNode(r.handleNodeAgentProxySessions))
-	proxyhttpapi.Register(r.mux, r.requireAccount, r.service.Proxy(), r.service)
+	proxyhttpapi.Register(r.mux, r.requireAccount, r.service.Proxy(), r.service, r.service)
 }

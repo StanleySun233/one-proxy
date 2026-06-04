@@ -28,6 +28,12 @@ func (r *Router) handleAccessPaths(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "create_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.path.create",
+			ResourceType: "access_path",
+			ResourceID:   item.ID,
+			ResourceName: item.Name,
+		})
 		writeSuccess(w, http.StatusCreated, item)
 	default:
 		writeMethodNotAllowed(w, "GET, POST")
@@ -57,12 +63,23 @@ func (r *Router) handleAccessPathByID(w http.ResponseWriter, req *http.Request) 
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.path.update",
+			ResourceType: "access_path",
+			ResourceID:   item.ID,
+			ResourceName: item.Name,
+		})
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
 		if err := r.service.DeleteAccessPath(tenantCtx, pathID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.path.delete",
+			ResourceType: "access_path",
+			ResourceID:   pathID,
+		})
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
 		writeMethodNotAllowed(w, "PATCH, DELETE")

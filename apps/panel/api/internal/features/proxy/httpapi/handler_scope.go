@@ -2,6 +2,7 @@ package proxyhttpapi
 
 import (
 	"encoding/json"
+	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
 	proxy "github.com/StanleySun233/python-proxy/apps/panel/api/internal/features/proxy/domain"
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/httpctx"
 	"net/http"
@@ -28,6 +29,12 @@ func (r *Router) handleScopes(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "create_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.scope.create",
+			ResourceType: "scope",
+			ResourceID:   item.ID,
+			ResourceName: item.Name,
+		})
 		writeSuccess(w, http.StatusCreated, item)
 	default:
 		w.Header().Set("Allow", "GET, POST")
@@ -58,12 +65,23 @@ func (r *Router) handleScopeByID(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.scope.update",
+			ResourceType: "scope",
+			ResourceID:   item.ID,
+			ResourceName: item.Name,
+		})
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
 		if err := r.service.DeleteScope(tenantCtx, scopeID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.scope.delete",
+			ResourceType: "scope",
+			ResourceID:   scopeID,
+		})
 		writeSuccess(w, http.StatusOK, map[string]string{"status": "deleted"})
 	default:
 		w.Header().Set("Allow", "PATCH, DELETE")

@@ -36,6 +36,12 @@ func (r *Router) handleAccounts(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "create_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "account.create",
+			ResourceType: "account",
+			ResourceID:   item.ID,
+			ResourceName: item.Account,
+		})
 		writeSuccess(w, http.StatusCreated, item)
 	default:
 		writeMethodNotAllowed(w, "GET, POST")
@@ -75,6 +81,12 @@ func (r *Router) handleAccountByID(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "account.update",
+			ResourceType: "account",
+			ResourceID:   item.ID,
+			ResourceName: item.Account,
+		})
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
 		if account.Role != domain.AccountRoleSuperAdmin {
@@ -85,6 +97,11 @@ func (r *Router) handleAccountByID(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "account.delete",
+			ResourceType: "account",
+			ResourceID:   accountID,
+		})
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
 		writeMethodNotAllowed(w, "PATCH, DELETE")

@@ -24,3 +24,4 @@ export { getGrantTenants, getResourceBindings, upsertResourceBinding, deleteReso
 export { getPolicyRevisions, publishPolicy } from './policies';
 export { getSetupStatus, testSetupConnection, generateSetupKey, submitSetupInit } from './setup';
 export { fetchEnums } from './enums';
+export { getAuditBusinessEvents, getAuditDashboard, getAuditNetworkSessions } from './audit';

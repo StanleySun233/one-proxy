@@ -61,12 +61,23 @@ func (r *Router) handleNodeByID(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "node.update",
+			ResourceType: "node",
+			ResourceID:   item.ID,
+			ResourceName: item.Name,
+		})
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
 		if err := r.service.DeleteNode(tenantCtx, nodeID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "node.delete",
+			ResourceType: "node",
+			ResourceID:   nodeID,
+		})
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
 		writeMethodNotAllowed(w, "PATCH, DELETE")
@@ -121,6 +132,12 @@ func (r *Router) handleNodeApprove(w http.ResponseWriter, req *http.Request) {
 		writeServiceError(w, req, err, "approve_failed")
 		return
 	}
+	r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+		Action:       "node.approve",
+		ResourceType: "node",
+		ResourceID:   nodeID,
+		ResourceName: item.Node.Name,
+	})
 	writeSuccess(w, http.StatusOK, item)
 }
 
@@ -144,6 +161,12 @@ func (r *Router) handleNodeBootstrapToken(w http.ResponseWriter, req *http.Reque
 		writeServiceError(w, req, err, "create_failed")
 		return
 	}
+	r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+		Action:       "node.bootstrap.create",
+		ResourceType: "bootstrap_token",
+		ResourceID:   item.ID,
+		ResourceName: item.TargetID,
+	})
 	writeSuccess(w, http.StatusCreated, item)
 }
 
@@ -182,6 +205,11 @@ func (r *Router) handleBootstrapTokenByID(w http.ResponseWriter, req *http.Reque
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "node.bootstrap.delete",
+			ResourceType: "bootstrap_token",
+			ResourceID:   tokenID,
+		})
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
 		writeMethodNotAllowed(w, "DELETE")
@@ -271,5 +299,11 @@ func (r *Router) handleNodeReject(w http.ResponseWriter, req *http.Request) {
 		writeServiceError(w, req, err, "reject_failed")
 		return
 	}
+	r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+		Action:       "node.reject",
+		ResourceType: "node",
+		ResourceID:   nodeID,
+		Reason:       payload.Reason,
+	})
 	writeSuccess(w, http.StatusOK, map[string]any{"status": "rejected"})
 }

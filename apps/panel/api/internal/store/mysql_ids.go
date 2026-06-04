@@ -23,6 +23,8 @@ func (s *MySQLStore) nextID(name string) (string, error) {
 		"node_transport":   "node_transports",
 		"group":            "`groups`",
 		"scope":            "scopes",
+		"audit_event":      "business_audit_events",
+		"audit_session":    "network_audit_sessions",
 	}
 	table, ok := tables[name]
 	if !ok {

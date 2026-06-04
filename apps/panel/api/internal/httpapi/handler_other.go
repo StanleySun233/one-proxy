@@ -127,5 +127,11 @@ func (r *Router) handlePolicyPublish(w http.ResponseWriter, req *http.Request) {
 		writeServiceError(w, req, err, "publish_failed")
 		return
 	}
+	r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+		Action:       "policy.publish",
+		ResourceType: "policy",
+		ResourceID:   item.ID,
+		ResourceName: item.Version,
+	})
 	writeSuccess(w, http.StatusOK, item)
 }

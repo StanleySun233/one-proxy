@@ -23,6 +23,7 @@
   "routeBoard": "Rules",
   "healthOverview": "Health overview",
   "healthHeartbeat": "Heartbeat monitor",
+  "auditConsole": "Audit console",
   "accountCreate": "Create account",
   "accountList": "Account list",
   "tenantList": "Tenants"

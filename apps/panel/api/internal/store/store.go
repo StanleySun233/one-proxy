@@ -156,6 +156,14 @@ type MaintenanceStore interface {
 	CleanupNodeHealthHistory(retention time.Duration) (int64, error)
 }
 
+type AuditStore interface {
+	CreateBusinessAuditEvent(input domain.CreateBusinessAuditEventInput) (domain.BusinessAuditEvent, error)
+	ListBusinessAuditEvents(query domain.BusinessAuditQuery) (domain.BusinessAuditEventsResult, error)
+	CreateNetworkAuditSession(input domain.CreateNetworkAuditSessionInput) (domain.NetworkAuditSession, error)
+	ListNetworkAuditSessions(query domain.NetworkAuditQuery) (domain.NetworkAuditSessionsResult, error)
+	GetAuditDashboard(query domain.AuditDashboardQuery) (domain.AuditDashboard, error)
+}
+
 type Store interface {
 	IsInitialized() bool
 	ReinitializeStore(adminPassword string) error
@@ -175,4 +183,5 @@ type Store interface {
 	ScopeStore
 	PolicyStore
 	MaintenanceStore
+	AuditStore
 }

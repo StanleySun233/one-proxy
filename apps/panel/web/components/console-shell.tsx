@@ -3,6 +3,7 @@
 import {
   Building2,
   ChevronRight,
+  FileSearch,
   GitBranch,
   Languages,
   LayoutDashboard,
@@ -94,6 +95,15 @@ export function ConsoleShell({children}: {children: ReactNode}) {
       items: [
         {label: t('shell.healthOverview'), href: '/health/overview'},
         {label: t('shell.healthHeartbeat'), href: '/health/heartbeat'}
+      ]
+    },
+    {
+      key: 'audit',
+      label: t('nav.audit'),
+      href: '/audit',
+      icon: FileSearch,
+      items: [
+        {label: t('shell.auditConsole'), href: '/audit'}
       ]
     },
     ...(isSuperAdmin || isTenantAdmin ? [{

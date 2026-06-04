@@ -29,6 +29,13 @@ func (r *Router) handleTenants(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "create_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			TenantID:     item.Tenant.ID,
+			Action:       "tenant.create",
+			ResourceType: "tenant",
+			ResourceID:   item.Tenant.ID,
+			ResourceName: item.Tenant.Name,
+		})
 		writeSuccess(w, http.StatusCreated, item)
 	default:
 		writeMethodNotAllowed(w, "GET, POST")
@@ -82,12 +89,25 @@ func (r *Router) handleTenantDetail(w http.ResponseWriter, req *http.Request, ac
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			TenantID:     item.ID,
+			Action:       "tenant.update",
+			ResourceType: "tenant",
+			ResourceID:   item.ID,
+			ResourceName: item.Name,
+		})
 		writeSuccess(w, http.StatusOK, map[string]any{"tenant": item})
 	case http.MethodDelete:
 		if err := r.service.DeleteTenant(account, tenantCtx, tenantID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			TenantID:     tenantID,
+			Action:       "tenant.delete",
+			ResourceType: "tenant",
+			ResourceID:   tenantID,
+		})
 		writeSuccess[any](w, http.StatusOK, nil)
 	default:
 		writeMethodNotAllowed(w, "GET, PATCH, DELETE")
@@ -121,12 +141,25 @@ func (r *Router) handleTenantMemberships(w http.ResponseWriter, req *http.Reques
 			writeServiceError(w, req, err, "membership_upsert_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			TenantID:     tenantID,
+			Action:       "tenant.member.upsert",
+			ResourceType: "tenant_member",
+			ResourceID:   accountID,
+			ResourceName: string(item.Role),
+		})
 		writeSuccess(w, http.StatusOK, map[string]any{"membership": item})
 	case http.MethodDelete:
 		if err := r.service.DeleteTenantMembership(account, tenantCtx, tenantID, accountID); err != nil {
 			writeServiceError(w, req, err, "membership_delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			TenantID:     tenantID,
+			Action:       "tenant.member.delete",
+			ResourceType: "tenant_member",
+			ResourceID:   accountID,
+		})
 		writeSuccess[any](w, http.StatusOK, nil)
 	default:
 		writeMethodNotAllowed(w, "PUT, DELETE")

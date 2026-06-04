@@ -28,6 +28,12 @@ func (r *Router) handleNodeLinks(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "create_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.link.create",
+			ResourceType: "node_link",
+			ResourceID:   item.ID,
+			ResourceName: item.SourceNodeID,
+		})
 		writeSuccess(w, http.StatusCreated, item)
 	default:
 		writeMethodNotAllowed(w, "GET, POST")
@@ -57,12 +63,23 @@ func (r *Router) handleNodeLinkByID(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.link.update",
+			ResourceType: "node_link",
+			ResourceID:   item.ID,
+			ResourceName: item.SourceNodeID,
+		})
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
 		if err := r.service.DeleteNodeLink(tenantCtx, linkID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.link.delete",
+			ResourceType: "node_link",
+			ResourceID:   linkID,
+		})
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
 		writeMethodNotAllowed(w, "PATCH, DELETE")

@@ -2,6 +2,7 @@ package proxyhttpapi
 
 import (
 	"encoding/json"
+	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
 	proxy "github.com/StanleySun233/python-proxy/apps/panel/api/internal/features/proxy/domain"
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/httpctx"
 	"net/http"
@@ -32,6 +33,12 @@ func (r *Router) handleRouteRules(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "create_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.route.create",
+			ResourceType: "route",
+			ResourceID:   item.ID,
+			ResourceName: item.MatchValue,
+		})
 		writeSuccess(w, http.StatusCreated, item)
 	default:
 		writeMethodNotAllowed(w, "GET, POST")
@@ -68,12 +75,23 @@ func (r *Router) handleRouteRuleByID(w http.ResponseWriter, req *http.Request) {
 			writeServiceError(w, req, err, "update_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.route.update",
+			ResourceType: "route",
+			ResourceID:   item.ID,
+			ResourceName: item.MatchValue,
+		})
 		writeSuccess(w, http.StatusOK, item)
 	case http.MethodDelete:
 		if err := r.service.DeleteRouteRule(tenantCtx, ruleID); err != nil {
 			writeServiceError(w, req, err, "delete_failed")
 			return
 		}
+		r.recordBusinessAudit(req, domain.CreateBusinessAuditEventInput{
+			Action:       "proxy.route.delete",
+			ResourceType: "route",
+			ResourceID:   ruleID,
+		})
 		writeSuccess(w, http.StatusOK, map[string]any{"status": "deleted"})
 	default:
 		writeMethodNotAllowed(w, "GET, PATCH, DELETE")
