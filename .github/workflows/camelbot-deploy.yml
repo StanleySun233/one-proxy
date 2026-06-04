@@ -1,12 +1,6 @@
 name: camelbot-deploy
 
 on:
-  workflow_run:
-    workflows:
-      - one-proxy-panel-image
-      - one-proxy-node-image
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -18,7 +12,6 @@ permissions:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Check deployment secrets
