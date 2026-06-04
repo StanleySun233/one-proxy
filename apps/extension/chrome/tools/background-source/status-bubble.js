@@ -90,12 +90,17 @@ function entryNodeId(route) {
   return first.id;
 }
 
-function requestNodePathHealth(group, route) {
+function oneProxyTokenHeaders(state) {
+  const token = state.session && state.session.proxyToken ? String(state.session.proxyToken) : '';
+  return token ? { 'X-One-Proxy-Token': token } : {};
+}
+
+function requestNodePathHealth(state, group, route) {
   const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
   return fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...oneProxyTokenHeaders(state) },
     body: JSON.stringify({
       protocol: route.protocol,
       remainingHopNodeIds,
@@ -114,7 +119,7 @@ function requestNodePathHealth(group, route) {
     }));
 }
 
-function measurePathHealth(group, route) {
+function measurePathHealth(state, group, route) {
   const key = pathHealthKey(group, route);
   const cached = pathHealthCache.get(key);
   const now = Date.now();
@@ -123,7 +128,7 @@ function measurePathHealth(group, route) {
   }
   return Promise.all([
     measureEntryLatency(group),
-    requestNodePathHealth(group, route)
+    requestNodePathHealth(state, group, route)
   ]).then(([entryLatencyMs, nodeTimings]) => {
     const result = {
       sampleTsMs: Date.now(),
@@ -232,7 +237,7 @@ export function getStatusBubblePageStatus(message, sender) {
       }
       return Promise.all([
         requestRemoteStatus(state, route, routeInfo),
-        measurePathHealth(group, route)
+        measurePathHealth(state, group, route)
       ]).then(([remoteStatus, pathHealth]) => {
         if (!remoteStatus) {
           throw new Error('status_bubble_page_status_required');

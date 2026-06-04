@@ -68,23 +68,22 @@ func writeMethodNotAllowed(w http.ResponseWriter, method string) {
 	writeError(w, http.StatusMethodNotAllowed, "method_not_allowed")
 }
 
-func bearerToken(req *http.Request) string {
-	header := strings.TrimSpace(req.Header.Get("Authorization"))
-	if header == "" {
-		return ""
-	}
-	parts := strings.SplitN(header, " ", 2)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return ""
-	}
-	return strings.TrimSpace(parts[1])
+const (
+	accessTokenHeader  = "X-One-Proxy-Access-Token"
+	refreshTokenHeader = "X-One-Proxy-Refresh-Token"
+	nodeTokenHeader    = "X-One-Proxy-Node-Token"
+	tenantIDHeader     = "X-One-Proxy-Tenant-ID"
+)
+
+func oneProxyToken(req *http.Request, header string) string {
+	return strings.TrimSpace(req.Header.Get(header))
 }
 
 func (r *Router) requireAccount(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		token := bearerToken(req)
+		token := oneProxyToken(req, accessTokenHeader)
 		if token == "" {
-			writeError(w, http.StatusUnauthorized, "missing_bearer_token")
+			writeError(w, http.StatusUnauthorized, "missing_access_token")
 			return
 		}
 		account, ok := r.service.AuthenticateAccessToken(token)
@@ -104,7 +103,7 @@ func (r *Router) requireAccount(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if requiresTenantContext(req) {
-			tenantID := strings.TrimSpace(req.Header.Get("X-Tenant-ID"))
+			tenantID := oneProxyToken(req, tenantIDHeader)
 			tenantCtx, err := r.service.ResolveTenantAuthContext(account, tenantID, allowsSuperAdminTenantBypass(req))
 			if err != nil {
 				writeServiceError(w, req, err, "tenant_context_failed")
@@ -144,9 +143,9 @@ func tenantAuthContextFromContext(ctx context.Context) (domain.TenantAuthContext
 
 func (r *Router) requireNode(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		token := bearerToken(req)
+		token := oneProxyToken(req, nodeTokenHeader)
 		if token == "" {
-			writeError(w, http.StatusUnauthorized, "missing_bearer_token")
+			writeError(w, http.StatusUnauthorized, "missing_node_token")
 			return
 		}
 		nodeID, ok := r.service.AuthenticateNodeToken(token)

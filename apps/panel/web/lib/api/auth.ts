@@ -38,6 +38,7 @@ export function login(account: string, password: string) {
 export function refreshSession(refreshToken: string) {
   return request<AuthResultResponse>('/auth/refresh', {
     method: 'POST',
+    headers: {'X-One-Proxy-Refresh-Token': refreshToken},
     body: {refreshToken}
   }).then(normalizeAuthResult);
 }

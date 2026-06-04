@@ -39,7 +39,7 @@ func (c *Controller) connect(current runtime.Binding) error {
 		return err
 	}
 	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+current.NodeAccessToken)
+	headers.Set("X-One-Proxy-Node-Token", current.NodeAccessToken)
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, headers)
 	if err != nil {
 		return err

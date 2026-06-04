@@ -47,7 +47,7 @@ function runProxyProbes(state, targetUrl, route) {
   }
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
   const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
-  return Promise.all(probeProtocols().map((protocol) => runNodeProbe(endpoint, {
+  return Promise.all(probeProtocols().map((protocol) => runNodeProbe(state, endpoint, {
     protocol,
     remainingHopNodeIds,
     targetHost: parsed.host,
@@ -59,13 +59,18 @@ function probeProtocols() {
   return ['http', 'https', 'ws', 'tcp', 'udp'];
 }
 
-function runNodeProbe(endpoint, payload) {
+function oneProxyTokenHeaders(state) {
+  const token = state.session && state.session.proxyToken ? String(state.session.proxyToken) : '';
+  return token ? { 'X-One-Proxy-Token': token } : {};
+}
+
+function runNodeProbe(state, endpoint, payload) {
   const startedAt = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   return fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...oneProxyTokenHeaders(state) },
     body: JSON.stringify(payload),
     signal: controller.signal
   })

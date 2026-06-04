@@ -2,11 +2,11 @@ import { appendLog } from './diagnostics.js';
 import { DEFAULT_STATE, getState, mergeState, persistState } from './state.js';
 
 function authHeaders(token) {
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token ? { 'X-One-Proxy-Access-Token': token } : {};
 }
 
 function tenantHeaders(state) {
-  return state.session && state.session.activeTenantId ? { 'X-Tenant-ID': state.session.activeTenantId } : {};
+  return state.session && state.session.activeTenantId ? { 'X-One-Proxy-Tenant-ID': state.session.activeTenantId } : {};
 }
 
 function readJSON(response) {

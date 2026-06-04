@@ -3,6 +3,7 @@ package tunnel
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/controlplane"
@@ -28,9 +29,9 @@ func NewServer(manager *runtime.Manager, registry *Registry) http.Handler {
 			http.Error(w, "invalid_parent_node", http.StatusForbidden)
 			return
 		}
-		token := bearerToken(req)
+		token := strings.TrimSpace(req.Header.Get("X-One-Proxy-Node-Token"))
 		if token == "" {
-			http.Error(w, "missing_bearer_token", http.StatusUnauthorized)
+			http.Error(w, "missing_node_token", http.StatusUnauthorized)
 			return
 		}
 		validator := controlplane.New(current.ControlPlaneURL, token)
@@ -89,13 +90,4 @@ func NewServer(manager *runtime.Manager, registry *Registry) http.Handler {
 			}
 		}
 	})
-}
-
-func bearerToken(req *http.Request) string {
-	header := req.Header.Get("Authorization")
-	const prefix = "Bearer "
-	if len(header) <= len(prefix) || header[:len(prefix)] != prefix {
-		return ""
-	}
-	return header[len(prefix):]
 }

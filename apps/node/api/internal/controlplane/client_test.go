@@ -16,8 +16,8 @@ func TestReportProxySessionsPostsNodeAgentMetrics(t *testing.T) {
 		if req.URL.Path != "/api/node/agent/proxy/sessions" {
 			t.Fatalf("path = %q", req.URL.Path)
 		}
-		if req.Header.Get("Authorization") != "Bearer node-token" {
-			t.Fatalf("authorization = %q", req.Header.Get("Authorization"))
+		if req.Header.Get("X-One-Proxy-Node-Token") != "node-token" {
+			t.Fatalf("node token = %q", req.Header.Get("X-One-Proxy-Node-Token"))
 		}
 		if err := json.NewDecoder(req.Body).Decode(&received); err != nil {
 			t.Fatal(err)
@@ -50,8 +50,8 @@ func TestValidateNodeAuthUsesNodeAgentEndpoint(t *testing.T) {
 		if req.URL.Path != "/api/node/agent/auth/validate" {
 			t.Fatalf("path = %q", req.URL.Path)
 		}
-		if req.Header.Get("Authorization") != "Bearer child-token" {
-			t.Fatalf("authorization = %q", req.Header.Get("Authorization"))
+		if req.Header.Get("X-One-Proxy-Node-Token") != "child-token" {
+			t.Fatalf("node token = %q", req.Header.Get("X-One-Proxy-Node-Token"))
 		}
 		_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"nodeId":"child-node"}}`))
 	}))

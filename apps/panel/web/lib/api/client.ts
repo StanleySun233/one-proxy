@@ -32,6 +32,7 @@ type RequestOptions = {
   tenantId?: string | null;
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
+  headers?: Record<string, string>;
 };
 
 function notifyUnauthorized() {
@@ -64,11 +65,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const headers = new Headers();
   const tenantId = options.tenantId !== undefined ? options.tenantId : options.accessToken ? getStoredActiveTenantId() : null;
 
+  for (const [key, value] of Object.entries(options.headers || {})) {
+    headers.set(key, value);
+  }
   if (options.accessToken) {
-    headers.set('Authorization', `Bearer ${options.accessToken}`);
+    headers.set('X-One-Proxy-Access-Token', options.accessToken);
   }
   if (tenantId) {
-    headers.set('X-Tenant-ID', tenantId);
+    headers.set('X-One-Proxy-Tenant-ID', tenantId);
   }
   if (options.body !== undefined) {
     headers.set('Content-Type', 'application/json');

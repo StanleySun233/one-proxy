@@ -561,11 +561,11 @@ function applyProxy(state) {
 }
 
 function authHeaders(token) {
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token ? { 'X-One-Proxy-Access-Token': token } : {};
 }
 
 function tenantHeaders(state) {
-  return state.session && state.session.activeTenantId ? { 'X-Tenant-ID': state.session.activeTenantId } : {};
+  return state.session && state.session.activeTenantId ? { 'X-One-Proxy-Tenant-ID': state.session.activeTenantId } : {};
 }
 
 function readJSON(response) {
@@ -849,7 +849,7 @@ function runProxyProbes(state, targetUrl, route) {
   }
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
   const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
-  return Promise.all(probeProtocols().map((protocol) => runNodeProbe(endpoint, {
+  return Promise.all(probeProtocols().map((protocol) => runNodeProbe(state, endpoint, {
     protocol,
     remainingHopNodeIds,
     targetHost: parsed.host,
@@ -861,13 +861,18 @@ function probeProtocols() {
   return ['http', 'https', 'ws', 'tcp', 'udp'];
 }
 
-function runNodeProbe(endpoint, payload) {
+function oneProxyTokenHeaders(state) {
+  const token = state.session && state.session.proxyToken ? String(state.session.proxyToken) : '';
+  return token ? { 'X-One-Proxy-Token': token } : {};
+}
+
+function runNodeProbe(state, endpoint, payload) {
   const startedAt = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   return fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...oneProxyTokenHeaders(state) },
     body: JSON.stringify(payload),
     signal: controller.signal
   })
@@ -1111,12 +1116,17 @@ function entryNodeId(route) {
   return first.id;
 }
 
-function requestNodePathHealth(group, route) {
+function oneProxyTokenHeaders(state) {
+  const token = state.session && state.session.proxyToken ? String(state.session.proxyToken) : '';
+  return token ? { 'X-One-Proxy-Token': token } : {};
+}
+
+function requestNodePathHealth(state, group, route) {
   const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
   return fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...oneProxyTokenHeaders(state) },
     body: JSON.stringify({
       protocol: route.protocol,
       remainingHopNodeIds,
@@ -1135,7 +1145,7 @@ function requestNodePathHealth(group, route) {
     }));
 }
 
-function measurePathHealth(group, route) {
+function measurePathHealth(state, group, route) {
   const key = pathHealthKey(group, route);
   const cached = pathHealthCache.get(key);
   const now = Date.now();
@@ -1144,7 +1154,7 @@ function measurePathHealth(group, route) {
   }
   return Promise.all([
     measureEntryLatency(group),
-    requestNodePathHealth(group, route)
+    requestNodePathHealth(state, group, route)
   ]).then(([entryLatencyMs, nodeTimings]) => {
     const result = {
       sampleTsMs: Date.now(),
@@ -1253,7 +1263,7 @@ function getStatusBubblePageStatus(message, sender) {
       }
       return Promise.all([
         requestRemoteStatus(state, route, routeInfo),
-        measurePathHealth(group, route)
+        measurePathHealth(state, group, route)
       ]).then(([remoteStatus, pathHealth]) => {
         if (!remoteStatus) {
           throw new Error('status_bubble_page_status_required');

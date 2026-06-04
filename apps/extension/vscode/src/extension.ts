@@ -126,8 +126,8 @@ async function selectTenant(session: LoginResponse): Promise<string> {
 async function extensionBootstrap(panelUrl: string, accessToken: string, tenantId: string): Promise<BootstrapResponse> {
   const response = await fetch(`${panelUrl}/api/proxy/extension/bootstrap`, {
     headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'X-Tenant-ID': tenantId
+      'X-One-Proxy-Access-Token': accessToken,
+      'X-One-Proxy-Tenant-ID': tenantId
     }
   });
   const payload = await response.json() as { data?: BootstrapResponse; message?: string };

@@ -81,9 +81,7 @@ func reverseRawQuery(url *url.URL) string {
 }
 
 func removeReverseAuthCredentials(req *http.Request) {
-	if bearerToken(req.Header.Get("Authorization")) != "" {
-		req.Header.Del("Authorization")
-	}
+	req.Header.Del(reverseHeaderName)
 	cookies := req.Cookies()
 	if len(cookies) == 0 {
 		return

@@ -40,7 +40,7 @@ func TestReverseTargetForwardsOriginFormHTTP(t *testing.T) {
 	}
 }
 
-func TestReverseTargetRequiresAuthorizationToken(t *testing.T) {
+func TestReverseTargetRequiresOneProxyTokenHeader(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	}))
@@ -60,10 +60,10 @@ func TestReverseTargetRequiresAuthorizationToken(t *testing.T) {
 	if resp.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d", resp.Code)
 	}
-	if resp.Header().Get("WWW-Authenticate") == "" {
+	if resp.Header().Get("X-One-Proxy-Authenticate") == "" {
 		t.Fatal("missing challenge")
 	}
-	req.Header.Set("Authorization", "Bearer reverse-token")
+	req.Header.Set(reverseHeaderName, "reverse-token")
 	resp = httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK {
@@ -79,11 +79,20 @@ func TestReverseQueryTokenSetsCookieAndStripsCredentials(t *testing.T) {
 		if req.URL.Query().Get(reverseQueryTokenKey) != "" {
 			t.Fatal("proxy token leaked in query")
 		}
-		if req.Header.Get("Authorization") != "" {
-			t.Fatal("authorization leaked")
+		if req.Header.Get(reverseHeaderName) != "" {
+			t.Fatal("one-proxy header leaked")
+		}
+		if req.Header.Get("Authorization") != "Bearer business-token" {
+			t.Fatalf("authorization = %q", req.Header.Get("Authorization"))
 		}
 		if _, err := req.Cookie(reverseCookieName); err == nil {
 			t.Fatal("proxy cookie leaked")
+		}
+		if req.URL.Query().Get("one_proxy_token") != "business-query" {
+			t.Fatalf("business query = %q", req.URL.Query().Get("one_proxy_token"))
+		}
+		if cookie, err := req.Cookie("one_proxy_token"); err != nil || cookie.Value != "business-cookie" {
+			t.Fatalf("business cookie = %v err=%v", cookie, err)
 		}
 		_, _ = w.Write([]byte("ok"))
 	}))
@@ -95,10 +104,12 @@ func TestReverseQueryTokenSetsCookieAndStripsCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "http://proxy.local/api?proxy_token=query-token&x=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://proxy.local/api?one_proxy_auth=query-token&one_proxy_token=business-query&x=1", nil)
 	req.URL.Scheme = ""
 	req.URL.Host = ""
+	req.Header.Set("Authorization", "Bearer business-token")
 	req.AddCookie(&http.Cookie{Name: reverseCookieName, Value: "cookie-token"})
+	req.AddCookie(&http.Cookie{Name: "one_proxy_token", Value: "business-cookie"})
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK {

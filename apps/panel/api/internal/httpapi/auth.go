@@ -58,7 +58,7 @@ func (r *Router) handleRefresh(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	refreshToken := bearerToken(req)
+	refreshToken := oneProxyToken(req, refreshTokenHeader)
 	if refreshToken == "" {
 		var payload struct {
 			RefreshToken string `json:"refreshToken"`
@@ -85,7 +85,7 @@ func (r *Router) handleLogout(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	accessToken := bearerToken(req)
+	accessToken := oneProxyToken(req, accessTokenHeader)
 	if !r.service.Logout(accessToken) {
 		writeError(w, http.StatusUnauthorized, "invalid_access_token")
 		return

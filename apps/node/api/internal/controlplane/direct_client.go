@@ -17,7 +17,7 @@ func (c *Client) ReportDirectCandidates(input domain.ReportDirectCandidatesInput
 	if err != nil {
 		return domain.ReportDirectCandidatesResult{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	req.Header.Set("Content-Type", "application/json")
 	var envelope responseEnvelope[domain.ReportDirectCandidatesResult]
 	if err := c.do(req, &envelope); err != nil {
@@ -31,7 +31,7 @@ func (c *Client) FetchDirectLinkPlan() (domain.DirectLinkPlan, error) {
 	if err != nil {
 		return domain.DirectLinkPlan{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	var envelope responseEnvelope[domain.DirectLinkPlan]
 	if err := c.do(req, &envelope); err != nil {
 		return domain.DirectLinkPlan{}, err
@@ -48,7 +48,7 @@ func (c *Client) ReportDirectStatus(input domain.ReportDirectStatusInput) (domai
 	if err != nil {
 		return domain.ReportDirectStatusResult{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	req.Header.Set("Content-Type", "application/json")
 	var envelope responseEnvelope[domain.ReportDirectStatusResult]
 	if err := c.do(req, &envelope); err != nil {

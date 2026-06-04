@@ -128,8 +128,8 @@ func extensionBootstrap(panelURL string, accessToken string, tenantID string) (b
 	if err != nil {
 		return bootstrapResponse{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("X-Tenant-ID", tenantID)
+	req.Header.Set("X-One-Proxy-Access-Token", accessToken)
+	req.Header.Set("X-One-Proxy-Tenant-ID", tenantID)
 	return decodeAPIResponse[bootstrapResponse](req)
 }
 

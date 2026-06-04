@@ -432,9 +432,9 @@ func manageAccessAllowed(client *http.Client, controlPlaneURL string, nodeID str
 	if err != nil {
 		return false
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("X-One-Proxy-Access-Token", accessToken)
 	if tenantID != "" {
-		req.Header.Set("X-Tenant-ID", tenantID)
+		req.Header.Set("X-One-Proxy-Tenant-ID", tenantID)
 	}
 	resp, err := client.Do(req)
 	if err != nil {

@@ -13,8 +13,9 @@ import (
 
 const (
 	defaultTokenCacheTTL = 24 * time.Hour
-	reverseQueryTokenKey = "proxy_token"
-	reverseCookieName    = "one_proxy_token"
+	reverseHeaderName    = "X-One-Proxy-Token"
+	reverseQueryTokenKey = "one_proxy_auth"
+	reverseCookieName    = "one_proxy_auth"
 )
 
 type TokenValidator interface {
@@ -99,7 +100,7 @@ func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) bool
 		return true
 	}
 	if token == "" || !s.validateToken(req.Context(), token) {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="one-proxy"`)
+		w.Header().Set("X-One-Proxy-Authenticate", "required")
 		http.Error(w, "reverse_auth_required", http.StatusUnauthorized)
 		return false
 	}
@@ -163,7 +164,7 @@ const (
 )
 
 func reverseToken(req *http.Request) (string, reverseTokenSource) {
-	if token := bearerToken(req.Header.Get("Authorization")); token != "" {
+	if token := strings.TrimSpace(req.Header.Get(reverseHeaderName)); token != "" {
 		return token, reverseTokenSourceHeader
 	}
 	if req.URL != nil {

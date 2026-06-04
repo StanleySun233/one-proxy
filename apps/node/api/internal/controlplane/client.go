@@ -71,7 +71,7 @@ func (c *Client) FetchPolicy() (domain.NodeAgentPolicy, error) {
 	if err != nil {
 		return domain.NodeAgentPolicy{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	var envelope responseEnvelope[domain.NodeAgentPolicy]
 	if err := c.do(req, &envelope); err != nil {
 		return domain.NodeAgentPolicy{}, err
@@ -84,7 +84,7 @@ func (c *Client) ValidateNodeAuth() (NodeAuthValidation, error) {
 	if err != nil {
 		return NodeAuthValidation{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	var envelope responseEnvelope[NodeAuthValidation]
 	if err := c.do(req, &envelope); err != nil {
 		return NodeAuthValidation{}, err
@@ -105,7 +105,7 @@ func (c *Client) SendHeartbeat(revision string, listenerStatus map[string]string
 	if err != nil {
 		return domain.NodeHealth{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	req.Header.Set("Content-Type", "application/json")
 	var envelope responseEnvelope[domain.NodeHealth]
 	if err := c.do(req, &envelope); err != nil {
@@ -125,7 +125,7 @@ func (c *Client) RenewCertificate(certType string) (domain.NodeCertRenewResult, 
 	if err != nil {
 		return domain.NodeCertRenewResult{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	req.Header.Set("Content-Type", "application/json")
 	var envelope responseEnvelope[domain.NodeCertRenewResult]
 	if err := c.do(req, &envelope); err != nil {
@@ -143,7 +143,7 @@ func (c *Client) UpsertTransport(input domain.UpsertNodeTransportInput) (domain.
 	if err != nil {
 		return domain.NodeTransport{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	req.Header.Set("Content-Type", "application/json")
 	var envelope responseEnvelope[domain.NodeTransport]
 	if err := c.do(req, &envelope); err != nil {
@@ -161,7 +161,7 @@ func (c *Client) ValidateProxyToken(ctx context.Context, tokenHash string) (Prox
 	if err != nil {
 		return ProxyTokenValidation{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	req.Header.Set("Content-Type", "application/json")
 	var envelope responseEnvelope[ProxyTokenValidation]
 	if err := c.do(req, &envelope); err != nil {
@@ -179,7 +179,7 @@ func (c *Client) ReportProxySessions(ctx context.Context, input domain.ProxySess
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
 	req.Header.Set("Content-Type", "application/json")
 	var result domain.ProxySessionMetricsResult
 	return c.do(req, &result)

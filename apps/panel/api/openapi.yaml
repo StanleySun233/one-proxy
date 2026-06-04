@@ -4,17 +4,17 @@ info:
   version: 0.3.0
 components:
   securitySchemes:
-    controlPlaneBearer:
-      type: http
-      scheme: bearer
-      bearerFormat: opaque
-    nodeBearer:
-      type: http
-      scheme: bearer
-      bearerFormat: opaque
+    controlPlaneAccessToken:
+      type: apiKey
+      in: header
+      name: X-One-Proxy-Access-Token
+    nodeToken:
+      type: apiKey
+      in: header
+      name: X-One-Proxy-Node-Token
   parameters:
     TenantIDHeader:
-      name: X-Tenant-ID
+      name: X-One-Proxy-Tenant-ID
       in: header
       required: true
       schema:
@@ -116,7 +116,7 @@ paths:
   /api/auth/logout:
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       responses:
         "200":
           description: Envelope logout response
@@ -125,14 +125,14 @@ paths:
   /api/overview:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       responses:
         "200":
           description: Envelope overview response
   /api/proxy/extension/bootstrap:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -141,7 +141,7 @@ paths:
   /api/accounts:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -149,7 +149,7 @@ paths:
           description: Envelope account list response
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -158,7 +158,7 @@ paths:
   /api/accounts/{accountId}:
     patch:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -167,13 +167,13 @@ paths:
   /api/tenants:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       responses:
         "200":
           description: Envelope tenant list response
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       requestBody:
         required: true
         content:
@@ -191,7 +191,7 @@ paths:
   /api/tenants/{tenantId}:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - name: tenantId
           in: path
@@ -204,7 +204,7 @@ paths:
           description: Envelope tenant detail response
     patch:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - name: tenantId
           in: path
@@ -217,7 +217,7 @@ paths:
           description: Envelope tenant updated response
     delete:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - name: tenantId
           in: path
@@ -231,7 +231,7 @@ paths:
   /api/tenants/{tenantId}/memberships:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - name: tenantId
           in: path
@@ -245,7 +245,7 @@ paths:
   /api/tenants/{tenantId}/memberships/{accountId}:
     put:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - name: tenantId
           in: path
@@ -275,7 +275,7 @@ paths:
           description: Envelope tenant membership upsert response
     delete:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - name: tenantId
           in: path
@@ -294,7 +294,7 @@ paths:
   /api/nodes:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -303,7 +303,7 @@ paths:
   /api/nodes/{nodeId}:
     patch:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -311,7 +311,7 @@ paths:
           description: Envelope node updated response
     delete:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -320,7 +320,7 @@ paths:
   /api/nodes/{nodeId}/access/manage:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -331,7 +331,7 @@ paths:
   /api/nodes/bootstrap/token:
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       responses:
         "201":
           description: Envelope bootstrap token response
@@ -345,7 +345,7 @@ paths:
   /api/nodes/{nodeId}/approve:
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       responses:
         "200":
           description: Envelope node approval response with node token and trust material
@@ -361,7 +361,7 @@ paths:
   /api/proxy/extension/page/status:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -370,7 +370,7 @@ paths:
   /api/proxy:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -378,7 +378,7 @@ paths:
           description: Envelope chain list response
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -387,7 +387,7 @@ paths:
   /api/proxy/{chainId}:
     patch:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -395,7 +395,7 @@ paths:
           description: Envelope chain updated response
     delete:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -404,7 +404,7 @@ paths:
   /api/proxy/scopes:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -412,7 +412,7 @@ paths:
           description: Envelope chain scope list response
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -421,7 +421,7 @@ paths:
   /api/proxy/scopes/{scopeId}:
     patch:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -429,7 +429,7 @@ paths:
           description: Envelope chain scope updated response
     delete:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -438,7 +438,7 @@ paths:
   /api/proxy/links:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -446,7 +446,7 @@ paths:
           description: Envelope node link list response
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -455,7 +455,7 @@ paths:
   /api/proxy/links/{linkId}:
     patch:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -463,7 +463,7 @@ paths:
           description: Envelope node link updated response
     delete:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -472,7 +472,7 @@ paths:
   /api/proxy/routes:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -480,7 +480,7 @@ paths:
           description: Envelope route rule list response
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -489,7 +489,7 @@ paths:
   /api/proxy/routes/{ruleId}:
     patch:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -497,7 +497,7 @@ paths:
           description: Envelope route rule updated response
     delete:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -506,7 +506,7 @@ paths:
   /api/policies/revisions:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -515,7 +515,7 @@ paths:
   /api/policies/publish:
     post:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -526,7 +526,7 @@ paths:
   /api/nodes/health:
     get:
       security:
-        - controlPlaneBearer: []
+        - controlPlaneAccessToken: []
       parameters:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
@@ -535,7 +535,7 @@ paths:
   /api/node/agent/policy:
     get:
       security:
-        - nodeBearer: []
+        - nodeToken: []
       responses:
         "200":
           description: Envelope node policy payload
@@ -544,7 +544,7 @@ paths:
   /api/node/agent/heartbeat:
     post:
       security:
-        - nodeBearer: []
+        - nodeToken: []
       responses:
         "200":
           description: Envelope node health updated response
@@ -553,7 +553,7 @@ paths:
   /api/node/agent/proxy/token/validate:
     post:
       security:
-        - nodeBearer: []
+        - nodeToken: []
       responses:
         "200":
           description: Envelope proxy token validation response
@@ -562,7 +562,7 @@ paths:
   /api/node/agent/cert/renew:
     post:
       security:
-        - nodeBearer: []
+        - nodeToken: []
       responses:
         "200":
           description: Envelope node certificate renewed response
