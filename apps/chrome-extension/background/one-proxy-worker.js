@@ -1211,6 +1211,10 @@ function mergePageSnapshot(route, metrics, remoteStatus) {
   };
 }
 
+function totalPathLatency(pathHealth) {
+  return (pathHealth.linkTimings || []).reduce((total, item) => total + Number(item.roundTripMs || 0), 0);
+}
+
 function requestRemoteStatus(state, route, routeInfo) {
   if (route.mode !== 'proxy') {
     return Promise.resolve(null);
@@ -1258,7 +1262,7 @@ function getStatusBubblePageStatus(message, sender) {
         const page = mergePageSnapshot(route, metrics, status);
         const uploadBytes = Number(status.uploadBytes || (metrics && metrics.uploadBytes) || 0);
         const downloadBytes = Number(status.downloadBytes || (metrics && metrics.downloadBytes) || 0);
-        const latencyMs = Number(status.latencyMs || 0);
+        const latencyMs = totalPathLatency(pathHealth);
         const lastErrorCode = status.lastErrorCode || (metrics && metrics.lastErrorCode) || '';
         const lastErrorMessage = status.lastErrorMessage || (metrics && metrics.lastErrorMessage) || '';
         return {
