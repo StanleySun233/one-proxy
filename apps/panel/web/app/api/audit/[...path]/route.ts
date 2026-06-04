@@ -51,12 +51,27 @@ export async function POST(request: NextRequest, {params}: {params: Promise<{pat
   return proxy(request, resolved);
 }
 
+export async function PUT(request: NextRequest, {params}: {params: Promise<{path: string[]}>}) {
+  const resolved = await params;
+  return proxy(request, resolved);
+}
+
 export async function PATCH(request: NextRequest, {params}: {params: Promise<{path: string[]}>}) {
   const resolved = await params;
   return proxy(request, resolved);
 }
 
 export async function DELETE(request: NextRequest, {params}: {params: Promise<{path: string[]}>}) {
+  const resolved = await params;
+  return proxy(request, resolved);
+}
+
+export async function HEAD(request: NextRequest, {params}: {params: Promise<{path: string[]}>}) {
+  const resolved = await params;
+  return proxy(request, resolved);
+}
+
+export async function OPTIONS(request: NextRequest, {params}: {params: Promise<{path: string[]}>}) {
   const resolved = await params;
   return proxy(request, resolved);
 }
