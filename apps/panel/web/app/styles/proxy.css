@@ -101,7 +101,15 @@
 
 .chain-list-actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.chain-list-actions .secondary-button,
+.chain-list-actions .danger-button {
+  min-width: 78px;
 }
 
 .probe-results-section {

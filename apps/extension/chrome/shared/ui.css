@@ -185,10 +185,14 @@ textarea.input {
 .secondary,
 .ghost,
 .danger {
-  min-height: 40px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 12px;
   cursor: pointer;
   white-space: nowrap;
+  line-height: 1;
 }
 
 .primary {

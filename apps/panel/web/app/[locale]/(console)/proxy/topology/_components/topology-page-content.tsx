@@ -129,7 +129,7 @@ export function NodeTopologyPageContent() {
             <AsyncState detail={t('common.noMatching')} title={t('common.empty')} />
           ) : (
             <div className="table-card">
-              <table className="data-table">
+              <table className="data-table runtime-transport-table">
                 <thead>
                   <tr>
                     <th>{t('common.source')}</th>

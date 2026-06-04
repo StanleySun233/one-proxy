@@ -76,6 +76,15 @@ func (s *MySQLStore) syntheticPublicTransports(items []domain.NodeTransport) []d
 func (s *MySQLStore) UpsertNodeTransport(input domain.UpsertNodeTransportInput) (domain.NodeTransport, error) {
 	now := nowRFC3339()
 	detailsJSON := encodeJSONMap(input.Details)
+	if input.TransportType == domain.TransportTypeReverseWSParent && input.ParentNodeID != "" {
+		if _, err := s.db.Exec(
+			`DELETE FROM node_transports
+			 WHERE node_id = ? AND transport_type = ? AND direction = ? AND parent_node_id = ? AND address <> ?`,
+			input.NodeID, input.TransportType, input.Direction, input.ParentNodeID, input.Address,
+		); err != nil {
+			return domain.NodeTransport{}, err
+		}
+	}
 	existingID := ""
 	_ = s.db.QueryRow(
 		`SELECT id FROM node_transports WHERE node_id = ? AND transport_type = ? AND address = ? LIMIT 1`,

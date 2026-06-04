@@ -1,6 +1,6 @@
 .console-shell {
   min-height: 100vh;
-  padding: 24px;
+  padding: 22px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 20px;
@@ -165,9 +165,9 @@
   align-items: start;
   gap: 18px;
   min-height: calc(100vh - 154px);
-  padding: 20px;
+  padding: 18px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 14px;
   background: color-mix(in srgb, var(--panel) 88%, var(--backdrop) 12%);
 }
 

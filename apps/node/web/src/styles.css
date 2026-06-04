@@ -93,12 +93,16 @@ button {
 .ghost,
 .primary {
   min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
 
 .nav-item {
   padding: 0 12px;
+  justify-content: flex-start;
   background: transparent;
   color: var(--text);
   text-align: left;
@@ -112,6 +116,7 @@ button {
 
 .workspace {
   min-width: 0;
+  width: min(1280px, 100%);
   padding: 22px;
 }
 
@@ -281,6 +286,7 @@ button {
   min-width: 840px;
   display: grid;
   grid-template-columns: 190px 220px 110px minmax(0, 1fr);
+  align-items: center;
   gap: 14px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
@@ -295,6 +301,12 @@ button {
 
 .tr:last-child {
   border-bottom: 0;
+}
+
+.thead > *,
+.tr > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .login-screen {
