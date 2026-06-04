@@ -8,19 +8,16 @@ async function proxy(request: NextRequest, params: {path: string[]}) {
   const url = `${CONTROL_PLANE_URL}/api/audit/${targetPath}${search}`;
   const headers = new Headers();
 
-  const authorization = request.headers.get('authorization');
   const contentType = request.headers.get('content-type');
-  const tenantId = request.headers.get('x-tenant-id');
 
-  if (authorization) {
-    headers.set('authorization', authorization);
-  }
-  if (tenantId) {
-    headers.set('x-tenant-id', tenantId);
-  }
   if (contentType) {
     headers.set('content-type', contentType);
   }
+  request.headers.forEach((value, key) => {
+    if (key.toLowerCase().startsWith('x-one-proxy-')) {
+      headers.set(key, value);
+    }
+  });
 
   const method = request.method;
   const init: RequestInit = {
