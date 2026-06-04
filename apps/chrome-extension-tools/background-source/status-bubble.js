@@ -91,7 +91,7 @@ function entryNodeId(route) {
 }
 
 function requestNodePathHealth(group, route) {
-  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control-relay/probe`;
+  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
   return fetch(endpoint, {
     method: 'POST',

@@ -1,7 +1,7 @@
 import type { APIResponse, Account } from '@/lib/types';
 import type { TenantMembership } from '@/lib/types/auth';
 
-export const CONTROL_PLANE_PROXY_BASE = '/api/v1';
+export const CONTROL_PLANE_PROXY_BASE = '/api';
 export const SESSION_STORAGE_KEY = 'one-proxy-panel-session';
 export const AUTH_INVALID_EVENT = 'one-proxy-auth-invalid';
 

@@ -127,13 +127,13 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", proxyHandler)
 	httpHandler := proxyAwareHandler(proxyHandler, mux)
-	mux.Handle("/api/v1/control-relay/probe", controlrelay.NewProbeHandler(tunnelRegistry, func() string {
+	mux.Handle("/api/control/relay/probe", controlrelay.NewProbeHandler(tunnelRegistry, func() string {
 		if !manager.Bound() {
 			return ""
 		}
 		return manager.Current().NodeID
 	}))
-	mux.Handle("/api/v1/node/bootstrap/attach", bootstrap.New(cfg.ListenAddr, cfg.HTTPSListenAddr, manager))
+	mux.Handle("/api/node/bootstrap/attach", bootstrap.New(cfg.ListenAddr, cfg.HTTPSListenAddr, manager))
 	mux.Handle(cfg.NodeTunnelPath, tunnel.NewServer(manager, tunnelRegistry))
 	if manager.Bound() {
 		current := manager.Current()
@@ -141,17 +141,17 @@ func main() {
 		if err != nil {
 			log.Fatalf("init control proxy failed: %v", err)
 		}
-		mux.Handle("/api/v1/nodes/enroll", forwarder)
-		mux.Handle("/api/v1/nodes/exchange", forwarder)
-		mux.Handle("/api/v1/node-agent/policy", forwarder)
-		mux.Handle("/api/v1/node-agent/auth/validate", forwarder)
-		mux.Handle("/api/v1/node-agent/heartbeat", forwarder)
-		mux.Handle("/api/v1/node-agent/cert/renew", forwarder)
-		mux.Handle("/api/v1/node-agent/transports", forwarder)
-		mux.Handle("/api/v1/node-agent/proxy-sessions", forwarder)
-		mux.Handle("/api/v1/node-agent/direct/candidates", forwarder)
-		mux.Handle("/api/v1/node-agent/direct/link-plan", forwarder)
-		mux.Handle("/api/v1/node-agent/direct/status", forwarder)
+		mux.Handle("/api/nodes/enroll", forwarder)
+		mux.Handle("/api/nodes/exchange", forwarder)
+		mux.Handle("/api/node/agent/policy", forwarder)
+		mux.Handle("/api/node/agent/auth/validate", forwarder)
+		mux.Handle("/api/node/agent/heartbeat", forwarder)
+		mux.Handle("/api/node/agent/cert/renew", forwarder)
+		mux.Handle("/api/node/agent/transports", forwarder)
+		mux.Handle("/api/node/agent/proxy/sessions", forwarder)
+		mux.Handle("/api/node/agent/direct/candidates", forwarder)
+		mux.Handle("/api/node/agent/direct/link/plan", forwarder)
+		mux.Handle("/api/node/agent/direct/status", forwarder)
 		log.Printf("proxy-node bound nodeID=%s controlPlaneURL=%s", current.NodeID, current.ControlPlaneURL)
 	} else {
 		log.Printf("proxy-node starting without control plane binding localIPs=%v", network.LocalIPs())

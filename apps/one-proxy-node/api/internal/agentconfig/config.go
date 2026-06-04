@@ -54,7 +54,7 @@ func Load() Config {
 		NodeJoinPasswordProvided:  joinPasswordProvided,
 		NodeReverseTargetURL:      envOrDefault("NODE_REVERSE_TARGET_URL", ""),
 		NodeProxyTokenCacheTTL:    envOrDefault("NODE_PROXY_TOKEN_CACHE_TTL", "24h"),
-		NodeTunnelPath:            envOrDefault("NODE_TUNNEL_PATH", "/api/node-tunnel/connect"),
+		NodeTunnelPath:            envOrDefault("NODE_TUNNEL_PATH", "/api/node/tunnel/connect"),
 		NodeTunnelHeartbeat:       envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),
 		NodeDirectListenAddr:      envOrDefault("NODE_DIRECT_LISTEN_ADDR", ""),
 		NodeDirectSTUNServers:     envOrDefault("NODE_DIRECT_STUN_SERVERS", "stun.cloudflare.com:3478"),

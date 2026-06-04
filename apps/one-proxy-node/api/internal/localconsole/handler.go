@@ -428,7 +428,7 @@ func validateManageAccess(client *http.Client, controlPlaneURL string, nodeID st
 }
 
 func manageAccessAllowed(client *http.Client, controlPlaneURL string, nodeID string, accessToken string, tenantID string) bool {
-	req, err := http.NewRequest(http.MethodGet, strings.TrimRight(controlPlaneURL, "/")+"/api/nodes/"+nodeID+"/manage-access", nil)
+	req, err := http.NewRequest(http.MethodGet, strings.TrimRight(controlPlaneURL, "/")+"/api/nodes/"+nodeID+"/access/manage", nil)
 	if err != nil {
 		return false
 	}

@@ -4,14 +4,14 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/one-proxy-node/go.mod'
-      - 'apps/one-proxy-node/go.sum'
+      - 'apps/one-proxy-node/api/go.mod'
+      - 'apps/one-proxy-node/api/go.sum'
       - 'docker/one-proxy-node-base.Dockerfile'
       - '.github/workflows/one-proxy-node-base-image.yml'
   pull_request:
     paths:
-      - 'apps/one-proxy-node/go.mod'
-      - 'apps/one-proxy-node/go.sum'
+      - 'apps/one-proxy-node/api/go.mod'
+      - 'apps/one-proxy-node/api/go.sum'
       - 'docker/one-proxy-node-base.Dockerfile'
       - '.github/workflows/one-proxy-node-base-image.yml'
   workflow_dispatch:

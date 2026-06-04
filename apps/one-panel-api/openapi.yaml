@@ -129,7 +129,7 @@ paths:
       responses:
         "200":
           description: Envelope overview response
-  /api/extension/bootstrap:
+  /api/proxy/extension/bootstrap:
     get:
       security:
         - controlPlaneBearer: []
@@ -325,7 +325,7 @@ paths:
       responses:
         "200":
           description: Envelope node deleted response
-  /api/nodes/{nodeId}/manage-access:
+  /api/nodes/{nodeId}/access/manage:
     get:
       security:
         - controlPlaneBearer: []
@@ -333,7 +333,7 @@ paths:
         - $ref: "#/components/parameters/TenantIDHeader"
       responses:
         "200":
-          description: Envelope node manage-access response
+          description: Envelope node manage access response
         "403":
           description: Account cannot manage this node
   /api/nodes/bootstrap/token:
@@ -350,7 +350,7 @@ paths:
           description: Envelope pending node enrollment response
         "400":
           description: Invalid enrollment payload
-  /api/nodes/approve/{nodeId}:
+  /api/nodes/{nodeId}/approve:
     post:
       security:
         - controlPlaneBearer: []
@@ -366,7 +366,7 @@ paths:
           description: Envelope node enrollment exchange response
         "400":
           description: Invalid enrollment exchange payload
-  /api/proxy/extension/page-status:
+  /api/proxy/extension/page/status:
     get:
       security:
         - controlPlaneBearer: []
@@ -540,7 +540,7 @@ paths:
       responses:
         "200":
           description: Envelope node health list response
-  /api/node-agent/policy:
+  /api/node/agent/policy:
     get:
       security:
         - nodeBearer: []
@@ -549,7 +549,7 @@ paths:
           description: Envelope node policy payload
         "401":
           description: Invalid node token
-  /api/node-agent/heartbeat:
+  /api/node/agent/heartbeat:
     post:
       security:
         - nodeBearer: []
@@ -558,7 +558,7 @@ paths:
           description: Envelope node health updated response
         "401":
           description: Invalid node token
-  /api/node-agent/proxy-token/validate:
+  /api/node/agent/proxy/token/validate:
     post:
       security:
         - nodeBearer: []
@@ -567,7 +567,7 @@ paths:
           description: Envelope proxy token validation response
         "401":
           description: Invalid node token or proxy token
-  /api/node-agent/cert/renew:
+  /api/node/agent/cert/renew:
     post:
       security:
         - nodeBearer: []

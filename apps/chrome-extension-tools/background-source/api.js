@@ -161,7 +161,7 @@ export function syncRemoteConfig(sourceState) {
     if (!state.session.activeTenantId) {
       throw new Error('tenant_required');
     }
-    return apiRequest(state, '/api/extension/bootstrap')
+    return apiRequest(state, '/api/proxy/extension/bootstrap')
       .then((data) => {
         const nextState = mergeState({
           ...state,
@@ -199,7 +199,7 @@ export function getExtensionPageStatus(state, params) {
   if (params.chainId) {
     query.set('chainId', params.chainId);
   }
-  return apiRequest(state, `/api/proxy/extension/page-status?${query.toString()}`);
+  return apiRequest(state, `/api/proxy/extension/page/status?${query.toString()}`);
 }
 
 export function selectTenant(tenantId) {

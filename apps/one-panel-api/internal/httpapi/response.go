@@ -131,7 +131,7 @@ func requiresTenantContext(req *http.Request) bool {
 }
 
 func allowsSuperAdminTenantBypass(req *http.Request) bool {
-	return req.URL.Path != "/api/extension/bootstrap"
+	return req.URL.Path != "/api/proxy/extension/bootstrap"
 }
 
 func accountFromContext(ctx context.Context) (domain.Account, bool) {

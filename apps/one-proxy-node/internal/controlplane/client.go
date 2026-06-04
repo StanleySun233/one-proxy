@@ -54,7 +54,7 @@ func (c *Client) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResu
 	if err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
-	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/v1/nodes/enroll", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/nodes/enroll", bytes.NewReader(body))
 	if err != nil {
 		return domain.EnrollNodeResult{}, err
 	}
@@ -67,7 +67,7 @@ func (c *Client) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResu
 }
 
 func (c *Client) FetchPolicy() (domain.NodeAgentPolicy, error) {
-	req, err := http.NewRequest(http.MethodGet, c.baseURL+"/api/v1/node-agent/policy", nil)
+	req, err := http.NewRequest(http.MethodGet, c.baseURL+"/api/node/agent/policy", nil)
 	if err != nil {
 		return domain.NodeAgentPolicy{}, err
 	}
@@ -80,7 +80,7 @@ func (c *Client) FetchPolicy() (domain.NodeAgentPolicy, error) {
 }
 
 func (c *Client) ValidateNodeAuth() (NodeAuthValidation, error) {
-	req, err := http.NewRequest(http.MethodGet, c.baseURL+"/api/v1/node-agent/auth/validate", nil)
+	req, err := http.NewRequest(http.MethodGet, c.baseURL+"/api/node/agent/auth/validate", nil)
 	if err != nil {
 		return NodeAuthValidation{}, err
 	}
@@ -101,7 +101,7 @@ func (c *Client) SendHeartbeat(revision string, listenerStatus map[string]string
 	if err != nil {
 		return domain.NodeHealth{}, err
 	}
-	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/v1/node-agent/heartbeat", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/node/agent/heartbeat", bytes.NewReader(body))
 	if err != nil {
 		return domain.NodeHealth{}, err
 	}
@@ -121,7 +121,7 @@ func (c *Client) RenewCertificate(certType string) (domain.NodeCertRenewResult, 
 	if err != nil {
 		return domain.NodeCertRenewResult{}, err
 	}
-	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/v1/node-agent/cert/renew", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/node/agent/cert/renew", bytes.NewReader(body))
 	if err != nil {
 		return domain.NodeCertRenewResult{}, err
 	}
@@ -139,7 +139,7 @@ func (c *Client) UpsertTransport(input domain.UpsertNodeTransportInput) (domain.
 	if err != nil {
 		return domain.NodeTransport{}, err
 	}
-	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/v1/node-agent/transports", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/node/agent/transports", bytes.NewReader(body))
 	if err != nil {
 		return domain.NodeTransport{}, err
 	}
@@ -157,7 +157,7 @@ func (c *Client) ValidateProxyToken(ctx context.Context, tokenHash string) (Prox
 	if err != nil {
 		return ProxyTokenValidation{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/node-agent/proxy-token/validate", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/node/agent/proxy/token/validate", bytes.NewReader(body))
 	if err != nil {
 		return ProxyTokenValidation{}, err
 	}
@@ -175,7 +175,7 @@ func (c *Client) ReportProxySessions(ctx context.Context, input domain.ProxySess
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/node-agent/proxy-sessions", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/node/agent/proxy/sessions", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func (c *Client) ExchangeEnrollment(nodeID string, enrollmentSecret string) (dom
 	if err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/v1/nodes/exchange", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/nodes/exchange", bytes.NewReader(body))
 	if err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}

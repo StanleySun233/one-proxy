@@ -13,7 +13,7 @@ func (c *Client) ReportDirectCandidates(input domain.ReportDirectCandidatesInput
 	if err != nil {
 		return domain.ReportDirectCandidatesResult{}, err
 	}
-	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/v1/node-agent/direct/candidates", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/node/agent/direct/candidates", bytes.NewReader(body))
 	if err != nil {
 		return domain.ReportDirectCandidatesResult{}, err
 	}
@@ -27,7 +27,7 @@ func (c *Client) ReportDirectCandidates(input domain.ReportDirectCandidatesInput
 }
 
 func (c *Client) FetchDirectLinkPlan() (domain.DirectLinkPlan, error) {
-	req, err := http.NewRequest(http.MethodGet, c.baseURL+"/api/v1/node-agent/direct/link-plan", nil)
+	req, err := http.NewRequest(http.MethodGet, c.baseURL+"/api/node/agent/direct/link/plan", nil)
 	if err != nil {
 		return domain.DirectLinkPlan{}, err
 	}
@@ -44,7 +44,7 @@ func (c *Client) ReportDirectStatus(input domain.ReportDirectStatusInput) (domai
 	if err != nil {
 		return domain.ReportDirectStatusResult{}, err
 	}
-	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/v1/node-agent/direct/status", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/node/agent/direct/status", bytes.NewReader(body))
 	if err != nil {
 		return domain.ReportDirectStatusResult{}, err
 	}

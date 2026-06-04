@@ -720,7 +720,7 @@ function syncRemoteConfig(sourceState) {
     if (!state.session.activeTenantId) {
       throw new Error('tenant_required');
     }
-    return apiRequest(state, '/api/extension/bootstrap')
+    return apiRequest(state, '/api/proxy/extension/bootstrap')
       .then((data) => {
         const nextState = mergeState({
           ...state,
@@ -758,7 +758,7 @@ function getExtensionPageStatus(state, params) {
   if (params.chainId) {
     query.set('chainId', params.chainId);
   }
-  return apiRequest(state, `/api/proxy/extension/page-status?${query.toString()}`);
+  return apiRequest(state, `/api/proxy/extension/page/status?${query.toString()}`);
 }
 
 function selectTenant(tenantId) {
@@ -848,7 +848,7 @@ function runProxyProbes(state, targetUrl, route) {
     return probeProtocols().map((protocol) => ({ protocol, status: 'skipped', latencyMs: 0, message: 'proxy_not_applied' }));
   }
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
-  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control-relay/probe`;
+  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
   return Promise.all(probeProtocols().map((protocol) => runNodeProbe(endpoint, {
     protocol,
     remainingHopNodeIds,
@@ -1112,7 +1112,7 @@ function entryNodeId(route) {
 }
 
 function requestNodePathHealth(group, route) {
-  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control-relay/probe`;
+  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
   return fetch(endpoint, {
     method: 'POST',

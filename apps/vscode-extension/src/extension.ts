@@ -47,7 +47,7 @@ async function login(context: vscode.ExtensionContext) {
   const panelUrl = await prompt('Panel URL', 'https://panel.example.com');
   const account = await prompt('Account');
   const password = await prompt('Password', undefined, true);
-  const response = await fetch(`${trimUrl(panelUrl)}/api/v1/auth/login`, {
+  const response = await fetch(`${trimUrl(panelUrl)}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ account, password })
@@ -124,7 +124,7 @@ async function selectTenant(session: LoginResponse): Promise<string> {
 }
 
 async function extensionBootstrap(panelUrl: string, accessToken: string, tenantId: string): Promise<BootstrapResponse> {
-  const response = await fetch(`${panelUrl}/api/v1/extension/bootstrap`, {
+  const response = await fetch(`${panelUrl}/api/proxy/extension/bootstrap`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'X-Tenant-ID': tenantId

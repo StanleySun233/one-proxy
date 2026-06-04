@@ -31,8 +31,12 @@ func (r *Router) handleNodeByID(w http.ResponseWriter, req *http.Request) {
 		r.handleNodeReject(w, req)
 		return
 	}
-	if strings.HasSuffix(req.URL.Path, "/manage-access") {
+	if strings.HasSuffix(req.URL.Path, "/access/manage") {
 		r.handleNodeManageAccess(w, req)
+		return
+	}
+	if strings.HasSuffix(req.URL.Path, "/approve") {
+		r.handleNodeApprove(w, req)
 		return
 	}
 	nodeID := resourceID(req.URL.Path, "/api/nodes/")
@@ -74,7 +78,7 @@ func (r *Router) handleNodeManageAccess(w http.ResponseWriter, req *http.Request
 		writeMethodNotAllowed(w, "GET")
 		return
 	}
-	nodeID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/nodes/"), "/manage-access")
+	nodeID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/nodes/"), "/access/manage")
 	if nodeID == "" {
 		writeError(w, http.StatusBadRequest, "missing_node_id")
 		return
@@ -97,7 +101,7 @@ func (r *Router) handleNodeApprove(w http.ResponseWriter, req *http.Request) {
 		writeMethodNotAllowed(w, "POST")
 		return
 	}
-	nodeID := resourceID(req.URL.Path, "/api/nodes/approve/")
+	nodeID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/nodes/"), "/approve")
 	if nodeID == "" {
 		writeError(w, http.StatusBadRequest, "missing_node_id")
 		return

@@ -45,7 +45,7 @@ export function deleteNode(accessToken: string, tenantId: string | null, nodeID:
 }
 
 export function getNodeTransports(accessToken: string, tenantId: string | null) {
-  return request<NodeTransport[]>('/transports', {accessToken, tenantId});
+  return request<NodeTransport[]>('/nodes/transports', {accessToken, tenantId});
 }
 
 export function createBootstrapToken(
@@ -74,7 +74,7 @@ export function deleteBootstrapToken(accessToken: string, tenantId: string | nul
 }
 
 export function approveNode(accessToken: string, tenantId: string | null, nodeID: string) {
-  return request<{node: Node; accessToken: string; trustMaterial: string; expiresAt: string}>(`/nodes/approve/${nodeID}`, {
+  return request<{node: Node; accessToken: string; trustMaterial: string; expiresAt: string}>(`/nodes/${nodeID}/approve`, {
     method: 'POST',
     accessToken,
     tenantId

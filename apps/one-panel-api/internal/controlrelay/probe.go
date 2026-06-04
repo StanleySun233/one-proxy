@@ -27,7 +27,7 @@ func Execute(relayURL string, payload ProbeRequest) (ProbeResponse, error) {
 		return ProbeResponse{}, err
 	}
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(relayURL, "/")+"/api/control-relay/probe", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(relayURL, "/")+"/api/control/relay/probe", bytes.NewReader(body))
 	if err != nil {
 		return ProbeResponse{}, err
 	}

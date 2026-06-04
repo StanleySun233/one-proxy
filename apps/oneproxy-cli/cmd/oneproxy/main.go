@@ -115,7 +115,7 @@ func runLogin(args []string) error {
 func loginAccount(panelURL string, account string, password string) (loginResponse, error) {
 	var result loginResponse
 	body, _ := json.Marshal(map[string]string{"account": account, "password": password})
-	req, err := http.NewRequest(http.MethodPost, trimURL(panelURL)+"/api/v1/auth/login", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, trimURL(panelURL)+"/api/auth/login", bytes.NewReader(body))
 	if err != nil {
 		return result, err
 	}
@@ -124,7 +124,7 @@ func loginAccount(panelURL string, account string, password string) (loginRespon
 }
 
 func extensionBootstrap(panelURL string, accessToken string, tenantID string) (bootstrapResponse, error) {
-	req, err := http.NewRequest(http.MethodGet, trimURL(panelURL)+"/api/v1/extension/bootstrap", nil)
+	req, err := http.NewRequest(http.MethodGet, trimURL(panelURL)+"/api/proxy/extension/bootstrap", nil)
 	if err != nil {
 		return bootstrapResponse{}, err
 	}

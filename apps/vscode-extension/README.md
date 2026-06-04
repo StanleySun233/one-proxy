@@ -12,7 +12,7 @@ The extension stores panel session tokens in VS Code SecretStorage. The generate
 
 Current scope:
 
-- Login through `/api/v1/auth/login`
+- Login through `/api/auth/login`
 - Generate a single SSH host block
 - Call VS Code Remote-SSH through `vscode.openFolder`
 

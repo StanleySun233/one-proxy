@@ -13,7 +13,7 @@ import (
 func TestReportProxySessionsPostsNodeAgentMetrics(t *testing.T) {
 	var received domain.ProxySessionMetricsInput
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.URL.Path != "/api/node-agent/proxy-sessions" {
+		if req.URL.Path != "/api/node/agent/proxy/sessions" {
 			t.Fatalf("path = %q", req.URL.Path)
 		}
 		if req.Header.Get("Authorization") != "Bearer node-token" {
@@ -47,7 +47,7 @@ func TestReportProxySessionsPostsNodeAgentMetrics(t *testing.T) {
 
 func TestValidateNodeAuthUsesNodeAgentEndpoint(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.URL.Path != "/api/node-agent/auth/validate" {
+		if req.URL.Path != "/api/node/agent/auth/validate" {
 			t.Fatalf("path = %q", req.URL.Path)
 		}
 		if req.Header.Get("Authorization") != "Bearer child-token" {
