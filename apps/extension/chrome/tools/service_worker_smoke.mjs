@@ -65,7 +65,95 @@ chromium.launchPersistentContext(userDataDir, {
             throw new Error('service_worker_runtime_check_failed');
           }
 
-          console.log(`chrome_extension_service_worker_ok id=${result.id} version=${result.version}`);
+          return serviceWorker.evaluate(() => {
+            const originalFetch = globalThis.fetch;
+            const requests = [];
+            globalThis.fetch = (url, options = {}) => {
+              const headers = new Headers(options.headers || {});
+              requests.push({
+                url: String(url),
+                accessToken: headers.get('X-One-Proxy-Access-Token') || '',
+                tenantId: headers.get('X-One-Proxy-Tenant-ID') || '',
+                refreshToken: headers.get('X-One-Proxy-Refresh-Token') || '',
+                body: options.body || ''
+              });
+              if (String(url).endsWith('/api/auth/login')) {
+                return Promise.resolve(new Response(JSON.stringify({
+                  code: 0,
+                  message: 'ok',
+                  data: {
+                    account: { account: 'admin', mustRotatePassword: false },
+                    accessToken: 'access-token',
+                    refreshToken: 'refresh-token',
+                    expiresAt: '2026-07-04T00:00:00Z',
+                    tenantMemberships: [{ tenantId: 'tenant-1', tenantName: 'Default' }],
+                    activeTenantId: 'tenant-1'
+                  }
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+              }
+              if (String(url).endsWith('/api/proxy/extension/bootstrap')) {
+                return Promise.resolve(new Response(JSON.stringify({
+                  code: 0,
+                  message: 'ok',
+                  data: {
+                    account: { account: 'admin', mustRotatePassword: false },
+                    policyRevision: 'rev-1',
+                    fetchedAt: '2026-06-04T00:00:00Z',
+                    proxyToken: 'proxy-token',
+                    proxyTokenExpiresAt: '2026-07-04T00:00:00Z',
+                    groups: []
+                  }
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+              }
+              if (String(url).endsWith('/api/auth/refresh')) {
+                return Promise.resolve(new Response(JSON.stringify({
+                  code: 0,
+                  message: 'ok',
+                  data: {
+                    account: { account: 'admin', mustRotatePassword: false },
+                    accessToken: 'access-token-2',
+                    refreshToken: 'refresh-token-2',
+                    expiresAt: '2026-07-04T00:00:00Z',
+                    tenantMemberships: [{ tenantId: 'tenant-1', tenantName: 'Default' }],
+                    activeTenantId: 'tenant-1'
+                  }
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+              }
+              return originalFetch(url, options);
+            };
+            globalThis.__oneProxySmokeRequests = requests;
+          }).then(() => page.evaluate(() => chrome.runtime.sendMessage({
+            type: 'login',
+            controlPlaneUrl: 'https://panel.oneproxy.test',
+            account: 'admin',
+            password: 'secret'
+          }))).then((messageResult) => {
+            if (messageResult.error) {
+              throw new Error(messageResult.error);
+            }
+            if (messageResult.session.accessToken !== 'access-token' || messageResult.session.proxyToken !== 'proxy-token') {
+              throw new Error('service_worker_login_state_missing_token');
+            }
+            return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests);
+          }).then((requests) => {
+            const bootstrap = requests.find((request) => request.url.endsWith('/api/proxy/extension/bootstrap'));
+            if (!bootstrap || bootstrap.accessToken !== 'access-token' || bootstrap.tenantId !== 'tenant-1') {
+              throw new Error('service_worker_bootstrap_missing_one_proxy_headers');
+            }
+            return page.evaluate(() => chrome.runtime.sendMessage({ type: 'sync-remote-config' }));
+          }).then((syncResult) => {
+            if (syncResult.error) {
+              throw new Error(syncResult.error);
+            }
+            return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests);
+          }).then((requests) => {
+            const bootstraps = requests.filter((request) => request.url.endsWith('/api/proxy/extension/bootstrap'));
+            const latestBootstrap = bootstraps[bootstraps.length - 1];
+            if (!latestBootstrap || latestBootstrap.accessToken !== 'access-token' || latestBootstrap.tenantId !== 'tenant-1') {
+              throw new Error('service_worker_sync_missing_one_proxy_headers');
+            }
+            console.log(`chrome_extension_service_worker_ok id=${result.id} version=${result.version}`);
+          });
         });
     });
   })

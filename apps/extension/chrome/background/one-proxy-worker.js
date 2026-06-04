@@ -683,8 +683,7 @@ function refreshSession(sourceState) {
     }
     return fetch(`${normalizeControlPlaneUrl(state.controlPlaneUrl)}/api/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: state.session.refreshToken })
+      headers: { 'X-One-Proxy-Refresh-Token': state.session.refreshToken }
     }).then((response) => readJSON(response).then((payload) => {
       if (!response.ok) {
         const message = (payload && payload.message) || 'refresh_failed';
