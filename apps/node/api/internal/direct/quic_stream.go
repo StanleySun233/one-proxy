@@ -22,6 +22,9 @@ import (
 const directALPN = "one-proxy-direct/1"
 
 type streamOpenRequest struct {
+	Mode          string   `json:"mode,omitempty"`
+	SessionID     string   `json:"sessionId,omitempty"`
+	PunchToken    string   `json:"punchToken,omitempty"`
 	RemainingHops []string `json:"remainingHops,omitempty"`
 	TargetHost    string   `json:"targetHost"`
 	TargetPort    int      `json:"targetPort"`
@@ -107,6 +110,26 @@ func (r *Registry) handleQUICStream(ctx context.Context, conn *quic.Conn, stream
 		_ = stream.Close()
 		return
 	}
+	if request.Mode != "" && request.Mode != "client_direct" {
+		_ = writeStreamAck(stream, "failed", "invalid_direct_stream_mode")
+		_ = stream.Close()
+		return
+	}
+	if request.Mode == "client_direct" && (request.SessionID == "" || request.PunchToken == "") {
+		_ = writeStreamAck(stream, "failed", "invalid_direct_session")
+		_ = stream.Close()
+		return
+	}
+	if request.Mode == "client_direct" {
+		validated, ok := r.validateClientSession(ctx, request)
+		if !ok {
+			_ = writeStreamAck(stream, "failed", "invalid_direct_session")
+			_ = stream.Close()
+			return
+		}
+		request.TargetHost = validated.TargetHost
+		request.TargetPort = validated.TargetPort
+	}
 	if len(request.RemainingHops) > 0 {
 		_ = writeStreamAck(stream, "failed", "direct_remaining_hops_not_supported")
 		_ = stream.Close()
@@ -124,6 +147,25 @@ func (r *Registry) handleQUICStream(ctx context.Context, conn *quic.Conn, stream
 		return
 	}
 	bridgeQUICStream(ctx, quicStreamConn{Stream: stream, localAddr: conn.LocalAddr(), remoteAddr: conn.RemoteAddr()}, reader, targetConn)
+}
+
+func (r *Registry) validateClientSession(ctx context.Context, request streamOpenRequest) (ClientSessionValidationResult, bool) {
+	r.mu.RLock()
+	validator := r.clientValidator
+	r.mu.RUnlock()
+	if validator == nil {
+		return ClientSessionValidationResult{}, false
+	}
+	result, err := validator.ValidateClientDirectSession(ctx, ClientSessionValidationRequest{
+		SessionID:  request.SessionID,
+		PunchToken: request.PunchToken,
+		TargetHost: request.TargetHost,
+		TargetPort: request.TargetPort,
+	})
+	if err != nil || !result.Valid {
+		return ClientSessionValidationResult{}, false
+	}
+	return result, true
 }
 
 func (r *Registry) OpenDirectStream(ctx context.Context, nextHop domain.Node, remaining []string, targetHost string, targetPort int) (net.Conn, error) {

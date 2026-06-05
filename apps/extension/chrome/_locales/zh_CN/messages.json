@@ -343,6 +343,18 @@
   "statusBubbleRoundTrip": {
     "message": "RTT"
   },
+  "statusBubbleTransport": {
+    "message": "传输"
+  },
+  "statusBubbleDirectQUIC": {
+    "message": "QUIC 直连"
+  },
+  "statusBubbleRelay": {
+    "message": "中继"
+  },
+  "statusBubbleFallback": {
+    "message": "回退"
+  },
   "statusBubbleRefresh": {
     "message": "刷新"
   },

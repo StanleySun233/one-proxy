@@ -2,6 +2,7 @@ package service
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/config"
@@ -22,6 +23,8 @@ type ControlPlane struct {
 	enumsByField       map[string]map[string]domain.FieldEnum
 	proxy              *proxyservice.Service
 	proxyStatus        *proxyStatusStore
+	clientDirectMu     sync.Mutex
+	clientDirect       map[string]clientDirectSessionRecord
 }
 
 func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
@@ -42,6 +45,7 @@ func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
 		nodeHeartbeatTTL:   parseDuration(cfg.NodeHeartbeatTTL, 2*time.Minute),
 		publicRenewWindow:  parseDuration(cfg.PublicCertRenewWindow, 7*24*time.Hour),
 		proxyStatus:        newProxyStatusStore(5000),
+		clientDirect:       make(map[string]clientDirectSessionRecord),
 	}
 	controlPlane.proxy = proxyservice.New(store)
 	return controlPlane

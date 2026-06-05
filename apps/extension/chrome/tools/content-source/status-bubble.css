@@ -241,10 +241,23 @@
   white-space: nowrap;
 }
 
+#one-proxy-status-root .opsb-hop-mode {
+  max-width: 100%;
+  padding: 2px 4px;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #155e75;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
 #one-proxy-status-root .opsb-path-link {
   position: relative;
   min-width: 0;
-  min-height: 30px;
+  min-height: 38px;
   pointer-events: none;
 }
 
@@ -282,7 +295,7 @@
 
 #one-proxy-status-root .opsb-hop-latency {
   position: absolute;
-  top: 6px;
+  top: 4px;
   left: 50%;
   transform: translateX(-50%);
   padding: 1px 3px;
@@ -295,6 +308,25 @@
   white-space: nowrap;
 }
 
+#one-proxy-status-root .opsb-hop-transport {
+  position: absolute;
+  top: 17px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 72px;
+  padding: 1px 3px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #one-proxy-status-root .opsb-path-turn-right .opsb-hop-latency {
   left: auto;
   right: calc(10.5% - 14px);
@@ -304,6 +336,18 @@
 #one-proxy-status-root .opsb-path-turn-left .opsb-hop-latency {
   left: calc(10.5% - 14px);
   transform: none;
+}
+
+#one-proxy-status-root .opsb-path-fallback {
+  padding: 6px 8px;
+  border: 1px solid #fde68a;
+  border-radius: 7px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 #one-proxy-status-root .opsb-actions {

@@ -1,6 +1,7 @@
 package direct
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -19,11 +20,29 @@ type PeerState struct {
 	FallbackReason    string
 }
 
+type ClientSessionValidationRequest struct {
+	SessionID  string
+	PunchToken string
+	TargetHost string
+	TargetPort int
+}
+
+type ClientSessionValidationResult struct {
+	Valid      bool
+	TargetHost string
+	TargetPort int
+}
+
+type ClientSessionValidator interface {
+	ValidateClientDirectSession(context.Context, ClientSessionValidationRequest) (ClientSessionValidationResult, error)
+}
+
 type Registry struct {
-	mu        sync.RWMutex
-	peers     map[string]PeerState
-	transport *quic.Transport
-	listener  *quic.Listener
+	mu              sync.RWMutex
+	peers           map[string]PeerState
+	transport       *quic.Transport
+	listener        *quic.Listener
+	clientValidator ClientSessionValidator
 }
 
 func NewRegistry() *Registry {
@@ -46,6 +65,12 @@ func (r *Registry) Get(peerNodeID string) (PeerState, bool) {
 func (r *Registry) Remove(peerNodeID string) {
 	r.mu.Lock()
 	delete(r.peers, peerNodeID)
+	r.mu.Unlock()
+}
+
+func (r *Registry) SetClientSessionValidator(validator ClientSessionValidator) {
+	r.mu.Lock()
+	r.clientValidator = validator
 	r.mu.Unlock()
 }
 

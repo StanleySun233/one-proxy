@@ -70,3 +70,30 @@ func (r *Router) handleDirectStatus(w http.ResponseWriter, req *http.Request) {
 	}
 	writeSuccess(w, http.StatusOK, result)
 }
+
+func (r *Router) handleClientDirectSessionValidate(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeMethodNotAllowed(w, "POST")
+		return
+	}
+	var payload domain.ClientDirectSessionValidateInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	nodeID, ok := nodeIDFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_node_token")
+		return
+	}
+	result, err := r.service.ValidateClientDirectSession(nodeID, payload)
+	if err != nil {
+		writeServiceError(w, req, err, "direct_session_validate_failed")
+		return
+	}
+	if !result.Valid {
+		writeError(w, http.StatusUnauthorized, "invalid_direct_session")
+		return
+	}
+	writeSuccess(w, http.StatusOK, result)
+}

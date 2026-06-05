@@ -123,9 +123,27 @@
     return linkTiming(payload, previous.id, node.id);
   }
 
+  function transportLabel(value) {
+    switch (String(value || '').toLowerCase()) {
+      case 'direct_quic':
+        return label('statusBubbleDirectQUIC');
+      case 'relay':
+      case 'relay_ws_parent':
+        return label('statusBubbleRelay');
+      case 'client':
+        return label('statusBubbleUserMachine');
+      case 'target':
+        return label('statusBubbleWebsite');
+      default:
+        return text(value, label('statusBubbleUnknown'));
+    }
+  }
+
   function pathConnector(payload, previous, node, className) {
     const connector = el('div', className || 'opsb-path-link');
+    const transport = node.transport || previous.transport || '';
     connector.append(el('span', 'opsb-hop-latency', `${label('statusBubbleRoundTrip')} ${formatLatency(edgeLatency(payload, previous, node))}`));
+    connector.append(el('span', 'opsb-hop-transport', transportLabel(transport)));
     connector.append(el('span', 'opsb-hop-segment'));
     return connector;
   }
@@ -136,6 +154,9 @@
     icon.append(svgIcon(node.kind));
     item.append(icon);
     item.append(el('span', 'opsb-hop-name', text(node.name, node.id)));
+    if (node.transport && node.kind !== 'web') {
+      item.append(el('span', 'opsb-hop-mode', transportLabel(node.transport)));
+    }
     if (node.kind === 'node') {
       item.append(el('span', 'opsb-hop-process', node.processMs === null ? '-' : `${Math.round(node.processMs)} ms`));
     }
@@ -144,12 +165,20 @@
 
   function renderTopology(payload) {
     const rail = el('div', 'opsb-topology');
-    const websiteHost = payload.page && payload.page.host ? payload.page.host : '';
-    const nodes = [
-      { id: 'user', name: label('statusBubbleUserMachine'), kind: 'user' },
-      ...((payload.topology || []).map((node) => ({ id: node.id, name: node.name || node.id, kind: 'node', processMs: nodeTiming(payload, node.id) }))),
-      { id: websiteHost || 'website', name: websiteHost || label('statusBubbleWebsite'), kind: 'web' }
-    ];
+    const path = payload.path || {};
+    if (!Array.isArray(path.nodes) || path.nodes.length < 2) {
+      throw new Error('status_bubble_path_required');
+    }
+    const nodes = path.nodes.map((node) => ({
+      id: node.id,
+      name: node.name || (node.kind === 'user' ? label('statusBubbleUserMachine') : node.kind === 'web' ? label('statusBubbleWebsite') : node.id),
+      kind: node.kind || 'node',
+      transport: node.transport || path.transport || path.mode || '',
+      processMs: node.kind === 'node' ? nodeTiming(payload, node.id) : null
+    }));
+    if (path.fallbackReason) {
+      rail.append(el('div', 'opsb-path-fallback', `${label('statusBubbleFallback')}: ${path.fallbackReason}`));
+    }
     for (let start = 0; start < nodes.length; start += 4) {
       const rowIndex = start / 4;
       const chunk = nodes.slice(start, start + 4);

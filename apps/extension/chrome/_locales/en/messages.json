@@ -343,6 +343,18 @@
   "statusBubbleRoundTrip": {
     "message": "RTT"
   },
+  "statusBubbleTransport": {
+    "message": "Transport"
+  },
+  "statusBubbleDirectQUIC": {
+    "message": "Direct QUIC"
+  },
+  "statusBubbleRelay": {
+    "message": "Relay"
+  },
+  "statusBubbleFallback": {
+    "message": "Fallback"
+  },
   "statusBubbleRefresh": {
     "message": "Refresh"
   },

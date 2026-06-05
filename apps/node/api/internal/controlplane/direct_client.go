@@ -56,3 +56,21 @@ func (c *Client) ReportDirectStatus(input domain.ReportDirectStatusInput) (domai
 	}
 	return envelope.Data, nil
 }
+
+func (c *Client) ValidateClientDirectSession(input domain.ClientDirectSessionValidateInput) (domain.ClientDirectSessionValidateResult, error) {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return domain.ClientDirectSessionValidateResult{}, err
+	}
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/api/node/agent/direct/client/session/validate", bytes.NewReader(body))
+	if err != nil {
+		return domain.ClientDirectSessionValidateResult{}, err
+	}
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
+	req.Header.Set("Content-Type", "application/json")
+	var envelope responseEnvelope[domain.ClientDirectSessionValidateResult]
+	if err := c.do(req, &envelope); err != nil {
+		return domain.ClientDirectSessionValidateResult{}, err
+	}
+	return envelope.Data, nil
+}

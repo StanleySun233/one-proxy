@@ -225,6 +225,7 @@ func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager, regist
 	interval := parseDurationOrDefault(cfg.NodeDirectRefreshInterval, 30*time.Second)
 	current := manager.Current()
 	client := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken)
+	registry.SetClientSessionValidator(clientDirectSessionValidator{client: client})
 	directManager := direct.NewManager(direct.QUICPacketIO{Transport: quicTransport}, direct.CandidateGatherer{
 		STUNServers: splitCSV(cfg.NodeDirectSTUNServers),
 		Timeout:     3 * time.Second,
@@ -234,6 +235,27 @@ func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager, regist
 	go directManager.Run(context.Background(), interval, func(err error) {
 		log.Printf("direct transport refresh failed: %v", err)
 	})
+}
+
+type clientDirectSessionValidator struct {
+	client *controlplane.Client
+}
+
+func (v clientDirectSessionValidator) ValidateClientDirectSession(ctx context.Context, request direct.ClientSessionValidationRequest) (direct.ClientSessionValidationResult, error) {
+	result, err := v.client.ValidateClientDirectSession(domain.ClientDirectSessionValidateInput{
+		SessionID:  request.SessionID,
+		PunchToken: request.PunchToken,
+		TargetHost: request.TargetHost,
+		TargetPort: request.TargetPort,
+	})
+	if err != nil {
+		return direct.ClientSessionValidationResult{}, err
+	}
+	return direct.ClientSessionValidationResult{
+		Valid:      result.Valid,
+		TargetHost: result.TargetHost,
+		TargetPort: result.TargetPort,
+	}, nil
 }
 
 func splitCSV(value string) []string {

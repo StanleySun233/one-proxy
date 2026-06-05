@@ -25,6 +25,10 @@ const STATUS_BUBBLE_LABELS = [
   'statusBubbleUserMachine',
   'statusBubbleWebsite',
   'statusBubbleRoundTrip',
+  'statusBubbleTransport',
+  'statusBubbleDirectQUIC',
+  'statusBubbleRelay',
+  'statusBubbleFallback',
   'statusBubbleRefresh',
   'statusBubbleCopy',
   'statusBubbleCopied',
@@ -199,6 +203,28 @@ function totalPathLatency(pathHealth) {
   return (pathHealth.linkTimings || []).reduce((total, item) => total + Number(item.roundTripMs || 0), 0);
 }
 
+function pathPayload(route, status, pageHost) {
+  const topology = Array.isArray(route.topology) ? route.topology : [];
+  const transport = status && status.path && status.path.transport ? String(status.path.transport) : 'relay';
+  const nodes = [
+    { id: 'user', name: 'User machine', kind: 'user', transport: 'client' },
+    ...topology.map((node, index) => ({
+      id: node.id,
+      name: node.name || node.id,
+      kind: 'node',
+      mode: node.mode || '',
+      transport: index === 0 ? transport : 'relay_ws_parent'
+    })),
+    { id: pageHost || 'website', name: pageHost || 'Website', kind: 'web', transport: 'target' }
+  ];
+  return {
+    mode: transport,
+    transport,
+    fallbackReason: status && status.path && status.path.fallbackReason ? String(status.path.fallbackReason) : '',
+    nodes
+  };
+}
+
 function requestRemoteStatus(state, route, routeInfo) {
   if (route.mode !== 'proxy') {
     return Promise.resolve(null);
@@ -264,7 +290,7 @@ export function getStatusBubblePageStatus(message, sender) {
             correlated: Boolean(status.correlated)
           },
           latencyMs,
-          topology: route.topology || [],
+          path: pathPayload(route, status, page.host),
           labels: labels(),
           nodeTimings: [],
           linkTimings: pathHealth.linkTimings,
