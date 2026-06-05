@@ -36,13 +36,16 @@ function cidrEntries(items) {
 
 export function buildPacScript(state) {
   const group = activeGroupFrom(state);
-  const proxyTarget = group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT';
+  const helper = state.localHelper || {};
+  const helperTarget = helper.enabled && helper.host && helper.port ? `${helper.scheme || 'SOCKS5'} ${helper.host}:${helper.port}` : '';
+  const proxyTarget = helperTarget || (group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT');
   const directHosts = uniqueStrings([
     'localhost',
     '*.local',
     '*.lan',
     urlHostname(state.controlPlaneUrl),
     group ? group.proxyHost : '',
+    helper.enabled ? helper.host : '',
     ...(group ? group.directHosts : []),
     ...(state.localOverrides.directHosts || [])
   ]);
@@ -123,11 +126,14 @@ function FindProxyForURL(url, host) {
 
 export function pacSummary(state) {
   const group = activeGroupFrom(state);
+  const helper = state.localHelper || {};
+  const helperTarget = helper.enabled && helper.host && helper.port ? `${helper.scheme || 'SOCKS5'} ${helper.host}:${helper.port}` : '';
   return {
     enabled: Boolean(state.enabled),
     activeGroupId: group ? group.id : '',
     activeGroupName: group ? group.name : '',
-    proxyTarget: group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT',
+    proxyTarget: helperTarget || (group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT'),
+    localHelper: helperTarget,
     proxyDefault: Boolean(group && group.proxyDefault),
     remoteProxyHosts: group ? uniqueStrings(group.proxyHosts).length : 0,
     remoteProxyCidrs: group ? uniqueStrings(group.proxyCidrs).length : 0,

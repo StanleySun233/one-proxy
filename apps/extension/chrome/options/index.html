@@ -119,6 +119,35 @@
           </div>
           <div id="proxyTokenStatus" class="meta-card"></div>
         </article>
+        <article class="panel panel-local-helper">
+          <div class="panel-head">
+            <h2 data-lang="localHelper">Local helper</h2>
+          </div>
+          <div class="form-grid">
+            <label>
+              <span data-lang="localHelperEnabled">Enabled</span>
+              <input id="localHelperEnabled" type="checkbox" />
+            </label>
+            <label>
+              <span data-lang="localHelperScheme">Scheme</span>
+              <select id="localHelperScheme">
+                <option value="SOCKS5">SOCKS5</option>
+                <option value="PROXY">HTTP</option>
+              </select>
+            </label>
+            <label>
+              <span data-lang="localHelperHost">Host</span>
+              <input id="localHelperHost" type="text" />
+            </label>
+            <label>
+              <span data-lang="localHelperPort">Port</span>
+              <input id="localHelperPort" type="number" min="1" max="65535" />
+            </label>
+          </div>
+          <div class="action-row top-gap">
+            <button id="saveLocalHelper" class="primary" type="button" data-lang="saveLocalHelper">Save local helper</button>
+          </div>
+        </article>
         <article class="panel panel-diagnostics">
           <div class="panel-head">
             <h2 data-lang="diagnostics">Diagnostics</h2>

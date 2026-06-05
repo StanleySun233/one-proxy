@@ -20,5 +20,11 @@ export const defaultExtensionState = {
   localOverrides: {
     directHosts: [],
     proxyHosts: []
+  },
+  localHelper: {
+    enabled: false,
+    scheme: 'SOCKS5',
+    host: '127.0.0.1',
+    port: 1080
   }
 };

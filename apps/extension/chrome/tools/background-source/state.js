@@ -27,6 +27,12 @@ export const DEFAULT_STATE = {
     directHosts: [],
     proxyHosts: []
   },
+  localHelper: {
+    enabled: false,
+    scheme: 'SOCKS5',
+    host: '127.0.0.1',
+    port: 1080
+  },
   monitor: {
     targetUrl: '',
     lastRunAt: '',
@@ -131,6 +137,10 @@ export function mergeState(raw) {
       ...DEFAULT_STATE.localOverrides,
       ...(rest.localOverrides || {})
     },
+    localHelper: {
+      ...DEFAULT_STATE.localHelper,
+      ...(rest.localHelper || {})
+    },
     monitor: {
       ...DEFAULT_STATE.monitor,
       ...(rest.monitor || {})
@@ -143,6 +153,10 @@ export function mergeState(raw) {
   }
   state.localOverrides.directHosts = uniqueStrings(state.localOverrides.directHosts);
   state.localOverrides.proxyHosts = uniqueStrings(state.localOverrides.proxyHosts);
+  state.localHelper.enabled = Boolean(state.localHelper.enabled);
+  state.localHelper.scheme = state.localHelper.scheme === 'PROXY' ? 'PROXY' : 'SOCKS5';
+  state.localHelper.host = String(state.localHelper.host || '127.0.0.1').trim();
+  state.localHelper.port = Number(state.localHelper.port || 1080);
   if (!state.remote.groups.find((group) => group.id === state.selection.activeGroupId)) {
     state.selection.activeGroupId = (state.remote.groups[0] && state.remote.groups[0].id) || '';
   }

@@ -124,6 +124,12 @@ function requestNodePathHealth(state, group, route) {
 }
 
 function measurePathHealth(state, group, route) {
+  if (state.localHelper && state.localHelper.enabled) {
+    return Promise.resolve({
+      sampleTsMs: Date.now(),
+      linkTimings: []
+    });
+  }
   const key = pathHealthKey(group, route);
   const cached = pathHealthCache.get(key);
   const now = Date.now();
@@ -203,9 +209,9 @@ function totalPathLatency(pathHealth) {
   return (pathHealth.linkTimings || []).reduce((total, item) => total + Number(item.roundTripMs || 0), 0);
 }
 
-function pathPayload(route, status, pageHost) {
+function pathPayload(state, route, status, pageHost) {
   const topology = Array.isArray(route.topology) ? route.topology : [];
-  const transport = status && status.path && status.path.transport ? String(status.path.transport) : 'relay';
+  const transport = state.localHelper && state.localHelper.enabled ? 'direct_quic' : (status && status.path && status.path.transport ? String(status.path.transport) : 'relay');
   const nodes = [
     { id: 'user', name: 'User machine', kind: 'user', transport: 'client' },
     ...topology.map((node, index) => ({
@@ -220,7 +226,7 @@ function pathPayload(route, status, pageHost) {
   return {
     mode: transport,
     transport,
-    fallbackReason: status && status.path && status.path.fallbackReason ? String(status.path.fallbackReason) : '',
+    fallbackReason: '',
     nodes
   };
 }
@@ -290,7 +296,7 @@ export function getStatusBubblePageStatus(message, sender) {
             correlated: Boolean(status.correlated)
           },
           latencyMs,
-          path: pathPayload(route, status, page.host),
+          path: pathPayload(state, route, status, page.host),
           labels: labels(),
           nodeTimings: [],
           linkTimings: pathHealth.linkTimings,

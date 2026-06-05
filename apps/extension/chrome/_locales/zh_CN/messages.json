@@ -367,6 +367,27 @@
   "statusBubbleUnknown": {
     "message": "未知"
   },
+  "localHelper": {
+    "message": "本地 Helper"
+  },
+  "localHelperEnabled": {
+    "message": "启用"
+  },
+  "localHelperScheme": {
+    "message": "协议"
+  },
+  "localHelperHost": {
+    "message": "主机"
+  },
+  "localHelperPort": {
+    "message": "端口"
+  },
+  "saveLocalHelper": {
+    "message": "保存本地 Helper"
+  },
+  "statusLocalHelperSaved": {
+    "message": "本地 Helper 已保存。"
+  },
   "themeVivid": {
     "message": "灵动"
   },

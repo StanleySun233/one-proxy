@@ -80,6 +80,11 @@ const directHosts = document.getElementById('directHosts');
 const proxyHosts = document.getElementById('proxyHosts');
 const saveOverrides = document.getElementById('saveOverrides');
 const proxyTokenStatus = document.getElementById('proxyTokenStatus');
+const localHelperEnabled = document.getElementById('localHelperEnabled');
+const localHelperScheme = document.getElementById('localHelperScheme');
+const localHelperHost = document.getElementById('localHelperHost');
+const localHelperPort = document.getElementById('localHelperPort');
+const saveLocalHelper = document.getElementById('saveLocalHelper');
 const themeMode = document.getElementById('themeMode');
 const diagnosticLogs = document.getElementById('diagnosticLogs');
 const refreshLogs = document.getElementById('refreshLogs');
@@ -236,6 +241,10 @@ function renderSession() {
   proxyTokenStatus.textContent = session.proxyToken
     ? text('proxyTokenSummary', [session.proxyTokenExpiresAt ? new Date(session.proxyTokenExpiresAt).toLocaleString() : '-'])
     : text('proxyTokenMissing');
+  localHelperEnabled.checked = Boolean(state.localHelper && state.localHelper.enabled);
+  localHelperScheme.value = state.localHelper && state.localHelper.scheme === 'PROXY' ? 'PROXY' : 'SOCKS5';
+  localHelperHost.value = (state.localHelper && state.localHelper.host) || '127.0.0.1';
+  localHelperPort.value = String((state.localHelper && state.localHelper.port) || 1080);
   sessionMeta.textContent = session.accessToken
     ? text('sessionSummary', [session.account || '-', session.expiresAt ? new Date(session.expiresAt).toLocaleString() : '-'])
     : text('statusLoginRequired');
@@ -329,6 +338,23 @@ saveOverrides.addEventListener('click', () => {
   }
   render(result);
   setFeedback('ok', text('statusOverridesSaved'));
+  });
+});
+
+saveLocalHelper.addEventListener('click', () => {
+  sendMessage({
+    type: 'set-local-helper',
+    enabled: localHelperEnabled.checked,
+    scheme: localHelperScheme.value,
+    host: localHelperHost.value.trim(),
+    port: Number(localHelperPort.value)
+  }).then((result) => {
+  if (result && result.error) {
+    setFeedback('error', formatError(result.error));
+    return;
+  }
+  render(result);
+  setFeedback('ok', text('statusLocalHelperSaved'));
   });
 });
 

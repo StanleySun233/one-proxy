@@ -10,12 +10,17 @@ import (
 )
 
 type Socks5Config struct {
-	ListenAddr     string
-	EntryHost      string
-	EntryPort      int
-	TokenEnv       string
-	TokenFile      string
-	ConnectTimeout time.Duration
+	ListenAddr      string
+	EntryHost       string
+	EntryPort       int
+	TokenEnv        string
+	TokenFile       string
+	PanelURL        string
+	AccessTokenEnv  string
+	AccessTokenFile string
+	TenantID        string
+	AccessPathID    string
+	ConnectTimeout  time.Duration
 }
 
 func RunSocks5(cfg Socks5Config) error {
@@ -42,14 +47,19 @@ func handleSocks5(client net.Conn, cfg Socks5Config) {
 	if err != nil {
 		return
 	}
-	upstream, err := DialCONNECT(Config{
-		EntryHost:      cfg.EntryHost,
-		EntryPort:      cfg.EntryPort,
-		TargetHost:     targetHost,
-		TargetPort:     targetPort,
-		TokenEnv:       cfg.TokenEnv,
-		TokenFile:      cfg.TokenFile,
-		ConnectTimeout: cfg.ConnectTimeout,
+	upstream, err := DialUpstream(Config{
+		EntryHost:       cfg.EntryHost,
+		EntryPort:       cfg.EntryPort,
+		TargetHost:      targetHost,
+		TargetPort:      targetPort,
+		TokenEnv:        cfg.TokenEnv,
+		TokenFile:       cfg.TokenFile,
+		PanelURL:        cfg.PanelURL,
+		AccessTokenEnv:  cfg.AccessTokenEnv,
+		AccessTokenFile: cfg.AccessTokenFile,
+		TenantID:        cfg.TenantID,
+		AccessPathID:    cfg.AccessPathID,
+		ConnectTimeout:  cfg.ConnectTimeout,
 	})
 	if err != nil {
 		_ = writeSocks5Reply(client, 0x05)

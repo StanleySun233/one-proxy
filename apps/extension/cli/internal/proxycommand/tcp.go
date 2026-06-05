@@ -6,7 +6,7 @@ import (
 )
 
 func RunTCP(cfg Config, input io.Reader, output io.Writer) error {
-	conn, err := DialCONNECT(cfg)
+	conn, err := DialUpstream(cfg)
 	if err != nil {
 		return err
 	}

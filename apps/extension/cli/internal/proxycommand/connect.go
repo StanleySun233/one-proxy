@@ -12,13 +12,25 @@ import (
 )
 
 type Config struct {
-	EntryHost      string
-	EntryPort      int
-	TargetHost     string
-	TargetPort     int
-	TokenEnv       string
-	TokenFile      string
-	ConnectTimeout time.Duration
+	EntryHost       string
+	EntryPort       int
+	TargetHost      string
+	TargetPort      int
+	TokenEnv        string
+	TokenFile       string
+	PanelURL        string
+	AccessTokenEnv  string
+	AccessTokenFile string
+	TenantID        string
+	AccessPathID    string
+	ConnectTimeout  time.Duration
+}
+
+func DialUpstream(cfg Config) (net.Conn, error) {
+	if cfg.PanelURL != "" || cfg.AccessPathID != "" {
+		return DialDirect(cfg)
+	}
+	return DialCONNECT(cfg)
 }
 
 func DialCONNECT(cfg Config) (net.Conn, error) {

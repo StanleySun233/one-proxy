@@ -135,6 +135,16 @@ function handleMessage(message, sender) {
           proxyHosts: uniqueStrings(message.proxyHosts)
         }
       })));
+    case 'set-local-helper':
+      return computedAfter(() => setPartialState((state) => ({
+        ...state,
+        localHelper: {
+          enabled: Boolean(message.enabled),
+          scheme: message.scheme === 'PROXY' ? 'PROXY' : 'SOCKS5',
+          host: String(message.host || '127.0.0.1').trim(),
+          port: Number(message.port || 1080)
+        }
+      })));
     case 'add-current-host-to-direct':
       return getCurrentTabInfo().then((info) => addHostToRule('directHosts', (info && info.host) || ''));
     case 'add-current-host-to-proxy':

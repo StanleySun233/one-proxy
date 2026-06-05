@@ -367,6 +367,27 @@
   "statusBubbleUnknown": {
     "message": "Unknown"
   },
+  "localHelper": {
+    "message": "Local helper"
+  },
+  "localHelperEnabled": {
+    "message": "Enabled"
+  },
+  "localHelperScheme": {
+    "message": "Scheme"
+  },
+  "localHelperHost": {
+    "message": "Host"
+  },
+  "localHelperPort": {
+    "message": "Port"
+  },
+  "saveLocalHelper": {
+    "message": "Save local helper"
+  },
+  "statusLocalHelperSaved": {
+    "message": "Local helper saved."
+  },
   "themeVivid": {
     "message": "Vivid"
   },

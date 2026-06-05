@@ -57,6 +57,12 @@ const DEFAULT_STATE = {
     directHosts: [],
     proxyHosts: []
   },
+  localHelper: {
+    enabled: false,
+    scheme: 'SOCKS5',
+    host: '127.0.0.1',
+    port: 1080
+  },
   monitor: {
     targetUrl: '',
     lastRunAt: '',
@@ -161,6 +167,10 @@ function mergeState(raw) {
       ...DEFAULT_STATE.localOverrides,
       ...(rest.localOverrides || {})
     },
+    localHelper: {
+      ...DEFAULT_STATE.localHelper,
+      ...(rest.localHelper || {})
+    },
     monitor: {
       ...DEFAULT_STATE.monitor,
       ...(rest.monitor || {})
@@ -173,6 +183,10 @@ function mergeState(raw) {
   }
   state.localOverrides.directHosts = uniqueStrings(state.localOverrides.directHosts);
   state.localOverrides.proxyHosts = uniqueStrings(state.localOverrides.proxyHosts);
+  state.localHelper.enabled = Boolean(state.localHelper.enabled);
+  state.localHelper.scheme = state.localHelper.scheme === 'PROXY' ? 'PROXY' : 'SOCKS5';
+  state.localHelper.host = String(state.localHelper.host || '127.0.0.1').trim();
+  state.localHelper.port = Number(state.localHelper.port || 1080);
   if (!state.remote.groups.find((group) => group.id === state.selection.activeGroupId)) {
     state.selection.activeGroupId = (state.remote.groups[0] && state.remote.groups[0].id) || '';
   }
@@ -446,13 +460,16 @@ function cidrEntries(items) {
 
 function buildPacScript(state) {
   const group = activeGroupFrom(state);
-  const proxyTarget = group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT';
+  const helper = state.localHelper || {};
+  const helperTarget = helper.enabled && helper.host && helper.port ? `${helper.scheme || 'SOCKS5'} ${helper.host}:${helper.port}` : '';
+  const proxyTarget = helperTarget || (group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT');
   const directHosts = uniqueStrings([
     'localhost',
     '*.local',
     '*.lan',
     urlHostname(state.controlPlaneUrl),
     group ? group.proxyHost : '',
+    helper.enabled ? helper.host : '',
     ...(group ? group.directHosts : []),
     ...(state.localOverrides.directHosts || [])
   ]);
@@ -533,11 +550,14 @@ function FindProxyForURL(url, host) {
 
 function pacSummary(state) {
   const group = activeGroupFrom(state);
+  const helper = state.localHelper || {};
+  const helperTarget = helper.enabled && helper.host && helper.port ? `${helper.scheme || 'SOCKS5'} ${helper.host}:${helper.port}` : '';
   return {
     enabled: Boolean(state.enabled),
     activeGroupId: group ? group.id : '',
     activeGroupName: group ? group.name : '',
-    proxyTarget: group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT',
+    proxyTarget: helperTarget || (group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT'),
+    localHelper: helperTarget,
     proxyDefault: Boolean(group && group.proxyDefault),
     remoteProxyHosts: group ? uniqueStrings(group.proxyHosts).length : 0,
     remoteProxyCidrs: group ? uniqueStrings(group.proxyCidrs).length : 0,
@@ -1149,6 +1169,12 @@ function requestNodePathHealth(state, group, route) {
 }
 
 function measurePathHealth(state, group, route) {
+  if (state.localHelper && state.localHelper.enabled) {
+    return Promise.resolve({
+      sampleTsMs: Date.now(),
+      linkTimings: []
+    });
+  }
   const key = pathHealthKey(group, route);
   const cached = pathHealthCache.get(key);
   const now = Date.now();
@@ -1228,9 +1254,9 @@ function totalPathLatency(pathHealth) {
   return (pathHealth.linkTimings || []).reduce((total, item) => total + Number(item.roundTripMs || 0), 0);
 }
 
-function pathPayload(route, status, pageHost) {
+function pathPayload(state, route, status, pageHost) {
   const topology = Array.isArray(route.topology) ? route.topology : [];
-  const transport = status && status.path && status.path.transport ? String(status.path.transport) : 'relay';
+  const transport = state.localHelper && state.localHelper.enabled ? 'direct_quic' : (status && status.path && status.path.transport ? String(status.path.transport) : 'relay');
   const nodes = [
     { id: 'user', name: 'User machine', kind: 'user', transport: 'client' },
     ...topology.map((node, index) => ({
@@ -1245,7 +1271,7 @@ function pathPayload(route, status, pageHost) {
   return {
     mode: transport,
     transport,
-    fallbackReason: status && status.path && status.path.fallbackReason ? String(status.path.fallbackReason) : '',
+    fallbackReason: '',
     nodes
   };
 }
@@ -1315,7 +1341,7 @@ function getStatusBubblePageStatus(message, sender) {
             correlated: Boolean(status.correlated)
           },
           latencyMs,
-          path: pathPayload(route, status, page.host),
+          path: pathPayload(state, route, status, page.host),
           labels: labels(),
           nodeTimings: [],
           linkTimings: pathHealth.linkTimings,
@@ -1457,6 +1483,16 @@ function handleMessage(message, sender) {
         localOverrides: {
           directHosts: uniqueStrings(message.directHosts),
           proxyHosts: uniqueStrings(message.proxyHosts)
+        }
+      })));
+    case 'set-local-helper':
+      return computedAfter(() => setPartialState((state) => ({
+        ...state,
+        localHelper: {
+          enabled: Boolean(message.enabled),
+          scheme: message.scheme === 'PROXY' ? 'PROXY' : 'SOCKS5',
+          host: String(message.host || '127.0.0.1').trim(),
+          port: Number(message.port || 1080)
         }
       })));
     case 'add-current-host-to-direct':

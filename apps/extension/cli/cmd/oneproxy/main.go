@@ -79,11 +79,13 @@ func runLogin(args []string) error {
 	var password string
 	var tenantID string
 	var tokenFile string
+	var accessTokenFile string
 	fs.StringVar(&panelURL, "panel-url", "", "OneProxy panel URL")
 	fs.StringVar(&account, "account", "", "account")
 	fs.StringVar(&password, "password", "", "password")
 	fs.StringVar(&tenantID, "tenant-id", "", "tenant ID")
 	fs.StringVar(&tokenFile, "token-file", defaultTokenFile(), "file to write the proxy token")
+	fs.StringVar(&accessTokenFile, "access-token-file", defaultAccessTokenFile(), "file to write the account access token")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -108,7 +110,10 @@ func runLogin(args []string) error {
 	if err := writeProxyTokenFile(tokenFile, bootstrap.ProxyToken); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "logged in as %s tenant=%s token_expires=%s token_file=%s\n", session.Account.Account, selectedTenantID, bootstrap.ProxyTokenExpiresAt, tokenFile)
+	if err := writeProxyTokenFile(accessTokenFile, session.AccessToken); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "logged in as %s tenant=%s token_expires=%s token_file=%s access_token_file=%s\n", session.Account.Account, selectedTenantID, bootstrap.ProxyTokenExpiresAt, tokenFile, accessTokenFile)
 	return nil
 }
 
@@ -192,6 +197,14 @@ func defaultTokenFile() string {
 	return filepath.Join(home, ".config", "oneproxy", "proxy-token")
 }
 
+func defaultAccessTokenFile() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "access-token"
+	}
+	return filepath.Join(home, ".config", "oneproxy", "access-token")
+}
+
 func trimURL(value string) string {
 	for len(value) > 0 && value[len(value)-1] == '/' {
 		value = value[:len(value)-1]
@@ -209,6 +222,7 @@ func runTCP(name string, args []string) error {
 	fs.IntVar(&cfg.TargetPort, "target-port", 0, "target port behind OneProxy")
 	fs.StringVar(&cfg.TokenEnv, "token-env", "ONEPROXY_PROXY_TOKEN", "environment variable containing the proxy token")
 	fs.StringVar(&cfg.TokenFile, "token-file", "", "file containing the proxy token")
+	addDirectFlags(fs, &cfg)
 	fs.DurationVar(&cfg.ConnectTimeout, "connect-timeout", 10*time.Second, "TCP connect timeout")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -226,6 +240,7 @@ func runTCPFrame(name string, args []string) error {
 	fs.IntVar(&cfg.TargetPort, "target-port", 0, "target port behind OneProxy")
 	fs.StringVar(&cfg.TokenEnv, "token-env", "ONEPROXY_PROXY_TOKEN", "environment variable containing the proxy token")
 	fs.StringVar(&cfg.TokenFile, "token-file", "", "file containing the proxy token")
+	addDirectFlags(fs, &cfg)
 	fs.DurationVar(&cfg.ConnectTimeout, "connect-timeout", 10*time.Second, "TCP connect timeout")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -242,6 +257,11 @@ func runSocks5(name string, args []string) error {
 	fs.IntVar(&cfg.EntryPort, "entry-port", 2333, "OneProxy node proxy port")
 	fs.StringVar(&cfg.TokenEnv, "token-env", "ONEPROXY_PROXY_TOKEN", "environment variable containing the proxy token")
 	fs.StringVar(&cfg.TokenFile, "token-file", "", "file containing the proxy token")
+	fs.StringVar(&cfg.PanelURL, "direct-panel-url", "", "OneProxy panel URL for direct sessions")
+	fs.StringVar(&cfg.AccessTokenEnv, "access-token-env", "ONEPROXY_ACCESS_TOKEN", "environment variable containing the account access token")
+	fs.StringVar(&cfg.AccessTokenFile, "access-token-file", "", "file containing the account access token")
+	fs.StringVar(&cfg.TenantID, "tenant-id", "", "tenant ID for direct sessions")
+	fs.StringVar(&cfg.AccessPathID, "direct-access-path-id", "", "access path ID for direct sessions")
 	fs.DurationVar(&cfg.ConnectTimeout, "connect-timeout", 10*time.Second, "TCP connect timeout")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -251,4 +271,12 @@ func runSocks5(name string, args []string) error {
 
 func usageError() error {
 	return fmt.Errorf("usage: oneproxy <login|tcp|proxy-command|tcp-frame|socks5|ss5> ...")
+}
+
+func addDirectFlags(fs *flag.FlagSet, cfg *proxycommand.Config) {
+	fs.StringVar(&cfg.PanelURL, "direct-panel-url", "", "OneProxy panel URL for direct sessions")
+	fs.StringVar(&cfg.AccessTokenEnv, "access-token-env", "ONEPROXY_ACCESS_TOKEN", "environment variable containing the account access token")
+	fs.StringVar(&cfg.AccessTokenFile, "access-token-file", "", "file containing the account access token")
+	fs.StringVar(&cfg.TenantID, "tenant-id", "", "tenant ID for direct sessions")
+	fs.StringVar(&cfg.AccessPathID, "direct-access-path-id", "", "access path ID for direct sessions")
 }
