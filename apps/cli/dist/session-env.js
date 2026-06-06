@@ -177,6 +177,18 @@ export async function envOn() {
 export async function envOff() {
     process.stdout.write(deactivationScript());
 }
+function quoteWindowsCommand(value) {
+    return `"${value.replace(/"/g, '""')}"`;
+}
+function spawnWindowsCommand(executable, args, env) {
+    const shell = process.env.ComSpec || 'cmd.exe';
+    const command = ['start', '""', '/wait', quoteWindowsCommand(executable), ...args.map(quoteWindowsCommand)].join(' ');
+    return spawn(shell, ['/d', '/s', '/c', command], {
+        stdio: 'inherit',
+        windowsHide: false,
+        env
+    });
+}
 export async function runCommand(args, _context) {
     const executable = args[0];
     if (!executable) {
@@ -188,15 +200,16 @@ export async function runCommand(args, _context) {
         throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
     }
     const bindings = session.metadata.bindings;
-    const child = spawn(executable, args.slice(1), {
-        shell: process.platform === 'win32',
-        stdio: 'inherit',
-        windowsHide: false,
-        env: {
-            ...process.env,
-            ...proxyEnv(bindings)
-        }
-    });
+    const env = {
+        ...process.env,
+        ...proxyEnv(bindings)
+    };
+    const child = process.platform === 'win32'
+        ? spawnWindowsCommand(executable, args.slice(1), env)
+        : spawn(executable, args.slice(1), {
+            stdio: 'inherit',
+            env
+        });
     return new Promise((resolve, reject) => {
         child.once('error', (error) => {
             session.end().then(() => {

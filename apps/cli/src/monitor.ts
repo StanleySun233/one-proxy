@@ -179,6 +179,20 @@ function monitorEnv(port: number): Record<string, string> {
   };
 }
 
+function quoteWindowsCommand(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function spawnWindowsCommand(executable: string, args: string[], env: NodeJS.ProcessEnv) {
+  const shell = process.env.ComSpec || 'cmd.exe';
+  const command = ['start', '""', '/wait', quoteWindowsCommand(executable), ...args.map(quoteWindowsCommand)].join(' ');
+  return spawn(shell, ['/d', '/s', '/c', command], {
+    stdio: 'inherit',
+    windowsHide: false,
+    env
+  });
+}
+
 export async function monitorCommand(args: string[], _context: CliContext): Promise<number> {
   const executable = args[0];
   if (!executable) {
@@ -188,15 +202,16 @@ export async function monitorCommand(args: string[], _context: CliContext): Prom
   await fs.writeFile(logPath, '', { flag: 'a', mode: 0o600 });
   const proxy = await startMonitorProxy(logPath);
   process.stderr.write(`onep monitor: writing ${logPath}\n`);
-  const child = spawn(executable, args.slice(1), {
-    shell: process.platform === 'win32',
-    stdio: 'inherit',
-    windowsHide: false,
-    env: {
-      ...process.env,
-      ...monitorEnv(proxy.port)
-    }
-  });
+  const env = {
+    ...process.env,
+    ...monitorEnv(proxy.port)
+  };
+  const child = process.platform === 'win32'
+    ? spawnWindowsCommand(executable, args.slice(1), env)
+    : spawn(executable, args.slice(1), {
+      stdio: 'inherit',
+      env
+    });
   return new Promise((resolve, reject) => {
     child.once('error', (error: NodeJS.ErrnoException) => {
       proxy.close().then(() => {

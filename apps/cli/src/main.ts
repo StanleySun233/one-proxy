@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import * as fs from 'node:fs/promises';
 import { login, logout, sync, tenantList, tenantUse, groupList, groupUse } from './control-plane.ts';
 import { envOff, envOn, runCommand } from './session-env.ts';
 import { doctor, overrideCommand, routeCommand, statusCommand, testCommand, writeError } from './commands.ts';
@@ -14,6 +15,11 @@ export type CliContext = {
 };
 
 type CommandHandler = (args: string[], context: CliContext) => Promise<number | void>;
+
+async function packageVersion(): Promise<string> {
+  const packageJson = JSON.parse(await fs.readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+  return packageJson.version;
+}
 
 function stripGlobalFlags(args: string[]): { args: string[]; context: CliContext } {
   const remaining: string[] = [];
@@ -34,6 +40,7 @@ function usage(): string {
     '',
     'Commands:',
     '  init',
+    '  version',
     '  login',
     '  logout',
     '  profile add <name> --control-plane <url>|use <name>|list|current',
@@ -61,6 +68,9 @@ function requireArg(value: string | undefined, message: string): string {
 }
 
 const handlers: Record<string, CommandHandler> = {
+  version: async () => {
+    process.stdout.write(`${await packageVersion()}\n`);
+  },
   login,
   init: initCommand,
   logout,
