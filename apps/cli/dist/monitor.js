@@ -12,6 +12,7 @@ function monitorLogName(executable, now = new Date()) {
 }
 async function appendMonitorEvent(logPath, event) {
     await fs.appendFile(logPath, `${JSON.stringify(event)}\n`, { mode: 0o600 });
+    process.stderr.write(`onep monitor: ${event.protocol} ${event.method} ${event.host}:${event.port} ${event.status} ${event.target}\n`);
 }
 function parseConnectTarget(value) {
     const index = value.lastIndexOf(':');

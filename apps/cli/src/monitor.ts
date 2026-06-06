@@ -31,6 +31,7 @@ function monitorLogName(executable: string, now = new Date()) {
 
 async function appendMonitorEvent(logPath: string, event: MonitorLogEvent) {
   await fs.appendFile(logPath, `${JSON.stringify(event)}\n`, { mode: 0o600 });
+  process.stderr.write(`onep monitor: ${event.protocol} ${event.method} ${event.host}:${event.port} ${event.status} ${event.target}\n`);
 }
 
 function parseConnectTarget(value: string) {
