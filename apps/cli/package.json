@@ -1,10 +1,17 @@
 {
-  "name": "@oneproxy/cli",
+  "name": "@stanleysun233/oneproxy-cli",
   "version": "0.1.0",
-  "private": true,
+  "description": "OneProxy CLI session proxy client",
   "type": "module",
   "bin": {
     "onep": "./src/main.ts"
+  },
+  "files": [
+    "src",
+    "tsconfig.json"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
