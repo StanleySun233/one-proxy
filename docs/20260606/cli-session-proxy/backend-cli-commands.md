@@ -10,8 +10,8 @@
 - [x] create TypeScript configuration in apps/cli/tsconfig.json
   - Commit: 927680a
 - [x] implement command entrypoint and argument routing in apps/cli/src/main.ts
-  - Commit:
-- [ ] implement control-plane login, refresh, logout, tenant, group, and sync client in apps/cli/src/control-plane.ts
+  - Commit: 4702ece
+- [x] implement control-plane login, refresh, logout, tenant, group, and sync client in apps/cli/src/control-plane.ts
   - Commit:
 - [ ] implement ~/.oneproxy storage and permission handling in apps/cli/src/storage.ts
   - Commit:
