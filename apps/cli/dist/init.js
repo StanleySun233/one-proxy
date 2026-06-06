@@ -7,6 +7,15 @@ import { routeRulesFromBootstrap } from "./control-plane.js";
 function endpoint(baseUrl, path) {
     return `${baseUrl.replace(/\/+$/, '')}/api${path}`;
 }
+function normalizePanelUrl(input) {
+    const raw = input.trim();
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const url = new URL(withScheme);
+    url.pathname = url.pathname.replace(/\/+$/, '');
+    url.search = '';
+    url.hash = '';
+    return url.toString().replace(/\/+$/, '');
+}
 async function request(controlPlaneUrl, path, options = {}) {
     const headers = new Headers();
     if (options.accessToken) {
@@ -113,7 +122,7 @@ async function selectTenant(tenants) {
     return selected;
 }
 export async function initCommand(_args, _context) {
-    const panelUrl = await prompt('Panel URL: ');
+    const panelUrl = normalizePanelUrl(await prompt('Panel URL: '));
     process.stdout.write('Testing panel reachability...\n');
     await healthCheck(panelUrl);
     process.stdout.write('Panel reachable.\n');

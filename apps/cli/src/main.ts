@@ -124,6 +124,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   return typeof code === 'number' ? code : 0;
 }
 
-main().then((code) => {
-  process.exitCode = code;
-});
+main()
+  .then((code) => {
+    process.exitCode = code;
+  })
+  .catch((error) => {
+    writeError({
+      code: error.code || 'INTERNAL_ERROR',
+      message: error.message || String(error)
+    }, { json: process.argv.includes('--json') });
+    process.exitCode = error.exitCode || 1;
+  });

@@ -113,7 +113,15 @@ export async function main(argv = process.argv.slice(2)) {
     const code = await handler(parsed.args.slice(1), parsed.context);
     return typeof code === 'number' ? code : 0;
 }
-main().then((code) => {
+main()
+    .then((code) => {
     process.exitCode = code;
+})
+    .catch((error) => {
+    writeError({
+        code: error.code || 'INTERNAL_ERROR',
+        message: error.message || String(error)
+    }, { json: process.argv.includes('--json') });
+    process.exitCode = error.exitCode || 1;
 });
 //# sourceMappingURL=main.js.map

@@ -43,6 +43,16 @@ function endpoint(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/api${path}`;
 }
 
+function normalizePanelUrl(input: string): string {
+  const raw = input.trim();
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+  const url = new URL(withScheme);
+  url.pathname = url.pathname.replace(/\/+$/, '');
+  url.search = '';
+  url.hash = '';
+  return url.toString().replace(/\/+$/, '');
+}
+
 async function request<T>(controlPlaneUrl: string, path: string, options: { method?: string; accessToken?: string; tenantId?: string; body?: unknown } = {}): Promise<T> {
   const headers = new Headers();
   if (options.accessToken) {
@@ -157,7 +167,7 @@ async function selectTenant(tenants: Tenant[]): Promise<Tenant> {
 }
 
 export async function initCommand(_args: string[], _context: CliContext): Promise<void> {
-  const panelUrl = await prompt('Panel URL: ');
+  const panelUrl = normalizePanelUrl(await prompt('Panel URL: '));
   process.stdout.write('Testing panel reachability...\n');
   await healthCheck(panelUrl);
   process.stdout.write('Panel reachable.\n');
