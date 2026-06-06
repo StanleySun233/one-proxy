@@ -12,8 +12,8 @@
 - [x] implement command entrypoint and argument routing in apps/cli/src/main.ts
   - Commit: 4702ece
 - [x] implement control-plane login, refresh, logout, tenant, group, and sync client in apps/cli/src/control-plane.ts
-  - Commit:
-- [ ] implement ~/.oneproxy storage and permission handling in apps/cli/src/storage.ts
+  - Commit: b7ea905
+- [x] implement ~/.oneproxy storage and permission handling in apps/cli/src/storage.ts
   - Commit:
 - [ ] implement env on/off shell output and onep run command execution in apps/cli/src/session-env.ts
   - Commit:
