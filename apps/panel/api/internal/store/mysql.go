@@ -76,6 +76,9 @@ func (s *MySQLStore) init(ctx context.Context) error {
 	if err := s.ensureNodeAccessPathProtocolColumns(ctx); err != nil {
 		return err
 	}
+	if err := s.ensureNetworkAuditGovernanceColumns(ctx); err != nil {
+		return err
+	}
 	if err := s.ensureAccountRoleModel(ctx); err != nil {
 		return err
 	}

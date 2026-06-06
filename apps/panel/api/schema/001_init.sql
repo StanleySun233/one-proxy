@@ -420,6 +420,13 @@ CREATE TABLE IF NOT EXISTS network_audit_sessions (
   route_id VARCHAR(191) NOT NULL,
   scope_id VARCHAR(191) NOT NULL,
   chain_id VARCHAR(191) NOT NULL,
+  governance_mode VARCHAR(64) NOT NULL DEFAULT '',
+  policy_revision VARCHAR(191) NOT NULL DEFAULT '',
+  matched_rule_id VARCHAR(191) NOT NULL DEFAULT '',
+  matched_rule_type VARCHAR(64) NOT NULL DEFAULT '',
+  matched_rule_pattern VARCHAR(255) NOT NULL DEFAULT '',
+  matched_action VARCHAR(64) NOT NULL DEFAULT '',
+  decision_source VARCHAR(64) NOT NULL DEFAULT '',
   decision VARCHAR(64) NOT NULL,
   deny_reason VARCHAR(255) NOT NULL,
   bytes_in BIGINT NOT NULL DEFAULT 0,
@@ -438,6 +445,9 @@ CREATE TABLE IF NOT EXISTS network_audit_sessions (
   INDEX idx_network_audit_route_time (route_id, ended_at),
   INDEX idx_network_audit_scope_time (scope_id, ended_at),
   INDEX idx_network_audit_chain_time (chain_id, ended_at),
+  INDEX idx_network_audit_policy_time (policy_revision, ended_at),
+  INDEX idx_network_audit_matched_rule_time (matched_rule_id, ended_at),
+  INDEX idx_network_audit_deny_reason_time (deny_reason, ended_at),
   INDEX idx_network_audit_decision_time (decision, ended_at)
 );
 

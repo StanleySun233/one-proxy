@@ -16,7 +16,7 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 	}
 	if hop.isLast {
 		if isWebSocketUpgrade(req) {
-			s.upgradeDirect(w, req)
+			s.upgradeDirect(w, req, tracker)
 			return
 		}
 		if req.Method == http.MethodConnect {
@@ -28,7 +28,7 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 	}
 	if s.shouldUseStream(hop.node) {
 		if isWebSocketUpgrade(req) {
-			s.upgradeViaStream(w, req, hop)
+			s.upgradeViaStream(w, req, hop, tracker)
 			return
 		}
 		if req.Method == http.MethodConnect {
@@ -48,7 +48,7 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 		return
 	}
 	if isWebSocketUpgrade(req) {
-		s.upgradeViaProxy(w, req, hop.node)
+		s.upgradeViaProxy(w, req, hop.node, tracker)
 		return
 	}
 	s.forwardViaProxy(w, req, hop.node, tracker)

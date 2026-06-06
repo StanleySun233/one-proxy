@@ -183,15 +183,19 @@ func businessAuditQueryFromRequest(w http.ResponseWriter, req *http.Request) (do
 func networkAuditQueryFromRequest(w http.ResponseWriter, req *http.Request) (domain.NetworkAuditQuery, bool) {
 	values := req.URL.Query()
 	query := domain.NetworkAuditQuery{
-		TenantID:   values.Get("tenantId"),
-		ActorID:    values.Get("actorId"),
-		TokenID:    values.Get("tokenId"),
-		NodeID:     values.Get("nodeId"),
-		TargetHost: values.Get("targetHost"),
-		RouteID:    values.Get("routeId"),
-		ScopeID:    values.Get("scopeId"),
-		ChainID:    values.Get("chainId"),
-		Decision:   values.Get("decision"),
+		TenantID:       values.Get("tenantId"),
+		ActorID:        values.Get("actorId"),
+		TokenID:        values.Get("tokenId"),
+		NodeID:         values.Get("nodeId"),
+		TargetHost:     values.Get("targetHost"),
+		RouteID:        values.Get("routeId"),
+		ScopeID:        values.Get("scopeId"),
+		ChainID:        values.Get("chainId"),
+		DenyReason:     values.Get("denyReason"),
+		PolicyRevision: values.Get("policyRevision"),
+		MatchedRuleID:  values.Get("matchedRuleId"),
+		DecisionSource: values.Get("decisionSource"),
+		Decision:       values.Get("decision"),
 	}
 	if raw := values.Get("limit"); raw != "" {
 		limit, err := strconv.Atoi(raw)

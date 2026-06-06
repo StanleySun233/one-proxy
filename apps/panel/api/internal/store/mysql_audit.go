@@ -108,41 +108,61 @@ func (s *MySQLStore) CreateNetworkAuditSession(input domain.CreateNetworkAuditSe
 	if input.Decision == "" {
 		input.Decision = domain.NetworkDecisionAllow
 	}
+	if input.GovernanceMode == "" {
+		input.GovernanceMode = "enforce"
+	}
+	if input.MatchedRuleID == "" {
+		input.MatchedRuleID = input.RouteID
+	}
+	if input.DecisionSource == "" {
+		if input.MatchedRuleID != "" {
+			input.DecisionSource = "policy"
+		} else {
+			input.DecisionSource = "unknown"
+		}
+	}
 	if input.MetadataJSON == "" {
 		input.MetadataJSON = "{}"
 	}
 	item := domain.NetworkAuditSession{
-		ID:           id,
-		TenantID:     input.TenantID,
-		StartedAt:    input.StartedAt.UTC(),
-		EndedAt:      input.EndedAt.UTC(),
-		ActorType:    input.ActorType,
-		ActorID:      input.ActorID,
-		TokenID:      input.TokenID,
-		SourceIP:     input.SourceIP,
-		EntryNodeID:  input.EntryNodeID,
-		ExitNodeID:   input.ExitNodeID,
-		TargetHost:   strings.ToLower(strings.TrimSpace(input.TargetHost)),
-		TargetPort:   input.TargetPort,
-		Scheme:       strings.ToLower(strings.TrimSpace(input.Scheme)),
-		Method:       strings.ToUpper(strings.TrimSpace(input.Method)),
-		RouteID:      input.RouteID,
-		ScopeID:      input.ScopeID,
-		ChainID:      input.ChainID,
-		Decision:     input.Decision,
-		DenyReason:   input.DenyReason,
-		BytesIn:      input.BytesIn,
-		BytesOut:     input.BytesOut,
-		DurationMs:   input.DurationMs,
-		StatusCode:   input.StatusCode,
-		ErrorCode:    input.ErrorCode,
-		ReceivedAt:   input.ReceivedAt.UTC(),
-		MetadataJSON: input.MetadataJSON,
+		ID:                 id,
+		TenantID:           input.TenantID,
+		StartedAt:          input.StartedAt.UTC(),
+		EndedAt:            input.EndedAt.UTC(),
+		ActorType:          input.ActorType,
+		ActorID:            input.ActorID,
+		TokenID:            input.TokenID,
+		SourceIP:           input.SourceIP,
+		EntryNodeID:        input.EntryNodeID,
+		ExitNodeID:         input.ExitNodeID,
+		TargetHost:         strings.ToLower(strings.TrimSpace(input.TargetHost)),
+		TargetPort:         input.TargetPort,
+		Scheme:             strings.ToLower(strings.TrimSpace(input.Scheme)),
+		Method:             strings.ToUpper(strings.TrimSpace(input.Method)),
+		RouteID:            input.RouteID,
+		ScopeID:            input.ScopeID,
+		ChainID:            input.ChainID,
+		GovernanceMode:     input.GovernanceMode,
+		PolicyRevision:     input.PolicyRevision,
+		MatchedRuleID:      input.MatchedRuleID,
+		MatchedRuleType:    input.MatchedRuleType,
+		MatchedRulePattern: input.MatchedRulePattern,
+		MatchedAction:      input.MatchedAction,
+		DecisionSource:     input.DecisionSource,
+		Decision:           input.Decision,
+		DenyReason:         input.DenyReason,
+		BytesIn:            input.BytesIn,
+		BytesOut:           input.BytesOut,
+		DurationMs:         input.DurationMs,
+		StatusCode:         input.StatusCode,
+		ErrorCode:          input.ErrorCode,
+		ReceivedAt:         input.ReceivedAt.UTC(),
+		MetadataJSON:       input.MetadataJSON,
 	}
 	_, err = s.db.Exec(
 		`INSERT INTO network_audit_sessions
-		 (id, tenant_id, started_at, ended_at, actor_type, actor_id, token_id, source_ip, entry_node_id, exit_node_id, target_host, target_port, scheme, method, route_id, scope_id, chain_id, decision, deny_reason, bytes_in, bytes_out, duration_ms, status_code, error_code, received_at, metadata_json)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 (id, tenant_id, started_at, ended_at, actor_type, actor_id, token_id, source_ip, entry_node_id, exit_node_id, target_host, target_port, scheme, method, route_id, scope_id, chain_id, governance_mode, policy_revision, matched_rule_id, matched_rule_type, matched_rule_pattern, matched_action, decision_source, decision, deny_reason, bytes_in, bytes_out, duration_ms, status_code, error_code, received_at, metadata_json)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON DUPLICATE KEY UPDATE
 		   tenant_id = VALUES(tenant_id),
 		   started_at = VALUES(started_at),
@@ -160,6 +180,13 @@ func (s *MySQLStore) CreateNetworkAuditSession(input domain.CreateNetworkAuditSe
 		   route_id = VALUES(route_id),
 		   scope_id = VALUES(scope_id),
 		   chain_id = VALUES(chain_id),
+		   governance_mode = VALUES(governance_mode),
+		   policy_revision = VALUES(policy_revision),
+		   matched_rule_id = VALUES(matched_rule_id),
+		   matched_rule_type = VALUES(matched_rule_type),
+		   matched_rule_pattern = VALUES(matched_rule_pattern),
+		   matched_action = VALUES(matched_action),
+		   decision_source = VALUES(decision_source),
 		   decision = VALUES(decision),
 		   deny_reason = VALUES(deny_reason),
 		   bytes_in = VALUES(bytes_in),
@@ -171,6 +198,7 @@ func (s *MySQLStore) CreateNetworkAuditSession(input domain.CreateNetworkAuditSe
 		   metadata_json = VALUES(metadata_json)`,
 		item.ID, item.TenantID, formatAuditTime(item.StartedAt), formatAuditTime(item.EndedAt), item.ActorType, item.ActorID, item.TokenID, item.SourceIP,
 		item.EntryNodeID, item.ExitNodeID, item.TargetHost, item.TargetPort, item.Scheme, item.Method, item.RouteID, item.ScopeID, item.ChainID,
+		item.GovernanceMode, item.PolicyRevision, item.MatchedRuleID, item.MatchedRuleType, item.MatchedRulePattern, item.MatchedAction, item.DecisionSource,
 		item.Decision, item.DenyReason, item.BytesIn, item.BytesOut, item.DurationMs, item.StatusCode, item.ErrorCode, formatAuditTime(item.ReceivedAt), item.MetadataJSON,
 	)
 	return item, err
@@ -180,7 +208,7 @@ func (s *MySQLStore) ListNetworkAuditSessions(query domain.NetworkAuditQuery) (d
 	limit := auditLimit(query.Limit)
 	where, args := networkAuditWhere(query)
 	rows, err := s.db.Query(
-		`SELECT id, tenant_id, started_at, ended_at, actor_type, actor_id, token_id, source_ip, entry_node_id, exit_node_id, target_host, target_port, scheme, method, route_id, scope_id, chain_id, decision, deny_reason, bytes_in, bytes_out, duration_ms, status_code, error_code, received_at, metadata_json
+		`SELECT id, tenant_id, started_at, ended_at, actor_type, actor_id, token_id, source_ip, entry_node_id, exit_node_id, target_host, target_port, scheme, method, route_id, scope_id, chain_id, governance_mode, policy_revision, matched_rule_id, matched_rule_type, matched_rule_pattern, matched_action, decision_source, decision, deny_reason, bytes_in, bytes_out, duration_ms, status_code, error_code, received_at, metadata_json
 		 FROM network_audit_sessions`+where+`
 		 ORDER BY ended_at DESC, id DESC
 		 LIMIT ?`, append(args, limit)...,
@@ -250,6 +278,10 @@ func networkAuditWhere(query domain.NetworkAuditQuery) (string, []any) {
 	addStringFilter(&clauses, &args, "route_id", query.RouteID)
 	addStringFilter(&clauses, &args, "scope_id", query.ScopeID)
 	addStringFilter(&clauses, &args, "chain_id", query.ChainID)
+	addStringFilter(&clauses, &args, "deny_reason", query.DenyReason)
+	addStringFilter(&clauses, &args, "policy_revision", query.PolicyRevision)
+	addStringFilter(&clauses, &args, "matched_rule_id", query.MatchedRuleID)
+	addStringFilter(&clauses, &args, "decision_source", query.DecisionSource)
 	addStringFilter(&clauses, &args, "decision", query.Decision)
 	addTimeFilter(&clauses, &args, "ended_at", query.From, query.To)
 	return auditWhere(clauses), args
@@ -338,12 +370,13 @@ func (s *MySQLStore) businessAuditSummary(where string, args []any) (domain.Busi
 
 func (s *MySQLStore) networkAuditSummary(where string, args []any) (domain.NetworkAuditSummary, error) {
 	summary := domain.NetworkAuditSummary{
-		DecisionCount:  map[string]int64{},
-		TopTargets:     []domain.AuditTargetTraffic{},
-		UserTraffic:    []domain.AuditActorTraffic{},
-		NodeTraffic:    []domain.AuditNodeTraffic{},
-		TenantTraffic:  []domain.AuditTenantTraffic{},
-		RecentBusiness: []domain.BusinessAuditEvent{},
+		DecisionCount:   map[string]int64{},
+		DenyReasonCount: map[string]int64{},
+		TopTargets:      []domain.AuditTargetTraffic{},
+		UserTraffic:     []domain.AuditActorTraffic{},
+		NodeTraffic:     []domain.AuditNodeTraffic{},
+		TenantTraffic:   []domain.AuditTenantTraffic{},
+		RecentBusiness:  []domain.BusinessAuditEvent{},
 	}
 	if err := s.db.QueryRow(
 		`SELECT COUNT(*), COALESCE(SUM(bytes_in), 0), COALESCE(SUM(bytes_out), 0), CAST(COALESCE(AVG(duration_ms), 0) AS SIGNED)
@@ -357,6 +390,11 @@ func (s *MySQLStore) networkAuditSummary(where string, args []any) (domain.Netwo
 		return summary, err
 	}
 	summary.DecisionCount = decisions
+	denyReasons, err := s.countBy(where, args, "network_audit_sessions", "deny_reason", 20)
+	if err != nil {
+		return summary, err
+	}
+	summary.DenyReasonCount = denyReasons
 	if err := s.queryTrafficRows(&summary, where, args); err != nil {
 		return summary, err
 	}
@@ -487,7 +525,7 @@ func scanNetworkAuditSession(row networkAuditScanner) (domain.NetworkAuditSessio
 	var startedAt string
 	var endedAt string
 	var receivedAt string
-	err := row.Scan(&item.ID, &item.TenantID, &startedAt, &endedAt, &item.ActorType, &item.ActorID, &item.TokenID, &item.SourceIP, &item.EntryNodeID, &item.ExitNodeID, &item.TargetHost, &item.TargetPort, &item.Scheme, &item.Method, &item.RouteID, &item.ScopeID, &item.ChainID, &item.Decision, &item.DenyReason, &item.BytesIn, &item.BytesOut, &item.DurationMs, &item.StatusCode, &item.ErrorCode, &receivedAt, &item.MetadataJSON)
+	err := row.Scan(&item.ID, &item.TenantID, &startedAt, &endedAt, &item.ActorType, &item.ActorID, &item.TokenID, &item.SourceIP, &item.EntryNodeID, &item.ExitNodeID, &item.TargetHost, &item.TargetPort, &item.Scheme, &item.Method, &item.RouteID, &item.ScopeID, &item.ChainID, &item.GovernanceMode, &item.PolicyRevision, &item.MatchedRuleID, &item.MatchedRuleType, &item.MatchedRulePattern, &item.MatchedAction, &item.DecisionSource, &item.Decision, &item.DenyReason, &item.BytesIn, &item.BytesOut, &item.DurationMs, &item.StatusCode, &item.ErrorCode, &receivedAt, &item.MetadataJSON)
 	item.StartedAt = parseAuditTime(startedAt)
 	item.EndedAt = parseAuditTime(endedAt)
 	item.ReceivedAt = parseAuditTime(receivedAt)

@@ -40,7 +40,7 @@ func (s *Server) SetProxySessionReporter(reporter ProxySessionReporter) {
 	s.metricsReporter = reporter
 }
 
-func (s *Server) newProxySession(req *http.Request, rule domain.RouteRule, tenantID string) *proxySessionTracker {
+func (s *Server) newProxySession(req *http.Request, rule domain.RouteRule, tenantID string, policyRevision string) *proxySessionTracker {
 	if s.metricsReporter == nil {
 		return nil
 	}
@@ -54,18 +54,33 @@ func (s *Server) newProxySession(req *http.Request, rule domain.RouteRule, tenan
 		reporter: s.metricsReporter,
 		started:  started,
 		metric: domain.ProxySessionMetric{
-			ID:          fmt.Sprintf("%s-%d", s.nodeIDGetter(), started.UnixNano()),
-			TenantID:    tenantID,
-			NodeID:      s.nodeIDGetter(),
-			ChainID:     rule.ChainID,
-			RouteID:     rule.ID,
-			TargetHost:  targetHost,
-			TargetPort:  targetPort,
-			Protocol:    protocol,
-			StartedAt:   started.Format(time.RFC3339Nano),
-			ReceiveTSMs: started.UnixMilli(),
+			ID:                 fmt.Sprintf("%s-%d", s.nodeIDGetter(), started.UnixNano()),
+			TenantID:           tenantID,
+			NodeID:             s.nodeIDGetter(),
+			ChainID:            rule.ChainID,
+			ScopeID:            rule.DestinationScope,
+			RouteID:            rule.ID,
+			GovernanceMode:     "enforce",
+			PolicyRevision:     policyRevision,
+			MatchedRuleID:      rule.ID,
+			MatchedRuleType:    rule.MatchType,
+			MatchedRulePattern: rule.MatchValue,
+			MatchedAction:      rule.ActionType,
+			DecisionSource:     routeDecisionSource(rule),
+			TargetHost:         targetHost,
+			TargetPort:         targetPort,
+			Protocol:           protocol,
+			StartedAt:          started.Format(time.RFC3339Nano),
+			ReceiveTSMs:        started.UnixMilli(),
 		},
 	}
+}
+
+func routeDecisionSource(rule domain.RouteRule) string {
+	if rule.ID != "" {
+		return "policy"
+	}
+	return "default"
 }
 
 func (s *Server) newReverseProxySession(req *http.Request, tenantID string) *proxySessionTracker {

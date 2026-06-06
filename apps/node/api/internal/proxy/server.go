@@ -76,7 +76,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if isWebSocketUpgrade(req) {
-			s.upgradeReverse(w, req)
+			tracker := s.newReverseProxySession(req, validation.TenantID)
+			s.upgradeReverse(w, req, tracker)
 			return
 		}
 		tracker := s.newReverseProxySession(req, validation.TenantID)
@@ -87,20 +88,30 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if !ok {
 		return
 	}
-	_, snapshot := s.store.Current()
+	revision, snapshot := s.store.Current()
 	match := Match(snapshot, req)
 	if !match.Found {
 		if !validation.AllowLocalProxy {
+			tracker := s.newProxySession(req, domain.RouteRule{
+				TenantID:   validation.TenantID,
+				ActionType: domain.ActionTypeDeny,
+				MatchType:  domain.MatchTypeDefault,
+				MatchValue: targetHostForAudit(req),
+			}, validation.TenantID, revision)
+			tracker.finish(0, 0, domain.ProxySessionStatusError, "route_not_found", "route_not_found")
 			http.Error(w, "route_not_found", http.StatusForbidden)
 			return
 		}
-		match = RouteMatch{Rule: domain.RouteRule{ActionType: domain.ActionTypeDirect}, Found: true}
+		match = RouteMatch{Rule: domain.RouteRule{
+			TenantID:   validation.TenantID,
+			ActionType: domain.ActionTypeDirect,
+		}, Found: true}
 	}
-	tracker := s.newProxySession(req, match.Rule, routeTenantID(snapshot, match.Rule))
+	tracker := s.newProxySession(req, match.Rule, routeTenantID(snapshot, match.Rule, validation.TenantID), revision)
 	switch match.Rule.ActionType {
 	case domain.ActionTypeDirect:
 		if isWebSocketUpgrade(req) {
-			s.upgradeDirect(w, req)
+			s.upgradeDirect(w, req, tracker)
 			return
 		}
 		if req.Method == http.MethodConnect {
@@ -116,7 +127,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func routeTenantID(snapshot policystore.Snapshot, rule domain.RouteRule) string {
+func routeTenantID(snapshot policystore.Snapshot, rule domain.RouteRule, fallbackTenantID string) string {
 	if rule.TenantID != "" {
 		return rule.TenantID
 	}
@@ -125,5 +136,12 @@ func routeTenantID(snapshot policystore.Snapshot, rule domain.RouteRule) string 
 			return chain.TenantID
 		}
 	}
-	return ""
+	return fallbackTenantID
+}
+
+func targetHostForAudit(req *http.Request) string {
+	if req.URL != nil && req.URL.Hostname() != "" {
+		return req.URL.Hostname()
+	}
+	return req.Host
 }

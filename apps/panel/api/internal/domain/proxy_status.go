@@ -14,7 +14,15 @@ type ProxySessionMetric struct {
 	TenantID            string            `json:"tenantId"`
 	NodeID              string            `json:"nodeId"`
 	ChainID             string            `json:"chainId"`
+	ScopeID             string            `json:"scopeId"`
 	RouteID             string            `json:"routeId"`
+	GovernanceMode      string            `json:"governanceMode"`
+	PolicyRevision      string            `json:"policyRevision"`
+	MatchedRuleID       string            `json:"matchedRuleId"`
+	MatchedRuleType     string            `json:"matchedRuleType"`
+	MatchedRulePattern  string            `json:"matchedRulePattern"`
+	MatchedAction       string            `json:"matchedAction"`
+	DecisionSource      string            `json:"decisionSource"`
 	TargetHost          string            `json:"targetHost"`
 	TargetPort          int               `json:"targetPort"`
 	Protocol            string            `json:"protocol"`

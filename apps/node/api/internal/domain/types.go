@@ -3,6 +3,7 @@ package domain
 const (
 	ActionTypeChain              = "chain"
 	ActionTypeDirect             = "direct"
+	ActionTypeDeny               = "deny"
 	ListenerStatusUp             = "up"
 	ListenerStatusDegraded       = "degraded"
 	CertStatusHealthy            = "healthy"

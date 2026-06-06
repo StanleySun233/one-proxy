@@ -48,13 +48,15 @@ func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request, tracke
 	tracker.finish(uploadBytes, downloadBytes, domain.ProxySessionStatusOK, "", "")
 }
 
-func (s *Server) upgradeReverse(w http.ResponseWriter, req *http.Request) {
+func (s *Server) upgradeReverse(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {
 	targetURL := s.reverseURL(req)
 	targetConn, err := dialReverseTarget(targetURL)
 	if err != nil {
+		tracker.finish(0, 0, domain.ProxySessionStatusError, "reverse_connect_failed", "reverse_connect_failed")
 		http.Error(w, "reverse_connect_failed", http.StatusBadGateway)
 		return
 	}
+	tracker.markForward()
 	outbound := req.Clone(req.Context())
 	outbound.Header = req.Header.Clone()
 	outbound.RequestURI = ""
@@ -68,10 +70,11 @@ func (s *Server) upgradeReverse(w http.ResponseWriter, req *http.Request) {
 	rewriteOrigin(outbound, s.reverseTarget)
 	if err := outbound.Write(targetConn); err != nil {
 		targetConn.Close()
+		tracker.finish(0, 0, domain.ProxySessionStatusError, "reverse_upgrade_write_failed", "reverse_upgrade_write_failed")
 		http.Error(w, "reverse_upgrade_write_failed", http.StatusBadGateway)
 		return
 	}
-	completeUpgrade(w, outbound, targetConn)
+	completeUpgrade(w, outbound, targetConn, tracker)
 }
 
 func (s *Server) reverseURL(req *http.Request) *url.URL {

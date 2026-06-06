@@ -103,7 +103,7 @@ func TestForwardDirectReportsProxySessionMetrics(t *testing.T) {
 	defer origin.Close()
 
 	store := policystore.New("")
-	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","tenantId":"tenant-1","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","tenantId":"tenant-1","matchType":"default","actionType":"direct","destinationScope":"scope-1","enabled":true}]}`); err != nil {
 		t.Fatal(err)
 	}
 	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
@@ -120,6 +120,9 @@ func TestForwardDirectReportsProxySessionMetrics(t *testing.T) {
 	session := receiveSession(t, reporter.sessions)
 	if session.TenantID != "tenant-1" || session.NodeID != "node-1" || session.RouteID != "default" {
 		t.Fatalf("session identity = %+v", session)
+	}
+	if session.PolicyRevision != "test" || session.ScopeID != "scope-1" || session.MatchedRuleID != "default" || session.MatchedRuleType != domain.MatchTypeDefault || session.MatchedAction != domain.ActionTypeDirect || session.DecisionSource != "policy" {
+		t.Fatalf("session evidence = %+v", session)
 	}
 	if session.Protocol != domain.ProxySessionProtocolHTTP || session.UploadBytes != 6 || session.DownloadBytes != 5 || session.Status != domain.ProxySessionStatusOK {
 		t.Fatalf("session metrics = %+v", session)
@@ -290,11 +293,13 @@ func TestForwardProxyAllowsAuthorizedLocalProxyFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
-		Validator: &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour), allowLocalProxy: true},
+		Validator: &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour), allowLocalProxy: true, tenantID: "tenant-1"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
+	server.SetProxySessionReporter(reporter)
 	req := httptest.NewRequest(http.MethodGet, origin.URL+"/local-proxy", nil)
 	req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("token:local-proxy-token")))
 	resp := httptest.NewRecorder()
@@ -305,6 +310,10 @@ func TestForwardProxyAllowsAuthorizedLocalProxyFallback(t *testing.T) {
 	if resp.Body.String() != "ok" {
 		t.Fatalf("body = %q", resp.Body.String())
 	}
+	session := receiveSession(t, reporter.sessions)
+	if session.TenantID != "tenant-1" || session.DecisionSource != "default" || session.MatchedAction != domain.ActionTypeDirect || session.Status != domain.ProxySessionStatusOK {
+		t.Fatalf("session = %+v", session)
+	}
 }
 
 func TestForwardProxyRejectsLocalProxyFallbackWithoutNodeGrant(t *testing.T) {
@@ -313,17 +322,23 @@ func TestForwardProxyRejectsLocalProxyFallbackWithoutNodeGrant(t *testing.T) {
 		t.Fatal(err)
 	}
 	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
-		Validator: &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour)},
+		Validator: &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour), tenantID: "tenant-1"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
+	server.SetProxySessionReporter(reporter)
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
 	req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("token:local-proxy-token")))
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusForbidden {
 		t.Fatalf("status = %d", resp.Code)
+	}
+	session := receiveSession(t, reporter.sessions)
+	if session.TenantID != "tenant-1" || session.Status != domain.ProxySessionStatusError || session.ErrorCode != "route_not_found" || session.MatchedAction != domain.ActionTypeDeny {
+		t.Fatalf("session = %+v", session)
 	}
 }
 
@@ -373,6 +388,7 @@ func TestForwardProxyWebSocketUpgrade(t *testing.T) {
 		RouteRules: []domain.RouteRule{
 			{
 				ID:         "default",
+				TenantID:   "tenant-1",
 				MatchType:  domain.MatchTypeDefault,
 				ActionType: domain.ActionTypeDirect,
 				Enabled:    true,
@@ -386,7 +402,10 @@ func TestForwardProxyWebSocketUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	proxy := httptest.NewServer(NewServer(store, func() string { return "node-1" }, nil))
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
+	server.SetProxySessionReporter(reporter)
+	proxy := httptest.NewServer(server)
 	defer proxy.Close()
 
 	proxyURL, err := url.Parse(proxy.URL)
@@ -410,6 +429,57 @@ func TestForwardProxyWebSocketUpgrade(t *testing.T) {
 	}
 	if string(payload) != "ping" {
 		t.Fatalf("payload = %q", payload)
+	}
+	session := receiveSession(t, reporter.sessions)
+	if session.TenantID != "tenant-1" || session.Status != domain.ProxySessionStatusOK || session.Protocol != domain.ProxySessionProtocolConnect || session.MatchedRuleID != "default" || session.PolicyRevision != "test" {
+		t.Fatalf("session = %+v", session)
+	}
+}
+
+func TestForwardProxyAbsoluteWebSocketUpgradeReportsSessionMetrics(t *testing.T) {
+	upgrader := websocket.Upgrader{}
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		conn, err := upgrader.Upgrade(w, req, nil)
+		if err != nil {
+			t.Errorf("upgrade failed: %v", err)
+			return
+		}
+		_ = conn.Close()
+	}))
+	defer origin.Close()
+
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","tenantId":"tenant-1","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
+	server.SetProxySessionReporter(reporter)
+	proxy := httptest.NewServer(server)
+	defer proxy.Close()
+	proxyURL, err := url.Parse(proxy.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxyConn, err := net.Dial("tcp", proxyURL.Host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer proxyConn.Close()
+	targetURL := "ws" + origin.URL[len("http"):] + "/terminal"
+	if _, err := fmt.Fprintf(proxyConn, "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n", targetURL, strings.TrimPrefix(origin.URL, "http://")); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.ReadResponse(bufio.NewReader(proxyConn), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	session := receiveSession(t, reporter.sessions)
+	if session.TenantID != "tenant-1" || session.Status != domain.ProxySessionStatusOK || session.Protocol != domain.ProxySessionProtocolHTTP || session.MatchedRuleID != "default" || session.PolicyRevision != "test" {
+		t.Fatalf("session = %+v", session)
 	}
 }
 
