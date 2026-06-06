@@ -1,7 +1,7 @@
 import * as readline from 'node:readline/promises';
 import { emitKeypressEvents } from 'node:readline';
 import { stdin as input, stdout as output } from 'node:process';
-import { envOn } from "./session-env.js";
+import { startActivatedShell } from "./shell.js";
 import { addProfile, writeConfig, writeState, writeTokens } from "./storage.js";
 import { routeRulesFromBootstrap } from "./control-plane.js";
 function endpoint(baseUrl, path) {
@@ -191,9 +191,9 @@ export async function initCommand(_args, _context) {
         });
     }
     process.stdout.write(`Initialized profile ${profileName} with tenant ${tenantNameOf(tenant)}.\n`);
-    const activate = (await prompt('Enable OneProxy in this shell now? [y/N]: ')).toLowerCase();
+    const activate = (await prompt('Enter an activated OneProxy shell now? [y/N]: ')).toLowerCase();
     if (activate === 'y' || activate === 'yes') {
-        await envOn();
+        return startActivatedShell();
     }
 }
 //# sourceMappingURL=init.js.map

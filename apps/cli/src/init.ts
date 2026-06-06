@@ -2,7 +2,7 @@ import * as readline from 'node:readline/promises';
 import { emitKeypressEvents } from 'node:readline';
 import { stdin as input, stdout as output } from 'node:process';
 import type { CliContext } from './main.ts';
-import { envOn } from './session-env.ts';
+import { startActivatedShell } from './shell.ts';
 import {
   addProfile,
   writeConfig,
@@ -166,7 +166,7 @@ async function selectTenant(tenants: Tenant[]): Promise<Tenant> {
   return selected;
 }
 
-export async function initCommand(_args: string[], _context: CliContext): Promise<void> {
+export async function initCommand(_args: string[], _context: CliContext): Promise<number | void> {
   const panelUrl = normalizePanelUrl(await prompt('Panel URL: '));
   process.stdout.write('Testing panel reachability...\n');
   await healthCheck(panelUrl);
@@ -241,8 +241,8 @@ export async function initCommand(_args: string[], _context: CliContext): Promis
   }
 
   process.stdout.write(`Initialized profile ${profileName} with tenant ${tenantNameOf(tenant)}.\n`);
-  const activate = (await prompt('Enable OneProxy in this shell now? [y/N]: ')).toLowerCase();
+  const activate = (await prompt('Enter an activated OneProxy shell now? [y/N]: ')).toLowerCase();
   if (activate === 'y' || activate === 'yes') {
-    await envOn();
+    return startActivatedShell();
   }
 }

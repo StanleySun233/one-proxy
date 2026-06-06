@@ -20,7 +20,7 @@ Build a Node.js-based `onep` CLI package that provides session-scoped and proces
    - Test panel reachability.
    - Prompt for account and password.
    - List tenants with keyboard selection.
-   - Ask whether to enable OneProxy for the current shell after setup.
+   - Ask whether to enter an activated OneProxy shell after setup.
 6. Support panel profiles:
    - `onep profile add <name> --control-plane <url>`
    - `onep profile use <name>`
@@ -46,36 +46,40 @@ Build a Node.js-based `onep` CLI package that provides session-scoped and proces
     - `onep env on`
     - `onep env off`
     - `onep env` defaults to `on`.
-13. Do not implement `onep proxy on` or `onep proxy off`.
-14. `onep env on` must print shell code that the user can evaluate in the current shell.
-15. `onep env off` must print shell code that restores previous proxy environment variables captured by `onep env on`.
-16. The CLI must not modify system proxy settings in V1.
-17. The CLI must not require root privileges in V1.
-18. Provide a local helper daemon started on demand by `onep run`, `onep env`, `onep test`, `onep ssh`, or `onep doctor`.
-19. The daemon must listen only on loopback by default.
-20. The daemon must expose two loopback HTTP CONNECT proxy endpoints for `HTTP_PROXY` and `HTTPS_PROXY`.
-21. The daemon must apply panel-managed rules and local overrides before deciding whether traffic uses OneProxy or direct connection.
-22. The daemon may exit after an idle timeout when no client is using it.
-23. Support local overrides:
+13. Provide direct interactive shell activation:
+    - `onep shell`
+    - The command starts a child shell with OneProxy proxy environment variables.
+    - Exiting that child shell turns the activation off.
+14. Do not implement `onep proxy on` or `onep proxy off`.
+15. `onep env on` must print shell code that the user can evaluate in the current shell.
+16. `onep env off` must print shell code that restores previous proxy environment variables captured by `onep env on`.
+17. The CLI must not modify system proxy settings in V1.
+18. The CLI must not require root privileges in V1.
+19. Provide a local helper daemon started on demand by `onep run`, `onep env`, `onep shell`, `onep test`, `onep ssh`, or `onep doctor`.
+20. The daemon must listen only on loopback by default.
+21. The daemon must expose two loopback HTTP CONNECT proxy endpoints for `HTTP_PROXY` and `HTTPS_PROXY`.
+22. The daemon must apply panel-managed rules and local overrides before deciding whether traffic uses OneProxy or direct connection.
+23. The daemon may exit after an idle timeout when no client is using it.
+24. Support local overrides:
     - `onep override list`
     - `onep override direct add <host>`
     - `onep override proxy add <host>`
     - `onep override remove <host>`
     - `onep override clear`
-24. Support route explanation:
+25. Support route explanation:
     - `onep route <url-or-host>`
     - The output must show direct or proxy mode, matched source, active tenant, active group, and topology when proxied.
-25. Support active probing:
+26. Support active probing:
     - `onep test <url-or-host>`
     - The output must include route explanation and protocol probe results where supported.
-26. Support SSH through OneProxy:
+27. Support SSH through OneProxy:
     - `onep ssh <host>`
     - `onep ssh <user>@<host> [-p <port>]`
     - The command should route SSH traffic through OneProxy when rules require proxying.
-27. Support diagnostics:
+28. Support diagnostics:
     - `onep doctor`
     - Diagnostics must check config, token readability, control-plane health, bootstrap sync, daemon status, local ports, route calculation, and entry node reachability.
-28. Support machine-readable output for automation:
+29. Support machine-readable output for automation:
     - `--json` for `status`, `route`, `test`, and `doctor`.
 
 ## Environment Behavior
@@ -120,18 +124,19 @@ The CLI must use this directory layout:
 
 ## Acceptance Criteria
 
-1. `onep init` creates or updates a panel profile, verifies panel reachability, logs in, selects a tenant, syncs bootstrap state, and offers shell activation.
+1. `onep init` creates or updates a panel profile, verifies panel reachability, logs in, selects a tenant, syncs bootstrap state, and offers to enter an activated child shell.
 2. `onep profile add/use/list/current` manages panel URL profiles.
 3. `onep login` stores session tokens under the active profile.
 4. `onep tenant list/use` works from stored login state and switches the active tenant.
 5. `onep group list/use` selects a panel-provided proxy group.
 6. `onep env` and `onep env on` print activation shell code without changing other shells.
 7. `onep env off` prints restoration shell code.
-8. `onep run <command...>` runs only that command with OneProxy proxy environment variables.
-9. `onep status` reports account, control plane, tenant, group, daemon, local ports, policy revision, token expiry, and override counts.
-10. `onep route <url>` explains rule matching.
-11. `onep test <url>` reports route and probe results.
-12. `onep ssh <target>` can open SSH through a proxied route.
-13. `onep doctor` reports actionable diagnostics and exits non-zero only for failed checks.
-14. The implementation runs without root privileges on supported platforms.
-15. Daemon startup records the scanned unused proxy port candidates and the randomly selected consecutive `httpPort`/`httpsPort` pair.
+8. `onep shell` enters a child shell with OneProxy proxy environment variables and leaves the parent shell unchanged.
+9. `onep run <command...>` runs only that command with OneProxy proxy environment variables.
+10. `onep status` reports account, control plane, tenant, group, daemon, local ports, policy revision, token expiry, and override counts.
+11. `onep route <url>` explains rule matching.
+12. `onep test <url>` reports route and probe results.
+13. `onep ssh <target>` can open SSH through a proxied route.
+14. `onep doctor` reports actionable diagnostics and exits non-zero only for failed checks.
+15. The implementation runs without root privileges on supported platforms.
+16. Daemon startup records the scanned unused proxy port candidates and the randomly selected consecutive `httpPort`/`httpsPort` pair.

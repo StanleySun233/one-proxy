@@ -6,6 +6,7 @@ import { serveDaemon } from "./daemon/lifecycle.js";
 import { runSsh } from "./ssh.js";
 import { profileCommand } from "./profile.js";
 import { initCommand } from "./init.js";
+import { shellCommand } from "./shell.js";
 function stripGlobalFlags(args) {
     const remaining = [];
     let json = false;
@@ -33,6 +34,7 @@ function usage() {
         '  sync',
         '  status [--json]',
         '  env [on|off]',
+        '  shell',
         '  run <command...>',
         '  override list|direct add <host>|proxy add <host>|remove <host>|clear',
         '  route <url-or-host> [--json]',
@@ -59,6 +61,7 @@ const handlers = {
     profile: profileCommand,
     ssh: runSsh,
     override: overrideCommand,
+    shell: shellCommand,
     run: runCommand,
     daemon: async (args) => {
         if (args[0] === 'serve') {

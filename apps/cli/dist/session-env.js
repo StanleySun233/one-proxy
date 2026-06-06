@@ -25,7 +25,7 @@ export async function ensureSessionProxyBindings() {
     }
     return lifecycle;
 }
-function proxyEnv(bindings) {
+export function proxyEnv(bindings) {
     const httpProxy = `http://${bindings.host}:${bindings.httpPort}`;
     const httpsProxy = `http://${bindings.host}:${bindings.httpsPort}`;
     return {
@@ -37,6 +37,9 @@ function proxyEnv(bindings) {
         ONEPROXY_HTTP_PORT: String(bindings.httpPort),
         ONEPROXY_HTTPS_PORT: String(bindings.httpsPort)
     };
+}
+export async function sessionProxyEnv() {
+    return proxyEnv(await ensureSessionProxyBindings());
 }
 function shellFamily() {
     const shell = `${process.env.ONEPROXY_SHELL || process.env.SHELL || process.env.ComSpec || ''}`.toLowerCase();

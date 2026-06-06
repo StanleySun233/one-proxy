@@ -38,7 +38,7 @@ export async function ensureSessionProxyBindings(): Promise<DaemonBindings> {
   return lifecycle;
 }
 
-function proxyEnv(bindings: DaemonBindings): Record<string, string> {
+export function proxyEnv(bindings: DaemonBindings): Record<string, string> {
   const httpProxy = `http://${bindings.host}:${bindings.httpPort}`;
   const httpsProxy = `http://${bindings.host}:${bindings.httpsPort}`;
   return {
@@ -50,6 +50,10 @@ function proxyEnv(bindings: DaemonBindings): Record<string, string> {
     ONEPROXY_HTTP_PORT: String(bindings.httpPort),
     ONEPROXY_HTTPS_PORT: String(bindings.httpsPort)
   };
+}
+
+export async function sessionProxyEnv(): Promise<Record<string, string>> {
+  return proxyEnv(await ensureSessionProxyBindings());
 }
 
 function shellFamily(): 'posix' | 'fish' | 'powershell' | 'cmd' {

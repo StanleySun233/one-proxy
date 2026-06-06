@@ -6,6 +6,7 @@ import { serveDaemon } from './daemon/lifecycle.ts';
 import { runSsh } from './ssh.ts';
 import { profileCommand } from './profile.ts';
 import { initCommand } from './init.ts';
+import { shellCommand } from './shell.ts';
 
 export type CliContext = {
   json: boolean;
@@ -40,6 +41,7 @@ function usage(): string {
     '  sync',
     '  status [--json]',
     '  env [on|off]',
+    '  shell',
     '  run <command...>',
     '  override list|direct add <host>|proxy add <host>|remove <host>|clear',
     '  route <url-or-host> [--json]',
@@ -68,6 +70,7 @@ const handlers: Record<string, CommandHandler> = {
   profile: profileCommand,
   ssh: runSsh,
   override: overrideCommand,
+  shell: shellCommand,
   run: runCommand,
   daemon: async (args) => {
     if (args[0] === 'serve') {

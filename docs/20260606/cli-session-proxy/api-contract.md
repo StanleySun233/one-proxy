@@ -2,9 +2,9 @@
 
 ## Scope
 
-This contract defines the V1 command surface, local file formats, panel profiles, daemon metadata, daemon IPC, JSON output shapes, error format, shell environment output, `onep run`, and `onep ssh` behavior for the OneProxy CLI Session Proxy.
+This contract defines the V1 command surface, local file formats, panel profiles, daemon metadata, daemon IPC, JSON output shapes, error format, shell environment output, `onep shell`, `onep run`, and `onep ssh` behavior for the OneProxy CLI Session Proxy.
 
-The CLI must not modify system proxy settings, routing tables, firewalls, services, or global shell state. All proxy activation is process-scoped or shell-session-scoped through printed shell code.
+The CLI must not modify system proxy settings, routing tables, firewalls, services, or global shell state. Proxy activation is process-scoped through child process environments, child shells, or shell-session-scoped printed shell code.
 
 ## Common CLI Rules
 
@@ -19,7 +19,7 @@ The CLI must not modify system proxy settings, routing tables, firewalls, servic
 - Exit code `2`: command syntax error
 - Exit code `3`: doctor completed with one or more failed checks
 
-Commands that require route calculation or local proxy endpoints must ensure the daemon is running on demand: `run`, `env`, `route`, `test`, `ssh`, and `doctor`.
+Commands that require route calculation or local proxy endpoints must ensure the daemon is running on demand: `run`, `shell`, `env`, `route`, `test`, `ssh`, and `doctor`.
 
 ## CLI Command Contract
 
@@ -36,7 +36,7 @@ Required behavior:
 - Lists tenants and supports keyboard selection.
 - Requires an interactive terminal for tenant selection.
 - Writes selected tenant and synced bootstrap state under the active profile.
-- Prompts whether to enable OneProxy for the current shell after setup. When selected, it prints the same shell activation code as `onep env on`.
+- Prompts whether to enter an activated OneProxy shell after setup. When selected, it starts a child shell with OneProxy proxy environment variables.
 
 ### `onep profile add <name> --control-plane <url>`
 
@@ -104,6 +104,10 @@ Starts the daemon if needed and prints shell code for the detected shell family.
 ### `onep env off`
 
 Prints shell code that restores proxy variables captured by `onep env on` and unsets OneProxy session markers.
+
+### `onep shell`
+
+Starts the daemon if needed, starts an interactive child shell, injects proxy environment variables into that child shell, and exits with the child shell exit code. The command itself must not modify the parent shell.
 
 ### `onep run <command...>`
 
@@ -603,6 +607,17 @@ ONEPROXY_HTTPS_PORT=<https-port>
 Preserved values must be stored in shell variables prefixed with `ONEPROXY_PREV_`.
 
 `onep env off` restores preserved values when present. When a preserved marker says the original variable was unset, `env off` unsets that variable. `env off` must unset all `ONEPROXY_*` session variables after restoration.
+
+## `onep shell` Behavior
+
+`onep shell`:
+
+- Starts or reuses the loopback daemon.
+- Runs the user's default shell as a child process.
+- Injects the same proxy variables as `env on` into the child shell environment.
+- Does not mutate the parent process environment.
+- Streams child shell stdin, stdout, and stderr.
+- Exits with the child shell exit code.
 
 ## `onep run` Behavior
 
