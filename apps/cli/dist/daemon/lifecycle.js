@@ -266,24 +266,41 @@ export async function ensureDaemon() {
     if (!entrypoint) {
         throw Object.assign(new Error('Cannot determine CLI entrypoint'), { code: 'DAEMON_UNAVAILABLE' });
     }
+    await appendLog(`starting daemon child from ${entrypoint}`);
+    const logFile = await fs.open(storagePath('log'), 'a');
     const child = spawn(process.execPath, [entrypoint, 'daemon', 'serve'], {
         detached: true,
-        stdio: 'ignore',
+        stdio: ['ignore', logFile.fd, logFile.fd],
+        windowsHide: true,
         env: {
             ...process.env,
             ONEPROXY_DAEMON_CHILD: '1'
         }
     });
+    await logFile.close();
+    let childExit = null;
+    child.once('error', (error) => {
+        childExit = error.message;
+        void appendLog(`daemon child spawn error: ${error.message}`);
+    });
+    child.once('exit', (code, signal) => {
+        childExit = signal ? `signal ${signal}` : `exit ${code}`;
+        void appendLog(`daemon child exited before ready: ${childExit}`);
+    });
     child.unref();
-    const deadline = Date.now() + 3000;
+    const deadline = Date.now() + (process.platform === 'win32' ? 10000 : 3000);
     while (Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, 100));
         const metadata = await readDaemonMetadata();
         if (metadata && await probeDaemon(metadata)) {
             return { metadata };
         }
+        if (childExit) {
+            throw Object.assign(new Error(`Daemon exited before ready: ${childExit}. See ${storagePath('log')}`), { code: 'DAEMON_UNAVAILABLE' });
+        }
     }
-    throw Object.assign(new Error('Daemon did not become ready'), { code: 'DAEMON_UNAVAILABLE' });
+    await appendLog('daemon readiness timeout');
+    throw Object.assign(new Error(`Daemon did not become ready. See ${storagePath('log')}`), { code: 'DAEMON_UNAVAILABLE' });
 }
 export async function serveDaemon() {
     await startDaemonRuntime();

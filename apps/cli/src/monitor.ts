@@ -189,7 +189,9 @@ export async function monitorCommand(args: string[], _context: CliContext): Prom
   const proxy = await startMonitorProxy(logPath);
   process.stderr.write(`onep monitor: writing ${logPath}\n`);
   const child = spawn(executable, args.slice(1), {
+    shell: process.platform === 'win32',
     stdio: 'inherit',
+    windowsHide: false,
     env: {
       ...process.env,
       ...monitorEnv(proxy.port)

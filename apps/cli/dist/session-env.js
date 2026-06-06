@@ -189,7 +189,9 @@ export async function runCommand(args, _context) {
     }
     const bindings = session.metadata.bindings;
     const child = spawn(executable, args.slice(1), {
+        shell: process.platform === 'win32',
         stdio: 'inherit',
+        windowsHide: false,
         env: {
             ...process.env,
             ...proxyEnv(bindings)
