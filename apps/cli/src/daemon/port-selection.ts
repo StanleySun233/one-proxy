@@ -18,6 +18,7 @@ const excludedPortSet = new Set(excludedCommonPorts);
 const defaultStartPort = 10000;
 const defaultEndPort = 60999;
 const loopbackHost = '127.0.0.1';
+const scanBatchSize = 256;
 
 export async function selectProxyPorts(configuredHttp = 0, configuredHttps = 0): Promise<PortSelection> {
   if (configuredHttp || configuredHttps) {
@@ -52,9 +53,17 @@ export async function selectProxyPorts(configuredHttp = 0, configuredHttps = 0):
 
 export async function scanAvailableCandidatePorts(start = defaultStartPort, end = defaultEndPort) {
   const candidatePorts: number[] = [];
-  for (let port = start; port <= end; port += 1) {
-    if (await isUsablePort(port)) {
-      candidatePorts.push(port);
+  for (let batchStart = start; batchStart <= end; batchStart += scanBatchSize) {
+    const batchEnd = Math.min(batchStart + scanBatchSize - 1, end);
+    const ports = Array.from({ length: batchEnd - batchStart + 1 }, (_, index) => batchStart + index);
+    const results = await Promise.all(ports.map(async (port) => ({
+      port,
+      usable: await isUsablePort(port)
+    })));
+    for (const result of results) {
+      if (result.usable) {
+        candidatePorts.push(result.port);
+      }
     }
   }
   return candidatePorts;
