@@ -4,6 +4,7 @@ import * as http from 'node:http';
 import * as net from 'node:net';
 import * as path from 'node:path';
 import { allocateLoopbackPort, closeServer, listenHttpServer, loopbackHost } from "./daemon/lifecycle.js";
+const monitorIdleTimeoutSeconds = 300;
 function monitorLogName(executable, now = new Date()) {
     const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-');
     const app = path.basename(executable).replace(/[^a-zA-Z0-9._-]+/g, '_') || 'app';
@@ -42,11 +43,13 @@ function parseHttpTarget(request) {
         target: url.toString()
     };
 }
-async function startMonitorProxy(logPath) {
+async function startMonitorProxy(logPath, onActivity) {
     const server = http.createServer((request, response) => {
+        onActivity?.();
         void proxyHttpRequest(logPath, request, response);
     });
     server.on('connect', (request, clientSocket, head) => {
+        onActivity?.();
         void proxyConnect(logPath, request, clientSocket, head);
     });
     const port = await allocateLoopbackPort();
@@ -166,6 +169,12 @@ function spawnWindowsCommand(executable, args, env) {
         env
     });
 }
+async function waitForMonitorIdle(lastActivity) {
+    while (Date.now() - lastActivity() < monitorIdleTimeoutSeconds * 1000) {
+        const remaining = monitorIdleTimeoutSeconds * 1000 - (Date.now() - lastActivity());
+        await new Promise((resolve) => setTimeout(resolve, Math.min(remaining, 1000)));
+    }
+}
 export async function monitorCommand(args, _context) {
     const executable = args[0];
     if (!executable) {
@@ -173,7 +182,10 @@ export async function monitorCommand(args, _context) {
     }
     const logPath = path.resolve(process.cwd(), monitorLogName(executable));
     await fs.writeFile(logPath, '', { flag: 'a', mode: 0o600 });
-    const proxy = await startMonitorProxy(logPath);
+    let lastActivity = Date.now();
+    const proxy = await startMonitorProxy(logPath, () => {
+        lastActivity = Date.now();
+    });
     process.stderr.write(`onep monitor: writing ${logPath}\n`);
     const env = {
         ...process.env,
@@ -196,7 +208,8 @@ export async function monitorCommand(args, _context) {
             }, reject);
         });
         child.once('exit', (code, signal) => {
-            proxy.close().then(() => {
+            process.stderr.write(`onep monitor: command exited, stopping after ${monitorIdleTimeoutSeconds}s without requests\n`);
+            waitForMonitorIdle(() => lastActivity).then(() => proxy.close()).then(() => {
                 if (signal) {
                     resolve(1);
                     return;
