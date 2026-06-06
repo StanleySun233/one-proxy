@@ -130,7 +130,7 @@ Runs diagnostics for config, token readability, control-plane health, token refr
   "activeGroupId": "group_123",
   "localPorts": {
     "http": 0,
-    "socks": 0,
+    "https": 0,
     "ipc": 0
   },
   "overrides": {
@@ -142,7 +142,9 @@ Runs diagnostics for config, token readability, control-plane health, token refr
 
 Rules:
 
-- `localPorts.* = 0` means auto-select an available loopback port.
+- `localPorts.http = 0` and `localPorts.https = 0` means auto-select a random available consecutive two-port pair on loopback.
+- When both `http` and `https` are configured, they must be consecutive. If they are not consecutive, daemon startup fails with `INVALID_PORT_PAIR`.
+- Auto-selection must exclude occupied ports and common system ports before random choice.
 - Override hosts are stored lowercase.
 - `overrides.direct` has precedence over `overrides.proxy` when the same host appears in both lists.
 
@@ -221,9 +223,14 @@ The CLI must never store passwords locally.
   "policyRevision": "rev_20260606_001",
   "bindings": {
     "host": "127.0.0.1",
-    "httpPort": 18080,
-    "socksPort": 18081,
+    "httpPort": 21432,
+    "httpsPort": 21433,
     "ipcPort": 18082
+  },
+  "portSelection": {
+    "candidatePorts": [21430, 21431, 21432, 21433, 21434],
+    "selectedPair": [21432, 21433],
+    "excludedCommonPorts": [20, 21, 22, 25, 53, 80, 110, 143, 443, 3306, 5432, 6379, 8080]
   },
   "idleTimeoutSeconds": 300
 }
@@ -235,7 +242,9 @@ Line-oriented local log file. Logs must not contain access tokens, refresh token
 
 ## Daemon Metadata and IPC Contracts
 
-The daemon exposes local HTTP CONNECT and SOCKS5 proxy endpoints plus an IPC HTTP endpoint on loopback.
+The daemon exposes two local HTTP proxy endpoints plus an IPC HTTP endpoint on loopback. The `httpPort` endpoint is used by `HTTP_PROXY`; the `httpsPort` endpoint is used by `HTTPS_PROXY`. Both proxy endpoints support HTTP requests and CONNECT tunnels. `httpsPort` is not a TLS listener.
+
+Before choosing proxy ports, the daemon must scan loopback ports, exclude occupied ports and common system ports, record available candidate ports, and randomly select one consecutive two-port pair. Commands that need to show this information must use daemon metadata or `status --json`; `onep env` must keep stdout reserved for shell code and may report candidate information on stderr or in logs only.
 
 ### `GET /v1/health`
 
@@ -249,9 +258,14 @@ Response:
   "lastHeartbeatAt": "2026-06-06T06:10:00.000Z",
   "bindings": {
     "host": "127.0.0.1",
-    "httpPort": 18080,
-    "socksPort": 18081,
+    "httpPort": 21432,
+    "httpsPort": 21433,
     "ipcPort": 18082
+  },
+  "portSelection": {
+    "candidatePorts": [21430, 21431, 21432, 21433, 21434],
+    "selectedPair": [21432, 21433],
+    "excludedCommonPorts": [20, 21, 22, 25, 53, 80, 110, 143, 443, 3306, 5432, 6379, 8080]
   },
   "policyRevision": "rev_20260606_001"
 }
@@ -368,9 +382,13 @@ Common error codes:
     "lastHeartbeatAt": "2026-06-06T06:10:00.000Z"
   },
   "localPorts": {
-    "http": 18080,
-    "socks": 18081,
+    "http": 21432,
+    "https": 21433,
     "ipc": 18082
+  },
+  "portSelection": {
+    "candidatePorts": [21430, 21431, 21432, 21433, 21434],
+    "selectedPair": [21432, 21433]
   },
   "policyRevision": "rev_20260606_001",
   "tokens": {
@@ -467,7 +485,7 @@ Allowed `matched.source` values: `local_override_direct`, `local_override_proxy`
 }
 ```
 
-Probe names: `dns`, `direct_connect`, `proxy_connect`, `http`, `socks5`, `ssh`.
+Probe names: `dns`, `direct_connect`, `proxy_connect`, `http_proxy`, `https_proxy`, `ssh`.
 
 ### `DoctorResult`
 
@@ -531,12 +549,12 @@ Activation must set:
 
 ```text
 HTTP_PROXY=http://127.0.0.1:<http-port>
-HTTPS_PROXY=http://127.0.0.1:<http-port>
-ALL_PROXY=socks5://127.0.0.1:<socks-port>
+HTTPS_PROXY=http://127.0.0.1:<https-port>
+ALL_PROXY=http://127.0.0.1:<http-port>
 NO_PROXY=localhost,127.0.0.1,::1
 ONEPROXY_ACTIVE=1
 ONEPROXY_HTTP_PORT=<http-port>
-ONEPROXY_SOCKS_PORT=<socks-port>
+ONEPROXY_HTTPS_PORT=<https-port>
 ```
 
 Preserved values must be stored in shell variables prefixed with `ONEPROXY_PREV_`.
@@ -560,12 +578,12 @@ Child processes inherit:
 
 ```text
 HTTP_PROXY=http://127.0.0.1:<http-port>
-HTTPS_PROXY=http://127.0.0.1:<http-port>
-ALL_PROXY=socks5://127.0.0.1:<socks-port>
+HTTPS_PROXY=http://127.0.0.1:<https-port>
+ALL_PROXY=http://127.0.0.1:<http-port>
 NO_PROXY=localhost,127.0.0.1,::1
 ONEPROXY_ACTIVE=1
 ONEPROXY_HTTP_PORT=<http-port>
-ONEPROXY_SOCKS_PORT=<socks-port>
+ONEPROXY_HTTPS_PORT=<https-port>
 ```
 
 ## `onep ssh` Behavior

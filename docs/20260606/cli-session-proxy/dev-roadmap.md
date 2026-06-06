@@ -37,7 +37,7 @@ Each task represents one atomic, file-scoped unit of work. No two engineers may 
 - [ ] backend-cli-commands: implement override, route, status, and JSON output helpers in apps/cli/src/commands.ts (depends: storage.ts, control-plane.ts)
 - [ ] backend-daemon-runtime: implement daemon lifecycle and loopback port metadata in apps/cli/src/daemon/lifecycle.ts (depends: api-contract.md)
 - [ ] backend-daemon-runtime: implement HTTP CONNECT local proxy in apps/cli/src/daemon/http-proxy.ts (depends: lifecycle.ts)
-- [ ] backend-daemon-runtime: implement SOCKS5 local proxy in apps/cli/src/daemon/socks5-proxy.ts (depends: lifecycle.ts)
+- [ ] backend-daemon-runtime: implement random consecutive proxy port selection in apps/cli/src/daemon/port-selection.ts (depends: lifecycle.ts)
 - [ ] backend-daemon-runtime: implement route matching and local override precedence in apps/cli/src/daemon/router.ts (depends: api-contract.md)
 - [ ] backend-daemon-runtime: implement probe and doctor checks in apps/cli/src/doctor.ts (depends: lifecycle.ts, router.ts)
 - [ ] backend-daemon-runtime: implement SSH command routing in apps/cli/src/ssh.ts (depends: lifecycle.ts, router.ts)
@@ -45,7 +45,7 @@ Each task represents one atomic, file-scoped unit of work. No two engineers may 
 ### Testing
 
 - [ ] test-cli: add CLI unit tests for storage, route matching, env output, command parsing, and JSON schemas in apps/cli/test/cli.test.ts (depends: all backend tasks)
-- [ ] test-cli: add daemon tests for HTTP CONNECT, SOCKS5 handshake, lifecycle metadata, and doctor failure reporting in apps/cli/test/daemon.test.ts (depends: all daemon tasks)
+- [ ] test-cli: add daemon tests for HTTP CONNECT, random consecutive port selection, lifecycle metadata, and doctor failure reporting in apps/cli/test/daemon.test.ts (depends: all daemon tasks)
 - [ ] test-cli: run TypeScript compile checks and CLI tests using the Node.js environment recorded in ./.codex/ENVS.md (depends: all tests)
 
 ### Product Verification

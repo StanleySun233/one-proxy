@@ -7,7 +7,7 @@
 
 - [ ] add CLI unit tests for storage, route matching, env output, command parsing, and JSON schemas in apps/cli/test/cli.test.ts
   - Commit:
-- [ ] add daemon tests for HTTP CONNECT, SOCKS5 handshake, lifecycle metadata, and doctor failure reporting in apps/cli/test/daemon.test.ts
+- [ ] add daemon tests for HTTP CONNECT, random consecutive port selection, lifecycle metadata, and doctor failure reporting in apps/cli/test/daemon.test.ts
   - Commit:
 - [ ] run TypeScript compile checks and CLI tests using the Node.js environment recorded in ./.codex/ENVS.md
   - Commit:

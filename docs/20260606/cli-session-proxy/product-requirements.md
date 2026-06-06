@@ -41,7 +41,7 @@ Build a Node.js-based `onep` CLI package that provides session-scoped and proces
 15. The CLI must not require root privileges in V1.
 16. Provide a local helper daemon started on demand by `onep run`, `onep env`, `onep test`, `onep ssh`, or `onep doctor`.
 17. The daemon must listen only on loopback by default.
-18. The daemon must expose local HTTP CONNECT and SOCKS5 proxy endpoints.
+18. The daemon must expose two loopback HTTP CONNECT proxy endpoints for `HTTP_PROXY` and `HTTPS_PROXY`.
 19. The daemon must apply panel-managed rules and local overrides before deciding whether traffic uses OneProxy or direct connection.
 20. The daemon may exit after an idle timeout when no client is using it.
 21. Support local overrides:
@@ -72,11 +72,13 @@ Build a Node.js-based `onep` CLI package that provides session-scoped and proces
 
 ```text
 HTTP_PROXY=http://127.0.0.1:<http-port>
-HTTPS_PROXY=http://127.0.0.1:<http-port>
-ALL_PROXY=socks5://127.0.0.1:<socks-port>
+HTTPS_PROXY=http://127.0.0.1:<https-port>
+ALL_PROXY=http://127.0.0.1:<http-port>
 NO_PROXY=localhost,127.0.0.1,::1
 ONEPROXY_ACTIVE=1
 ```
+
+The daemon must not use fixed default proxy ports. Before selecting proxy ports, it must scan loopback ports, exclude occupied ports and common system ports, record the available candidate ports, and randomly choose one consecutive two-port pair. The first selected port is `httpPort`; the second selected port is `httpsPort`. Both ports provide HTTP proxy and CONNECT behavior; `httpsPort` is not a TLS server.
 
 `onep env on` must print shell code for the current shell family. The printed code must preserve existing proxy variables before replacing them. `onep env off` must restore preserved values when they exist and unset OneProxy variables afterward.
 
@@ -118,3 +120,4 @@ The CLI must use this directory layout:
 10. `onep ssh <target>` can open SSH through a proxied route.
 11. `onep doctor` reports actionable diagnostics and exits non-zero only for failed checks.
 12. The implementation runs without root privileges on supported platforms.
+13. Daemon startup records the scanned unused proxy port candidates and the randomly selected consecutive `httpPort`/`httpsPort` pair.

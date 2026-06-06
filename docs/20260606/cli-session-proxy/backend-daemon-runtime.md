@@ -9,7 +9,7 @@
   - Commit:
 - [ ] implement HTTP CONNECT local proxy in apps/cli/src/daemon/http-proxy.ts
   - Commit:
-- [ ] implement SOCKS5 local proxy in apps/cli/src/daemon/socks5-proxy.ts
+- [ ] implement random consecutive proxy port selection in apps/cli/src/daemon/port-selection.ts
   - Commit:
 - [ ] implement route matching and local override precedence in apps/cli/src/daemon/router.ts
   - Commit:
