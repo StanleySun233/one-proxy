@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -12,6 +12,7 @@ import {
   writeState,
   writeTokens
 } from '../src/storage.ts';
+import { routeRulesFromBootstrap } from '../src/control-plane.ts';
 import { resolveRoute } from '../src/daemon/router.ts';
 
 const repoRoot = path.resolve(import.meta.dirname, '../../..');
@@ -209,4 +210,22 @@ test('status --json output matches contract shape', async () => {
     assert.equal(status.localPorts.https, null);
     assert.equal(status.overrides.directCount, 1);
   });
+});
+
+test('bootstrap route conversion preserves cidr match type', () => {
+  const rules = routeRulesFromBootstrap({
+    id: 'group_1',
+    name: 'hk-public-node',
+    routes: [
+      { id: 'route_1', matchType: 'ip_cidr', matchValue: '172.20.116.0/24', actionType: 'chain' },
+      { id: 'route_2', matchType: 'suffix', matchValue: 'example.com', actionType: 'direct' },
+      { id: 'route_3', matchType: 'default', matchValue: '*', actionType: 'proxy' }
+    ]
+  });
+
+  assert.deepEqual(rules, [
+    { id: 'route_1', type: 'cidr', pattern: '172.20.116.0/24', mode: 'proxy' },
+    { id: 'route_2', type: 'suffix', pattern: 'example.com', mode: 'direct' },
+    { id: 'route_3', type: 'wildcard', pattern: '*', mode: 'proxy' }
+  ]);
 });

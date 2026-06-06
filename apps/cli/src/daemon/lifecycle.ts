@@ -280,7 +280,7 @@ export async function startDaemonRuntime(handlers: Record<string, (body: unknown
   const metadata = await buildDaemonMetadata(resolved);
   const [config, state] = await Promise.all([readConfig(), readState()]);
   const { startHttpProxyListeners } = await import('./http-proxy.ts');
-  const proxyServers = await startHttpProxyListeners({ config, state }, metadata.bindings);
+  const proxyServers = await startHttpProxyListeners({ config, state }, metadata.bindings, true);
   const ipcServer = createIpcServer(metadata, handlers);
   await listenHttpServer(ipcServer, metadata.bindings.ipcPort);
   await writeDaemonMetadata(metadata);

@@ -1,6 +1,6 @@
 import * as http from 'node:http';
 import * as net from 'node:net';
-import { closeServer, listenHttpServer, readTokens } from './lifecycle.ts';
+import { closeServer, listenHttpServer, readConfig, readState, readTokens } from './lifecycle.ts';
 import type { DaemonBindings } from './lifecycle.ts';
 import { resolveRoute } from './router.ts';
 import type { RouteResolverInput } from './router.ts';
@@ -13,9 +13,9 @@ export type ProxyServers = {
   close: () => Promise<void>;
 };
 
-export async function startHttpProxyListeners(input: ProxyRouteContext, bindings: DaemonBindings): Promise<ProxyServers> {
-  const httpServer = createHttpProxyServer(input);
-  const httpsServer = createHttpProxyServer(input);
+export async function startHttpProxyListeners(input: ProxyRouteContext, bindings: DaemonBindings, liveState = false): Promise<ProxyServers> {
+  const httpServer = createHttpProxyServer(input, liveState);
+  const httpsServer = createHttpProxyServer(input, liveState);
   await Promise.all([
     listenHttpServer(httpServer, bindings.httpPort),
     listenHttpServer(httpsServer, bindings.httpsPort)
@@ -29,9 +29,9 @@ export async function startHttpProxyListeners(input: ProxyRouteContext, bindings
   };
 }
 
-export function createHttpProxyServer(input: ProxyRouteContext) {
+export function createHttpProxyServer(input: ProxyRouteContext, liveState = false) {
   const server = http.createServer((request, response) => {
-    proxyHttpRequest(input, request, response);
+    proxyHttpRequest(input, liveState, request, response);
   });
 
   server.on('connect', async (request, clientSocket, head) => {
@@ -40,7 +40,8 @@ export function createHttpProxyServer(input: ProxyRouteContext) {
       clientSocket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
       return;
     }
-    const route = resolveRoute({ ...input, target: `${target.host}:${target.port}`, protocol: 'connect' });
+    const context = await proxyContext(input, liveState);
+    const route = resolveRoute({ ...context, target: `${target.host}:${target.port}`, protocol: 'connect' });
     if (route.mode === 'proxy' && !route.topology) {
       clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n');
       return;
@@ -69,14 +70,15 @@ export function createHttpProxyServer(input: ProxyRouteContext) {
   return server;
 }
 
-async function proxyHttpRequest(input: ProxyRouteContext, request: http.IncomingMessage, response: http.ServerResponse) {
+async function proxyHttpRequest(input: ProxyRouteContext, liveState: boolean, request: http.IncomingMessage, response: http.ServerResponse) {
   const target = parseHttpTarget(request);
   if (!target) {
     response.writeHead(400);
     response.end();
     return;
   }
-  const route = resolveRoute({ ...input, target: target.url, protocol: target.protocol });
+  const context = await proxyContext(input, liveState);
+  const route = resolveRoute({ ...context, target: target.url, protocol: target.protocol });
   if (route.mode === 'proxy' && !route.topology) {
     response.writeHead(502);
     response.end();
@@ -107,6 +109,10 @@ async function proxyHttpRequest(input: ProxyRouteContext, request: http.Incoming
     response.end();
   });
   request.pipe(upstreamRequest);
+}
+
+async function proxyContext(input: ProxyRouteContext, liveState: boolean): Promise<ProxyRouteContext> {
+  return liveState ? { config: await readConfig(), state: await readState() } : input;
 }
 
 function parseConnectTarget(value: string) {

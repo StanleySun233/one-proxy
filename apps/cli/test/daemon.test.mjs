@@ -118,6 +118,85 @@ test('HTTP CONNECT listener establishes a direct tunnel', async () => {
   }
 });
 
+test('HTTP proxy listener reads updated local state after startup', async () => {
+  await withHome(async (home) => {
+    const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
+    let upstreamPath = '';
+    let upstreamToken = '';
+    const upstream = http.createServer((request, response) => {
+      upstreamPath = request.url;
+      upstreamToken = request.headers['proxy-authorization'];
+      response.end('proxied');
+    });
+    const upstreamPort = await listen(upstream);
+    const [httpPort, httpsPort] = await freeConsecutivePorts();
+    await writeFile(path.join(home, 'config.json'), JSON.stringify({
+      schemaVersion: 1,
+      activeTenantId: 'tenant_1',
+      activeGroupId: 'group_1',
+      overrides: { direct: ['example.com'], proxy: [] }
+    }));
+    await writeFile(path.join(home, 'state.json'), JSON.stringify({
+      schemaVersion: 1,
+      bootstrap: {
+        entryNodes: [{ id: 'entry_1', host: '127.0.0.1', port: upstreamPort, protocol: 'PROXY' }]
+      },
+      routeGroups: [{ id: 'group_1', tenantId: 'tenant_1', rules: [] }]
+    }));
+    await writeFile(path.join(home, 'tokens.json'), JSON.stringify({
+      schemaVersion: 1,
+      proxyToken: 'proxy-token'
+    }));
+    const proxy = await startHttpProxyListeners({
+      config: { schemaVersion: 1, activeTenantId: 'tenant_1', activeGroupId: 'group_1', overrides: { direct: ['example.com'], proxy: [] } },
+      state: {
+        schemaVersion: 1,
+        bootstrap: {
+          entryNodes: [{ id: 'entry_1', host: '127.0.0.1', port: upstreamPort, protocol: 'PROXY' }]
+        },
+        routeGroups: [{ id: 'group_1', tenantId: 'tenant_1', rules: [] }]
+      }
+    }, {
+      host: '127.0.0.1',
+      httpPort,
+      httpsPort,
+      ipcPort: 0
+    }, true);
+
+    try {
+      await writeFile(path.join(home, 'config.json'), JSON.stringify({
+        schemaVersion: 1,
+        activeTenantId: 'tenant_1',
+        activeGroupId: 'group_1',
+        overrides: { direct: [], proxy: ['example.com'] }
+      }));
+      const body = await new Promise((resolve, reject) => {
+        const request = http.get({
+          host: '127.0.0.1',
+          port: httpPort,
+          path: 'http://example.com/path',
+          headers: { host: 'example.com' }
+        }, (response) => {
+          let data = '';
+          response.setEncoding('utf8');
+          response.on('data', (chunk) => {
+            data += chunk;
+          });
+          response.on('end', () => resolve(data));
+        });
+        request.on('error', reject);
+      });
+
+      assert.equal(body, 'proxied');
+      assert.equal(upstreamPath, 'http://example.com/path');
+      assert.equal(upstreamToken, 'Bearer proxy-token');
+    } finally {
+      await proxy.close();
+      await closeServer(upstream);
+    }
+  });
+});
+
 test('lifecycle metadata and health expose contract shape', async () => {
   await withHome(async (home) => {
     const {

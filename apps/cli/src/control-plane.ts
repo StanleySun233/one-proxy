@@ -293,7 +293,7 @@ export async function groupUse(args: string[], context: CliContext): Promise<voi
   print(context.json ? { activeGroupId: group.id } : `Active group: ${group.name || group.id}`, context);
 }
 
-function routeRulesFromBootstrap(group: NonNullable<ExtensionBootstrap['groups']>[number]): RouteRule[] {
+export function routeRulesFromBootstrap(group: NonNullable<ExtensionBootstrap['groups']>[number]): RouteRule[] {
   const directHosts = (group.directHosts ?? []).map((host) => ({
     id: `direct:${host}`,
     type: 'domain' as const,
@@ -308,11 +308,25 @@ function routeRulesFromBootstrap(group: NonNullable<ExtensionBootstrap['groups']
   }));
   const routes = (group.routes ?? []).map((route) => ({
     id: route.id,
-    type: route.matchType === 'suffix' ? ('suffix' as const) : ('domain' as const),
+    type: routeTypeFromMatchType(route.matchType),
     pattern: route.matchValue,
     mode: route.actionType === 'direct' ? ('direct' as const) : ('proxy' as const)
   }));
   return [...routes, ...directHosts, ...proxyHosts];
+}
+
+function routeTypeFromMatchType(matchType: string): RouteRule['type'] {
+  const normalized = matchType.toLowerCase();
+  if (normalized === 'suffix' || normalized === 'cidr' || normalized === 'wildcard') {
+    return normalized;
+  }
+  if (normalized === 'ip_cidr') {
+    return 'cidr';
+  }
+  if (normalized === 'default') {
+    return 'wildcard';
+  }
+  return 'domain';
 }
 
 export async function sync(_args: string[], context: CliContext): Promise<void> {
