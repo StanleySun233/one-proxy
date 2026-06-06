@@ -3,7 +3,7 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import * as net from 'node:net';
 import {
-  DaemonMetadata,
+  type DaemonMetadata,
   loopbackHost,
   probeDaemon,
   readConfig,
@@ -11,9 +11,9 @@ import {
   readState,
   readTokens,
   storagePath
-} from './daemon/lifecycle';
-import { isUsablePort } from './daemon/port-selection';
-import { resolveRoute, RouteResult } from './daemon/router';
+} from './daemon/lifecycle.js';
+import { isUsablePort } from './daemon/port-selection.js';
+import { resolveRoute, type RouteResult } from './daemon/router.js';
 
 export type CheckStatus = 'pass' | 'warn' | 'fail';
 

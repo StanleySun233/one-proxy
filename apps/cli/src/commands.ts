@@ -48,6 +48,21 @@ type RouteResult = {
   };
 };
 
+type DoctorResult = {
+  summary: {
+    status: 'pass' | 'warn' | 'fail';
+    passed: number;
+    warned: number;
+    failed: number;
+  };
+  checks: Array<{
+    name: string;
+    status: 'pass' | 'warn' | 'fail';
+    message: string;
+    action?: string;
+  }>;
+};
+
 function write(value: unknown, context: CliContext): void {
   if (context.json) {
     process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -260,6 +275,7 @@ export async function statusCommand(_args: string[], context: CliContext): Promi
       allProxy: ports.httpPort,
       ipc: ports.ipcPort ?? null
     },
+    portSelection: daemon && running ? daemon.portSelection ?? null : null,
     policyRevision: state.policyRevision ?? daemon?.policyRevision ?? null,
     tokens: {
       accessTokenExpiresAt: tokens?.accessTokenExpiresAt ?? null,
@@ -366,31 +382,12 @@ export async function testCommand(args: string[], context: CliContext): Promise<
 }
 
 export async function doctor(_args: string[], context: CliContext): Promise<number> {
-  const [config, tokens, state, daemon] = await Promise.all([readConfig(), readTokens(), readState(), readDaemonMetadata()]);
-  const running = Boolean(daemon?.pid && processIsRunning(daemon.pid));
-  const checks = [
-    { name: 'config', status: 'pass', message: 'Config file is readable' },
-    { name: 'token_readability', status: tokens?.accessToken ? 'pass' : 'fail', message: tokens?.accessToken ? 'Token file is readable' : 'Run onep login' },
-    { name: 'control_plane_health', status: config.controlPlaneUrl ? 'pass' : 'warn', message: config.controlPlaneUrl ? 'Control plane URL is configured' : 'Control plane URL is missing' },
-    { name: 'token_refresh', status: tokens?.refreshToken ? 'pass' : 'warn', message: tokens?.refreshToken ? 'Refresh token is present' : 'Refresh token is missing' },
-    { name: 'bootstrap_sync', status: state.fetchedAt ? 'pass' : 'warn', message: state.fetchedAt ? 'Bootstrap state is present' : 'Run onep sync' },
-    { name: 'daemon_status', status: running ? 'pass' : 'warn', message: running ? 'Daemon metadata points to a running process' : 'Daemon is not running' },
-    { name: 'local_ports', status: config.localPorts.http && config.localPorts.https ? 'pass' : 'warn', message: config.localPorts.http && config.localPorts.https ? 'HTTP and HTTPS proxy ports are selected' : 'Proxy ports are not selected yet' },
-    { name: 'route_calculation', status: state.routeGroups.length || config.overrides.direct.length || config.overrides.proxy.length ? 'pass' : 'warn', message: 'Local route calculation is available' },
-    { name: 'entry_node_reachability', status: state.bootstrap?.entryNodes?.length ? 'warn' : 'warn', message: 'Entry node reachability requires daemon probe support' },
-    { name: 'proxy_token_acceptance', status: tokens?.proxyToken ? 'warn' : 'warn', message: tokens?.proxyToken ? 'Proxy token is present; daemon acceptance check is pending' : 'Run onep sync to fetch a proxy token' }
-  ];
-  const summary = {
-    status: checks.some((check) => check.status === 'fail') ? 'fail' : checks.some((check) => check.status === 'warn') ? 'warn' : 'pass',
-    passed: checks.filter((check) => check.status === 'pass').length,
-    warned: checks.filter((check) => check.status === 'warn').length,
-    failed: checks.filter((check) => check.status === 'fail').length
-  };
-  const result = { summary, checks };
+  const { runDoctor } = await import('./doctor.js');
+  const result = await runDoctor() as DoctorResult;
   if (context.json) {
     write(result, context);
   } else {
-    write(checks.map((check) => `${check.status}\t${check.name}\t${check.message}`).join('\n'), context);
+    write(result.checks.map((check) => `${check.status}\t${check.name}\t${check.message}`).join('\n'), context);
   }
-  return summary.failed ? 3 : 0;
+  return result.summary.failed ? 3 : 0;
 }

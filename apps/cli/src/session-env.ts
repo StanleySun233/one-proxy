@@ -1,13 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { CliContext } from './main.js';
 import {
-  loopbackHost,
-  isLoopbackPortAvailable,
-  processIsRunning,
-  readConfig,
-  readDaemonMetadata,
-  saveSelectedProxyPorts,
-  selectProxyPortPair,
   type DaemonBindings
 } from './storage.js';
 
@@ -25,46 +18,24 @@ const preservedProxyVariables = [
 const unsetMarker = '__ONEPROXY_UNSET__';
 
 type LifecycleModule = {
-  ensureDaemon?: () => Promise<{ metadata?: { bindings?: DaemonBindings }; bindings?: DaemonBindings }>;
+  ensureDaemon?: () => Promise<{ metadata: { bindings: DaemonBindings } }>;
 };
 
 async function lifecycleBindings(): Promise<DaemonBindings | null> {
-  try {
-    const lifecycle = (await import('./daemon/lifecycle.js')) as LifecycleModule;
-    const result = await lifecycle.ensureDaemon?.();
-    return result?.metadata?.bindings || result?.bindings || null;
-  } catch {
-    return null;
+  const lifecycle = (await import('./daemon/lifecycle.js')) as LifecycleModule;
+  const result = await lifecycle.ensureDaemon?.();
+  if (!result) {
+    throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
   }
+  return result.metadata.bindings;
 }
 
 export async function ensureSessionProxyBindings(): Promise<DaemonBindings> {
   const lifecycle = await lifecycleBindings();
-  if (lifecycle?.httpPort && lifecycle.httpsPort) {
-    return lifecycle;
+  if (!lifecycle?.httpPort || !lifecycle.httpsPort) {
+    throw Object.assign(new Error('Daemon did not return proxy bindings'), { code: 'DAEMON_UNAVAILABLE' });
   }
-  const daemon = await readDaemonMetadata();
-  if (daemon?.bindings.httpPort && daemon.bindings.httpsPort && processIsRunning(daemon.pid)) {
-    return daemon.bindings;
-  }
-  const config = await readConfig();
-  if (config.localPorts.http && config.localPorts.https && config.localPorts.https === config.localPorts.http + 1) {
-    const [httpAvailable, httpsAvailable] = await Promise.all([
-      isLoopbackPortAvailable(config.localPorts.http),
-      isLoopbackPortAvailable(config.localPorts.https)
-    ]);
-    if (httpAvailable && httpsAvailable) {
-      return {
-        host: loopbackHost,
-        httpPort: config.localPorts.http,
-        httpsPort: config.localPorts.https,
-        ipcPort: config.localPorts.ipc || undefined
-      };
-    }
-  }
-  const [httpPort, httpsPort] = await selectProxyPortPair();
-  await saveSelectedProxyPorts(httpPort, httpsPort);
-  return { host: loopbackHost, httpPort, httpsPort, ipcPort: config.localPorts.ipc || undefined };
+  return lifecycle;
 }
 
 function proxyEnv(bindings: DaemonBindings): Record<string, string> {

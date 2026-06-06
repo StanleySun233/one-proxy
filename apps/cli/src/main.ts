@@ -2,6 +2,8 @@
 import { login, logout, sync, tenantList, tenantUse, groupList, groupUse } from './control-plane.js';
 import { envOff, envOn, runCommand } from './session-env.js';
 import { doctor, overrideCommand, routeCommand, statusCommand, testCommand, writeError } from './commands.js';
+import { serveDaemon } from './daemon/lifecycle.js';
+import { runSsh } from './ssh.js';
 
 export type CliContext = {
   json: boolean;
@@ -38,6 +40,7 @@ function usage(): string {
     '  override list|direct add <host>|proxy add <host>|remove <host>|clear',
     '  route <url-or-host> [--json]',
     '  test <url-or-host> [--json]',
+    '  ssh <host|user@host> [-p <port>]',
     '  doctor [--json]'
   ].join('\n');
 }
@@ -57,8 +60,16 @@ const handlers: Record<string, CommandHandler> = {
   route: routeCommand,
   test: testCommand,
   doctor,
+  ssh: runSsh,
   override: overrideCommand,
   run: runCommand,
+  daemon: async (args) => {
+    if (args[0] === 'serve') {
+      await serveDaemon();
+      return 0;
+    }
+    throw Object.assign(new Error('daemon requires serve'), { code: 'SYNTAX_ERROR', exitCode: 2 });
+  },
   env: async (args) => {
     const mode = args[0] ?? 'on';
     if (mode === 'on') {

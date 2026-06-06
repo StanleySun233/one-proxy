@@ -1,9 +1,9 @@
 import * as http from 'node:http';
 import * as net from 'node:net';
-import { closeServer, listenHttpServer, readTokens } from './lifecycle';
-import type { DaemonBindings } from './lifecycle';
-import { resolveRoute } from './router';
-import type { RouteResolverInput } from './router';
+import { closeServer, listenHttpServer, readTokens } from './lifecycle.js';
+import type { DaemonBindings } from './lifecycle.js';
+import { resolveRoute } from './router.js';
+import type { RouteResolverInput } from './router.js';
 
 export type ProxyRouteContext = Omit<RouteResolverInput, 'target' | 'protocol'>;
 

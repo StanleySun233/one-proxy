@@ -1,9 +1,10 @@
 import * as fs from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import * as http from 'node:http';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { PortSelection, selectProxyPorts } from './port-selection';
+import { type PortSelection, selectProxyPorts } from './port-selection.js';
 
 export type LocalPorts = {
   http: number;
@@ -106,6 +107,7 @@ export type DaemonHealth = {
 export type DaemonRuntime = {
   metadata: DaemonMetadata;
   ipcServer: http.Server;
+  proxyServers?: { close: () => Promise<void> };
   close: () => Promise<void>;
 };
 
@@ -294,14 +296,25 @@ export function createIpcServer(metadata: DaemonMetadata, handlers: Record<strin
 export async function startDaemonRuntime(handlers: Record<string, (body: unknown) => Promise<unknown>> = defaultDaemonHandlers()): Promise<DaemonRuntime> {
   const resolved = await resolveBindings();
   const metadata = await buildDaemonMetadata(resolved);
+  const [config, state] = await Promise.all([readConfig(), readState()]);
+  const { startHttpProxyListeners } = await import('./http-proxy.js');
+  const proxyServers = await startHttpProxyListeners({ config, state }, metadata.bindings);
   const ipcServer = createIpcServer(metadata, handlers);
-  await listenHttpServer(ipcServer, metadata.bindings.ipcPort);
-  await writeDaemonMetadata(metadata);
-  return {
-    metadata,
-    ipcServer,
-    close: async () => closeServer(ipcServer)
-  };
+  try {
+    await listenHttpServer(ipcServer, metadata.bindings.ipcPort);
+    await writeDaemonMetadata(metadata);
+    return {
+      metadata,
+      ipcServer,
+      proxyServers,
+      close: async () => {
+        await Promise.all([closeServer(ipcServer), proxyServers.close()]);
+      }
+    };
+  } catch (error) {
+    await proxyServers.close().catch(() => undefined);
+    throw error;
+  }
 }
 
 export function defaultDaemonHandlers(): Record<string, (body: unknown) => Promise<unknown>> {
@@ -309,7 +322,7 @@ export function defaultDaemonHandlers(): Record<string, (body: unknown) => Promi
     '/v1/route': async (body) => {
       const request = body as { target?: string; protocol?: string };
       const [{ resolveRoute }, config, state] = await Promise.all([
-        import('./router'),
+        import('./router.js'),
         readConfig(),
         readState()
       ]);
@@ -322,11 +335,49 @@ export function defaultDaemonHandlers(): Record<string, (body: unknown) => Promi
     },
     '/v1/probe': async (body) => {
       const request = body as { target?: string };
-      const { probeTarget } = await import('../doctor');
+      const { probeTarget } = await import('../doctor.js');
       return await probeTarget(request.target ?? '');
     },
     '/v1/shutdown-if-idle': async () => ({ accepted: true })
   };
+}
+
+export async function ensureDaemon(): Promise<{ metadata: DaemonMetadata }> {
+  const existing = await readDaemonMetadata();
+  const health = await probeDaemon(existing);
+  if (existing && health) {
+    return { metadata: existing };
+  }
+  if (process.env.ONEPROXY_DAEMON_CHILD === '1') {
+    return { metadata: (await startDaemonRuntime()).metadata };
+  }
+  const entrypoint = process.argv[1];
+  if (!entrypoint) {
+    throw Object.assign(new Error('Cannot determine CLI entrypoint'), { code: 'DAEMON_UNAVAILABLE' });
+  }
+  const child = spawn(process.execPath, [entrypoint, 'daemon', 'serve'], {
+    detached: true,
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      ONEPROXY_DAEMON_CHILD: '1'
+    }
+  });
+  child.unref();
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const metadata = await readDaemonMetadata();
+    if (metadata && await probeDaemon(metadata)) {
+      return { metadata };
+    }
+  }
+  throw Object.assign(new Error('Daemon did not become ready'), { code: 'DAEMON_UNAVAILABLE' });
+}
+
+export async function serveDaemon(): Promise<void> {
+  await startDaemonRuntime();
+  await new Promise(() => undefined);
 }
 
 export async function probeDaemon(metadata = await readDaemonMetadata()): Promise<DaemonHealth | null> {

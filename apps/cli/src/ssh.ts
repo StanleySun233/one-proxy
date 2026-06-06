@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { readConfig, readDaemonMetadata, readState } from './daemon/lifecycle';
-import { resolveRoute } from './daemon/router';
-import type { RouteResult } from './daemon/router';
+import { ensureDaemon, readConfig, readState } from './daemon/lifecycle.js';
+import { resolveRoute } from './daemon/router.js';
+import type { RouteResult } from './daemon/router.js';
 
 export type SshTarget = {
   user?: string;
@@ -29,14 +29,11 @@ export async function runSsh(argv: string[]) {
 
 export async function buildSshCommandPlan(argv: string[]): Promise<SshCommandPlan> {
   const target = parseSshTarget(argv);
+  const { metadata } = await ensureDaemon();
   const [config, state] = await Promise.all([readConfig(), readState()]);
   const route = resolveRoute({ config, state, target: `ssh://${target.host}:${target.port}`, protocol: 'ssh' });
   const args = ['-p', String(target.port)];
   if (route.mode === 'proxy') {
-    const metadata = await readDaemonMetadata();
-    if (!metadata) {
-      throw new SshCommandError('DAEMON_UNAVAILABLE', 'Daemon metadata is missing');
-    }
     args.push('-o', `ProxyCommand=${proxyCommand(metadata.bindings.host, metadata.bindings.httpPort)}`);
   }
   args.push(target.original);

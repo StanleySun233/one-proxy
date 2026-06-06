@@ -90,6 +90,11 @@ export type DaemonMetadata = {
   groupId?: string;
   policyRevision?: string;
   bindings: DaemonBindings;
+  portSelection?: {
+    candidatePorts: number[];
+    selectedPair: [number, number];
+    excludedCommonPorts: number[];
+  };
   idleTimeoutSeconds?: number;
 };
 
