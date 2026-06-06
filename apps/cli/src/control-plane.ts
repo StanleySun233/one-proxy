@@ -268,12 +268,13 @@ export async function groupList(_args: string[], context: CliContext): Promise<v
   if (!config.activeTenantId) {
     throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
   }
-  const groups = await authenticatedRequest<Group[]>('/groups', { tenantId: config.activeTenantId });
+  const state = await readState();
+  const groups = state.routeGroups.filter((group) => group.tenantId === config.activeTenantId);
   if (context.json) {
     print({ groups }, context);
     return;
   }
-  print(groups.map((group) => `${group.id}\t${group.name}${group.enabled === false ? '\tdisabled' : ''}`).join('\n'), context);
+  print(groups.map((group) => `${group.id}\t${group.name || group.id}`).join('\n'), context);
 }
 
 export async function groupUse(args: string[], context: CliContext): Promise<void> {
@@ -282,13 +283,14 @@ export async function groupUse(args: string[], context: CliContext): Promise<voi
     throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
   }
   const target = args[0].toLowerCase();
-  const groups = await authenticatedRequest<Group[]>('/groups', { tenantId: config.activeTenantId });
-  const group = groups.find((item) => item.id.toLowerCase() === target || item.name.toLowerCase() === target);
+  const state = await readState();
+  const groups = state.routeGroups.filter((group) => group.tenantId === config.activeTenantId);
+  const group = groups.find((item) => item.id.toLowerCase() === target || (item.name || '').toLowerCase() === target);
   if (!group) {
-    throw Object.assign(new Error(`Group not found: ${args[0]}`), { code: 'GROUP_REQUIRED' });
+    throw Object.assign(new Error(`Group not found in synced state: ${args[0]}. Run onep sync first.`), { code: 'GROUP_REQUIRED' });
   }
   await writeConfig({ ...config, activeGroupId: group.id });
-  print(context.json ? { activeGroupId: group.id } : `Active group: ${group.name}`, context);
+  print(context.json ? { activeGroupId: group.id } : `Active group: ${group.name || group.id}`, context);
 }
 
 function routeRulesFromBootstrap(group: NonNullable<ExtensionBootstrap['groups']>[number]): RouteRule[] {

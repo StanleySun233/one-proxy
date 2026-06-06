@@ -226,7 +226,7 @@ async function tcpOpen(host: string, port: number) {
 }
 
 async function httpHealth(controlPlaneUrl: string) {
-  const url = new URL('/health', controlPlaneUrl);
+  const url = new URL('/healthz', controlPlaneUrl);
   const client = url.protocol === 'https:' ? https : http;
   return await new Promise<boolean>((resolve) => {
     const request = client.get(url, (response) => {
