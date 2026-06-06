@@ -18,7 +18,7 @@
 - [x] implement env on/off shell output and onep run command execution in apps/cli/src/session-env.ts
   - Commit: 74ac72f
 - [x] implement override, route, status, and JSON output helpers in apps/cli/src/commands.ts
-  - Commit:
+  - Commit: 99c28a7
 
 ## Blockers
 
