@@ -1,10 +1,22 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
-import * as http from 'node:http';
-import * as net from 'node:net';
 import * as path from 'node:path';
-import { allocateLoopbackPort, closeServer, listenHttpServer, loopbackHost } from "./daemon/lifecycle.js";
+import { promisify } from 'node:util';
+const execFileAsync = promisify(execFile);
 const monitorIdleTimeoutSeconds = 300;
+const linuxTcpStates = {
+    '01': 'ESTABLISHED',
+    '02': 'SYN_SENT',
+    '03': 'SYN_RECV',
+    '04': 'FIN_WAIT1',
+    '05': 'FIN_WAIT2',
+    '06': 'TIME_WAIT',
+    '07': 'CLOSE',
+    '08': 'CLOSE_WAIT',
+    '09': 'LAST_ACK',
+    '0A': 'LISTEN',
+    '0B': 'CLOSING'
+};
 function monitorLogName(executable, now = new Date()) {
     const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-');
     const app = path.basename(executable).replace(/[^a-zA-Z0-9._-]+/g, '_') || 'app';
@@ -12,168 +24,335 @@ function monitorLogName(executable, now = new Date()) {
 }
 async function appendMonitorEvent(logPath, event) {
     await fs.appendFile(logPath, `${JSON.stringify(event)}\n`, { mode: 0o600 });
-    process.stderr.write(`onep monitor: ${event.protocol} ${event.method} ${event.host}:${event.port} ${event.status} ${event.target}\n`);
-}
-function parseConnectTarget(value) {
-    const index = value.lastIndexOf(':');
-    if (index <= 0) {
-        return null;
-    }
-    const host = value.slice(0, index).replace(/^\[|\]$/g, '').toLowerCase();
-    const port = Number(value.slice(index + 1));
-    if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
-        return null;
-    }
-    return { host, port };
-}
-function parseHttpTarget(request) {
-    const rawUrl = request.url ?? '';
-    const hostHeader = Array.isArray(request.headers.host) ? request.headers.host[0] : request.headers.host;
-    const url = /^[a-z][a-z0-9+.-]*:\/\//i.test(rawUrl)
-        ? new URL(rawUrl)
-        : new URL(rawUrl || '/', `http://${hostHeader ?? ''}`);
-    const host = url.hostname.toLowerCase();
-    const port = url.port ? Number(url.port) : url.protocol === 'https:' ? 443 : 80;
-    if (!host || !Number.isInteger(port)) {
-        return null;
-    }
-    return {
-        host,
-        port,
-        path: `${url.pathname}${url.search}`,
-        target: url.toString()
-    };
-}
-async function startMonitorProxy(logPath, onActivity) {
-    const server = http.createServer((request, response) => {
-        onActivity?.();
-        void proxyHttpRequest(logPath, request, response);
-    });
-    server.on('connect', (request, clientSocket, head) => {
-        onActivity?.();
-        void proxyConnect(logPath, request, clientSocket, head);
-    });
-    const port = await allocateLoopbackPort();
-    await listenHttpServer(server, port);
-    return {
-        port,
-        close: () => closeServer(server)
-    };
-}
-async function proxyConnect(logPath, request, clientSocket, head) {
-    const target = parseConnectTarget(request.url ?? '');
-    if (!target) {
-        clientSocket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
-        return;
-    }
-    const upstreamSocket = net.connect(target.port, target.host, () => {
-        clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-        if (head.length > 0) {
-            upstreamSocket.write(head);
-        }
-        clientSocket.pipe(upstreamSocket);
-        upstreamSocket.pipe(clientSocket);
-        void appendMonitorEvent(logPath, {
-            timestamp: new Date().toISOString(),
-            protocol: 'connect',
-            method: 'CONNECT',
-            host: target.host,
-            port: target.port,
-            target: `${target.host}:${target.port}`,
-            status: 200
-        });
-    });
-    upstreamSocket.on('error', () => {
-        void appendMonitorEvent(logPath, {
-            timestamp: new Date().toISOString(),
-            protocol: 'connect',
-            method: 'CONNECT',
-            host: target.host,
-            port: target.port,
-            target: `${target.host}:${target.port}`,
-            status: 502
-        });
-        clientSocket.destroy();
-    });
-    clientSocket.on('error', () => upstreamSocket.destroy());
-}
-async function proxyHttpRequest(logPath, request, response) {
-    const target = parseHttpTarget(request);
-    if (!target) {
-        response.writeHead(400);
-        response.end();
-        return;
-    }
-    const headers = { ...request.headers };
-    delete headers['proxy-connection'];
-    const upstreamRequest = http.request({
-        host: target.host,
-        port: target.port,
-        method: request.method,
-        path: target.path,
-        headers
-    }, (upstreamResponse) => {
-        const status = upstreamResponse.statusCode ?? 502;
-        response.writeHead(status, upstreamResponse.headers);
-        upstreamResponse.pipe(response);
-        upstreamResponse.once('end', () => {
-            void appendMonitorEvent(logPath, {
-                timestamp: new Date().toISOString(),
-                protocol: 'http',
-                method: request.method ?? 'GET',
-                host: target.host,
-                port: target.port,
-                target: target.target,
-                status
-            });
-        });
-    });
-    upstreamRequest.on('error', () => {
-        response.writeHead(502);
-        response.end();
-        void appendMonitorEvent(logPath, {
-            timestamp: new Date().toISOString(),
-            protocol: 'http',
-            method: request.method ?? 'GET',
-            host: target.host,
-            port: target.port,
-            target: target.target,
-            status: 502
-        });
-    });
-    request.pipe(upstreamRequest);
-}
-function monitorEnv(port) {
-    const proxy = `http://${loopbackHost}:${port}`;
-    return {
-        HTTP_PROXY: proxy,
-        HTTPS_PROXY: proxy,
-        ALL_PROXY: proxy,
-        http_proxy: proxy,
-        https_proxy: proxy,
-        all_proxy: proxy,
-        NO_PROXY: 'localhost,127.0.0.1,::1',
-        no_proxy: 'localhost,127.0.0.1,::1',
-        ONEPROXY_MONITOR_ACTIVE: '1',
-        ONEPROXY_MONITOR_PORT: String(port)
-    };
+    process.stderr.write(`onep monitor: ${event.process}[${event.pid}] ${event.protocol} ${event.remoteHost}:${event.remotePort ?? '*'} ${event.state ?? ''}\n`);
 }
 function quoteWindowsCommand(value) {
     return `"${value.replace(/"/g, '""')}"`;
 }
-function spawnWindowsCommand(executable, args, env) {
-    const shell = process.env.ComSpec || 'cmd.exe';
-    const command = ['start', '""', '/wait', quoteWindowsCommand(executable), ...args.map(quoteWindowsCommand)].join(' ');
-    return spawn(shell, ['/d', '/s', '/c', command], {
-        stdio: 'inherit',
-        windowsHide: false,
-        env
-    });
+function spawnMonitoredCommand(executable, args) {
+    if (process.platform === 'win32') {
+        const shell = process.env.ComSpec || 'cmd.exe';
+        const command = ['start', '""', '/wait', quoteWindowsCommand(executable), ...args.map(quoteWindowsCommand)].join(' ');
+        return spawn(shell, ['/d', '/s', '/c', command], {
+            stdio: 'inherit',
+            windowsHide: false
+        });
+    }
+    return spawn(executable, args, { stdio: 'inherit' });
 }
-async function waitForMonitorIdle(lastActivity) {
-    while (Date.now() - lastActivity() < monitorIdleTimeoutSeconds * 1000) {
-        const remaining = monitorIdleTimeoutSeconds * 1000 - (Date.now() - lastActivity());
-        await new Promise((resolve) => setTimeout(resolve, Math.min(remaining, 1000)));
+function parseEndpoint(value) {
+    if (value === '*:*' || value === '*') {
+        return { address: '*', port: null };
+    }
+    if (value.startsWith('[')) {
+        const end = value.lastIndexOf(']:');
+        if (end >= 0) {
+            const port = Number(value.slice(end + 2));
+            return { address: value.slice(1, end), port: Number.isInteger(port) ? port : null };
+        }
+    }
+    const index = value.lastIndexOf(':');
+    if (index < 0) {
+        return { address: value, port: null };
+    }
+    const port = Number(value.slice(index + 1));
+    return {
+        address: value.slice(0, index),
+        port: Number.isInteger(port) ? port : null
+    };
+}
+function parseWindowsNetstat(output) {
+    const events = [];
+    for (const line of output.split(/\r?\n/)) {
+        const parts = line.trim().split(/\s+/);
+        const protocol = parts[0]?.toLowerCase();
+        if (protocol !== 'tcp' && protocol !== 'udp') {
+            continue;
+        }
+        const local = parseEndpoint(parts[1] ?? '');
+        const remote = parseEndpoint(parts[2] ?? '');
+        const state = protocol === 'tcp' ? parts[3] ?? null : null;
+        const pidText = protocol === 'tcp' ? parts[4] : parts[3];
+        const pid = Number(pidText);
+        if (!Number.isInteger(pid)) {
+            continue;
+        }
+        events.push(baseEvent('netstat', pid, protocol, local, remote, state));
+    }
+    return events;
+}
+function parseWindowsProcesses(output) {
+    const processes = [];
+    for (const line of output.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('Node,')) {
+            continue;
+        }
+        const parts = trimmed.split(',');
+        const name = parts[1];
+        const parentPid = Number(parts[2]);
+        const pid = Number(parts[3]);
+        if (!name || !Number.isInteger(parentPid) || !Number.isInteger(pid)) {
+            continue;
+        }
+        processes.push({ name, parentPid, pid });
+    }
+    return processes;
+}
+function watchedProcesses(rootPid, previousPids, processes) {
+    const watched = new Set([rootPid, ...previousPids]);
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const processInfo of processes) {
+            if (watched.has(processInfo.parentPid) && !watched.has(processInfo.pid)) {
+                watched.add(processInfo.pid);
+                changed = true;
+            }
+        }
+    }
+    return watched;
+}
+async function windowsProcesses() {
+    const { stdout } = await execFileAsync('wmic', ['process', 'get', 'Name,ParentProcessId,ProcessId', '/format:csv'], { windowsHide: true, maxBuffer: 1024 * 1024 * 8 });
+    return parseWindowsProcesses(stdout);
+}
+async function windowsConnections() {
+    const { stdout } = await execFileAsync('netstat', ['-ano'], { windowsHide: true, maxBuffer: 1024 * 1024 * 16 });
+    return parseWindowsNetstat(stdout);
+}
+function baseEvent(source, pid, protocol, local, remote, state) {
+    return {
+        timestamp: new Date().toISOString(),
+        source,
+        process: '',
+        pid,
+        protocol,
+        localAddress: local.address,
+        localPort: local.port,
+        remoteAddress: remote.address,
+        remotePort: remote.port,
+        remoteHost: remote.address,
+        domain: null,
+        domainSource: null,
+        state
+    };
+}
+function eventKey(event) {
+    return [
+        event.pid,
+        event.protocol,
+        event.localAddress,
+        event.localPort ?? '*',
+        event.remoteAddress,
+        event.remotePort ?? '*',
+        event.state ?? ''
+    ].join('|');
+}
+async function sampleWindowsConnections(rootPid, trackedPids, seenEvents, logPath) {
+    const processes = await windowsProcesses();
+    const watched = watchedProcesses(rootPid, trackedPids, processes);
+    for (const pid of watched) {
+        trackedPids.add(pid);
+    }
+    const processNames = new Map(processes.map((processInfo) => [processInfo.pid, processInfo.name]));
+    return writeNewEvents(await windowsConnections(), watched, processNames, seenEvents, logPath);
+}
+async function linuxProcesses() {
+    const processes = [];
+    for (const entry of await fs.readdir('/proc')) {
+        const pid = Number(entry);
+        if (!Number.isInteger(pid)) {
+            continue;
+        }
+        const stat = await fs.readFile(`/proc/${pid}/stat`, 'utf8').catch(() => '');
+        const end = stat.lastIndexOf(')');
+        if (end < 0) {
+            continue;
+        }
+        const name = stat.slice(stat.indexOf('(') + 1, end);
+        const fields = stat.slice(end + 2).split(/\s+/);
+        const parentPid = Number(fields[1]);
+        if (Number.isInteger(parentPid)) {
+            processes.push({ pid, parentPid, name });
+        }
+    }
+    return processes;
+}
+function parseLinuxIpv4(hex) {
+    const parts = hex.match(/../g) ?? [];
+    return parts.reverse().map((part) => Number.parseInt(part, 16)).join('.');
+}
+function parseLinuxIpv6(hex) {
+    const groups = hex.match(/.{8}/g) ?? [];
+    return groups.map((group) => {
+        const bytes = group.match(/../g) ?? [];
+        return [
+            `${bytes[1] ?? '00'}${bytes[0] ?? '00'}`,
+            `${bytes[3] ?? '00'}${bytes[2] ?? '00'}`
+        ].join(':');
+    }).join(':').replace(/(^|:)0(:0)+(:|$)/, '::');
+}
+function parseLinuxEndpoint(value, family) {
+    const [addressHex, portHex] = value.split(':');
+    const port = Number.parseInt(portHex ?? '', 16);
+    return {
+        address: family === 'ipv4' ? parseLinuxIpv4(addressHex ?? '') : parseLinuxIpv6(addressHex ?? ''),
+        port: Number.isInteger(port) ? port : null
+    };
+}
+async function linuxSocketInodes(pids) {
+    const inodes = new Map();
+    for (const pid of pids) {
+        const fdDir = `/proc/${pid}/fd`;
+        const entries = await fs.readdir(fdDir).catch(() => []);
+        for (const entry of entries) {
+            const target = await fs.readlink(path.join(fdDir, entry)).catch(() => '');
+            const match = /^socket:\[(\d+)\]$/.exec(target);
+            if (match) {
+                inodes.set(match[1], pid);
+            }
+        }
+    }
+    return inodes;
+}
+async function parseLinuxConnectionFile(filePath, protocol, family, inodes) {
+    const content = await fs.readFile(filePath, 'utf8').catch(() => '');
+    const events = [];
+    for (const line of content.split(/\r?\n/).slice(1)) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length < 10) {
+            continue;
+        }
+        const pid = inodes.get(parts[9]);
+        if (!pid) {
+            continue;
+        }
+        const local = parseLinuxEndpoint(parts[1], family);
+        const remote = parseLinuxEndpoint(parts[2], family);
+        const state = protocol === 'tcp' ? linuxTcpStates[(parts[3] ?? '').toUpperCase()] ?? parts[3] : null;
+        if ((remote.address === '0.0.0.0' || remote.address === '::') && remote.port === 0) {
+            continue;
+        }
+        events.push(baseEvent('procfs', pid, protocol, local, remote, state));
+    }
+    return events;
+}
+async function linuxConnections(pids) {
+    const inodes = await linuxSocketInodes(pids);
+    return [
+        ...await parseLinuxConnectionFile('/proc/net/tcp', 'tcp', 'ipv4', inodes),
+        ...await parseLinuxConnectionFile('/proc/net/udp', 'udp', 'ipv4', inodes),
+        ...await parseLinuxConnectionFile('/proc/net/tcp6', 'tcp', 'ipv6', inodes),
+        ...await parseLinuxConnectionFile('/proc/net/udp6', 'udp', 'ipv6', inodes)
+    ];
+}
+async function sampleLinuxConnections(rootPid, trackedPids, seenEvents, logPath) {
+    const processes = await linuxProcesses();
+    const watched = watchedProcesses(rootPid, trackedPids, processes);
+    for (const pid of watched) {
+        trackedPids.add(pid);
+    }
+    const processNames = new Map(processes.map((processInfo) => [processInfo.pid, processInfo.name]));
+    return writeNewEvents(await linuxConnections(watched), watched, processNames, seenEvents, logPath);
+}
+async function darwinProcesses() {
+    const { stdout } = await execFileAsync('ps', ['-axo', 'pid=,ppid=,comm='], { maxBuffer: 1024 * 1024 * 8 });
+    const processes = [];
+    for (const line of stdout.split(/\r?\n/)) {
+        const match = /^\s*(\d+)\s+(\d+)\s+(.+)$/.exec(line);
+        if (match) {
+            processes.push({ pid: Number(match[1]), parentPid: Number(match[2]), name: path.basename(match[3]) });
+        }
+    }
+    return processes;
+}
+function parseLsofEndpoint(value) {
+    const stateMatch = /\(([^)]+)\)$/.exec(value);
+    const clean = value.replace(/\s+\([^)]+\)$/, '');
+    const [localText, remoteText] = clean.split('->');
+    if (!remoteText) {
+        return null;
+    }
+    return {
+        local: parseEndpoint(localText),
+        remote: parseEndpoint(remoteText),
+        state: stateMatch?.[1] ?? null
+    };
+}
+function parseLsof(output) {
+    const events = [];
+    for (const line of output.split(/\r?\n/).slice(1)) {
+        const parts = line.trim().split(/\s+/);
+        const pid = Number(parts[1]);
+        if (!Number.isInteger(pid)) {
+            continue;
+        }
+        const node = parts[7]?.toLowerCase();
+        const protocol = node === 'tcp' || node === 'udp' ? node : null;
+        if (!protocol) {
+            continue;
+        }
+        const endpoint = parseLsofEndpoint(parts.slice(8).join(' '));
+        if (!endpoint) {
+            continue;
+        }
+        const event = baseEvent('lsof', pid, protocol, endpoint.local, endpoint.remote, endpoint.state);
+        event.process = parts[0] ?? '';
+        events.push(event);
+    }
+    return events;
+}
+async function sampleDarwinConnections(rootPid, trackedPids, seenEvents, logPath) {
+    const processes = await darwinProcesses();
+    const watched = watchedProcesses(rootPid, trackedPids, processes);
+    for (const pid of watched) {
+        trackedPids.add(pid);
+    }
+    const { stdout } = await execFileAsync('lsof', ['-nP', '-iTCP', '-iUDP'], { maxBuffer: 1024 * 1024 * 16 });
+    const processNames = new Map(processes.map((processInfo) => [processInfo.pid, processInfo.name]));
+    return writeNewEvents(parseLsof(stdout), watched, processNames, seenEvents, logPath);
+}
+async function writeNewEvents(events, watched, processNames, seenEvents, logPath) {
+    let eventCount = 0;
+    for (const event of events) {
+        if (!watched.has(event.pid)) {
+            continue;
+        }
+        const key = eventKey(event);
+        if (seenEvents.has(key)) {
+            continue;
+        }
+        seenEvents.add(key);
+        event.process = processNames.get(event.pid) ?? (event.process || `pid-${event.pid}`);
+        await appendMonitorEvent(logPath, event);
+        eventCount += 1;
+    }
+    return eventCount;
+}
+function connectionSampler() {
+    if (process.platform === 'win32') {
+        return sampleWindowsConnections;
+    }
+    if (process.platform === 'linux') {
+        return sampleLinuxConnections;
+    }
+    if (process.platform === 'darwin') {
+        return sampleDarwinConnections;
+    }
+    throw Object.assign(new Error(`onep monitor does not support ${process.platform}.`), { code: 'PLATFORM_UNSUPPORTED', exitCode: 2 });
+}
+async function waitForMonitor(rootPid, logPath, childExit) {
+    const trackedPids = new Set();
+    const seenEvents = new Set();
+    const sampleConnections = connectionSampler();
+    let lastActivity = Date.now();
+    while (!childExit() || Date.now() - lastActivity < monitorIdleTimeoutSeconds * 1000) {
+        const count = await sampleConnections(rootPid, trackedPids, seenEvents, logPath);
+        if (count > 0) {
+            lastActivity = Date.now();
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 }
 export async function monitorCommand(args, _context) {
@@ -183,45 +362,30 @@ export async function monitorCommand(args, _context) {
     }
     const logPath = path.resolve(process.cwd(), monitorLogName(executable));
     await fs.writeFile(logPath, '', { flag: 'a', mode: 0o600 });
-    let lastActivity = Date.now();
-    const proxy = await startMonitorProxy(logPath, () => {
-        lastActivity = Date.now();
-    });
     process.stderr.write(`onep monitor: writing ${logPath}\n`);
-    const env = {
-        ...process.env,
-        ...monitorEnv(proxy.port)
-    };
-    const child = process.platform === 'win32'
-        ? spawnWindowsCommand(executable, args.slice(1), env)
-        : spawn(executable, args.slice(1), {
-            stdio: 'inherit',
-            env
-        });
+    const child = spawnMonitoredCommand(executable, args.slice(1));
+    if (!child.pid) {
+        throw Object.assign(new Error('Unable to determine monitor launcher pid.'), { code: 'MONITOR_UNAVAILABLE' });
+    }
+    let exited = false;
     return new Promise((resolve, reject) => {
-        child.once('error', (error) => {
-            proxy.close().then(() => {
-                if (error.code === 'ENOENT') {
-                    reject(Object.assign(new Error(`Command not found: ${executable}`), { code: 'COMMAND_NOT_FOUND' }));
-                    return;
-                }
-                reject(error);
-            }, reject);
+        child.once('error', reject);
+        child.once('exit', () => {
+            exited = true;
+            process.stderr.write(`onep monitor: command exited, stopping after ${monitorIdleTimeoutSeconds}s without new connections\n`);
         });
-        child.once('exit', (code, signal) => {
-            process.stderr.write(`onep monitor: command exited, stopping after ${monitorIdleTimeoutSeconds}s without requests\n`);
-            waitForMonitorIdle(() => lastActivity).then(() => proxy.close()).then(() => {
-                if (signal) {
-                    resolve(1);
-                    return;
-                }
-                resolve(code ?? 0);
-            }, reject);
-        });
+        waitForMonitor(child.pid, logPath, () => exited).then(() => {
+            resolve(child.exitCode ?? 0);
+        }, reject);
     });
 }
 export const monitorInternals = {
     monitorLogName,
-    startMonitorProxy
+    parseEndpoint,
+    parseLsof,
+    parseLinuxEndpoint,
+    parseWindowsNetstat,
+    parseWindowsProcesses,
+    watchedProcesses
 };
 //# sourceMappingURL=monitor.js.map

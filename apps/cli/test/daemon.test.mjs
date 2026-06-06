@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
@@ -52,17 +52,6 @@ async function freeConsecutivePorts() {
     }
   }
   throw new Error('No free consecutive test ports');
-}
-
-async function readJsonlWhenPresent(logPath) {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const content = await readFile(logPath, 'utf8').catch(() => '');
-    if (content.trim()) {
-      return content.trim().split('\n').map((line) => JSON.parse(line));
-    }
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  return [];
 }
 
 test('candidate scanning excludes common and occupied ports', async () => {
@@ -211,78 +200,53 @@ test('HTTP proxy listener reads updated local state after startup', async () => 
   });
 });
 
-test('monitor proxy records HTTP targets to jsonl log', async () => {
+test('monitor parser reads Windows netstat connection rows', async () => {
   const { monitorInternals } = await import('../src/monitor.ts');
-  const dir = await mkdtemp(path.join(tmpdir(), 'oneproxy-monitor-test-'));
-  const logPath = path.join(dir, 'monitor.log');
-  const upstream = http.createServer((_request, response) => {
-    response.end('ok');
-  });
-  const upstreamPort = await listen(upstream);
-  const proxy = await monitorInternals.startMonitorProxy(logPath);
-  try {
-    const body = await new Promise((resolve, reject) => {
-      const request = http.get({
-        host: '127.0.0.1',
-        port: proxy.port,
-        path: `http://127.0.0.1:${upstreamPort}/api/v1?q=1`,
-        headers: { host: `127.0.0.1:${upstreamPort}` }
-      }, (response) => {
-        let data = '';
-        response.setEncoding('utf8');
-        response.on('data', (chunk) => {
-          data += chunk;
-        });
-        response.on('end', () => resolve(data));
-      });
-      request.on('error', reject);
-    });
-    assert.equal(body, 'ok');
-    const entries = await readJsonlWhenPresent(logPath);
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0].protocol, 'http');
-    assert.equal(entries[0].host, '127.0.0.1');
-    assert.equal(entries[0].port, upstreamPort);
-    assert.equal(entries[0].target, `http://127.0.0.1:${upstreamPort}/api/v1?q=1`);
-    assert.equal(entries[0].status, 200);
-  } finally {
-    await proxy.close();
-    await closeServer(upstream);
-    await rm(dir, { recursive: true, force: true });
-  }
+  const entries = monitorInternals.parseWindowsNetstat(`
+  Proto  Local Address          Foreign Address        State           PID
+  TCP    192.168.1.2:50123      203.0.113.10:443      ESTABLISHED     4242
+  UDP    0.0.0.0:5353           *:*                                    5353
+`);
+  assert.equal(entries.length, 2);
+  assert.equal(entries[0].source, 'netstat');
+  assert.equal(entries[0].pid, 4242);
+  assert.equal(entries[0].protocol, 'tcp');
+  assert.equal(entries[0].localAddress, '192.168.1.2');
+  assert.equal(entries[0].localPort, 50123);
+  assert.equal(entries[0].remoteAddress, '203.0.113.10');
+  assert.equal(entries[0].remotePort, 443);
+  assert.equal(entries[0].state, 'ESTABLISHED');
+  assert.equal(entries[1].protocol, 'udp');
+  assert.equal(entries[1].remoteAddress, '*');
+  assert.equal(entries[1].remotePort, null);
 });
 
-test('monitor proxy records CONNECT targets to jsonl log', async () => {
+test('monitor parser tracks process descendants and platform endpoints', async () => {
   const { monitorInternals } = await import('../src/monitor.ts');
-  const dir = await mkdtemp(path.join(tmpdir(), 'oneproxy-monitor-connect-test-'));
-  const logPath = path.join(dir, 'monitor.log');
-  const upstream = net.createServer((socket) => {
-    socket.end();
+  const watched = monitorInternals.watchedProcesses(10, new Set([13]), [
+    { pid: 10, parentPid: 1, name: 'launcher' },
+    { pid: 11, parentPid: 10, name: 'game' },
+    { pid: 12, parentPid: 11, name: 'worker' },
+    { pid: 13, parentPid: 999, name: 'previous' },
+    { pid: 14, parentPid: 13, name: 'previous-child' }
+  ]);
+  assert.deepEqual([...watched].sort((a, b) => a - b), [10, 11, 12, 13, 14]);
+
+  assert.deepEqual(monitorInternals.parseLinuxEndpoint('0100007F:1F90', 'ipv4'), {
+    address: '127.0.0.1',
+    port: 8080
   });
-  const upstreamPort = await listen(upstream);
-  const proxy = await monitorInternals.startMonitorProxy(logPath);
-  try {
-    const socket = net.connect(proxy.port, '127.0.0.1');
-    await new Promise((resolve, reject) => {
-      socket.once('connect', resolve);
-      socket.once('error', reject);
-    });
-    socket.write(`CONNECT 127.0.0.1:${upstreamPort} HTTP/1.1\r\nHost: 127.0.0.1:${upstreamPort}\r\n\r\n`);
-    const response = await new Promise((resolve) => socket.once('data', (chunk) => resolve(chunk.toString('utf8'))));
-    assert.match(response, /^HTTP\/1\.1 200 Connection Established/);
-    socket.destroy();
-    const entries = await readJsonlWhenPresent(logPath);
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0].protocol, 'connect');
-    assert.equal(entries[0].host, '127.0.0.1');
-    assert.equal(entries[0].port, upstreamPort);
-    assert.equal(entries[0].target, `127.0.0.1:${upstreamPort}`);
-    assert.equal(entries[0].status, 200);
-  } finally {
-    await proxy.close();
-    await closeServer(upstream);
-    await rm(dir, { recursive: true, force: true });
-  }
+
+  const lsof = monitorInternals.parseLsof(`COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+Game     4242 main   10u  IPv4      0      0t0  TCP 192.168.1.2:50123->203.0.113.10:443 (ESTABLISHED)
+`);
+  assert.equal(lsof.length, 1);
+  assert.equal(lsof[0].source, 'lsof');
+  assert.equal(lsof[0].pid, 4242);
+  assert.equal(lsof[0].protocol, 'tcp');
+  assert.equal(lsof[0].remoteAddress, '203.0.113.10');
+  assert.equal(lsof[0].remotePort, 443);
+  assert.equal(lsof[0].state, 'ESTABLISHED');
 });
 
 test('lifecycle metadata and health expose contract shape', async () => {
