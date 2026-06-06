@@ -6,8 +6,8 @@
 ## Tasks
 
 - [x] create the Node package manifest in apps/cli/package.json
-  - Commit: 9ea77d8
-- [ ] create TypeScript configuration in apps/cli/tsconfig.json
+  - Commit: 82b527a
+- [x] create TypeScript configuration in apps/cli/tsconfig.json
   - Commit:
 - [ ] implement command entrypoint and argument routing in apps/cli/src/main.ts
   - Commit:
