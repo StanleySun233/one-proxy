@@ -4,7 +4,7 @@
   "description": "OneProxy CLI session proxy client",
   "type": "module",
   "bin": {
-    "onep": "./bin/onep.js"
+    "onep": "bin/onep.js"
   },
   "files": [
     "bin",
