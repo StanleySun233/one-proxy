@@ -8,8 +8,8 @@
 - [x] create the Node package manifest in apps/cli/package.json
   - Commit: 82b527a
 - [x] create TypeScript configuration in apps/cli/tsconfig.json
-  - Commit:
-- [ ] implement command entrypoint and argument routing in apps/cli/src/main.ts
+  - Commit: 927680a
+- [x] implement command entrypoint and argument routing in apps/cli/src/main.ts
   - Commit:
 - [ ] implement control-plane login, refresh, logout, tenant, group, and sync client in apps/cli/src/control-plane.ts
   - Commit:
