@@ -4,9 +4,10 @@
   "description": "OneProxy CLI session proxy client",
   "type": "module",
   "bin": {
-    "onep": "./src/main.ts"
+    "onep": "./bin/onep.js"
   },
   "files": [
+    "bin",
     "src",
     "tsconfig.json"
   ],
