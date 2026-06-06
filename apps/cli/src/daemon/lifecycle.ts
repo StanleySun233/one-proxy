@@ -1,0 +1,341 @@
+import * as fs from 'node:fs/promises';
+import * as http from 'node:http';
+import * as net from 'node:net';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { PortSelection, selectProxyPorts } from './port-selection';
+
+export type LocalPorts = {
+  http: number;
+  https: number;
+  ipc: number;
+};
+
+export type LocalOverrides = {
+  direct: string[];
+  proxy: string[];
+};
+
+export type OneProxyConfig = {
+  schemaVersion: number;
+  controlPlaneUrl?: string;
+  activeTenantId?: string;
+  activeGroupId?: string;
+  localPorts?: Partial<LocalPorts>;
+  overrides?: Partial<LocalOverrides>;
+};
+
+export type EntryNode = {
+  id: string;
+  host: string;
+  port: number;
+  protocol: string;
+};
+
+export type RouteRule = {
+  id: string;
+  type: 'domain' | 'suffix' | 'cidr' | 'wildcard';
+  pattern: string;
+  mode: 'direct' | 'proxy';
+};
+
+export type RouteGroup = {
+  id: string;
+  tenantId: string;
+  name?: string;
+  rules: RouteRule[];
+};
+
+export type OneProxyState = {
+  schemaVersion: number;
+  bootstrap?: {
+    tenantId?: string;
+    groupId?: string;
+    entryNodes?: EntryNode[];
+  };
+  policyRevision?: string;
+  fetchedAt?: string;
+  routeGroups?: RouteGroup[];
+};
+
+export type OneProxyTokens = {
+  schemaVersion: number;
+  account?: {
+    id: string;
+    email: string;
+  };
+  accessToken?: string;
+  refreshToken?: string;
+  proxyToken?: string;
+  accessTokenExpiresAt?: string;
+  refreshTokenExpiresAt?: string;
+  proxyTokenExpiresAt?: string;
+};
+
+export type DaemonBindings = {
+  host: string;
+  httpPort: number;
+  httpsPort: number;
+  ipcPort: number;
+};
+
+export type DaemonMetadata = {
+  schemaVersion: number;
+  pid: number;
+  startedAt: string;
+  lastHeartbeatAt: string;
+  controlPlaneUrl?: string;
+  tenantId?: string;
+  groupId?: string;
+  policyRevision?: string;
+  bindings: DaemonBindings;
+  portSelection: PortSelection;
+  idleTimeoutSeconds: number;
+};
+
+export type DaemonHealth = {
+  ok: boolean;
+  pid: number;
+  startedAt: string;
+  lastHeartbeatAt: string;
+  bindings: DaemonBindings;
+  portSelection: PortSelection;
+  policyRevision?: string;
+};
+
+export type DaemonRuntime = {
+  metadata: DaemonMetadata;
+  ipcServer: http.Server;
+  close: () => Promise<void>;
+};
+
+export const loopbackHost = '127.0.0.1';
+export const defaultIdleTimeoutSeconds = 300;
+
+export function dataRoot() {
+  return process.env.ONEPROXY_HOME || path.join(os.homedir(), '.oneproxy');
+}
+
+export function storagePath(name: 'config' | 'state' | 'tokens' | 'daemon' | 'log') {
+  const filenames = {
+    config: 'config.json',
+    state: 'state.json',
+    tokens: 'tokens.json',
+    daemon: 'daemon.json',
+    log: 'onep.log'
+  };
+  return path.join(dataRoot(), filenames[name]);
+}
+
+export async function ensureDataRoot() {
+  await fs.mkdir(dataRoot(), { recursive: true, mode: 0o700 });
+}
+
+export async function readJsonFile<T>(filePath: string): Promise<T | null> {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8')) as T;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function writeJsonFile(filePath: string, value: unknown, mode = 0o600) {
+  await ensureDataRoot();
+  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, { mode });
+}
+
+export function normalizeConfig(config: OneProxyConfig | null): OneProxyConfig {
+  return {
+    schemaVersion: 1,
+    ...config,
+    localPorts: {
+      http: config?.localPorts?.http ?? 0,
+      https: config?.localPorts?.https ?? 0,
+      ipc: config?.localPorts?.ipc ?? 0
+    },
+    overrides: {
+      direct: (config?.overrides?.direct ?? []).map((host) => host.toLowerCase()),
+      proxy: (config?.overrides?.proxy ?? []).map((host) => host.toLowerCase())
+    }
+  };
+}
+
+export async function readConfig() {
+  return normalizeConfig(await readJsonFile<OneProxyConfig>(storagePath('config')));
+}
+
+export async function readState() {
+  return (await readJsonFile<OneProxyState>(storagePath('state'))) ?? { schemaVersion: 1 };
+}
+
+export async function readTokens() {
+  return await readJsonFile<OneProxyTokens>(storagePath('tokens'));
+}
+
+export async function readDaemonMetadata() {
+  return await readJsonFile<DaemonMetadata>(storagePath('daemon'));
+}
+
+export async function writeDaemonMetadata(metadata: DaemonMetadata) {
+  await writeJsonFile(storagePath('daemon'), metadata);
+}
+
+export async function appendLog(message: string) {
+  await ensureDataRoot();
+  await fs.appendFile(storagePath('log'), `${new Date().toISOString()} ${message}\n`, { mode: 0o600 });
+}
+
+export async function allocateLoopbackPort(requestedPort = 0): Promise<number> {
+  const server = net.createServer();
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(requestedPort, loopbackHost, resolve);
+  });
+  const address = server.address();
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+  if (!address || typeof address === 'string') {
+    throw new Error('Unable to allocate loopback port');
+  }
+  return address.port;
+}
+
+export type ResolvedBindings = {
+  bindings: DaemonBindings;
+  portSelection: PortSelection;
+};
+
+export async function resolveBindings(config = await readConfig()): Promise<ResolvedBindings> {
+  const portSelection = await selectProxyPorts(config.localPorts?.http, config.localPorts?.https);
+  return {
+    bindings: {
+      host: loopbackHost,
+      httpPort: portSelection.selectedPair[0],
+      httpsPort: portSelection.selectedPair[1],
+      ipcPort: await allocateLoopbackPort(config.localPorts?.ipc)
+    },
+    portSelection
+  };
+}
+
+export async function buildDaemonMetadata(resolved: ResolvedBindings): Promise<DaemonMetadata> {
+  const [config, state] = await Promise.all([readConfig(), readState()]);
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: 1,
+    pid: process.pid,
+    startedAt: now,
+    lastHeartbeatAt: now,
+    controlPlaneUrl: config.controlPlaneUrl,
+    tenantId: config.activeTenantId,
+    groupId: config.activeGroupId,
+    policyRevision: state.policyRevision,
+    bindings: resolved.bindings,
+    portSelection: resolved.portSelection,
+    idleTimeoutSeconds: defaultIdleTimeoutSeconds
+  };
+}
+
+export function healthFromMetadata(metadata: DaemonMetadata): DaemonHealth {
+  return {
+    ok: true,
+    pid: metadata.pid,
+    startedAt: metadata.startedAt,
+    lastHeartbeatAt: metadata.lastHeartbeatAt,
+    bindings: metadata.bindings,
+    portSelection: metadata.portSelection,
+    policyRevision: metadata.policyRevision
+  };
+}
+
+export async function listenHttpServer(server: http.Server, port: number) {
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, loopbackHost, resolve);
+  });
+}
+
+export async function closeServer(server: http.Server | net.Server) {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+}
+
+export function createIpcServer(metadata: DaemonMetadata, handlers: Record<string, (body: unknown) => Promise<unknown>>) {
+  return http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? '/', `http://${loopbackHost}`);
+    if (request.method === 'GET' && url.pathname === '/v1/health') {
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify(healthFromMetadata(metadata)));
+      return;
+    }
+    if (request.method === 'POST' && handlers[url.pathname]) {
+      const body = await readRequestJson(request);
+      const result = await handlers[url.pathname](body);
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify(result));
+      return;
+    }
+    response.statusCode = 404;
+    response.end();
+  });
+}
+
+export async function startDaemonRuntime(handlers: Record<string, (body: unknown) => Promise<unknown>> = {}): Promise<DaemonRuntime> {
+  const resolved = await resolveBindings();
+  const metadata = await buildDaemonMetadata(resolved);
+  const ipcServer = createIpcServer(metadata, handlers);
+  await listenHttpServer(ipcServer, metadata.bindings.ipcPort);
+  await writeDaemonMetadata(metadata);
+  return {
+    metadata,
+    ipcServer,
+    close: async () => closeServer(ipcServer)
+  };
+}
+
+export async function probeDaemon(metadata = await readDaemonMetadata()): Promise<DaemonHealth | null> {
+  if (!metadata) {
+    return null;
+  }
+  return await new Promise((resolve) => {
+    const request = http.get(
+      {
+        host: metadata.bindings.host,
+        port: metadata.bindings.ipcPort,
+        path: '/v1/health',
+        timeout: 1000
+      },
+      (response) => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          body += chunk;
+        });
+        response.on('end', () => {
+          resolve(response.statusCode === 200 ? (JSON.parse(body) as DaemonHealth) : null);
+        });
+      }
+    );
+    request.on('error', () => resolve(null));
+    request.on('timeout', () => {
+      request.destroy();
+      resolve(null);
+    });
+  });
+}
+
+async function readRequestJson(request: http.IncomingMessage) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  if (chunks.length === 0) {
+    return {};
+  }
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+}
