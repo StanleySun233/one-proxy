@@ -13,9 +13,9 @@ export type ProxyServers = {
   close: () => Promise<void>;
 };
 
-export async function startHttpProxyListeners(input: ProxyRouteContext, bindings: DaemonBindings, liveState = false): Promise<ProxyServers> {
-  const httpServer = createHttpProxyServer(input, liveState);
-  const httpsServer = createHttpProxyServer(input, liveState);
+export async function startHttpProxyListeners(input: ProxyRouteContext, bindings: DaemonBindings, liveState = false, onProxyActivity?: () => void): Promise<ProxyServers> {
+  const httpServer = createHttpProxyServer(input, liveState, onProxyActivity);
+  const httpsServer = createHttpProxyServer(input, liveState, onProxyActivity);
   await Promise.all([
     listenHttpServer(httpServer, bindings.httpPort),
     listenHttpServer(httpsServer, bindings.httpsPort)
@@ -29,12 +29,14 @@ export async function startHttpProxyListeners(input: ProxyRouteContext, bindings
   };
 }
 
-export function createHttpProxyServer(input: ProxyRouteContext, liveState = false) {
+export function createHttpProxyServer(input: ProxyRouteContext, liveState = false, onProxyActivity?: () => void) {
   const server = http.createServer((request, response) => {
+    onProxyActivity?.();
     proxyHttpRequest(input, liveState, request, response);
   });
 
   server.on('connect', async (request, clientSocket, head) => {
+    onProxyActivity?.();
     const target = parseConnectTarget(request.url ?? '');
     if (!target) {
       clientSocket.end('HTTP/1.1 400 Bad Request\r\n\r\n');

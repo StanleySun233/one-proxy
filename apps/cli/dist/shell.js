@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { sessionProxyEnv } from "./session-env.js";
+import { proxyEnv } from "./session-env.js";
+import { startDaemonSession } from "./daemon/lifecycle.js";
 function defaultShell() {
     if (process.env.ONEPROXY_SHELL) {
         return process.env.ONEPROXY_SHELL;
@@ -18,23 +19,28 @@ function shellArgs(shell) {
 }
 export async function startActivatedShell() {
     const shell = defaultShell();
+    const session = await startDaemonSession();
     process.stdout.write(`OneProxy shell active: ${shell}\n`);
     process.stdout.write('Exit this shell to turn it off.\n');
     const child = spawn(shell, shellArgs(shell), {
         stdio: 'inherit',
         env: {
             ...process.env,
-            ...(await sessionProxyEnv())
+            ...proxyEnv(session.metadata.bindings)
         }
     });
     return new Promise((resolve, reject) => {
-        child.once('error', reject);
+        child.once('error', (error) => {
+            session.end().then(() => reject(error), reject);
+        });
         child.once('exit', (code, signal) => {
-            if (signal) {
-                resolve(1);
-                return;
-            }
-            resolve(code ?? 0);
+            session.end().then(() => {
+                if (signal) {
+                    resolve(1);
+                    return;
+                }
+                resolve(code ?? 0);
+            }, reject);
         });
     });
 }

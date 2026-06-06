@@ -7,5 +7,5 @@ export type ProxyServers = {
     httpsServer: http.Server;
     close: () => Promise<void>;
 };
-export declare function startHttpProxyListeners(input: ProxyRouteContext, bindings: DaemonBindings, liveState?: boolean): Promise<ProxyServers>;
-export declare function createHttpProxyServer(input: ProxyRouteContext, liveState?: boolean): http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>;
+export declare function startHttpProxyListeners(input: ProxyRouteContext, bindings: DaemonBindings, liveState?: boolean, onProxyActivity?: () => void): Promise<ProxyServers>;
+export declare function createHttpProxyServer(input: ProxyRouteContext, liveState?: boolean, onProxyActivity?: () => void): http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>;

@@ -6,7 +6,8 @@ import * as path from 'node:path';
 import { selectProxyPorts } from "./port-selection.js";
 import { profileRoot } from "../storage.js";
 export const loopbackHost = '127.0.0.1';
-export const defaultIdleTimeoutSeconds = 300;
+export const envIdleTimeoutSeconds = 600;
+export const runIdleTimeoutSeconds = 300;
 export function dataRoot() {
     return profileRoot();
 }
@@ -108,7 +109,7 @@ export async function buildDaemonMetadata(resolved) {
         policyRevision: state.policyRevision,
         bindings: resolved.bindings,
         portSelection: resolved.portSelection,
-        idleTimeoutSeconds: defaultIdleTimeoutSeconds
+        idleTimeoutSeconds: envIdleTimeoutSeconds
     };
 }
 export function healthFromMetadata(metadata) {
@@ -152,23 +153,71 @@ export function createIpcServer(metadata, handlers) {
         response.end();
     });
 }
-export async function startDaemonRuntime(handlers = defaultDaemonHandlers()) {
+export async function startDaemonRuntime(handlers) {
     const resolved = await resolveBindings();
     const metadata = await buildDaemonMetadata(resolved);
     const [config, state] = await Promise.all([readConfig(), readState()]);
     const { startHttpProxyListeners } = await import("./http-proxy.js");
-    const proxyServers = await startHttpProxyListeners({ config, state }, metadata.bindings, true);
-    const ipcServer = createIpcServer(metadata, handlers);
+    let activeSessions = 0;
+    let idleTimeoutSeconds = envIdleTimeoutSeconds;
+    let lastProxyActivity = Date.now();
+    let runtime;
+    let shutdownTimer;
+    const scheduleIdleCheck = () => {
+        if (shutdownTimer) {
+            clearTimeout(shutdownTimer);
+        }
+        shutdownTimer = setTimeout(async () => {
+            if (activeSessions > 0) {
+                scheduleIdleCheck();
+                return;
+            }
+            const idleFor = Date.now() - lastProxyActivity;
+            if (idleFor < idleTimeoutSeconds * 1000) {
+                scheduleIdleCheck();
+                return;
+            }
+            await runtime.close();
+            process.exit(0);
+        }, idleTimeoutSeconds * 1000);
+        shutdownTimer.unref();
+    };
+    const proxyServers = await startHttpProxyListeners({ config, state }, metadata.bindings, true, () => {
+        lastProxyActivity = Date.now();
+        scheduleIdleCheck();
+    });
+    const runtimeHandlers = {
+        ...defaultDaemonHandlers(),
+        ...handlers,
+        '/v1/session/start': async () => {
+            activeSessions += 1;
+            return { activeSessions };
+        },
+        '/v1/session/end': async () => {
+            activeSessions = Math.max(0, activeSessions - 1);
+            idleTimeoutSeconds = runIdleTimeoutSeconds;
+            metadata.idleTimeoutSeconds = idleTimeoutSeconds;
+            await writeDaemonMetadata(metadata);
+            scheduleIdleCheck();
+            return { activeSessions, idleTimeoutSeconds };
+        }
+    };
+    const ipcServer = createIpcServer(metadata, runtimeHandlers);
     await listenHttpServer(ipcServer, metadata.bindings.ipcPort);
     await writeDaemonMetadata(metadata);
-    return {
+    runtime = {
         metadata,
         ipcServer,
         proxyServers,
         close: async () => {
+            if (shutdownTimer) {
+                clearTimeout(shutdownTimer);
+            }
             await Promise.all([closeServer(ipcServer), proxyServers.close()]);
         }
     };
+    scheduleIdleCheck();
+    return runtime;
 }
 export function defaultDaemonHandlers() {
     return {
@@ -192,6 +241,16 @@ export function defaultDaemonHandlers() {
             return await probeTarget(request.target ?? '');
         },
         '/v1/shutdown-if-idle': async () => ({ accepted: true })
+    };
+}
+export async function startDaemonSession() {
+    const { metadata } = await ensureDaemon();
+    await postDaemon(metadata, '/v1/session/start');
+    return {
+        metadata,
+        end: async () => {
+            await postDaemon(metadata, '/v1/session/end');
+        }
     };
 }
 export async function ensureDaemon() {
@@ -256,6 +315,26 @@ export async function probeDaemon(metadata) {
             request.destroy();
             resolve(null);
         });
+    });
+}
+async function postDaemon(metadata, path) {
+    await new Promise((resolve, reject) => {
+        const request = http.request({
+            host: metadata.bindings.host,
+            port: metadata.bindings.ipcPort,
+            path,
+            method: 'POST',
+            timeout: 1000
+        }, (response) => {
+            response.resume();
+            response.on('end', () => resolve());
+        });
+        request.on('error', reject);
+        request.on('timeout', () => {
+            request.destroy();
+            reject(Object.assign(new Error('Daemon IPC timeout'), { code: 'DAEMON_UNAVAILABLE' }));
+        });
+        request.end('{}');
     });
 }
 async function readRequestJson(request) {

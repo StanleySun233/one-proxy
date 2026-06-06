@@ -1,6 +1,6 @@
 {
   "name": "@stanleysun233/oneproxy-cli",
-  "version": "0.1.3",
+  "version": "0.1.0",
   "description": "OneProxy CLI session proxy client",
   "type": "module",
   "bin": {

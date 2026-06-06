@@ -91,7 +91,8 @@ export type DaemonRuntime = {
     close: () => Promise<void>;
 };
 export declare const loopbackHost = "127.0.0.1";
-export declare const defaultIdleTimeoutSeconds = 300;
+export declare const envIdleTimeoutSeconds = 600;
+export declare const runIdleTimeoutSeconds = 300;
 export declare function dataRoot(): string;
 export declare function storagePath(name: 'config' | 'state' | 'tokens' | 'daemon' | 'log'): string;
 export declare function ensureDataRoot(): Promise<void>;
@@ -117,6 +118,10 @@ export declare function closeServer(server: http.Server | net.Server): Promise<v
 export declare function createIpcServer(metadata: DaemonMetadata, handlers: Record<string, (body: unknown) => Promise<unknown>>): http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>;
 export declare function startDaemonRuntime(handlers?: Record<string, (body: unknown) => Promise<unknown>>): Promise<DaemonRuntime>;
 export declare function defaultDaemonHandlers(): Record<string, (body: unknown) => Promise<unknown>>;
+export declare function startDaemonSession(): Promise<{
+    metadata: DaemonMetadata;
+    end: () => Promise<void>;
+}>;
 export declare function ensureDaemon(): Promise<{
     metadata: DaemonMetadata;
 }>;

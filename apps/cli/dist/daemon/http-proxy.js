@@ -2,9 +2,9 @@ import * as http from 'node:http';
 import * as net from 'node:net';
 import { closeServer, listenHttpServer, readConfig, readState, readTokens } from "./lifecycle.js";
 import { resolveRoute } from "./router.js";
-export async function startHttpProxyListeners(input, bindings, liveState = false) {
-    const httpServer = createHttpProxyServer(input, liveState);
-    const httpsServer = createHttpProxyServer(input, liveState);
+export async function startHttpProxyListeners(input, bindings, liveState = false, onProxyActivity) {
+    const httpServer = createHttpProxyServer(input, liveState, onProxyActivity);
+    const httpsServer = createHttpProxyServer(input, liveState, onProxyActivity);
     await Promise.all([
         listenHttpServer(httpServer, bindings.httpPort),
         listenHttpServer(httpsServer, bindings.httpsPort)
@@ -17,11 +17,13 @@ export async function startHttpProxyListeners(input, bindings, liveState = false
         }
     };
 }
-export function createHttpProxyServer(input, liveState = false) {
+export function createHttpProxyServer(input, liveState = false, onProxyActivity) {
     const server = http.createServer((request, response) => {
+        onProxyActivity?.();
         proxyHttpRequest(input, liveState, request, response);
     });
     server.on('connect', async (request, clientSocket, head) => {
+        onProxyActivity?.();
         const target = parseConnectTarget(request.url ?? '');
         if (!target) {
             clientSocket.end('HTTP/1.1 400 Bad Request\r\n\r\n');

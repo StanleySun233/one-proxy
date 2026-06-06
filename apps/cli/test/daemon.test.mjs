@@ -204,6 +204,7 @@ test('lifecycle metadata and health expose contract shape', async () => {
   await withHome(async (home) => {
     const {
       buildDaemonMetadata,
+      envIdleTimeoutSeconds,
       healthFromMetadata,
       resolveBindings
     } = await import('../src/daemon/lifecycle.ts');
@@ -228,6 +229,7 @@ test('lifecycle metadata and health expose contract shape', async () => {
     const metadata = await buildDaemonMetadata(resolved);
     const health = healthFromMetadata(metadata);
     assert.equal(metadata.schemaVersion, 1);
+    assert.equal(metadata.idleTimeoutSeconds, envIdleTimeoutSeconds);
     assert.equal(metadata.bindings.host, '127.0.0.1');
     assert.equal(metadata.bindings.httpsPort, metadata.bindings.httpPort + 1);
     assert.deepEqual(health, {
@@ -239,6 +241,61 @@ test('lifecycle metadata and health expose contract shape', async () => {
       portSelection: metadata.portSelection,
       policyRevision: 'rev_1'
     });
+  });
+});
+
+test('daemon session end switches idle timeout to run cleanup window', async () => {
+  await withHome(async (home) => {
+    const {
+      readDaemonMetadata,
+      runIdleTimeoutSeconds,
+      startDaemonRuntime
+    } = await import('../src/daemon/lifecycle.ts');
+
+    const root = profileRoot();
+    await mkdir(root, { recursive: true });
+    await writeFile(path.join(root, 'config.json'), JSON.stringify({
+      schemaVersion: 1,
+      overrides: { direct: [], proxy: [] }
+    }));
+    await writeFile(path.join(root, 'state.json'), JSON.stringify({
+      schemaVersion: 1,
+      routeGroups: []
+    }));
+
+    const runtime = await startDaemonRuntime();
+    try {
+      await new Promise((resolve, reject) => {
+        const request = http.request({
+          host: runtime.metadata.bindings.host,
+          port: runtime.metadata.bindings.ipcPort,
+          path: '/v1/session/start',
+          method: 'POST'
+        }, (response) => {
+          response.resume();
+          response.on('end', resolve);
+        });
+        request.on('error', reject);
+        request.end('{}');
+      });
+      await new Promise((resolve, reject) => {
+        const request = http.request({
+          host: runtime.metadata.bindings.host,
+          port: runtime.metadata.bindings.ipcPort,
+          path: '/v1/session/end',
+          method: 'POST'
+        }, (response) => {
+          response.resume();
+          response.on('end', resolve);
+        });
+        request.on('error', reject);
+        request.end('{}');
+      });
+      const metadata = await readDaemonMetadata();
+      assert.equal(metadata.idleTimeoutSeconds, runIdleTimeoutSeconds);
+    } finally {
+      await runtime.close();
+    }
   });
 });
 

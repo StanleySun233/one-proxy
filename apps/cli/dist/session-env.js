@@ -182,7 +182,12 @@ export async function runCommand(args, _context) {
     if (!executable) {
         throw Object.assign(new Error('run requires a command.'), { code: 'COMMAND_NOT_FOUND', exitCode: 2 });
     }
-    const bindings = await ensureSessionProxyBindings();
+    const lifecycle = (await import("./daemon/lifecycle.js"));
+    const session = await lifecycle.startDaemonSession?.();
+    if (!session) {
+        throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
+    }
+    const bindings = session.metadata.bindings;
     const child = spawn(executable, args.slice(1), {
         stdio: 'inherit',
         env: {
@@ -192,18 +197,22 @@ export async function runCommand(args, _context) {
     });
     return new Promise((resolve, reject) => {
         child.once('error', (error) => {
-            if (error.code === 'ENOENT') {
-                reject(Object.assign(new Error(`Command not found: ${executable}`), { code: 'COMMAND_NOT_FOUND' }));
-                return;
-            }
-            reject(error);
+            session.end().then(() => {
+                if (error.code === 'ENOENT') {
+                    reject(Object.assign(new Error(`Command not found: ${executable}`), { code: 'COMMAND_NOT_FOUND' }));
+                    return;
+                }
+                reject(error);
+            }, reject);
         });
         child.once('exit', (code, signal) => {
-            if (signal) {
-                resolve(1);
-                return;
-            }
-            resolve(code ?? 0);
+            session.end().then(() => {
+                if (signal) {
+                    resolve(1);
+                    return;
+                }
+                resolve(code ?? 0);
+            }, reject);
         });
     });
 }
