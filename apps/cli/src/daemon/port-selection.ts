@@ -1,5 +1,4 @@
 import * as net from 'node:net';
-import { loopbackHost } from './lifecycle';
 
 export type PortSelection = {
   candidatePorts: number[];
@@ -18,6 +17,7 @@ export const excludedCommonPorts = [
 const excludedPortSet = new Set(excludedCommonPorts);
 const defaultStartPort = 10000;
 const defaultEndPort = 60999;
+const loopbackHost = '127.0.0.1';
 
 export async function selectProxyPorts(configuredHttp = 0, configuredHttps = 0): Promise<PortSelection> {
   if (configuredHttp || configuredHttps) {
