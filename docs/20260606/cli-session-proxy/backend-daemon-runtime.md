@@ -7,8 +7,8 @@
 
 - [x] implement daemon lifecycle and loopback port metadata in apps/cli/src/daemon/lifecycle.ts
   - Commit: 0e27049
-- [ ] implement HTTP CONNECT local proxy in apps/cli/src/daemon/http-proxy.ts
-  - Commit:
+- [x] implement HTTP CONNECT local proxy in apps/cli/src/daemon/http-proxy.ts
+  - Commit: 6c88adf
 - [x] implement random consecutive proxy port selection in apps/cli/src/daemon/port-selection.ts
   - Commit: 0e27049
 - [x] implement route matching and local override precedence in apps/cli/src/daemon/router.ts
