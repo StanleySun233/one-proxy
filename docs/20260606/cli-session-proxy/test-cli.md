@@ -13,7 +13,7 @@
   - Result: PASS after fix c6ab076. Daemon tests pass for HTTP CONNECT, random consecutive port selection, lifecycle metadata, and doctor failure reporting.
 - [x] run TypeScript compile checks and CLI tests using the Node.js environment recorded in ./.codex/ENVS.md
   - Commit: c6ab076
-  - Result: PASS. `node --test apps/cli/test/*.mjs` passed 12/12. Per-file `node --check` passed for CLI source files.
+  - Result: PASS. `node --test apps/cli/test/*.mjs` passed 11/11. Per-file `node --check` passed for CLI source files.
 
 ## Blockers
 

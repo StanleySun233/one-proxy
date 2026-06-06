@@ -1,7 +1,7 @@
 # Dev Roadmap: CLI Session Proxy
 
 **Date:** 20260606
-**Status:** planned
+**Status:** completed
 **Product document:** ./product-requirements.md
 
 ## Summary
@@ -50,7 +50,7 @@ Each task represents one atomic, file-scoped unit of work. No two engineers may 
 
 ### Product Verification
 
-- [ ] product-manager: verify delivered behavior against product-requirements.md after tests pass
+- [x] product-manager: verify delivered behavior against product-requirements.md after tests pass
 
 ## Blocker Log
 

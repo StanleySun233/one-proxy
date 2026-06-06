@@ -62,7 +62,7 @@ Build a Node.js-based `onep` CLI package that provides session-scoped and proces
     - The command should route SSH traffic through OneProxy when rules require proxying.
 25. Support diagnostics:
     - `onep doctor`
-    - Diagnostics must check config, token readability, control-plane health, token refresh, bootstrap sync, daemon status, local ports, route calculation, entry node reachability, and proxy-token acceptance.
+    - Diagnostics must check config, token readability, control-plane health, bootstrap sync, daemon status, local ports, route calculation, and entry node reachability.
 26. Support machine-readable output for automation:
     - `--json` for `status`, `route`, `test`, and `doctor`.
 

@@ -128,11 +128,6 @@ Runs diagnostics for config, token readability, control-plane health, token refr
   "controlPlaneUrl": "https://control.example.com",
   "activeTenantId": "tenant_123",
   "activeGroupId": "group_123",
-  "localPorts": {
-    "http": 0,
-    "https": 0,
-    "ipc": 0
-  },
   "overrides": {
     "direct": ["localhost"],
     "proxy": ["example.com"]
@@ -142,9 +137,7 @@ Runs diagnostics for config, token readability, control-plane health, token refr
 
 Rules:
 
-- `localPorts.http = 0` and `localPorts.https = 0` means auto-select a random available consecutive two-port pair on loopback.
-- When both `http` and `https` are configured, they must be consecutive. If they are not consecutive, daemon startup fails with `INVALID_PORT_PAIR`.
-- Auto-selection must exclude occupied ports and common system ports before random choice.
+- Proxy ports are not stored in config. Each daemon start scans loopback ports, excludes occupied ports and common system ports, and randomly selects a consecutive two-port pair.
 - Override hosts are stored lowercase.
 - `overrides.direct` has precedence over `overrides.proxy` when the same host appears in both lists.
 
@@ -504,10 +497,9 @@ Probe names: `dns`, `direct_connect`, `proxy_connect`, `http_proxy`, `https_prox
       "message": "Config file is readable"
     },
     {
-      "name": "proxy_token_acceptance",
+      "name": "entry_node_reachability",
       "status": "fail",
-      "message": "Proxy token was rejected by entry node",
-      "action": "Run onep login, then onep sync"
+      "message": "Entry node is not reachable"
     }
   ]
 }
@@ -518,13 +510,11 @@ Required check names:
 - `config`
 - `token_readability`
 - `control_plane_health`
-- `token_refresh`
 - `bootstrap_sync`
 - `daemon_status`
 - `local_ports`
 - `route_calculation`
 - `entry_node_reachability`
-- `proxy_token_acceptance`
 
 `doctor --json` exits `3` when any check has `status = "fail"`.
 
