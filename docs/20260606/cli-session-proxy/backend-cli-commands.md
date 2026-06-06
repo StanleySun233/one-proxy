@@ -14,8 +14,8 @@
 - [x] implement control-plane login, refresh, logout, tenant, group, and sync client in apps/cli/src/control-plane.ts
   - Commit: b7ea905
 - [x] implement ~/.oneproxy storage and permission handling in apps/cli/src/storage.ts
-  - Commit:
-- [ ] implement env on/off shell output and onep run command execution in apps/cli/src/session-env.ts
+  - Commit: c367d5f
+- [x] implement env on/off shell output and onep run command execution in apps/cli/src/session-env.ts
   - Commit:
 - [ ] implement override, route, status, and JSON output helpers in apps/cli/src/commands.ts
   - Commit:
