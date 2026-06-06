@@ -24,29 +24,29 @@ Each task represents one atomic, file-scoped unit of work. No two engineers may 
 
 ### API Contract
 
-- [ ] backend-cli-contract: write api-contract.md covering CLI command contracts, local storage schemas, daemon IPC contracts, route/test/doctor output schemas, and error formats
+- [x] backend-cli-contract: write api-contract.md covering CLI command contracts, local storage schemas, daemon IPC contracts, route/test/doctor output schemas, and error formats
 
 ### Backend Tasks
 
-- [ ] backend-cli-commands: create the Node package manifest in apps/cli/package.json (depends: api-contract.md)
-- [ ] backend-cli-commands: create TypeScript configuration in apps/cli/tsconfig.json (depends: package.json)
-- [ ] backend-cli-commands: implement command entrypoint and argument routing in apps/cli/src/main.ts (depends: api-contract.md)
-- [ ] backend-cli-commands: implement control-plane login, refresh, logout, tenant, group, and sync client in apps/cli/src/control-plane.ts (depends: api-contract.md)
-- [ ] backend-cli-commands: implement ~/.oneproxy storage and permission handling in apps/cli/src/storage.ts (depends: api-contract.md)
-- [ ] backend-cli-commands: implement env on/off shell output and onep run command execution in apps/cli/src/session-env.ts (depends: storage.ts)
-- [ ] backend-cli-commands: implement override, route, status, and JSON output helpers in apps/cli/src/commands.ts (depends: storage.ts, control-plane.ts)
-- [ ] backend-daemon-runtime: implement daemon lifecycle and loopback port metadata in apps/cli/src/daemon/lifecycle.ts (depends: api-contract.md)
-- [ ] backend-daemon-runtime: implement HTTP CONNECT local proxy in apps/cli/src/daemon/http-proxy.ts (depends: lifecycle.ts)
-- [ ] backend-daemon-runtime: implement random consecutive proxy port selection in apps/cli/src/daemon/port-selection.ts (depends: lifecycle.ts)
-- [ ] backend-daemon-runtime: implement route matching and local override precedence in apps/cli/src/daemon/router.ts (depends: api-contract.md)
-- [ ] backend-daemon-runtime: implement probe and doctor checks in apps/cli/src/doctor.ts (depends: lifecycle.ts, router.ts)
-- [ ] backend-daemon-runtime: implement SSH command routing in apps/cli/src/ssh.ts (depends: lifecycle.ts, router.ts)
+- [x] backend-cli-commands: create the Node package manifest in apps/cli/package.json (depends: api-contract.md)
+- [x] backend-cli-commands: create TypeScript configuration in apps/cli/tsconfig.json (depends: package.json)
+- [x] backend-cli-commands: implement command entrypoint and argument routing in apps/cli/src/main.ts (depends: api-contract.md)
+- [x] backend-cli-commands: implement control-plane login, refresh, logout, tenant, group, and sync client in apps/cli/src/control-plane.ts (depends: api-contract.md)
+- [x] backend-cli-commands: implement ~/.oneproxy storage and permission handling in apps/cli/src/storage.ts (depends: api-contract.md)
+- [x] backend-cli-commands: implement env on/off shell output and onep run command execution in apps/cli/src/session-env.ts (depends: storage.ts)
+- [x] backend-cli-commands: implement override, route, status, and JSON output helpers in apps/cli/src/commands.ts (depends: storage.ts, control-plane.ts)
+- [x] backend-daemon-runtime: implement daemon lifecycle and loopback port metadata in apps/cli/src/daemon/lifecycle.ts (depends: api-contract.md)
+- [x] backend-daemon-runtime: implement HTTP CONNECT local proxy in apps/cli/src/daemon/http-proxy.ts (depends: lifecycle.ts)
+- [x] backend-daemon-runtime: implement random consecutive proxy port selection in apps/cli/src/daemon/port-selection.ts (depends: lifecycle.ts)
+- [x] backend-daemon-runtime: implement route matching and local override precedence in apps/cli/src/daemon/router.ts (depends: api-contract.md)
+- [x] backend-daemon-runtime: implement probe and doctor checks in apps/cli/src/doctor.ts (depends: lifecycle.ts, router.ts)
+- [x] backend-daemon-runtime: implement SSH command routing in apps/cli/src/ssh.ts (depends: lifecycle.ts, router.ts)
 
 ### Testing
 
-- [x] test-cli: add CLI unit tests for storage, route matching, env output, command parsing, and JSON schemas in apps/cli/test/cli.test.ts (depends: all backend tasks) FAIL: actual file is apps/cli/test/cli.test.mjs; 3/6 pass.
-- [x] test-cli: add daemon tests for HTTP CONNECT, random consecutive port selection, lifecycle metadata, and doctor failure reporting in apps/cli/test/daemon.test.ts (depends: all daemon tasks) FAIL: actual file is apps/cli/test/daemon.test.mjs; 3/6 pass.
-- [x] test-cli: run TypeScript compile checks and CLI tests using the Node.js environment recorded in ./.codex/ENVS.md (depends: all tests) FAIL: node --test apps/cli/test/*.mjs failed 6/12; node --check passed.
+- [x] test-cli: add CLI unit tests for storage, route matching, env output, command parsing, and JSON schemas in apps/cli/test/cli.test.mjs (depends: all backend tasks)
+- [x] test-cli: add daemon tests for HTTP CONNECT, random consecutive port selection, lifecycle metadata, and doctor failure reporting in apps/cli/test/daemon.test.mjs (depends: all daemon tasks)
+- [x] test-cli: run TypeScript compile checks and CLI tests using the Node.js environment recorded in ./.codex/ENVS.md (depends: all tests)
 
 ### Product Verification
 
