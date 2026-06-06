@@ -9,8 +9,6 @@ import {
   readTokens,
   writeConfig,
   type DaemonMetadata,
-  type EntryNode,
-  type RouteRule
 } from './storage.ts';
 
 type ErrorResult = {
@@ -85,12 +83,7 @@ function normalizeHost(host: string): string {
 
 function parseTarget(raw: string): { target: string; host: string; port: number; protocol: string } {
   const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `http://${raw}`;
-  let url: URL;
-  try {
-    url = new URL(withScheme);
-  } catch {
-    throw Object.assign(new Error(`Invalid target: ${raw}`), { code: 'INVALID_TARGET' });
-  }
+  const url = new URL(withScheme);
   if (!url.hostname) {
     throw Object.assign(new Error(`Invalid target: ${raw}`), { code: 'INVALID_TARGET' });
   }
@@ -104,94 +97,12 @@ function parseTarget(raw: string): { target: string; host: string; port: number;
   };
 }
 
-function hostMatchesRule(host: string, rule: RouteRule): boolean {
-  const pattern = normalizeHost(rule.pattern);
-  if (rule.type === 'wildcard') {
-    const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-    return new RegExp(`^${escaped}$`).test(host);
-  }
-  if (rule.type === 'suffix') {
-    return host === pattern || host.endsWith(`.${pattern.replace(/^\./, '')}`);
-  }
-  if (rule.type === 'domain') {
-    return host === pattern;
-  }
-  return host === pattern;
-}
-
-function topologyFor(mode: 'direct' | 'proxy', entryNode?: EntryNode): RouteResult['topology'] {
-  if (mode === 'direct' || !entryNode) {
-    return null;
-  }
-  return {
-    entryNodeId: entryNode.id,
-    entryHost: entryNode.host,
-    entryPort: entryNode.port,
-    protocol: entryNode.protocol
-  };
-}
-
-async function localRoute(rawTarget: string): Promise<RouteResult> {
-  const target = parseTarget(rawTarget);
-  const config = await readConfig();
-  const state = await readState();
-  const routeGroup = state.routeGroups.find((group) => group.id === config.activeGroupId) || state.routeGroups[0];
-  const entryNode = state.bootstrap?.entryNodes?.[0];
-  if (config.overrides.direct.includes(target.host)) {
-    return {
-      target: rawTarget,
-      host: target.host,
-      port: target.port,
-      mode: 'direct',
-      matched: { source: 'local_override_direct', pattern: target.host },
-      tenant: { id: config.activeTenantId },
-      group: { id: routeGroup?.id, name: routeGroup?.name },
-      topology: null
-    };
-  }
-  if (config.overrides.proxy.includes(target.host)) {
-    return {
-      target: rawTarget,
-      host: target.host,
-      port: target.port,
-      mode: 'proxy',
-      matched: { source: 'local_override_proxy', pattern: target.host },
-      tenant: { id: config.activeTenantId },
-      group: { id: routeGroup?.id, name: routeGroup?.name },
-      topology: topologyFor('proxy', entryNode)
-    };
-  }
-  const rule = routeGroup?.rules.find((item) => hostMatchesRule(target.host, item));
-  if (rule) {
-    return {
-      target: rawTarget,
-      host: target.host,
-      port: target.port,
-      mode: rule.mode,
-      matched: { source: 'policy', ruleId: rule.id, ruleType: rule.type, pattern: rule.pattern },
-      tenant: { id: config.activeTenantId },
-      group: { id: routeGroup?.id, name: routeGroup?.name },
-      topology: topologyFor(rule.mode, entryNode)
-    };
-  }
-  return {
-    target: rawTarget,
-    host: target.host,
-    port: target.port,
-    mode: 'direct',
-    matched: { source: 'default_direct' },
-    tenant: { id: config.activeTenantId },
-    group: { id: routeGroup?.id, name: routeGroup?.name },
-    topology: null
-  };
-}
-
-async function postIpc<T>(daemon: DaemonMetadata | null, path: string, body: unknown): Promise<T | null> {
+async function postIpc<T>(daemon: DaemonMetadata | null, path: string, body: unknown): Promise<T> {
   if (!daemon?.bindings.ipcPort || !processIsRunning(daemon.pid)) {
-    return null;
+    throw Object.assign(new Error('Daemon is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
   }
   const payload = JSON.stringify(body);
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const req = http.request(
       {
         host: daemon.bindings.host,
@@ -208,18 +119,14 @@ async function postIpc<T>(daemon: DaemonMetadata | null, path: string, body: unk
         const chunks: Buffer[] = [];
         res.on('data', (chunk: Buffer) => chunks.push(chunk));
         res.on('end', () => {
-          try {
-            resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')) as T);
-          } catch {
-            resolve(null);
-          }
+          resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')) as T);
         });
       }
     );
-    req.on('error', () => resolve(null));
+    req.on('error', reject);
     req.on('timeout', () => {
       req.destroy();
-      resolve(null);
+      reject(Object.assign(new Error('Daemon IPC request timed out'), { code: 'DAEMON_UNAVAILABLE' }));
     });
     req.end(payload);
   });
@@ -243,12 +150,7 @@ function routeText(route: RouteResult): string {
 export async function statusCommand(_args: string[], context: CliContext): Promise<void> {
   const [config, tokens, state, daemon] = await Promise.all([readConfig(), readTokens(), readState(), readDaemonMetadata()]);
   const running = Boolean(daemon?.pid && processIsRunning(daemon.pid));
-  const ports = running && daemon ? daemon.bindings : {
-    host: '127.0.0.1',
-    httpPort: config.localPorts.http,
-    httpsPort: config.localPorts.https,
-    ipcPort: config.localPorts.ipc || undefined
-  };
+  const ports = running && daemon ? daemon.bindings : null;
   const result = {
     account: tokens?.account ?? null,
     controlPlane: {
@@ -270,10 +172,9 @@ export async function statusCommand(_args: string[], context: CliContext): Promi
       lastHeartbeatAt: running ? daemon?.lastHeartbeatAt : null
     },
     localPorts: {
-      http: ports.httpPort,
-      https: ports.httpsPort,
-      allProxy: ports.httpPort,
-      ipc: ports.ipcPort ?? null
+      http: ports?.httpPort ?? null,
+      https: ports?.httpsPort ?? null,
+      ipc: ports?.ipcPort ?? null
     },
     portSelection: daemon && running ? daemon.portSelection ?? null : null,
     policyRevision: state.policyRevision ?? daemon?.policyRevision ?? null,
@@ -298,7 +199,7 @@ export async function statusCommand(_args: string[], context: CliContext): Promi
       `Tenant: ${result.tenant.id || 'none'}`,
       `Group: ${result.group.name || result.group.id || 'none'}`,
       `Daemon: ${running ? `running pid ${daemon?.pid}` : 'not running'}`,
-      `Ports: http=${result.localPorts.http || 'unset'} https=${result.localPorts.https || 'unset'} all_proxy=${result.localPorts.allProxy || 'unset'}`,
+      `Ports: http=${result.localPorts.http || 'unset'} https=${result.localPorts.https || 'unset'}`,
       `Policy: ${result.policyRevision || 'none'}`,
       `Overrides: direct=${result.overrides.directCount} proxy=${result.overrides.proxyCount}`
     ].join('\n'),
@@ -358,7 +259,7 @@ export async function routeCommand(args: string[], context: CliContext): Promise
   }
   await ensureSessionProxyBindings();
   const daemon = await readDaemonMetadata();
-  const route = (await postIpc<RouteResult>(daemon, '/v1/route', { target, protocol: parseTarget(target).protocol })) || (await localRoute(target));
+  const route = await postIpc<RouteResult>(daemon, '/v1/route', { target, protocol: parseTarget(target).protocol });
   write(context.json ? route : routeText(route), context);
 }
 
@@ -369,11 +270,7 @@ export async function testCommand(args: string[], context: CliContext): Promise<
   }
   await ensureSessionProxyBindings();
   const daemon = await readDaemonMetadata();
-  const result =
-    (await postIpc<{ route: RouteResult; probes: Array<{ name: string; status: string; message: string }> }>(daemon, '/v1/probe', { target })) || {
-      route: await localRoute(target),
-      probes: [{ name: 'route_calculation', status: 'pass', message: 'Route explanation calculated locally' }]
-    };
+  const result = await postIpc<{ route: RouteResult; probes: Array<{ name: string; status: string; message: string }> }>(daemon, '/v1/probe', { target });
   if (context.json) {
     write(result, context);
     return;

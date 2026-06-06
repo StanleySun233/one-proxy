@@ -6,10 +6,6 @@ export type PortSelection = {
   excludedCommonPorts: number[];
 };
 
-export class InvalidPortPairError extends Error {
-  code = 'INVALID_PORT_PAIR';
-}
-
 export const excludedCommonPorts = [
   20, 21, 22, 25, 53, 80, 110, 143, 443, 3306, 5432, 6379, 8080
 ];
@@ -20,25 +16,7 @@ const defaultEndPort = 60999;
 const loopbackHost = '127.0.0.1';
 const scanBatchSize = 256;
 
-export async function selectProxyPorts(configuredHttp = 0, configuredHttps = 0): Promise<PortSelection> {
-  if (configuredHttp || configuredHttps) {
-    if (!configuredHttp || !configuredHttps || configuredHttps !== configuredHttp + 1) {
-      throw new InvalidPortPairError('Configured HTTP and HTTPS proxy ports must be consecutive');
-    }
-    const [httpAvailable, httpsAvailable] = await Promise.all([
-      isUsablePort(configuredHttp),
-      isUsablePort(configuredHttps)
-    ]);
-    if (!httpAvailable || !httpsAvailable) {
-      throw new InvalidPortPairError('Configured HTTP and HTTPS proxy ports are not available');
-    }
-    return {
-      candidatePorts: [configuredHttp, configuredHttps],
-      selectedPair: [configuredHttp, configuredHttps],
-      excludedCommonPorts
-    };
-  }
-
+export async function selectProxyPorts(): Promise<PortSelection> {
   const candidatePorts = await scanAvailableCandidatePorts();
   const pairs = consecutivePairs(candidatePorts);
   if (pairs.length === 0) {

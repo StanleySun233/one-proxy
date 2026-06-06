@@ -100,7 +100,7 @@ function posixOff(): string {
 function fishOn(env: Record<string, string>): string {
   const lines: string[] = [];
   for (const key of preservedProxyVariables) {
-    lines.push(`if set -q ${key}; set -gx ONEPROXY_PREV_${key} $$key; else; set -gx ONEPROXY_PREV_${key} ${quoteFish(unsetMarker)}; end`);
+    lines.push(`if set -q ${key}; set -gx ONEPROXY_PREV_${key} $${key}; else; set -gx ONEPROXY_PREV_${key} ${quoteFish(unsetMarker)}; end`);
   }
   for (const [key, value] of Object.entries(env)) {
     lines.push(`set -gx ${key} ${quoteFish(value)}`);

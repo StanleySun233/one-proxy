@@ -3,12 +3,6 @@ import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-export type LocalPorts = {
-  http: number;
-  https: number;
-  ipc: number;
-};
-
 export type LocalOverrides = {
   direct: string[];
   proxy: string[];
@@ -19,7 +13,6 @@ export type OneProxyConfig = {
   controlPlaneUrl?: string;
   activeTenantId?: string;
   activeGroupId?: string;
-  localPorts: LocalPorts;
   overrides: LocalOverrides;
 };
 
@@ -153,7 +146,6 @@ function uniqueHosts(items: string[] | undefined): string[] {
 export function defaultConfig(): OneProxyConfig {
   return {
     schemaVersion: 1,
-    localPorts: { http: 0, https: 0, ipc: 0 },
     overrides: { direct: [], proxy: [] }
   };
 }
@@ -163,11 +155,6 @@ export async function readConfig(): Promise<OneProxyConfig> {
   return {
     ...defaultConfig(),
     ...config,
-    localPorts: {
-      http: config?.localPorts?.http ?? 0,
-      https: config?.localPorts?.https ?? 0,
-      ipc: config?.localPorts?.ipc ?? 0
-    },
     overrides: {
       direct: uniqueHosts(config?.overrides?.direct),
       proxy: uniqueHosts(config?.overrides?.proxy)
@@ -179,11 +166,6 @@ export async function writeConfig(config: OneProxyConfig): Promise<void> {
   await writeJson(storageFile('config'), {
     ...config,
     schemaVersion: 1,
-    localPorts: {
-      http: config.localPorts.http ?? 0,
-      https: config.localPorts.https ?? 0,
-      ipc: config.localPorts.ipc ?? 0
-    },
     overrides: {
       direct: uniqueHosts(config.overrides.direct),
       proxy: uniqueHosts(config.overrides.proxy)
@@ -267,26 +249,6 @@ export async function scanAvailableProxyPortPairs(): Promise<Array<[number, numb
     }
   }
   return pairs;
-}
-
-export async function selectProxyPortPair(): Promise<[number, number]> {
-  const pairs = await scanAvailableProxyPortPairs();
-  if (pairs.length === 0) {
-    throw Object.assign(new Error('No consecutive loopback proxy ports are available'), { code: 'DAEMON_UNAVAILABLE' });
-  }
-  return pairs[Math.floor(Math.random() * pairs.length)];
-}
-
-export async function saveSelectedProxyPorts(httpPort: number, httpsPort: number): Promise<void> {
-  const config = await readConfig();
-  await writeConfig({
-    ...config,
-    localPorts: {
-      ...config.localPorts,
-      http: httpPort,
-      https: httpsPort
-    }
-  });
 }
 
 export function processIsRunning(pid: number): boolean {

@@ -6,12 +6,6 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { type PortSelection, selectProxyPorts } from './port-selection.ts';
 
-export type LocalPorts = {
-  http: number;
-  https: number;
-  ipc: number;
-};
-
 export type LocalOverrides = {
   direct: string[];
   proxy: string[];
@@ -22,7 +16,6 @@ export type OneProxyConfig = {
   controlPlaneUrl?: string;
   activeTenantId?: string;
   activeGroupId?: string;
-  localPorts?: Partial<LocalPorts>;
   overrides?: Partial<LocalOverrides>;
 };
 
@@ -153,11 +146,6 @@ export function normalizeConfig(config: OneProxyConfig | null): OneProxyConfig {
   return {
     schemaVersion: 1,
     ...config,
-    localPorts: {
-      http: config?.localPorts?.http ?? 0,
-      https: config?.localPorts?.https ?? 0,
-      ipc: config?.localPorts?.ipc ?? 0
-    },
     overrides: {
       direct: (config?.overrides?.direct ?? []).map((host) => host.toLowerCase()),
       proxy: (config?.overrides?.proxy ?? []).map((host) => host.toLowerCase())
@@ -212,14 +200,13 @@ export type ResolvedBindings = {
 };
 
 export async function resolveBindings(config?: OneProxyConfig): Promise<ResolvedBindings> {
-  const resolvedConfig = config ?? await readConfig();
-  const portSelection = await selectProxyPorts(resolvedConfig.localPorts?.http, resolvedConfig.localPorts?.https);
+  const portSelection = await selectProxyPorts();
   return {
     bindings: {
       host: loopbackHost,
       httpPort: portSelection.selectedPair[0],
       httpsPort: portSelection.selectedPair[1],
-      ipcPort: await allocateLoopbackPort(resolvedConfig.localPorts?.ipc)
+      ipcPort: await allocateLoopbackPort()
     },
     portSelection
   };
@@ -277,16 +264,10 @@ export function createIpcServer(metadata: DaemonMetadata, handlers: Record<strin
       return;
     }
     if (request.method === 'POST' && handlers[url.pathname]) {
-      try {
-        const body = await readRequestJson(request);
-        const result = await handlers[url.pathname](body);
-        response.setHeader('content-type', 'application/json');
-        response.end(JSON.stringify(result));
-      } catch (error) {
-        response.statusCode = 400;
-        response.setHeader('content-type', 'application/json');
-        response.end(JSON.stringify({ error: { code: 'INVALID_TARGET', message: (error as Error).message } }));
-      }
+      const body = await readRequestJson(request);
+      const result = await handlers[url.pathname](body);
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify(result));
       return;
     }
     response.statusCode = 404;
@@ -301,21 +282,16 @@ export async function startDaemonRuntime(handlers: Record<string, (body: unknown
   const { startHttpProxyListeners } = await import('./http-proxy.ts');
   const proxyServers = await startHttpProxyListeners({ config, state }, metadata.bindings);
   const ipcServer = createIpcServer(metadata, handlers);
-  try {
-    await listenHttpServer(ipcServer, metadata.bindings.ipcPort);
-    await writeDaemonMetadata(metadata);
-    return {
-      metadata,
-      ipcServer,
-      proxyServers,
-      close: async () => {
-        await Promise.all([closeServer(ipcServer), proxyServers.close()]);
-      }
-    };
-  } catch (error) {
-    await proxyServers.close().catch(() => undefined);
-    throw error;
-  }
+  await listenHttpServer(ipcServer, metadata.bindings.ipcPort);
+  await writeDaemonMetadata(metadata);
+  return {
+    metadata,
+    ipcServer,
+    proxyServers,
+    close: async () => {
+      await Promise.all([closeServer(ipcServer), proxyServers.close()]);
+    }
+  };
 }
 
 export function defaultDaemonHandlers(): Record<string, (body: unknown) => Promise<unknown>> {

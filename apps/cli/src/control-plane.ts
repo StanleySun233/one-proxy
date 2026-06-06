@@ -117,16 +117,11 @@ async function request<T>(config: OneProxyConfig, path: string, options: Request
   if (options.body !== undefined) {
     headers.set('Content-Type', 'application/json');
   }
-  let response: Response;
-  try {
-    response = await fetch(endpoint(config.controlPlaneUrl, path), {
-      method: options.method ?? 'GET',
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body)
-    });
-  } catch {
-    throw Object.assign(new Error('Control plane is unavailable.'), { code: 'CONTROL_PLANE_UNAVAILABLE' });
-  }
+  const response = await fetch(endpoint(config.controlPlaneUrl, path), {
+    method: options.method ?? 'GET',
+    headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body)
+  });
   const raw = await response.text();
   const envelope = raw ? (JSON.parse(raw) as Envelope<T>) : null;
   if (!response.ok || !envelope || envelope.code !== 0) {
@@ -146,11 +141,9 @@ async function promptMissing(value: string | undefined, label: string): Promise<
     return value;
   }
   const rl = readline.createInterface({ input, output });
-  try {
-    return (await rl.question(`${label}: `)).trim();
-  } finally {
-    rl.close();
-  }
+  const answer = (await rl.question(`${label}: `)).trim();
+  rl.close();
+  return answer;
 }
 
 function tokenFromLogin(result: LoginResult): OneProxyTokens {
@@ -214,7 +207,7 @@ export async function logout(_args: string[], context: CliContext): Promise<void
   const config = await readConfig();
   const tokens = await readTokens();
   if (tokens?.accessToken) {
-    await request(config, '/auth/logout', { method: 'POST', accessToken: tokens.accessToken }).catch(() => undefined);
+    await request(config, '/auth/logout', { method: 'POST', accessToken: tokens.accessToken });
   }
   await clearTokens();
   print(context.json ? { loggedOut: true } : 'Logged out.', context);
@@ -259,7 +252,14 @@ export async function tenantUse(args: string[], context: CliContext): Promise<vo
     throw Object.assign(new Error(`Tenant not found: ${args[0]}`), { code: 'TENANT_REQUIRED' });
   }
   const config = await readConfig();
-  await writeConfig({ ...config, activeTenantId: tenantIdOf(tenant), activeGroupId: undefined });
+  const nextTenantId = tenantIdOf(tenant);
+  const state = await readState();
+  const currentGroup = state.routeGroups.find((group) => group.id === config.activeGroupId);
+  await writeConfig({
+    ...config,
+    activeTenantId: nextTenantId,
+    activeGroupId: currentGroup?.tenantId === nextTenantId ? config.activeGroupId : undefined
+  });
   print(context.json ? { activeTenantId: tenantIdOf(tenant) } : `Active tenant: ${tenantNameOf(tenant)}`, context);
 }
 

@@ -10,6 +10,7 @@ import {
   readDaemonMetadata,
   readState,
   readTokens,
+  startDaemonRuntime,
   storagePath
 } from './daemon/lifecycle.ts';
 import { isUsablePort } from './daemon/port-selection.ts';
@@ -75,27 +76,19 @@ export async function runDoctor(routeTarget = 'https://example.com'): Promise<Do
       return null;
     }
   );
-  const tokens = await readTokens().then(
-    (value) => {
-      checks.push(value ? { name: 'token_readability', status: 'pass', message: 'Token file is readable' } : {
-        name: 'token_readability',
-        status: 'fail',
-        message: 'Token file is missing',
-        action: 'Run onep login'
-      });
-      return value;
-    },
-    () => {
-      checks.push({ name: 'token_readability', status: 'fail', message: 'Token file is not readable', action: 'Run onep login' });
-      return null;
-    }
-  );
+  const tokens = await readTokens();
+  checks.push(tokens ? { name: 'token_readability', status: 'pass', message: 'Token file is readable' } : {
+    name: 'token_readability',
+    status: 'fail',
+    message: 'Token file is missing',
+    action: 'Run onep login'
+  });
   const state = await readState();
   checks.push(await controlPlaneHealthCheck(config?.controlPlaneUrl));
-  checks.push(tokenRefreshCheck(tokens?.refreshTokenExpiresAt));
   checks.push(bootstrapSyncCheck(state.fetchedAt, state.bootstrap?.entryNodes?.length ?? 0));
 
-  const metadata = await readDaemonMetadata();
+  const runtime = await startDaemonRuntime();
+  const metadata = runtime.metadata;
   const health = await probeDaemon(metadata);
   checks.push(health ? { name: 'daemon_status', status: 'pass', message: 'Daemon health endpoint is reachable' } : {
     name: 'daemon_status',
@@ -113,8 +106,8 @@ export async function runDoctor(routeTarget = 'https://example.com'): Promise<Do
     checks.push({ name: 'route_calculation', status: 'fail', message: 'Route calculation requires readable config' });
     checks.push({ name: 'entry_node_reachability', status: 'fail', message: 'Entry node reachability requires route calculation' });
   }
-  checks.push(proxyTokenAcceptanceCheck(tokens?.proxyToken));
 
+  await runtime.close();
   return summarize(checks);
 }
 
@@ -128,15 +121,6 @@ async function controlPlaneHealthCheck(controlPlaneUrl: string | undefined): Pro
     status: 'warn',
     message: 'Control plane health endpoint is not reachable'
   };
-}
-
-function tokenRefreshCheck(expiresAt: string | undefined): DoctorCheck {
-  if (!expiresAt) {
-    return { name: 'token_refresh', status: 'fail', message: 'Refresh token is missing', action: 'Run onep login' };
-  }
-  return Date.parse(expiresAt) > Date.now()
-    ? { name: 'token_refresh', status: 'pass', message: 'Refresh token is not expired' }
-    : { name: 'token_refresh', status: 'fail', message: 'Refresh token is expired', action: 'Run onep login' };
 }
 
 function bootstrapSyncCheck(fetchedAt: string | undefined, entryNodeCount: number): DoctorCheck {
@@ -176,15 +160,6 @@ async function entryNodeReachabilityCheck(route: RouteResult): Promise<DoctorChe
     name: 'entry_node_reachability',
     status: 'fail',
     message: 'Entry node is not reachable'
-  };
-}
-
-function proxyTokenAcceptanceCheck(proxyToken: string | undefined): DoctorCheck {
-  return proxyToken ? { name: 'proxy_token_acceptance', status: 'pass', message: 'Proxy token is present' } : {
-    name: 'proxy_token_acceptance',
-    status: 'fail',
-    message: 'Proxy token is missing',
-    action: 'Run onep login, then onep sync'
   };
 }
 

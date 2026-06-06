@@ -53,18 +53,6 @@ async function freeConsecutivePorts() {
   throw new Error('No free consecutive test ports');
 }
 
-test('configured proxy port selection requires available consecutive ports', async () => {
-  const [httpPort, httpsPort] = await freeConsecutivePorts();
-  const selection = await selectProxyPorts(httpPort, httpsPort);
-  assert.deepEqual(selection.selectedPair, [httpPort, httpsPort]);
-  assert.deepEqual(selection.candidatePorts, [httpPort, httpsPort]);
-  assert.deepEqual(selection.excludedCommonPorts, excludedCommonPorts);
-
-  await assert.rejects(() => selectProxyPorts(httpPort, httpsPort + 1), {
-    code: 'INVALID_PORT_PAIR'
-  });
-});
-
 test('candidate scanning excludes common and occupied ports', async () => {
   const server = net.createServer();
   const occupiedPort = await listen(server);
@@ -79,7 +67,7 @@ test('candidate scanning excludes common and occupied ports', async () => {
   }
 });
 
-test('automatic proxy port selection chooses a consecutive candidate pair', async () => {
+test('proxy port selection always chooses a random consecutive candidate pair', async () => {
   const random = mock.method(Math, 'random', () => 0);
   try {
     const selection = await selectProxyPorts();
@@ -143,7 +131,6 @@ test('lifecycle metadata and health expose contract shape', async () => {
       controlPlaneUrl: 'https://control.example.com',
       activeTenantId: 'tenant_1',
       activeGroupId: 'group_1',
-      localPorts: { http: 0, https: 0, ipc: 0 },
       overrides: { direct: [], proxy: [] }
     }));
     await writeFile(path.join(home, 'state.json'), JSON.stringify({
@@ -177,6 +164,7 @@ test('doctor reports actionable failures when local state is missing', async () 
     assert.equal(result.summary.status, 'fail');
     assert.equal(result.summary.failed > 0, true);
     assert.equal(result.checks.some((check) => check.name === 'token_readability' && check.status === 'fail' && check.action === 'Run onep login'), true);
-    assert.equal(result.checks.some((check) => check.name === 'daemon_status' && check.status === 'fail'), true);
+    assert.equal(result.checks.some((check) => check.name === 'daemon_status' && check.status === 'pass'), true);
+    assert.equal(result.checks.some((check) => check.name === 'local_ports' && check.status === 'pass'), true);
   });
 });

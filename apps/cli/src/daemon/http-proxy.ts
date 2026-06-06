@@ -123,27 +123,23 @@ function parseConnectTarget(value: string) {
 }
 
 function parseHttpTarget(request: http.IncomingMessage) {
-  try {
-    const rawUrl = request.url ?? '';
-    const hostHeader = Array.isArray(request.headers.host) ? request.headers.host[0] : request.headers.host;
-    const url = /^[a-z][a-z0-9+.-]*:\/\//i.test(rawUrl)
-      ? new URL(rawUrl)
-      : new URL(rawUrl || '/', `http://${hostHeader ?? ''}`);
-    const host = url.hostname.toLowerCase();
-    const port = url.port ? Number(url.port) : url.protocol === 'https:' ? 443 : 80;
-    if (!host || !Number.isInteger(port)) {
-      return null;
-    }
-    return {
-      url: url.toString(),
-      protocol: url.protocol.replace(':', ''),
-      host,
-      port,
-      path: `${url.pathname}${url.search}`
-    };
-  } catch {
+  const rawUrl = request.url ?? '';
+  const hostHeader = Array.isArray(request.headers.host) ? request.headers.host[0] : request.headers.host;
+  const url = /^[a-z][a-z0-9+.-]*:\/\//i.test(rawUrl)
+    ? new URL(rawUrl)
+    : new URL(rawUrl || '/', `http://${hostHeader ?? ''}`);
+  const host = url.hostname.toLowerCase();
+  const port = url.port ? Number(url.port) : url.protocol === 'https:' ? 443 : 80;
+  if (!host || !Number.isInteger(port)) {
     return null;
   }
+  return {
+    url: url.toString(),
+    protocol: url.protocol.replace(':', ''),
+    host,
+    port,
+    path: `${url.pathname}${url.search}`
+  };
 }
 
 function connectRequest(host: string, port: number, token: string | undefined) {

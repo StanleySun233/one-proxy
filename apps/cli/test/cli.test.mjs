@@ -49,7 +49,6 @@ test('storage normalizes defaults and override hosts', async () => {
   await withHome(async () => {
     assert.deepEqual(await readConfig(), {
       schemaVersion: 1,
-      localPorts: { http: 0, https: 0, ipc: 0 },
       overrides: { direct: [], proxy: [] }
     });
 
@@ -58,7 +57,6 @@ test('storage normalizes defaults and override hosts', async () => {
       controlPlaneUrl: 'https://control.example.com',
       activeTenantId: 'tenant_1',
       activeGroupId: 'group_1',
-      localPorts: { http: 34120, https: 34121, ipc: 0 },
       overrides: {
         direct: [' Example.COM ', 'example.com', 'LOCALHOST'],
         proxy: ['Proxy.Example', '', 'proxy.example']
@@ -67,7 +65,6 @@ test('storage normalizes defaults and override hosts', async () => {
 
     const config = await readConfig();
     assert.equal(config.schemaVersion, 1);
-    assert.deepEqual(config.localPorts, { http: 34120, https: 34121, ipc: 0 });
     assert.deepEqual(config.overrides.direct, ['example.com', 'localhost']);
     assert.deepEqual(config.overrides.proxy, ['proxy.example']);
 
@@ -175,7 +172,6 @@ test('status --json output matches contract shape', async () => {
       controlPlaneUrl: 'https://control.example.com',
       activeTenantId: 'tenant_1',
       activeGroupId: 'group_1',
-      localPorts: { http: 34120, https: 34121, ipc: 34122 },
       overrides: { direct: ['direct.example'], proxy: ['proxy.example'] }
     });
     await writeState({
@@ -209,7 +205,8 @@ test('status --json output matches contract shape', async () => {
       'tokens'
     ]);
     assert.equal(status.account.email, 'user@example.com');
-    assert.equal(status.localPorts.http, 34120);
+    assert.equal(status.localPorts.http, null);
+    assert.equal(status.localPorts.https, null);
     assert.equal(status.overrides.directCount, 1);
   });
 });

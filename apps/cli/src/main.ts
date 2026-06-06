@@ -114,21 +114,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     writeError({ code: 'COMMAND_NOT_FOUND', message: `Unknown command: ${command}` }, parsed.context);
     return 2;
   }
-  try {
-    const code = await handler(parsed.args.slice(1), parsed.context);
-    return typeof code === 'number' ? code : 0;
-  } catch (error) {
-    const err = error as Error & { code?: string; exitCode?: number; details?: Record<string, unknown> };
-    writeError(
-      {
-        code: err.code === 'SYNTAX_ERROR' ? 'COMMAND_NOT_FOUND' : err.code ?? 'COMMAND_FAILED',
-        message: err.message,
-        details: err.details
-      },
-      parsed.context
-    );
-    return err.exitCode ?? (err.code === 'SYNTAX_ERROR' ? 2 : 1);
-  }
+  const code = await handler(parsed.args.slice(1), parsed.context);
+  return typeof code === 'number' ? code : 0;
 }
 
 main().then((code) => {
