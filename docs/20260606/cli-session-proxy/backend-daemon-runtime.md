@@ -10,7 +10,7 @@
 - [x] implement HTTP CONNECT local proxy in apps/cli/src/daemon/http-proxy.ts
   - Commit: 6c88adf
 - [x] implement random consecutive proxy port selection in apps/cli/src/daemon/port-selection.ts
-  - Commit: 0e27049, 877416c
+  - Commit: 0e27049, 877416c, e87f357
 - [x] implement route matching and local override precedence in apps/cli/src/daemon/router.ts
   - Commit: 949c4bf
 - [x] implement probe and doctor checks in apps/cli/src/doctor.ts
