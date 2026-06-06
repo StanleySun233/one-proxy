@@ -15,8 +15,8 @@
   - Commit: 949c4bf
 - [x] implement probe and doctor checks in apps/cli/src/doctor.ts
   - Commit: 8758270
-- [ ] implement SSH command routing in apps/cli/src/ssh.ts
-  - Commit:
+- [x] implement SSH command routing in apps/cli/src/ssh.ts
+  - Commit: 7786cf1
 
 ## Blockers
 
