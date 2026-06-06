@@ -16,8 +16,8 @@
 - [x] implement ~/.oneproxy storage and permission handling in apps/cli/src/storage.ts
   - Commit: c367d5f
 - [x] implement env on/off shell output and onep run command execution in apps/cli/src/session-env.ts
-  - Commit:
-- [ ] implement override, route, status, and JSON output helpers in apps/cli/src/commands.ts
+  - Commit: 74ac72f
+- [x] implement override, route, status, and JSON output helpers in apps/cli/src/commands.ts
   - Commit:
 
 ## Blockers
