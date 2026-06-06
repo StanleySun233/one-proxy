@@ -2,7 +2,7 @@
 
 ## Scope
 
-This contract defines the V1 command surface, local file formats, daemon metadata, daemon IPC, JSON output shapes, error format, shell environment output, `onep run`, and `onep ssh` behavior for the OneProxy CLI Session Proxy.
+This contract defines the V1 command surface, local file formats, panel profiles, daemon metadata, daemon IPC, JSON output shapes, error format, shell environment output, `onep run`, and `onep ssh` behavior for the OneProxy CLI Session Proxy.
 
 The CLI must not modify system proxy settings, routing tables, firewalls, services, or global shell state. All proxy activation is process-scoped or shell-session-scoped through printed shell code.
 
@@ -23,13 +23,44 @@ Commands that require route calculation or local proxy endpoints must ensure the
 
 ## CLI Command Contract
 
-### `onep login`
+### `onep init`
 
-Starts control-plane login and stores tokens under `~/.oneproxy/tokens.json`.
+Runs interactive first-time setup.
 
 Required behavior:
 
-- Creates `~/.oneproxy` when missing.
+- Prompts for panel URL and creates or updates a profile for that URL.
+- Tests panel reachability before asking for credentials.
+- Prompts for account and password.
+- Authenticates against the panel.
+- Lists tenants and supports keyboard selection.
+- Requires an interactive terminal for tenant selection.
+- Writes selected tenant and synced bootstrap state under the active profile.
+- Prompts whether to enable OneProxy for the current shell after setup. When selected, it prints the same shell activation code as `onep env on`.
+
+### `onep profile add <name> --control-plane <url>`
+
+Creates or updates a panel profile and makes it active.
+
+### `onep profile use <name>`
+
+Makes the named profile active for subsequent commands.
+
+### `onep profile list`
+
+Lists stored profiles and marks the active one.
+
+### `onep profile current`
+
+Prints the active profile and its panel URL when configured.
+
+### `onep login`
+
+Starts control-plane login and stores tokens under the active profile.
+
+Required behavior:
+
+- Creates `~/.oneproxy` and the active profile directory when missing.
 - Stores token files with user-only permissions where supported.
 - Selects a tenant and group only when the control plane returns an unambiguous default.
 - Prints the authenticated account and next required action when tenant or group selection is needed.
@@ -120,11 +151,33 @@ Runs diagnostics for config, token readability, control-plane health, token refr
 
 ## Local Storage Schemas
 
-### `~/.oneproxy/config.json`
+### `~/.oneproxy/profiles.json`
 
 ```json
 {
   "schemaVersion": 1,
+  "activeProfile": "camelbot",
+  "profiles": {
+    "camelbot": {
+      "name": "camelbot",
+      "controlPlaneUrl": "https://control.example.com"
+    }
+  }
+}
+```
+
+Rules:
+
+- Profile names must be lowercase filesystem-safe identifiers.
+- Each profile represents one panel URL.
+- `ONEPROXY_PROFILE` overrides `activeProfile` for the current process.
+
+### `~/.oneproxy/profiles/<profile>/config.json`
+
+```json
+{
+  "schemaVersion": 1,
+  "profileName": "camelbot",
   "controlPlaneUrl": "https://control.example.com",
   "activeTenantId": "tenant_123",
   "activeGroupId": "group_123",
@@ -141,7 +194,7 @@ Rules:
 - Override hosts are stored lowercase.
 - `overrides.direct` has precedence over `overrides.proxy` when the same host appears in both lists.
 
-### `~/.oneproxy/state.json`
+### `~/.oneproxy/profiles/<profile>/state.json`
 
 ```json
 {
@@ -182,7 +235,7 @@ Allowed rule `type` values: `domain`, `suffix`, `cidr`, `wildcard`.
 
 Allowed rule `mode` values: `direct`, `proxy`.
 
-### `~/.oneproxy/tokens.json`
+### `~/.oneproxy/profiles/<profile>/tokens.json`
 
 ```json
 {
@@ -202,7 +255,7 @@ Allowed rule `mode` values: `direct`, `proxy`.
 
 The CLI must never store passwords locally.
 
-### `~/.oneproxy/daemon.json`
+### `~/.oneproxy/profiles/<profile>/daemon.json`
 
 ```json
 {
@@ -229,7 +282,7 @@ The CLI must never store passwords locally.
 }
 ```
 
-### `~/.oneproxy/onep.log`
+### `~/.oneproxy/profiles/<profile>/onep.log`
 
 Line-oriented local log file. Logs must not contain access tokens, refresh tokens, proxy tokens, or passwords.
 

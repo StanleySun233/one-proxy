@@ -2,9 +2,9 @@ import * as fs from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import * as http from 'node:http';
 import * as net from 'node:net';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { type PortSelection, selectProxyPorts } from './port-selection.ts';
+import { profileRoot } from '../storage.ts';
 
 export type LocalOverrides = {
   direct: string[];
@@ -108,7 +108,7 @@ export const loopbackHost = '127.0.0.1';
 export const defaultIdleTimeoutSeconds = 300;
 
 export function dataRoot() {
-  return process.env.ONEPROXY_HOME || path.join(os.homedir(), '.oneproxy');
+  return profileRoot();
 }
 
 export function storagePath(name: 'config' | 'state' | 'tokens' | 'daemon' | 'log') {

@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 import {
+  readProfilesIndex,
   readConfig,
   storageFile,
   writeConfig,
@@ -50,6 +51,7 @@ test('storage normalizes defaults and override hosts', async () => {
   await withHome(async () => {
     assert.deepEqual(await readConfig(), {
       schemaVersion: 1,
+      profileName: 'default',
       overrides: { direct: [], proxy: [] }
     });
 
@@ -71,6 +73,33 @@ test('storage normalizes defaults and override hosts', async () => {
 
     const stored = JSON.parse(await readFile(storageFile('config'), 'utf8'));
     assert.deepEqual(stored.overrides.direct, ['example.com', 'localhost']);
+  });
+});
+
+test('profile commands manage active panel urls', async () => {
+  await withHome(async (home) => {
+    const addCamel = runCli(['profile', 'add', 'camel', '--control-plane', 'https://camel.example.com'], home);
+    assert.equal(addCamel.status, 0, addCamel.stderr);
+
+    const addLab = runCli(['profile', 'add', 'lab', '--control-plane', 'https://lab.example.com'], home);
+    assert.equal(addLab.status, 0, addLab.stderr);
+
+    const useCamel = runCli(['profile', 'use', 'camel'], home);
+    assert.equal(useCamel.status, 0, useCamel.stderr);
+
+    const current = runCli(['profile', 'current', '--json'], home);
+    assert.equal(current.status, 0, current.stderr);
+    assert.deepEqual(JSON.parse(current.stdout), {
+      activeProfile: 'camel',
+      profile: {
+        name: 'camel',
+        controlPlaneUrl: 'https://camel.example.com'
+      }
+    });
+
+    const index = await readProfilesIndex();
+    assert.equal(index.activeProfile, 'camel');
+    assert.deepEqual(Object.keys(index.profiles).sort(), ['camel', 'lab']);
   });
 });
 

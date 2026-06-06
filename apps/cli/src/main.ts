@@ -4,6 +4,8 @@ import { envOff, envOn, runCommand } from './session-env.ts';
 import { doctor, overrideCommand, routeCommand, statusCommand, testCommand, writeError } from './commands.ts';
 import { serveDaemon } from './daemon/lifecycle.ts';
 import { runSsh } from './ssh.ts';
+import { profileCommand } from './profile.ts';
+import { initCommand } from './init.ts';
 
 export type CliContext = {
   json: boolean;
@@ -29,8 +31,10 @@ function usage(): string {
     'Usage: onep <command> [options]',
     '',
     'Commands:',
+    '  init',
     '  login',
     '  logout',
+    '  profile add <name> --control-plane <url>|use <name>|list|current',
     '  tenant list|use <name-or-id>',
     '  group list|use <name-or-id>',
     '  sync',
@@ -54,12 +58,14 @@ function requireArg(value: string | undefined, message: string): string {
 
 const handlers: Record<string, CommandHandler> = {
   login,
+  init: initCommand,
   logout,
   sync,
   status: statusCommand,
   route: routeCommand,
   test: testCommand,
   doctor,
+  profile: profileCommand,
   ssh: runSsh,
   override: overrideCommand,
   run: runCommand,

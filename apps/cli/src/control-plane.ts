@@ -3,12 +3,15 @@ import { stdin as input, stdout as output } from 'node:process';
 import type { CliContext } from './main.ts';
 import {
   clearTokens,
+  activeProfileName,
+  addProfile,
   readConfig,
   readState,
   readTokens,
   writeConfig,
   writeState,
   writeTokens,
+  useProfile,
   type Account,
   type OneProxyConfig,
   type OneProxyTokens,
@@ -177,8 +180,18 @@ async function requireTokens(): Promise<OneProxyTokens> {
 }
 
 export async function login(args: string[], context: CliContext): Promise<void> {
+  const requestedProfile = optionValue(args, '--profile') || process.env.ONEPROXY_PROFILE;
+  const requestedControlPlaneUrl = optionValue(args, '--control-plane') || process.env.ONEPROXY_CONTROL_PLANE_URL;
+  if (requestedProfile && requestedControlPlaneUrl) {
+    process.env.ONEPROXY_PROFILE = requestedProfile;
+    await addProfile(requestedProfile, requestedControlPlaneUrl);
+  } else if (requestedProfile) {
+    await useProfile(requestedProfile);
+  } else if (requestedControlPlaneUrl) {
+    await addProfile(activeProfileName(), requestedControlPlaneUrl);
+  }
   const config = await readConfig();
-  const controlPlaneUrl = optionValue(args, '--control-plane') || process.env.ONEPROXY_CONTROL_PLANE_URL || config.controlPlaneUrl;
+  const controlPlaneUrl = requestedControlPlaneUrl || config.controlPlaneUrl;
   const account = await promptMissing(optionValue(args, '--account') || process.env.ONEPROXY_ACCOUNT, 'Account');
   const password = await promptMissing(process.env.ONEPROXY_PASSWORD, 'Password');
   const nextConfig = { ...config, controlPlaneUrl };

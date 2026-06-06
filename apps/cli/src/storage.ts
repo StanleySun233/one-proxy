@@ -1,4 +1,5 @@
 import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -10,6 +11,7 @@ export type LocalOverrides = {
 
 export type OneProxyConfig = {
   schemaVersion: number;
+  profileName?: string;
   controlPlaneUrl?: string;
   activeTenantId?: string;
   activeGroupId?: string;
@@ -93,6 +95,17 @@ export type DaemonMetadata = {
 
 export const loopbackHost = '127.0.0.1';
 
+export type ProfileRecord = {
+  name: string;
+  controlPlaneUrl: string;
+};
+
+export type ProfilesIndex = {
+  schemaVersion: number;
+  activeProfile?: string;
+  profiles: Record<string, ProfileRecord>;
+};
+
 const portRangeStart = 10000;
 const portRangeEnd = 60999;
 const commonPorts = new Set([
@@ -105,6 +118,28 @@ export function oneProxyHome(): string {
   return process.env.ONEPROXY_HOME || path.join(os.homedir(), '.oneproxy');
 }
 
+export function profilesFile(): string {
+  return path.join(oneProxyHome(), 'profiles.json');
+}
+
+export function activeProfileName(): string {
+  const envProfile = process.env.ONEPROXY_PROFILE || process.env.ONEPROXY_ACTIVE_PROFILE;
+  if (envProfile) {
+    return profileKey(envProfile);
+  }
+  if (fsSync.existsSync(profilesFile())) {
+    const index = JSON.parse(fsSync.readFileSync(profilesFile(), 'utf8')) as ProfilesIndex;
+    if (index.activeProfile) {
+      return profileKey(index.activeProfile);
+    }
+  }
+  return 'default';
+}
+
+export function profileRoot(name = activeProfileName()): string {
+  return path.join(oneProxyHome(), 'profiles', profileKey(name));
+}
+
 export function storageFile(name: 'config' | 'state' | 'tokens' | 'daemon' | 'log'): string {
   const names = {
     config: 'config.json',
@@ -113,11 +148,15 @@ export function storageFile(name: 'config' | 'state' | 'tokens' | 'daemon' | 'lo
     daemon: 'daemon.json',
     log: 'onep.log'
   };
-  return path.join(oneProxyHome(), names[name]);
+  return path.join(profileRoot(), names[name]);
 }
 
 export async function ensureStorageRoot(): Promise<void> {
   await fs.mkdir(oneProxyHome(), { recursive: true, mode: 0o700 });
+}
+
+export async function ensureProfileRoot(): Promise<void> {
+  await fs.mkdir(profileRoot(), { recursive: true, mode: 0o700 });
 }
 
 async function readJson<T>(file: string): Promise<T | null> {
@@ -132,7 +171,7 @@ async function readJson<T>(file: string): Promise<T | null> {
 }
 
 async function writeJson(file: string, value: unknown, mode = 0o600): Promise<void> {
-  await ensureStorageRoot();
+  await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
   await fs.writeFile(file, `${JSON.stringify(value, null, 2)}\n`, { mode });
   if (process.platform !== 'win32') {
     await fs.chmod(file, mode);
@@ -146,6 +185,7 @@ function uniqueHosts(items: string[] | undefined): string[] {
 export function defaultConfig(): OneProxyConfig {
   return {
     schemaVersion: 1,
+    profileName: activeProfileName(),
     overrides: { direct: [], proxy: [] }
   };
 }
@@ -166,11 +206,62 @@ export async function writeConfig(config: OneProxyConfig): Promise<void> {
   await writeJson(storageFile('config'), {
     ...config,
     schemaVersion: 1,
+    profileName: config.profileName || activeProfileName(),
     overrides: {
       direct: uniqueHosts(config.overrides.direct),
       proxy: uniqueHosts(config.overrides.proxy)
     }
   });
+}
+
+export async function readProfilesIndex(): Promise<ProfilesIndex> {
+  const index = await readJson<Partial<ProfilesIndex>>(profilesFile());
+  return {
+    schemaVersion: 1,
+    activeProfile: index?.activeProfile,
+    profiles: index?.profiles ?? {}
+  };
+}
+
+export async function writeProfilesIndex(index: ProfilesIndex): Promise<void> {
+  await writeJson(profilesFile(), {
+    schemaVersion: 1,
+    activeProfile: index.activeProfile,
+    profiles: index.profiles
+  });
+}
+
+export function profileKey(name: string): string {
+  const value = name.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(value)) {
+    throw Object.assign(new Error(`Invalid profile name: ${name}`), { code: 'SYNTAX_ERROR', exitCode: 2 });
+  }
+  return value;
+}
+
+export async function addProfile(name: string, controlPlaneUrl: string): Promise<ProfileRecord> {
+  const key = profileKey(name);
+  const index = await readProfilesIndex();
+  const profile = { name: key, controlPlaneUrl };
+  index.profiles[key] = profile;
+  index.activeProfile = key;
+  await writeProfilesIndex(index);
+  await writeConfig({ ...(await readConfig()), profileName: key, controlPlaneUrl });
+  return profile;
+}
+
+export async function useProfile(name: string): Promise<ProfileRecord> {
+  const key = profileKey(name);
+  const index = await readProfilesIndex();
+  const profile = index.profiles[key];
+  if (!profile) {
+    throw Object.assign(new Error(`Profile not found: ${name}`), { code: 'PROFILE_REQUIRED' });
+  }
+  index.activeProfile = key;
+  await writeProfilesIndex(index);
+  process.env.ONEPROXY_PROFILE = key;
+  await writeConfig({ ...(await readConfig()), profileName: key, controlPlaneUrl: profile.controlPlaneUrl });
+  return profile;
 }
 
 export async function readTokens(): Promise<OneProxyTokens | null> {

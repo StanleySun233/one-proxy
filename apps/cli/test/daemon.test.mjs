@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
@@ -13,6 +13,7 @@ import {
   scanAvailableCandidatePorts,
   selectProxyPorts
 } from '../src/daemon/port-selection.ts';
+import { profileRoot } from '../src/storage.ts';
 
 async function withHome(fn) {
   const previous = process.env.ONEPROXY_HOME;
@@ -121,6 +122,8 @@ test('HTTP CONNECT listener establishes a direct tunnel', async () => {
 test('HTTP proxy listener reads updated local state after startup', async () => {
   await withHome(async (home) => {
     const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
+    const root = profileRoot();
+    await mkdir(root, { recursive: true });
     let upstreamPath = '';
     let upstreamToken = '';
     const upstream = http.createServer((request, response) => {
@@ -130,20 +133,20 @@ test('HTTP proxy listener reads updated local state after startup', async () => 
     });
     const upstreamPort = await listen(upstream);
     const [httpPort, httpsPort] = await freeConsecutivePorts();
-    await writeFile(path.join(home, 'config.json'), JSON.stringify({
+    await writeFile(path.join(root, 'config.json'), JSON.stringify({
       schemaVersion: 1,
       activeTenantId: 'tenant_1',
       activeGroupId: 'group_1',
       overrides: { direct: ['example.com'], proxy: [] }
     }));
-    await writeFile(path.join(home, 'state.json'), JSON.stringify({
+    await writeFile(path.join(root, 'state.json'), JSON.stringify({
       schemaVersion: 1,
       bootstrap: {
         entryNodes: [{ id: 'entry_1', host: '127.0.0.1', port: upstreamPort, protocol: 'PROXY' }]
       },
       routeGroups: [{ id: 'group_1', tenantId: 'tenant_1', rules: [] }]
     }));
-    await writeFile(path.join(home, 'tokens.json'), JSON.stringify({
+    await writeFile(path.join(root, 'tokens.json'), JSON.stringify({
       schemaVersion: 1,
       proxyToken: 'proxy-token'
     }));
@@ -164,7 +167,7 @@ test('HTTP proxy listener reads updated local state after startup', async () => 
     }, true);
 
     try {
-      await writeFile(path.join(home, 'config.json'), JSON.stringify({
+      await writeFile(path.join(root, 'config.json'), JSON.stringify({
         schemaVersion: 1,
         activeTenantId: 'tenant_1',
         activeGroupId: 'group_1',
@@ -205,14 +208,17 @@ test('lifecycle metadata and health expose contract shape', async () => {
       resolveBindings
     } = await import('../src/daemon/lifecycle.ts');
 
-    await writeFile(path.join(home, 'config.json'), JSON.stringify({
+    const root = profileRoot();
+    await mkdir(root, { recursive: true });
+
+    await writeFile(path.join(root, 'config.json'), JSON.stringify({
       schemaVersion: 1,
       controlPlaneUrl: 'https://control.example.com',
       activeTenantId: 'tenant_1',
       activeGroupId: 'group_1',
       overrides: { direct: [], proxy: [] }
     }));
-    await writeFile(path.join(home, 'state.json'), JSON.stringify({
+    await writeFile(path.join(root, 'state.json'), JSON.stringify({
       schemaVersion: 1,
       policyRevision: 'rev_1',
       routeGroups: []
