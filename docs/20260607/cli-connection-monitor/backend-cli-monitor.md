@@ -6,11 +6,11 @@
 ## Tasks
 
 - [x] Write api-contract.md covering monitor log event shape
-  - Commit: pending
+  - Commit: 8a50646
 - [x] Implement cross-platform connection monitor in apps/cli/src/monitor.ts
-  - Commit: pending
+  - Commit: 8a50646
 - [x] Update monitor tests in apps/cli/test/daemon.test.mjs
-  - Commit: pending
+  - Commit: 8a50646
 
 ## Blockers
 
