@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readConfig, readDaemonMetadata, readState } from './daemon/lifecycle';
-import { resolveRoute, RouteResult } from './daemon/router';
+import { resolveRoute } from './daemon/router';
+import type { RouteResult } from './daemon/router';
 
 export type SshTarget = {
   user?: string;

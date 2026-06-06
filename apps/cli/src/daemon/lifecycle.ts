@@ -274,10 +274,16 @@ export function createIpcServer(metadata: DaemonMetadata, handlers: Record<strin
       return;
     }
     if (request.method === 'POST' && handlers[url.pathname]) {
-      const body = await readRequestJson(request);
-      const result = await handlers[url.pathname](body);
-      response.setHeader('content-type', 'application/json');
-      response.end(JSON.stringify(result));
+      try {
+        const body = await readRequestJson(request);
+        const result = await handlers[url.pathname](body);
+        response.setHeader('content-type', 'application/json');
+        response.end(JSON.stringify(result));
+      } catch (error) {
+        response.statusCode = 400;
+        response.setHeader('content-type', 'application/json');
+        response.end(JSON.stringify({ error: { code: 'INVALID_TARGET', message: (error as Error).message } }));
+      }
       return;
     }
     response.statusCode = 404;
@@ -285,7 +291,7 @@ export function createIpcServer(metadata: DaemonMetadata, handlers: Record<strin
   });
 }
 
-export async function startDaemonRuntime(handlers: Record<string, (body: unknown) => Promise<unknown>> = {}): Promise<DaemonRuntime> {
+export async function startDaemonRuntime(handlers: Record<string, (body: unknown) => Promise<unknown>> = defaultDaemonHandlers()): Promise<DaemonRuntime> {
   const resolved = await resolveBindings();
   const metadata = await buildDaemonMetadata(resolved);
   const ipcServer = createIpcServer(metadata, handlers);
@@ -295,6 +301,31 @@ export async function startDaemonRuntime(handlers: Record<string, (body: unknown
     metadata,
     ipcServer,
     close: async () => closeServer(ipcServer)
+  };
+}
+
+export function defaultDaemonHandlers(): Record<string, (body: unknown) => Promise<unknown>> {
+  return {
+    '/v1/route': async (body) => {
+      const request = body as { target?: string; protocol?: string };
+      const [{ resolveRoute }, config, state] = await Promise.all([
+        import('./router'),
+        readConfig(),
+        readState()
+      ]);
+      return resolveRoute({
+        config,
+        state,
+        target: request.target ?? '',
+        protocol: request.protocol
+      });
+    },
+    '/v1/probe': async (body) => {
+      const request = body as { target?: string };
+      const { probeTarget } = await import('../doctor');
+      return await probeTarget(request.target ?? '');
+    },
+    '/v1/shutdown-if-idle': async () => ({ accepted: true })
   };
 }
 

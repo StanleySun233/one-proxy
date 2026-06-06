@@ -1,4 +1,4 @@
-import { EntryNode, OneProxyConfig, OneProxyState, RouteRule } from './lifecycle';
+import type { EntryNode, OneProxyConfig, OneProxyState, RouteRule } from './lifecycle';
 
 export type RouteMode = 'direct' | 'proxy';
 
