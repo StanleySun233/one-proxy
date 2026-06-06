@@ -1,6 +1,6 @@
 import * as readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import type { CliContext } from './main.js';
+import type { CliContext } from './main.ts';
 import {
   clearTokens,
   readConfig,
@@ -14,7 +14,7 @@ import {
   type OneProxyTokens,
   type RouteGroup,
   type RouteRule
-} from './storage.js';
+} from './storage.ts';
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';

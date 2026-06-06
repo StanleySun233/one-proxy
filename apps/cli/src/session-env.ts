@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
-import type { CliContext } from './main.js';
+import type { CliContext } from './main.ts';
 import {
   type DaemonBindings
-} from './storage.js';
+} from './storage.ts';
 
 const preservedProxyVariables = [
   'HTTP_PROXY',
@@ -22,7 +22,7 @@ type LifecycleModule = {
 };
 
 async function lifecycleBindings(): Promise<DaemonBindings | null> {
-  const lifecycle = (await import('./daemon/lifecycle.js')) as LifecycleModule;
+  const lifecycle = (await import('./daemon/lifecycle.ts')) as LifecycleModule;
   const result = await lifecycle.ensureDaemon?.();
   if (!result) {
     throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });

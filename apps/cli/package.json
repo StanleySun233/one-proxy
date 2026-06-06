@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "onep": "./dist/main.js"
+    "onep": "./src/main.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

@@ -4,7 +4,7 @@ import * as http from 'node:http';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { type PortSelection, selectProxyPorts } from './port-selection.js';
+import { type PortSelection, selectProxyPorts } from './port-selection.ts';
 
 export type LocalPorts = {
   http: number;
@@ -211,14 +211,15 @@ export type ResolvedBindings = {
   portSelection: PortSelection;
 };
 
-export async function resolveBindings(config = await readConfig()): Promise<ResolvedBindings> {
-  const portSelection = await selectProxyPorts(config.localPorts?.http, config.localPorts?.https);
+export async function resolveBindings(config?: OneProxyConfig): Promise<ResolvedBindings> {
+  const resolvedConfig = config ?? await readConfig();
+  const portSelection = await selectProxyPorts(resolvedConfig.localPorts?.http, resolvedConfig.localPorts?.https);
   return {
     bindings: {
       host: loopbackHost,
       httpPort: portSelection.selectedPair[0],
       httpsPort: portSelection.selectedPair[1],
-      ipcPort: await allocateLoopbackPort(config.localPorts?.ipc)
+      ipcPort: await allocateLoopbackPort(resolvedConfig.localPorts?.ipc)
     },
     portSelection
   };
@@ -297,7 +298,7 @@ export async function startDaemonRuntime(handlers: Record<string, (body: unknown
   const resolved = await resolveBindings();
   const metadata = await buildDaemonMetadata(resolved);
   const [config, state] = await Promise.all([readConfig(), readState()]);
-  const { startHttpProxyListeners } = await import('./http-proxy.js');
+  const { startHttpProxyListeners } = await import('./http-proxy.ts');
   const proxyServers = await startHttpProxyListeners({ config, state }, metadata.bindings);
   const ipcServer = createIpcServer(metadata, handlers);
   try {
@@ -322,7 +323,7 @@ export function defaultDaemonHandlers(): Record<string, (body: unknown) => Promi
     '/v1/route': async (body) => {
       const request = body as { target?: string; protocol?: string };
       const [{ resolveRoute }, config, state] = await Promise.all([
-        import('./router.js'),
+        import('./router.ts'),
         readConfig(),
         readState()
       ]);
@@ -335,7 +336,7 @@ export function defaultDaemonHandlers(): Record<string, (body: unknown) => Promi
     },
     '/v1/probe': async (body) => {
       const request = body as { target?: string };
-      const { probeTarget } = await import('../doctor.js');
+      const { probeTarget } = await import('../doctor.ts');
       return await probeTarget(request.target ?? '');
     },
     '/v1/shutdown-if-idle': async () => ({ accepted: true })
@@ -380,15 +381,16 @@ export async function serveDaemon(): Promise<void> {
   await new Promise(() => undefined);
 }
 
-export async function probeDaemon(metadata = await readDaemonMetadata()): Promise<DaemonHealth | null> {
-  if (!metadata) {
+export async function probeDaemon(metadata?: DaemonMetadata | null): Promise<DaemonHealth | null> {
+  const targetMetadata = metadata ?? await readDaemonMetadata();
+  if (!targetMetadata) {
     return null;
   }
   return await new Promise((resolve) => {
     const request = http.get(
       {
-        host: metadata.bindings.host,
-        port: metadata.bindings.ipcPort,
+        host: targetMetadata.bindings.host,
+        port: targetMetadata.bindings.ipcPort,
         path: '/v1/health',
         timeout: 1000
       },

@@ -11,9 +11,9 @@ import {
   readState,
   readTokens,
   storagePath
-} from './daemon/lifecycle.js';
-import { isUsablePort } from './daemon/port-selection.js';
-import { resolveRoute, type RouteResult } from './daemon/router.js';
+} from './daemon/lifecycle.ts';
+import { isUsablePort } from './daemon/port-selection.ts';
+import { resolveRoute, type RouteResult } from './daemon/router.ts';
 
 export type CheckStatus = 'pass' | 'warn' | 'fail';
 

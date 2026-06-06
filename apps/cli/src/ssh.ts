@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { ensureDaemon, readConfig, readState } from './daemon/lifecycle.js';
-import { resolveRoute } from './daemon/router.js';
-import type { RouteResult } from './daemon/router.js';
+import { ensureDaemon, readConfig, readState } from './daemon/lifecycle.ts';
+import { resolveRoute } from './daemon/router.ts';
+import type { RouteResult } from './daemon/router.ts';
 
 export type SshTarget = {
   user?: string;
@@ -17,8 +17,11 @@ export type SshCommandPlan = {
 };
 
 export class SshCommandError extends Error {
-  constructor(public code: string, message: string) {
+  code: string;
+
+  constructor(code: string, message: string) {
     super(message);
+    this.code = code;
   }
 }
 

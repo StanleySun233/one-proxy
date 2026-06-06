@@ -1,6 +1,6 @@
 import * as http from 'node:http';
-import type { CliContext } from './main.js';
-import { ensureSessionProxyBindings } from './session-env.js';
+import type { CliContext } from './main.ts';
+import { ensureSessionProxyBindings } from './session-env.ts';
 import {
   processIsRunning,
   readConfig,
@@ -11,7 +11,7 @@ import {
   type DaemonMetadata,
   type EntryNode,
   type RouteRule
-} from './storage.js';
+} from './storage.ts';
 
 type ErrorResult = {
   error: {
@@ -382,7 +382,7 @@ export async function testCommand(args: string[], context: CliContext): Promise<
 }
 
 export async function doctor(_args: string[], context: CliContext): Promise<number> {
-  const { runDoctor } = await import('./doctor.js');
+  const { runDoctor } = await import('./doctor.ts');
   const result = await runDoctor() as DoctorResult;
   if (context.json) {
     write(result, context);

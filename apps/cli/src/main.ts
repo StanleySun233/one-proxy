@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { login, logout, sync, tenantList, tenantUse, groupList, groupUse } from './control-plane.js';
-import { envOff, envOn, runCommand } from './session-env.js';
-import { doctor, overrideCommand, routeCommand, statusCommand, testCommand, writeError } from './commands.js';
-import { serveDaemon } from './daemon/lifecycle.js';
-import { runSsh } from './ssh.js';
+import { login, logout, sync, tenantList, tenantUse, groupList, groupUse } from './control-plane.ts';
+import { envOff, envOn, runCommand } from './session-env.ts';
+import { doctor, overrideCommand, routeCommand, statusCommand, testCommand, writeError } from './commands.ts';
+import { serveDaemon } from './daemon/lifecycle.ts';
+import { runSsh } from './ssh.ts';
 
 export type CliContext = {
   json: boolean;
