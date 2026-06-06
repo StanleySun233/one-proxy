@@ -55,6 +55,7 @@ func (c *ControlPlane) ExtensionBootstrapForTenant(account domain.Account, tenan
 	}); ok {
 		nodes, chains, rules = bootstrapStore.ExtensionBootstrapResourcesForTenant(tenantCtx)
 	}
+	nodes = extensionBootstrapNodes(nodes, c.store.ListNodes(), chains, rules)
 	overview := c.store.GetOverview()
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
 	chainsByID := make(map[string]proxy.Chain, len(chains))
@@ -194,4 +195,50 @@ func (c *ControlPlane) ExtensionBootstrapForTenant(account domain.Account, tenan
 		ProxyTokenExpiresAt: proxyTokenExpiresAt,
 		Groups:              groups,
 	}, true
+}
+
+func extensionBootstrapNodes(scoped []domain.Node, all []domain.Node, chains []proxy.Chain, rules []proxy.RouteRule) []domain.Node {
+	byID := make(map[string]domain.Node, len(all))
+	byScope := make(map[string][]domain.Node)
+	for _, node := range all {
+		byID[node.ID] = node
+		byScope[node.ScopeKey] = append(byScope[node.ScopeKey], node)
+	}
+	included := make(map[string]bool, len(scoped))
+	result := make([]domain.Node, 0, len(scoped))
+	add := func(node domain.Node) {
+		if node.ID == "" || included[node.ID] {
+			return
+		}
+		included[node.ID] = true
+		result = append(result, node)
+	}
+	for _, node := range scoped {
+		add(node)
+	}
+	chainsByID := make(map[string]proxy.Chain, len(chains))
+	for _, chain := range chains {
+		chainsByID[chain.ID] = chain
+	}
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+		if rule.ActionType == domain.ActionTypeChain {
+			chain, ok := chainsByID[rule.ChainID]
+			if !ok || !chain.Enabled {
+				continue
+			}
+			for _, nodeID := range chain.Hops {
+				add(byID[nodeID])
+			}
+			continue
+		}
+		if rule.ActionType == domain.ActionTypeDirect {
+			for _, node := range byScope[rule.DestinationScope] {
+				add(node)
+			}
+		}
+	}
+	return result
 }
