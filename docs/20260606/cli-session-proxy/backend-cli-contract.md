@@ -5,8 +5,8 @@
 
 ## Tasks
 
-- [ ] write api-contract.md covering CLI command contracts, local storage schemas, daemon IPC contracts, route/test/doctor output schemas, and error formats
-  - Commit:
+- [x] write api-contract.md covering CLI command contracts, local storage schemas, daemon IPC contracts, route/test/doctor output schemas, and error formats
+  - Commit: pending
 
 ## Blockers
 
