@@ -11,8 +11,8 @@
   - Commit:
 - [x] implement random consecutive proxy port selection in apps/cli/src/daemon/port-selection.ts
   - Commit: 0e27049
-- [ ] implement route matching and local override precedence in apps/cli/src/daemon/router.ts
-  - Commit:
+- [x] implement route matching and local override precedence in apps/cli/src/daemon/router.ts
+  - Commit: 949c4bf
 - [ ] implement probe and doctor checks in apps/cli/src/doctor.ts
   - Commit:
 - [ ] implement SSH command routing in apps/cli/src/ssh.ts
