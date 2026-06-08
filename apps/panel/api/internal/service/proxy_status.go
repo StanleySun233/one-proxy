@@ -60,7 +60,7 @@ func (c *ControlPlane) IngestProxySessions(nodeID string, input domain.ProxySess
 		if item.NodeID != nodeID {
 			return domain.ProxySessionIngestResult{}, newError(http.StatusForbidden, "node_mismatch")
 		}
-		if _, ok := c.store.NodeBindingPermission(nodeTenantContext(item.TenantID), nodeID); !ok {
+		if !c.tenantNodeExists(nodeTenantContext(item.TenantID), nodeID) {
 			return domain.ProxySessionIngestResult{}, newError(http.StatusForbidden, "tenant_node_forbidden")
 		}
 		item.TargetHost = strings.ToLower(strings.TrimSpace(item.TargetHost))

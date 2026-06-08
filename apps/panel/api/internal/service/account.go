@@ -177,6 +177,5 @@ func (c *ControlPlane) proxyTokenAllowsNode(record domain.ProxyTokenRecord, node
 		ActiveTenant: membership,
 		SuperAdmin:   record.Account.Role == domain.AccountRoleSuperAdmin,
 	}
-	_, ok := c.store.NodeBindingPermission(tenantCtx, nodeID)
-	return ok
+	return c.tenantNodeExists(tenantCtx, nodeID)
 }

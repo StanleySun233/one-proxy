@@ -54,6 +54,12 @@ func (s *MySQLStore) ListNodesForTenant(tenantCtx domain.TenantAuthContext) []do
 		     JOIN node_access_paths nap ON nap.id = tap.access_path_id
 		    WHERE tap.tenant_id = ? AND tap.permission IN (?, ?) AND nap.entry_node_id IS NOT NULL
 		   UNION ALL
+		   SELECT relay.id, 1
+		     FROM tenant_access_paths tap
+		     JOIN node_access_paths nap ON nap.id = tap.access_path_id
+		     JOIN nodes relay ON JSON_CONTAINS(nap.relay_node_ids_json, JSON_QUOTE(relay.id))
+		    WHERE tap.tenant_id = ? AND tap.permission IN (?, ?)
+		   UNION ALL
 		   SELECT n_scope.id, 1
 		     FROM tenant_scopes ts
 		     JOIN scopes sc ON sc.id = ts.scope_id
@@ -64,6 +70,7 @@ func (s *MySQLStore) ListNodesForTenant(tenantCtx domain.TenantAuthContext) []do
 		 ORDER BY n.name`,
 		domain.BindingPermissionManage, domain.BindingPermissionUse,
 		domain.BindingPermissionManage,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,

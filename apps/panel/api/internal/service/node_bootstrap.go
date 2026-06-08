@@ -22,8 +22,10 @@ func (c *ControlPlane) CreateBootstrapToken(tenantCtx domain.TenantAuthContext, 
 		if input.ParentNodeID != "" && !c.tenantNodeExists(tenantCtx, input.ParentNodeID) {
 			return domain.BootstrapToken{}, invalidInput("node_not_found")
 		}
-	} else if !c.tenantNodeExists(tenantCtx, input.TargetID) {
-		return domain.BootstrapToken{}, invalidInput("node_not_found")
+	} else if err := c.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return c.store.NodeBindingPermission(tenantCtx, input.TargetID)
+	}); err != nil {
+		return domain.BootstrapToken{}, err
 	}
 	if input.NodeMode != "" && !c.isValidEnum("node_mode", input.NodeMode) {
 		return domain.BootstrapToken{}, invalidInput("invalid_node_payload")

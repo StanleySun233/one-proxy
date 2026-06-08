@@ -21,7 +21,7 @@ func (c *ControlPlane) NodeHealthHistory(tenantCtx domain.TenantAuthContext, nod
 	if nodeID == "" {
 		return nil, invalidInput("missing_node_id")
 	}
-	if _, ok := c.store.NodeBindingPermission(tenantCtx, nodeID); !ok {
+	if !c.tenantNodeExists(tenantCtx, nodeID) {
 		return nil, newError(403, "resource_binding_forbidden")
 	}
 	if window <= 0 || window > 7*24*time.Hour {
