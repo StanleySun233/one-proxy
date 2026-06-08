@@ -21,11 +21,55 @@ func (s *MySQLStore) ListNodesForTenant(tenantCtx domain.TenantAuthContext) []do
 		return s.ListNodes()
 	}
 	rows, err := s.db.Query(
-		`SELECT n.id, n.create_id, n.owner_id, n.name, n.mode, n.scope_key, COALESCE(n.parent_node_id, ''), n.enabled, n.status, COALESCE(n.public_host, ''), COALESCE(n.public_port, 0), tn.permission
+		`SELECT n.id, n.create_id, n.owner_id, n.name, n.mode, n.scope_key, COALESCE(n.parent_node_id, ''), n.enabled, n.status, COALESCE(n.public_host, ''), COALESCE(n.public_port, 0),
+		        CASE WHEN MAX(visible.permission_rank) = 2 THEN ? ELSE ? END AS permission
 		 FROM nodes n
-		 JOIN tenant_nodes tn ON tn.node_id = n.id
-		 WHERE tn.tenant_id = ? AND tn.permission IN (?, ?)
+		 JOIN (
+		   SELECT tn.node_id, CASE WHEN tn.permission = ? THEN 2 ELSE 1 END AS permission_rank
+		     FROM tenant_nodes tn
+		    WHERE tn.tenant_id = ? AND tn.permission IN (?, ?)
+		   UNION ALL
+		   SELECT ch.node_id, 1
+		     FROM tenant_chains tc
+		     JOIN chain_hops ch ON ch.chain_id = tc.chain_id
+		    WHERE tc.tenant_id = ? AND tc.permission IN (?, ?)
+		   UNION ALL
+		   SELECT nl.source_node_id, 1
+		     FROM tenant_node_links tnl
+		     JOIN node_links nl ON nl.id = tnl.node_link_id
+		    WHERE tnl.tenant_id = ? AND tnl.permission IN (?, ?)
+		   UNION ALL
+		   SELECT nl.target_node_id, 1
+		     FROM tenant_node_links tnl
+		     JOIN node_links nl ON nl.id = tnl.node_link_id
+		    WHERE tnl.tenant_id = ? AND tnl.permission IN (?, ?)
+		   UNION ALL
+		   SELECT nap.target_node_id, 1
+		     FROM tenant_access_paths tap
+		     JOIN node_access_paths nap ON nap.id = tap.access_path_id
+		    WHERE tap.tenant_id = ? AND tap.permission IN (?, ?) AND nap.target_node_id IS NOT NULL
+		   UNION ALL
+		   SELECT nap.entry_node_id, 1
+		     FROM tenant_access_paths tap
+		     JOIN node_access_paths nap ON nap.id = tap.access_path_id
+		    WHERE tap.tenant_id = ? AND tap.permission IN (?, ?) AND nap.entry_node_id IS NOT NULL
+		   UNION ALL
+		   SELECT n_scope.id, 1
+		     FROM tenant_scopes ts
+		     JOIN scopes sc ON sc.id = ts.scope_id
+		     JOIN nodes n_scope ON n_scope.scope_key = sc.id
+		    WHERE ts.tenant_id = ? AND ts.permission IN (?, ?)
+		 ) visible ON visible.node_id = n.id
+		 GROUP BY n.id, n.create_id, n.owner_id, n.name, n.mode, n.scope_key, n.parent_node_id, n.enabled, n.status, n.public_host, n.public_port
 		 ORDER BY n.name`,
+		domain.BindingPermissionManage, domain.BindingPermissionUse,
+		domain.BindingPermissionManage,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
+		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 		tenantCtx.ActiveTenant.TenantID, domain.BindingPermissionUse, domain.BindingPermissionManage,
 	)
 	return s.scanNodes(rows, err)
