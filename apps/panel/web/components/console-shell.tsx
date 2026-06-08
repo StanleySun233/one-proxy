@@ -174,7 +174,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
               icon={<Building2 size={16} />}
               onChange={handleTenantChange}
               options={tenantSelectOptions}
-              value={activeTenant?.tenantId || ''}
+              value={activeTenantId || ''}
             />
           ) : null}
         </div>
