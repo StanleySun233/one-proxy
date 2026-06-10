@@ -34,6 +34,34 @@ type recordingSessionReporter struct {
 	sessions chan domain.ProxySessionMetric
 }
 
+type scriptedStreamOpener struct {
+	attempts int
+}
+
+func (s *scriptedStreamOpener) HasDirectPeer(string) bool {
+	return true
+}
+
+func (s *scriptedStreamOpener) OpenDirectStream(_ context.Context, _ domain.Node, _ []string, _ string, _ int) (net.Conn, error) {
+	client, server := net.Pipe()
+	s.attempts += 1
+	attempt := s.attempts
+	go func() {
+		defer server.Close()
+		req, err := http.ReadRequest(bufio.NewReader(server))
+		if err != nil {
+			return
+		}
+		_, _ = io.ReadAll(req.Body)
+		if attempt == 1 {
+			_, _ = server.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nbad"))
+			return
+		}
+		_, _ = server.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nloaded"))
+	}()
+	return client, nil
+}
+
 func (v *recordingTokenValidator) ValidateProxyToken(_ context.Context, tokenHash string) (TokenValidation, error) {
 	v.validations = append(v.validations, tokenHash)
 	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt, AllowLocalProxy: v.allowLocalProxy, TenantID: v.tenantID}, nil
@@ -190,6 +218,44 @@ func TestForwardDirectRetriesContentLengthMismatch(t *testing.T) {
 	}
 	if attempts != 2 {
 		t.Fatalf("attempts = %d", attempts)
+	}
+}
+
+func TestForwardChainViaStreamRetriesContentLengthMismatch(t *testing.T) {
+	store := policystore.New("")
+	payload, err := json.Marshal(policystore.Snapshot{
+		Nodes: []domain.Node{
+			{ID: "node-2", Name: "next-hop", Enabled: true, Status: "healthy"},
+		},
+		Chains: []domain.Chain{
+			{ID: "chain-1", Name: "chain", Enabled: true, Hops: []string{"node-1", "node-2"}},
+		},
+		RouteRules: []domain.RouteRule{
+			{ID: "default", MatchType: domain.MatchTypeDefault, ActionType: domain.ActionTypeChain, ChainID: "chain-1", Enabled: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update("test", string(payload)); err != nil {
+		t.Fatal(err)
+	}
+	opener := &scriptedStreamOpener{}
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	server.SetDirectStreamOpener(opener)
+
+	req := httptest.NewRequest(http.MethodGet, "http://172.20.116.91:12335/api/scenario/id/track", nil)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+	if resp.Body.String() != "loaded" {
+		t.Fatalf("body = %q", resp.Body.String())
+	}
+	if opener.attempts != 2 {
+		t.Fatalf("attempts = %d", opener.attempts)
 	}
 }
 

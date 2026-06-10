@@ -146,16 +146,75 @@ func retryableForwardStatus(statusCode int) bool {
 
 func (s *Server) forwardViaStream(w http.ResponseWriter, req *http.Request, hop chainHop, tracker *proxySessionTracker) {
 	targetHost, targetPort := targetAddress(req)
+	body, err := readForwardRequestBody(req)
+	if err != nil {
+		tracker.finish(0, 0, domain.ProxySessionStatusError, "stream_response_failed", "stream_response_failed")
+		http.Error(w, "stream_response_failed", http.StatusBadGateway)
+		return
+	}
+	uploadBytes := int64(len(body))
 	tracker.markForward()
 	streamStarted := time.Now().UTC()
-	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.tunnelRegistry, hop, targetHost, targetPort)
+	resp, err := s.roundTripStreamWithRetry(req, hop, targetHost, targetPort, body)
 	tracker.addLinkTiming(s.nodeIDGetter(), hop.node.ID, streamStarted)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, "next_hop_connect_failed", "next_hop_connect_failed")
 		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
 		return
 	}
-	defer streamConn.Close()
+	tracker.markResponseReceive()
+	removeHopByHopHeaders(resp.header)
+	for key, values := range resp.header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(resp.statusCode)
+	_, _ = w.Write(resp.body)
+	tracker.finish(uploadBytes, int64(len(resp.body)), domain.ProxySessionStatusOK, "", "")
+}
+
+func (s *Server) roundTripStreamWithRetry(req *http.Request, hop chainHop, targetHost string, targetPort int, body []byte) (bufferedForwardResponse, error) {
+	attempts := 1 + len(forwardRetryBackoffs)
+	var lastErr error
+	for attempt := 0; attempt < attempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(forwardRetryBackoffs[attempt-1])
+		}
+		streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.tunnelRegistry, hop, targetHost, targetPort)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		outbound := newStreamForwardRequest(req, body)
+		if err := outbound.Write(streamConn); err != nil {
+			_ = streamConn.Close()
+			lastErr = err
+			continue
+		}
+		reader := bufio.NewReader(streamConn)
+		resp, err := http.ReadResponse(reader, outbound)
+		if err != nil {
+			_ = streamConn.Close()
+			lastErr = err
+			continue
+		}
+		buffered, err := readForwardResponse(resp, outbound.Method)
+		_ = resp.Body.Close()
+		_ = streamConn.Close()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if attempt+1 < attempts && retryableForwardStatus(buffered.statusCode) {
+			continue
+		}
+		return buffered, nil
+	}
+	return bufferedForwardResponse{}, lastErr
+}
+
+func newStreamForwardRequest(req *http.Request, body []byte) *http.Request {
 	outbound := req.Clone(req.Context())
 	outbound.RequestURI = ""
 	if outbound.URL == nil {
@@ -163,31 +222,12 @@ func (s *Server) forwardViaStream(w http.ResponseWriter, req *http.Request, hop 
 	}
 	outbound.URL.Scheme = ""
 	outbound.URL.Host = ""
-	var uploadBytes int64
-	if outbound.Body != nil {
-		outbound.Body = countingReadCloser{ReadCloser: outbound.Body, bytes: &uploadBytes}
+	if body != nil {
+		outbound.Body = io.NopCloser(bytes.NewReader(body))
+		outbound.ContentLength = int64(len(body))
+	} else {
+		outbound.Body = nil
+		outbound.ContentLength = 0
 	}
-	if err := outbound.Write(streamConn); err != nil {
-		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, "stream_write_failed", "stream_write_failed")
-		http.Error(w, "stream_write_failed", http.StatusBadGateway)
-		return
-	}
-	reader := bufio.NewReader(streamConn)
-	resp, err := http.ReadResponse(reader, outbound)
-	if err != nil {
-		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, "stream_response_failed", "stream_response_failed")
-		http.Error(w, "stream_response_failed", http.StatusBadGateway)
-		return
-	}
-	tracker.markResponseReceive()
-	defer resp.Body.Close()
-	for key, values := range resp.Header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-	w.WriteHeader(resp.StatusCode)
-	var downloadBytes int64
-	_, _ = io.Copy(countingWriter{Writer: w, bytes: &downloadBytes}, resp.Body)
-	tracker.finish(uploadBytes, downloadBytes, domain.ProxySessionStatusOK, "", "")
+	return outbound
 }
