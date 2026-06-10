@@ -1,17 +1,76 @@
 package proxy
 
 import (
+	"bytes"
 	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
 )
 
 func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {
+	body, err := readForwardRequestBody(req)
+	if err != nil {
+		tracker.finish(0, 0, domain.ProxySessionStatusError, "reverse_forward_failed", "reverse_forward_failed")
+		http.Error(w, "reverse_forward_failed", http.StatusBadGateway)
+		return
+	}
+	uploadBytes := int64(len(body))
+
+	transport := &http.Transport{}
+	defer transport.CloseIdleConnections()
+	tracker.markForward()
+	resp, err := s.roundTripReverseWithRetry(transport, req, body)
+	if err != nil {
+		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, "reverse_forward_failed", "reverse_forward_failed")
+		http.Error(w, "reverse_forward_failed", http.StatusBadGateway)
+		return
+	}
+	tracker.markResponseReceive()
+	removeHopByHopHeaders(resp.header)
+	for key, values := range resp.header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(resp.statusCode)
+	_, _ = w.Write(resp.body)
+	tracker.finish(uploadBytes, int64(len(resp.body)), domain.ProxySessionStatusOK, "", "")
+}
+
+func (s *Server) roundTripReverseWithRetry(transport *http.Transport, req *http.Request, body []byte) (bufferedForwardResponse, error) {
+	attempts := 1 + len(forwardRetryBackoffs)
+	var lastErr error
+	for attempt := 0; attempt < attempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(forwardRetryBackoffs[attempt-1])
+		}
+		outbound := s.newReverseRequest(req, body)
+		resp, err := transport.RoundTrip(outbound)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		buffered, err := readForwardResponse(resp, outbound.Method)
+		_ = resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if attempt+1 < attempts && retryableForwardStatus(buffered.statusCode) {
+			continue
+		}
+		return buffered, nil
+	}
+	return bufferedForwardResponse{}, lastErr
+}
+
+func (s *Server) newReverseRequest(req *http.Request, body []byte) *http.Request {
 	outbound := req.Clone(req.Context())
 	outbound.Header = req.Header.Clone()
 	outbound.RequestURI = ""
@@ -20,32 +79,14 @@ func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request, tracke
 	removeHopByHopHeaders(outbound.Header)
 	removeReverseAuthCredentials(outbound)
 	setForwardedHeaders(outbound, req)
-	var uploadBytes int64
-	if outbound.Body != nil {
-		outbound.Body = countingReadCloser{ReadCloser: outbound.Body, bytes: &uploadBytes}
+	if body != nil {
+		outbound.Body = io.NopCloser(bytes.NewReader(body))
+		outbound.ContentLength = int64(len(body))
+	} else {
+		outbound.Body = nil
+		outbound.ContentLength = 0
 	}
-
-	transport := &http.Transport{}
-	defer transport.CloseIdleConnections()
-	tracker.markForward()
-	resp, err := transport.RoundTrip(outbound)
-	if err != nil {
-		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, "reverse_forward_failed", "reverse_forward_failed")
-		http.Error(w, "reverse_forward_failed", http.StatusBadGateway)
-		return
-	}
-	tracker.markResponseReceive()
-	defer resp.Body.Close()
-	removeHopByHopHeaders(resp.Header)
-	for key, values := range resp.Header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-	w.WriteHeader(resp.StatusCode)
-	var downloadBytes int64
-	_, _ = io.Copy(countingWriter{Writer: w, bytes: &downloadBytes}, resp.Body)
-	tracker.finish(uploadBytes, downloadBytes, domain.ProxySessionStatusOK, "", "")
+	return outbound
 }
 
 func (s *Server) upgradeReverse(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {

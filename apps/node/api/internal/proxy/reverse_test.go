@@ -168,6 +168,83 @@ func TestReverseTargetReportsProxySessionMetrics(t *testing.T) {
 	}
 }
 
+func TestReverseTargetRetriesContentLengthMismatch(t *testing.T) {
+	attempts := 0
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		attempts += 1
+		if req.URL.Path != "/api/scenario/id/track" {
+			t.Fatalf("unexpected path %q", req.URL.Path)
+		}
+		if attempts == 1 {
+			w.Header().Set("Content-Length", "6")
+			_, _ = w.Write([]byte("bad"))
+			return
+		}
+		_, _ = w.Write([]byte("loaded"))
+	}))
+	defer origin.Close()
+
+	server, err := NewServerWithReverseTarget(policystore.New(""), func() string { return "node-1" }, nil, origin.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "http://proxy.local/api/scenario/id/track", nil)
+	req.URL.Scheme = ""
+	req.URL.Host = ""
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%q", resp.Code, resp.Body.String())
+	}
+	if resp.Body.String() != "loaded" {
+		t.Fatalf("body = %q", resp.Body.String())
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d", attempts)
+	}
+}
+
+func TestReverseTargetRetriesPostRequest(t *testing.T) {
+	attempts := 0
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		attempts += 1
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != "upload" {
+			t.Fatalf("body = %q", body)
+		}
+		if attempts == 1 {
+			http.Error(w, "bad_gateway", http.StatusBadGateway)
+			return
+		}
+		_, _ = w.Write([]byte("saved"))
+	}))
+	defer origin.Close()
+
+	server, err := NewServerWithReverseTarget(policystore.New(""), func() string { return "node-1" }, nil, origin.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "http://proxy.local/api/save", strings.NewReader("upload"))
+	req.URL.Scheme = ""
+	req.URL.Host = ""
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%q", resp.Code, resp.Body.String())
+	}
+	if resp.Body.String() != "saved" {
+		t.Fatalf("body = %q", resp.Body.String())
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d", attempts)
+	}
+}
+
 func TestReverseTargetForwardsOriginFormWebSocket(t *testing.T) {
 	upgrader := websocket.Upgrader{}
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
