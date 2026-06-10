@@ -89,16 +89,16 @@ test('HTTP CONNECT listener establishes a direct tunnel', async () => {
     });
   });
   const upstreamPort = await listen(upstream);
-  const [httpPort, httpsPort] = await freeConsecutivePorts();
   const proxy = await startHttpProxyListeners({
     config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
     state: { schemaVersion: 1, routeGroups: [] }
   }, {
     host: '127.0.0.1',
-    httpPort,
-    httpsPort,
+    httpPort: 0,
+    httpsPort: 0,
     ipcPort: 0
   });
+  const httpPort = proxy.httpServer.address().port;
 
   try {
     const socket = net.connect(httpPort, '127.0.0.1');
@@ -198,6 +198,182 @@ test('HTTP proxy listener reads updated local state after startup', async () => 
       await closeServer(upstream);
     }
   });
+});
+
+test('HTTP proxy listener retries transient static resource failures', async () => {
+  const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
+  let attempts = 0;
+  const upstream = http.createServer((request, response) => {
+    attempts += 1;
+    if (request.url !== '/static/js/app.js') {
+      response.writeHead(404);
+      response.end();
+      return;
+    }
+    if (attempts === 1) {
+      response.writeHead(502);
+      response.end('bad_gateway');
+      return;
+    }
+    response.end('loaded');
+  });
+  const upstreamPort = await listen(upstream);
+  const proxy = await startHttpProxyListeners({
+    config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
+    state: { schemaVersion: 1, routeGroups: [] }
+  }, {
+    host: '127.0.0.1',
+    httpPort: 0,
+    httpsPort: 0,
+    ipcPort: 0
+  });
+  const httpPort = proxy.httpServer.address().port;
+
+  try {
+    const body = await new Promise((resolve, reject) => {
+      const request = http.get({
+        host: '127.0.0.1',
+        port: httpPort,
+        path: `http://127.0.0.1:${upstreamPort}/static/js/app.js`,
+        headers: { host: `127.0.0.1:${upstreamPort}` }
+      }, (response) => {
+        let data = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          data += chunk;
+        });
+        response.on('end', () => resolve(data));
+      });
+      request.on('error', reject);
+    });
+
+    assert.equal(body, 'loaded');
+    assert.equal(attempts, 2);
+  } finally {
+    await proxy.close();
+    await closeServer(upstream);
+  }
+});
+
+test('HTTP proxy listener retries POST requests with the original body', async () => {
+  const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
+  let attempts = 0;
+  const bodies = [];
+  const upstream = http.createServer((request, response) => {
+    let body = '';
+    request.setEncoding('utf8');
+    request.on('data', (chunk) => {
+      body += chunk;
+    });
+    request.on('end', () => {
+      attempts += 1;
+      bodies.push(body);
+      if (body !== 'upload') {
+        response.writeHead(400);
+        response.end('bad_body');
+        return;
+      }
+      if (attempts === 1) {
+        response.writeHead(502);
+        response.end('bad_gateway');
+        return;
+      }
+      response.end('saved');
+    });
+  });
+  const upstreamPort = await listen(upstream);
+  const proxy = await startHttpProxyListeners({
+    config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
+    state: { schemaVersion: 1, routeGroups: [] }
+  }, {
+    host: '127.0.0.1',
+    httpPort: 0,
+    httpsPort: 0,
+    ipcPort: 0
+  });
+  const httpPort = proxy.httpServer.address().port;
+
+  try {
+    const body = await new Promise((resolve, reject) => {
+      const request = http.request({
+        host: '127.0.0.1',
+        port: httpPort,
+        method: 'POST',
+        path: `http://127.0.0.1:${upstreamPort}/api/save`,
+        headers: {
+          host: `127.0.0.1:${upstreamPort}`,
+          'content-length': '6'
+        }
+      }, (response) => {
+        let data = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          data += chunk;
+        });
+        response.on('end', () => resolve(data));
+      });
+      request.on('error', (error) => reject(new Error(`${error.message}; attempts=${attempts}; bodies=${JSON.stringify(bodies)}`)));
+      request.end('upload');
+    });
+
+    assert.equal(body, 'saved');
+    assert.equal(attempts, 2);
+    assert.deepEqual(bodies, ['upload', 'upload']);
+  } finally {
+    await proxy.close();
+    await closeServer(upstream);
+  }
+});
+
+test('HTTP proxy listener retries content length mismatches before responding', async () => {
+  const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
+  let attempts = 0;
+  const upstream = http.createServer((request, response) => {
+    attempts += 1;
+    if (attempts === 1) {
+      response.setHeader('content-length', '6');
+      response.setHeader('connection', 'close');
+      response.end('bad');
+      return;
+    }
+    response.end('loaded');
+  });
+  const upstreamPort = await listen(upstream);
+  const proxy = await startHttpProxyListeners({
+    config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
+    state: { schemaVersion: 1, routeGroups: [] }
+  }, {
+    host: '127.0.0.1',
+    httpPort: 0,
+    httpsPort: 0,
+    ipcPort: 0
+  });
+  const httpPort = proxy.httpServer.address().port;
+
+  try {
+    const body = await new Promise((resolve, reject) => {
+      const request = http.get({
+        host: '127.0.0.1',
+        port: httpPort,
+        path: `http://127.0.0.1:${upstreamPort}/api/scenario/id/track`,
+        headers: { host: `127.0.0.1:${upstreamPort}` }
+      }, (response) => {
+        let data = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          data += chunk;
+        });
+        response.on('end', () => resolve(data));
+      });
+      request.on('error', reject);
+    });
+
+    assert.equal(body, 'loaded');
+    assert.equal(attempts, 2);
+  } finally {
+    await proxy.close();
+    await closeServer(upstream);
+  }
 });
 
 test('monitor parser reads Windows netstat connection rows', async () => {

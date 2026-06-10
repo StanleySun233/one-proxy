@@ -89,6 +89,110 @@ func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
 	}
 }
 
+func TestForwardDirectRetriesTransientStaticFailure(t *testing.T) {
+	attempts := 0
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		attempts += 1
+		if req.URL.Path != "/static/js/app.js" {
+			t.Fatalf("unexpected path %q", req.URL.Path)
+		}
+		if attempts == 1 {
+			http.Error(w, "bad_gateway", http.StatusBadGateway)
+			return
+		}
+		_, _ = w.Write([]byte("loaded"))
+	}))
+	defer origin.Close()
+
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, origin.URL+"/static/js/app.js", nil)
+	resp := httptest.NewRecorder()
+	NewServer(store, func() string { return "node-1" }, nil).ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+	if resp.Body.String() != "loaded" {
+		t.Fatalf("body = %q", resp.Body.String())
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d", attempts)
+	}
+}
+
+func TestForwardDirectRetriesPostRequest(t *testing.T) {
+	attempts := 0
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		attempts += 1
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != "upload" {
+			t.Fatalf("body = %q", body)
+		}
+		if attempts == 1 {
+			http.Error(w, "bad_gateway", http.StatusBadGateway)
+			return
+		}
+		_, _ = w.Write([]byte("saved"))
+	}))
+	defer origin.Close()
+
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, origin.URL+"/api/save", strings.NewReader("upload"))
+	resp := httptest.NewRecorder()
+	NewServer(store, func() string { return "node-1" }, nil).ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+	if resp.Body.String() != "saved" {
+		t.Fatalf("body = %q", resp.Body.String())
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d", attempts)
+	}
+}
+
+func TestForwardDirectRetriesContentLengthMismatch(t *testing.T) {
+	attempts := 0
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		attempts += 1
+		if attempts == 1 {
+			w.Header().Set("Content-Length", "6")
+			_, _ = w.Write([]byte("bad"))
+			return
+		}
+		_, _ = w.Write([]byte("loaded"))
+	}))
+	defer origin.Close()
+
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, origin.URL+"/api/scenario/id/track", nil)
+	resp := httptest.NewRecorder()
+	NewServer(store, func() string { return "node-1" }, nil).ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+	if resp.Body.String() != "loaded" {
+		t.Fatalf("body = %q", resp.Body.String())
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d", attempts)
+	}
+}
+
 func TestForwardDirectReportsProxySessionMetrics(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		body, err := io.ReadAll(req.Body)
