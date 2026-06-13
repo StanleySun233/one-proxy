@@ -7,8 +7,8 @@
 
 - [x] Route `onep ssh --tui` through the TUI runtime in `apps/cli/src/ssh.ts`
   - Commit: 8e7986b
-- [ ] Route `onep shell --tui` through the TUI runtime in `apps/cli/src/shell.ts`
-  - Commit:
+- [x] Route `onep shell --tui` through the TUI runtime in `apps/cli/src/shell.ts`
+  - Commit: f7a7a10
 - [ ] Route `onep run --tui` through the TUI runtime in `apps/cli/src/session-env.ts`
   - Commit:
 - [ ] Update command usage text in `apps/cli/src/main.ts` for `--tui` options
