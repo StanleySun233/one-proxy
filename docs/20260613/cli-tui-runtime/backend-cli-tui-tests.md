@@ -1,7 +1,7 @@
 # Backend Progress: cli-tui-tests
 
 **Engineer:** cli-tui-tests
-**Scope:** Add automated test coverage for the optional CLI TUI runtime.
+**Scope:** Add automated test coverage for the default CLI TUI runtime.
 
 ## Tasks
 

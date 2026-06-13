@@ -19,6 +19,7 @@ import { parseSshCommandArgs, parseSshTarget } from '../src/ssh.ts';
 import { parseShellCommandArgs } from '../src/shell.ts';
 import { parseRunCommandArgs } from '../src/session-env.ts';
 import { detectTuiCapability, tuiUnavailableWarning } from '../src/tui/capability.ts';
+import { buildTuiStatusSnapshot, collectTuiStatusSnapshot } from '../src/tui/status.ts';
 
 const repoRoot = path.resolve(import.meta.dirname, '../../..');
 const mainEntrypoint = path.join(repoRoot, 'apps/cli/src/main.ts');
@@ -238,7 +239,11 @@ test('explicit TUI request warns once before fallback when PTY is unavailable', 
   });
 
   assert.deepEqual(capability, { enabled: false, warn: true, reason: 'pty_unavailable' });
-  assert.equal(tuiUnavailableWarning, 'onep tui: unavailable, using standard terminal mode');
+  assert.equal(tuiUnavailableWarning, '! TUI failed to start; falling back to standard terminal mode.');
+});
+
+test('TUI status module exports the runtime snapshot entrypoint', () => {
+  assert.equal(buildTuiStatusSnapshot, collectTuiStatusSnapshot);
 });
 
 test('status --json output matches contract shape', async () => {

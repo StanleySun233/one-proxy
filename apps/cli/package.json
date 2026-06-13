@@ -1,6 +1,6 @@
 {
   "name": "@stanleysun233/oneproxy-cli",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "OneProxy CLI session proxy client",
   "type": "module",
   "bin": {
@@ -17,12 +17,12 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "node-pty": "^1.1.0"
+  },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^5.8.0"
-  },
-  "optionalDependencies": {
-    "node-pty": "^1.0.0"
   },
   "engines": {
     "node": ">=22"

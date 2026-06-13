@@ -1,5 +1,5 @@
 export { footerRowsForTerminal as footerRowsForTerminalHeight } from "./footer.js";
-export const tuiUnavailableWarning = 'onep tui: unavailable, using standard terminal mode';
+export const tuiUnavailableWarning = '! TUI failed to start; falling back to standard terminal mode.';
 export const minimumTuiRows = 10;
 const supportedPlatforms = new Set(['darwin', 'linux']);
 export function detectTuiCapability(input) {

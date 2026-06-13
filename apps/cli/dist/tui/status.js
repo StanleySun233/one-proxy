@@ -10,6 +10,7 @@ export async function collectTuiStatusSnapshot(input = {}) {
         path: pathSnapshot(input.route)
     };
 }
+export const buildTuiStatusSnapshot = collectTuiStatusSnapshot;
 function accountLabel(account) {
     return account?.email || account?.account || account?.id || 'not logged in';
 }

@@ -1,6 +1,6 @@
-import * as readline from 'node:readline/promises';
 import { emitKeypressEvents } from 'node:readline';
 import { stdin as input, stdout as output } from 'node:process';
+import { promptPassword, promptText } from "./prompt.js";
 import { startActivatedShell } from "./shell.js";
 import { addProfile, writeConfig, writeState, writeTokens } from "./storage.js";
 import { routeRulesFromBootstrap } from "./control-plane.js";
@@ -48,10 +48,7 @@ async function healthCheck(controlPlaneUrl) {
     }
 }
 async function prompt(label) {
-    const rl = readline.createInterface({ input, output });
-    const answer = (await rl.question(label)).trim();
-    rl.close();
-    return answer;
+    return promptText(label);
 }
 function tenantIdOf(tenant) {
     return tenant.id || tenant.tenantId || '';
@@ -127,7 +124,7 @@ export async function initCommand(_args, _context) {
     await healthCheck(panelUrl);
     process.stdout.write('Panel reachable.\n');
     const account = await prompt('Account: ');
-    const password = await prompt('Password: ');
+    const password = await promptPassword('Password: ');
     const profileName = profileNameFromUrl(panelUrl);
     process.env.ONEPROXY_PROFILE = profileName;
     await addProfile(profileName, panelUrl);

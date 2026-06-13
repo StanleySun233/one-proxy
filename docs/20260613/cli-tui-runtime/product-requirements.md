@@ -4,11 +4,11 @@
 
 `onep run`, `onep shell`, and `onep ssh` currently hand the terminal directly to the child process. This preserves native behavior, but users lose OneProxy context while the command is running. They cannot see account, tenant, latency, traffic totals, or route path without leaving the running workflow.
 
-The requested experience is a lightweight terminal shell where the child process keeps the main screen area and OneProxy owns a small fixed footer.
+The requested experience is a lightweight terminal shell where the child process keeps the main screen area and OneProxy owns a small fixed footer by default.
 
 ## Goal
 
-Add an optional TUI runtime for interactive CLI sessions. The TUI must show the child process in the main terminal area and reserve a one to three line footer for OneProxy status.
+Add a default TUI runtime for interactive CLI sessions. The TUI must show the child process in the main terminal area and reserve a one to three line footer for OneProxy status.
 
 Example footer:
 
@@ -39,15 +39,15 @@ user-entry-a-b-target
 
 ## User Experience
 
-TUI-capable commands may be invoked with:
+TUI-capable commands are invoked with:
 
 ```text
-onep ssh <host> --tui
-onep shell --tui
-onep run --tui <command...>
+onep ssh <host>
+onep shell
+onep run <command...>
 ```
 
-The default remains the current stdio behavior until the PTY path has enough production evidence.
+Interactive commands attempt the TUI footer by default. The current stdio behavior remains the fallback when TUI cannot run.
 
 When TUI is active:
 
@@ -59,7 +59,7 @@ When TUI is active:
 When TUI cannot run:
 
 - The command falls back to the current stdio path.
-- If the user explicitly requested `--tui`, the CLI prints one warning to stderr before fallback.
+- The CLI prints `! TUI failed to start; falling back to standard terminal mode.` to stderr before fallback.
 
 ## Footer Content
 
@@ -133,7 +133,7 @@ When color is disabled, all footer content must remain readable as plain text.
 
 ## Acceptance Criteria
 
-- `onep ssh --tui <host>` opens SSH through the same route plan as current `onep ssh`.
+- `onep ssh <host>` opens SSH through the same route plan as current `onep ssh` and attempts the TUI footer by default.
 - The child PTY never writes into the footer during normal resize and output flows.
 - Resizing the terminal updates child PTY rows and footer layout.
 - A terminal smaller than the minimum height falls back to stdio or a single-line footer without corrupting the child display.

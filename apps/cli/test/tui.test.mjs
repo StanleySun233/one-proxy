@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   detectTuiCapability,
+  tuiUnavailableWarning,
   footerRowsForTerminalHeight
 } from '../src/tui/capability.ts';
 import {
@@ -13,7 +14,7 @@ import {
   stripAnsi,
   visibleWidth
 } from '../src/tui/footer.ts';
-import { runTuiSession } from '../src/tui/runtime.ts';
+import { runTuiRuntime, runTuiSession } from '../src/tui/runtime.ts';
 
 function status(overrides = {}) {
   return {
@@ -230,4 +231,53 @@ test('runtime returns 1 when fake PTY exits by signal', async () => {
 
   pty.exit(0, 'SIGTERM');
   assert.equal(await session, 1);
+});
+
+test('runtime warns when default TUI cannot start', async () => {
+  const previous = {
+    stdin: process.stdin.isTTY,
+    stdout: process.stdout.isTTY,
+    stdoutRows: process.stdout.rows,
+    stderr: process.stderr.isTTY,
+    term: process.env.TERM
+  };
+  const originalWrite = process.stderr.write;
+  let stderr = '';
+  Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+  Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+  Object.defineProperty(process.stdout, 'rows', { value: 20, configurable: true });
+  Object.defineProperty(process.stderr, 'isTTY', { value: true, configurable: true });
+  process.env.TERM = 'dumb';
+  process.stderr.write = ((chunk, encoding, callback) => {
+    stderr += String(chunk);
+    if (typeof encoding === 'function') {
+      encoding();
+    } else if (callback) {
+      callback();
+    }
+    return true;
+  });
+  try {
+    const result = await runTuiRuntime({
+      command: { executable: 'node', args: [] },
+      snapshot: status(),
+      requested: true,
+      interactive: true,
+      json: false
+    });
+
+    assert.deepEqual(result, { ran: false });
+    assert.equal(stderr, `${tuiUnavailableWarning}\n`);
+  } finally {
+    Object.defineProperty(process.stdin, 'isTTY', { value: previous.stdin, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: previous.stdout, configurable: true });
+    Object.defineProperty(process.stdout, 'rows', { value: previous.stdoutRows, configurable: true });
+    Object.defineProperty(process.stderr, 'isTTY', { value: previous.stderr, configurable: true });
+    if (previous.term === undefined) {
+      delete process.env.TERM;
+    } else {
+      process.env.TERM = previous.term;
+    }
+    process.stderr.write = originalWrite;
+  }
 });

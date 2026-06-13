@@ -21,6 +21,8 @@ export async function collectTuiStatusSnapshot(input: TuiStatusInput = {}): Prom
   };
 }
 
+export const buildTuiStatusSnapshot = collectTuiStatusSnapshot;
+
 function accountLabel(account: Account | undefined): string {
   return account?.email || account?.account || account?.id || 'not logged in';
 }

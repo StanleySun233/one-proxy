@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { CliContext } from './main.ts';
+import { runTuiCommand } from './tui/runtime.ts';
+import { buildTuiStatusSnapshot } from './tui/status.ts';
 import {
   type DaemonBindings
 } from './storage.ts';
@@ -20,19 +22,6 @@ const unsetMarker = '__ONEPROXY_UNSET__';
 type LifecycleModule = {
   ensureDaemon?: () => Promise<{ metadata: { bindings: DaemonBindings } }>;
   startDaemonSession?: () => Promise<{ metadata: { bindings: DaemonBindings }; end: () => Promise<void> }>;
-};
-
-type TuiRuntimeModule = {
-  runTuiCommand?: (options: {
-    executable: string;
-    args: string[];
-    env?: NodeJS.ProcessEnv;
-    status?: unknown;
-  }) => Promise<number | { available?: boolean; exitCode?: number }>;
-};
-
-type TuiStatusModule = {
-  buildTuiStatusSnapshot?: (options?: Record<string, unknown>) => Promise<unknown> | unknown;
 };
 
 async function lifecycleBindings(): Promise<DaemonBindings | null> {
@@ -241,15 +230,11 @@ export async function runCommand(args: string[], _context: CliContext): Promise<
   if (!executable) {
     throw Object.assign(new Error('run requires a command.'), { code: 'COMMAND_NOT_FOUND', exitCode: 2 });
   }
-  if (parsed.tui && !_context.json) {
+  if (!_context.json) {
     const tuiExitCode = await tryRunCommandTui(executable, parsed.args.slice(1));
     if (tuiExitCode !== null) {
       return tuiExitCode;
     }
-    process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
-  }
-  if (parsed.tui && _context.json) {
-    process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
   }
   const lifecycle = (await import('./daemon/lifecycle.ts')) as LifecycleModule;
   const session = await lifecycle.startDaemonSession?.();
@@ -307,42 +292,29 @@ function stripTuiFlag(argv: string[]) {
 }
 
 async function tryRunCommandTui(executable: string, args: string[]): Promise<number | null> {
+  const lifecycle = (await import('./daemon/lifecycle.ts')) as LifecycleModule;
+  const session = await lifecycle.startDaemonSession?.();
+  if (!session) {
+    throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
+  }
   try {
-    const runtimePath = './tui/runtime.ts';
-    const statusPath = './tui/status.ts';
-    const [runtime, status] = await Promise.all([
-      import(runtimePath) as Promise<TuiRuntimeModule>,
-      import(statusPath) as Promise<TuiStatusModule>
-    ]);
-    if (!runtime.runTuiCommand || !status.buildTuiStatusSnapshot) {
+    const result = await runTuiCommand({
+      executable,
+      args,
+      env: {
+        ...process.env,
+        ...proxyEnv(session.metadata.bindings)
+      },
+      status: await buildTuiStatusSnapshot()
+    });
+    if (!result.available) {
       return null;
     }
-    const lifecycle = (await import('./daemon/lifecycle.ts')) as LifecycleModule;
-    const session = await lifecycle.startDaemonSession?.();
-    if (!session) {
-      throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
+    if (typeof result.exitCode !== 'number') {
+      throw Object.assign(new Error('TUI exited without a child exit code'), { code: 'TUI_RUNTIME_ERROR' });
     }
-    try {
-      const result = await runtime.runTuiCommand({
-        executable,
-        args,
-        env: {
-          ...process.env,
-          ...proxyEnv(session.metadata.bindings)
-        },
-        status: await status.buildTuiStatusSnapshot()
-      });
-      if (typeof result === 'number') {
-        return result;
-      }
-      if (result.available === false || typeof result.exitCode !== 'number') {
-        return null;
-      }
-      return result.exitCode;
-    } finally {
-      await session.end();
-    }
-  } catch {
-    return null;
+    return result.exitCode;
+  } finally {
+    await session.end();
   }
 }

@@ -1,14 +1,8 @@
-var __rewriteRelativeImportExtension = (this && this.__rewriteRelativeImportExtension) || function (path, preserveJsx) {
-    if (typeof path === "string" && /^\.\.?\//.test(path)) {
-        return path.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function (m, tsx, d, ext, cm) {
-            return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m : (d + ext + "." + cm.toLowerCase() + "js");
-        });
-    }
-    return path;
-};
 import { spawn } from 'node:child_process';
 import { ensureDaemon, readConfig, readState } from "./daemon/lifecycle.js";
 import { resolveRoute } from "./daemon/router.js";
+import { runTuiCommand } from "./tui/runtime.js";
+import { buildTuiStatusSnapshot } from "./tui/status.js";
 export class SshCommandError extends Error {
     code;
     constructor(code, message) {
@@ -19,15 +13,11 @@ export class SshCommandError extends Error {
 export async function runSsh(argv, context = { json: false }) {
     const parsed = parseSshCommandArgs(argv);
     const plan = await buildSshCommandPlan(parsed.args);
-    if (parsed.tui && !context.json) {
+    if (!context.json) {
         const tuiExitCode = await tryRunSshTui(plan);
         if (tuiExitCode !== null) {
             return tuiExitCode;
         }
-        process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
-    }
-    if (parsed.tui && context.json) {
-        process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
     }
     return await spawnSsh(plan.executable, plan.args);
 }
@@ -105,33 +95,19 @@ function stripTuiFlag(argv) {
     return { args, tui };
 }
 async function tryRunSshTui(plan) {
-    try {
-        const runtimePath = './tui/runtime.ts';
-        const statusPath = './tui/status.ts';
-        const [runtime, status] = await Promise.all([
-            import(__rewriteRelativeImportExtension(runtimePath)),
-            import(__rewriteRelativeImportExtension(statusPath))
-        ]);
-        if (!runtime.runTuiCommand || !status.buildTuiStatusSnapshot) {
-            return null;
-        }
-        const result = await runtime.runTuiCommand({
-            executable: plan.executable,
-            args: plan.args,
-            env: process.env,
-            status: await status.buildTuiStatusSnapshot({ route: plan.route })
-        });
-        if (typeof result === 'number') {
-            return result;
-        }
-        if (result.available === false || typeof result.exitCode !== 'number') {
-            return null;
-        }
-        return result.exitCode;
-    }
-    catch {
+    const result = await runTuiCommand({
+        executable: plan.executable,
+        args: plan.args,
+        env: process.env,
+        status: await buildTuiStatusSnapshot({ route: plan.route })
+    });
+    if (!result.available) {
         return null;
     }
+    if (typeof result.exitCode !== 'number') {
+        throw Object.assign(new Error('TUI exited without a child exit code'), { code: 'TUI_RUNTIME_ERROR' });
+    }
+    return result.exitCode;
 }
 async function spawnSsh(executable, args) {
     const child = spawn(executable, args, { stdio: 'inherit' });

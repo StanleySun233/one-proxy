@@ -1,5 +1,4 @@
-import * as readline from 'node:readline/promises';
-import { stdin as input, stdout as output } from 'node:process';
+import { promptPassword, promptText } from "./prompt.js";
 import { clearTokens, activeProfileName, addProfile, readConfig, readState, readTokens, writeConfig, writeState, writeTokens, useProfile } from "./storage.js";
 function print(value, context) {
     if (context.json) {
@@ -55,10 +54,13 @@ async function promptMissing(value, label) {
     if (value) {
         return value;
     }
-    const rl = readline.createInterface({ input, output });
-    const answer = (await rl.question(`${label}: `)).trim();
-    rl.close();
-    return answer;
+    return promptText(`${label}: `);
+}
+async function promptMissingPassword(value) {
+    if (value) {
+        return value;
+    }
+    return promptPassword('Password: ');
 }
 function tokenFromLogin(result) {
     const accessTokenExpiresAt = result.tokens?.expiresAt || result.expiresAt;
@@ -102,7 +104,7 @@ export async function login(args, context) {
     const config = await readConfig();
     const controlPlaneUrl = requestedControlPlaneUrl || config.controlPlaneUrl;
     const account = await promptMissing(optionValue(args, '--account') || process.env.ONEPROXY_ACCOUNT, 'Account');
-    const password = await promptMissing(process.env.ONEPROXY_PASSWORD, 'Password');
+    const password = await promptMissingPassword(process.env.ONEPROXY_PASSWORD);
     const nextConfig = { ...config, controlPlaneUrl };
     if (!nextConfig.controlPlaneUrl) {
         throw Object.assign(new Error('login requires --control-plane <url> or ONEPROXY_CONTROL_PLANE_URL.'), { code: 'AUTH_REQUIRED' });

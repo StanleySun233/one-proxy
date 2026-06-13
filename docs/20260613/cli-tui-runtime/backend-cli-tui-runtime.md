@@ -1,7 +1,7 @@
 # Backend Progress: cli-tui-runtime
 
 **Engineer:** cli-tui-core
-**Scope:** Implement optional TUI runtime core modules for interactive CLI commands.
+**Scope:** Implement default TUI runtime core modules for interactive CLI commands.
 
 ## Current Analysis
 
@@ -11,12 +11,12 @@ The existing CLI starts interactive children with inherited stdio:
 - `apps/cli/src/shell.ts` starts the child shell with inherited stdio.
 - `apps/cli/src/session-env.ts` starts `onep run` children with inherited stdio on non-Windows.
 
-The current CLI Session Proxy contract also says `onep run` streams child stdout and stderr without changing content and forwards stdin to the child. A footer TUI changes terminal ownership, so it must be optional first and must have a clean fallback to the existing path.
+The current CLI Session Proxy contract also says `onep run` streams child stdout and stderr without changing content and forwards stdin to the child. A footer TUI changes terminal ownership, so it must preserve a clean fallback to the existing path for unsupported terminal environments.
 
 ## Proposed Architecture
 
 ```text
-onep ssh --tui
+onep ssh
   -> build existing SSH command plan
   -> build TUI status snapshot from config, tokens, daemon metadata, and route
   -> start child command inside PTY sized to terminal rows minus footer rows
@@ -81,20 +81,20 @@ Footer colors:
 ## Phasing
 
 1. Implement shared TUI modules with fake PTY tests.
-2. Add `onep ssh --tui`.
+2. Add default `onep ssh` TUI routing.
 3. Manually verify SSH with real terminal resize.
-4. Add `onep shell --tui`.
-5. Add `onep run --tui`.
-6. Decide whether any TUI path should become default after production feedback.
+4. Add default `onep shell` TUI routing.
+5. Add default `onep run` TUI routing.
+6. Keep compatible `--tui` stripping without documenting it as the primary entrypoint.
 
 ## Open Risks
 
 - Native `node-pty` packaging can fail on some Node/platform combinations.
-- Some full-screen children already manage alternate screen buffers; footer rendering must be tested with vim, ssh, code, and shell prompts before default enablement.
+- Some full-screen children already manage alternate screen buffers; footer rendering must be tested with vim, ssh, code, and shell prompts.
 
 ## Tasks
 
-- [x] Finalize optional TUI command flags, footer shape, color semantics, and fallback semantics in `docs/20260613/cli-tui-runtime/api-contract.md`
+- [x] Finalize default TUI command behavior, footer shape, color semantics, and fallback semantics in `docs/20260613/cli-tui-runtime/api-contract.md`
   - Commit: `745c2bc`
 - [x] Add capability detector
   - Commit: `b421aa1`

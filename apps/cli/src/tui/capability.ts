@@ -1,6 +1,6 @@
 export { footerRowsForTerminal as footerRowsForTerminalHeight } from './footer.ts';
 
-export const tuiUnavailableWarning = 'onep tui: unavailable, using standard terminal mode';
+export const tuiUnavailableWarning = '! TUI failed to start; falling back to standard terminal mode.';
 
 export type TuiCapabilityInput = {
   requested: boolean;

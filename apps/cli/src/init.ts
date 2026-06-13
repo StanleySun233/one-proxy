@@ -2,6 +2,7 @@ import * as readline from 'node:readline/promises';
 import { emitKeypressEvents } from 'node:readline';
 import { stdin as input, stdout as output } from 'node:process';
 import type { CliContext } from './main.ts';
+import { promptPassword, promptText } from './prompt.ts';
 import { startActivatedShell } from './shell.ts';
 import {
   addProfile,
@@ -87,10 +88,7 @@ async function healthCheck(controlPlaneUrl: string): Promise<void> {
 }
 
 async function prompt(label: string): Promise<string> {
-  const rl = readline.createInterface({ input, output });
-  const answer = (await rl.question(label)).trim();
-  rl.close();
-  return answer;
+  return promptText(label);
 }
 
 function tenantIdOf(tenant: Tenant): string {
@@ -173,7 +171,7 @@ export async function initCommand(_args: string[], _context: CliContext): Promis
   process.stdout.write('Panel reachable.\n');
 
   const account = await prompt('Account: ');
-  const password = await prompt('Password: ');
+  const password = await promptPassword('Password: ');
   const profileName = profileNameFromUrl(panelUrl);
   process.env.ONEPROXY_PROFILE = profileName;
   await addProfile(profileName, panelUrl);

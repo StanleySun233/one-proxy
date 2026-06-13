@@ -1,7 +1,7 @@
 # Test Progress: cli-tui
 
 **Engineer:** test-cli-tui
-**Scope:** Verify optional CLI TUI runtime behavior.
+**Scope:** Verify default CLI TUI runtime behavior.
 
 ## Test Plan
 
@@ -33,11 +33,12 @@
   - child exit code propagates.
   - PTY load failure falls back when requested.
 
-- Command parsing:
-  - `onep ssh host --tui`
-  - `onep ssh host -p 2222 --tui`
-  - `onep shell --tui`
-  - `onep run --tui code .`
+- Command behavior:
+  - `onep ssh host`
+  - `onep ssh host -p 2222`
+  - `onep shell`
+  - `onep run code .`
+  - compatible `--tui` stripping
 
 ## Tasks
 

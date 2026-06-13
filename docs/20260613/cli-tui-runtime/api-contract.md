@@ -2,28 +2,28 @@
 
 ## Scope
 
-This contract defines the optional TUI runtime for interactive `onep` commands. It extends the existing CLI Session Proxy behavior without replacing the default stdio path.
+This contract defines the default TUI runtime for interactive `onep` commands. It extends the existing CLI Session Proxy behavior without removing the stdio fallback for unsupported environments.
 
 ## Command Flags
 
-`--tui` is an optional boolean command flag. The default remains standard terminal mode unless the flag is present. The flag is accepted only by interactive command paths and must not be accepted for JSON output modes.
+The TUI footer is attempted by default for interactive command paths. `--tui` is retained only as a compatibility flag and is stripped before child command execution.
 
-### `onep ssh <target> [options] --tui`
+### `onep ssh <target> [options]`
 
 Runs the existing SSH command plan inside the OneProxy TUI runtime when supported.
 
 Existing SSH options remain valid:
 
 ```text
-onep ssh <host> [-p <port>] [--tui]
-onep ssh <user>@<host> [-p <port>] [--tui]
+onep ssh <host> [-p <port>]
+onep ssh <user>@<host> [-p <port>]
 ```
 
-### `onep shell --tui`
+### `onep shell`
 
 Runs the activated child shell inside the OneProxy TUI runtime when supported.
 
-### `onep run --tui <command...>`
+### `onep run <command...>`
 
 Runs the wrapped child command inside the OneProxy TUI runtime when supported.
 
@@ -43,8 +43,7 @@ The TUI runtime may start only when all conditions are true:
 
 If any condition fails:
 
-- When `--tui` was not requested, use the existing stdio path silently.
-- When `--tui` was requested, print `onep tui: unavailable, using standard terminal mode` to stderr exactly once and use the existing stdio path.
+- Print `! TUI failed to start; falling back to standard terminal mode.` to stderr exactly once and use the existing stdio path.
 - Fallback must not change the child command, environment, stdio inheritance, or exit-code behavior used by the existing command path.
 
 ## PTY Geometry
@@ -209,7 +208,7 @@ Path formatting rules:
 
 ## Dependency Contract
 
-`node-pty` is an optional runtime dependency for the TUI path. The CLI must not fail at startup if `node-pty` cannot be loaded. The TUI module must import it dynamically only after activation rules pass.
+`node-pty` is a runtime dependency for the TUI path. TUI module contracts must be statically imported by command wiring so missing exports fail during build instead of disappearing at runtime.
 
 ## Exit Contract
 
@@ -229,7 +228,8 @@ Unit tests must cover:
 - ANSI color mapping and width calculation with color enabled.
 - Path text derived from `path.nodes`.
 - Status snapshot construction.
-- `--tui` argument parsing for `ssh`, `shell`, and `run`.
+- Default TUI activation for `ssh`, `shell`, and `run`.
+- Compatible `--tui` argument stripping for `ssh`, `shell`, and `run`.
 - Fallback behavior when PTY is unavailable.
 
 Integration or smoke tests should use a fake PTY adapter rather than requiring native `node-pty` in CI.

@@ -6,7 +6,7 @@
 ## Tasks
 
 - [x] Verify implementation against `docs/20260613/cli-tui-runtime/product-requirements.md`
-  - Result: Passed. The optional TUI runtime supports `onep ssh --tui`, `onep shell --tui`, and `onep run --tui`; keeps the default stdio path; renders unlabeled account, tenant, ping, right-aligned totals, and compact route path; and falls back when TUI capability checks fail.
+  - Result: Passed. The default TUI runtime supports `onep ssh`, `onep shell`, and `onep run`; keeps stdio fallback for unsupported terminal environments; renders unlabeled account, tenant, ping, right-aligned totals, and compact route path; and warns when fallback is used.
 
 ## Gaps
 

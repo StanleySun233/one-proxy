@@ -7,3 +7,4 @@ export type TuiStatusInput = {
     downloadBytes?: number | null;
 };
 export declare function collectTuiStatusSnapshot(input?: TuiStatusInput): Promise<TuiStatusSnapshot>;
+export declare const buildTuiStatusSnapshot: typeof collectTuiStatusSnapshot;
