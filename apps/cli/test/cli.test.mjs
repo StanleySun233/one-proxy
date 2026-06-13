@@ -15,6 +15,10 @@ import {
 } from '../src/storage.ts';
 import { routeRulesFromBootstrap } from '../src/control-plane.ts';
 import { resolveRoute } from '../src/daemon/router.ts';
+import { parseSshCommandArgs, parseSshTarget } from '../src/ssh.ts';
+import { parseShellCommandArgs } from '../src/shell.ts';
+import { parseRunCommandArgs } from '../src/session-env.ts';
+import { detectTuiCapability, tuiUnavailableWarning } from '../src/tui/capability.ts';
 
 const repoRoot = path.resolve(import.meta.dirname, '../../..');
 const mainEntrypoint = path.join(repoRoot, 'apps/cli/src/main.ts');
@@ -193,6 +197,48 @@ test('command parser handles help and unknown commands', async () => {
     assert.equal(unknown.status, 2);
     assert.match(unknown.stderr, /Unknown command: missing-command/);
   });
+});
+
+test('ssh --tui parsing strips the runtime flag before target parsing', () => {
+  const parsed = parseSshCommandArgs(['stanley@Ssh.Example', '-p', '2222', '--tui']);
+  assert.deepEqual(parsed, { args: ['stanley@Ssh.Example', '-p', '2222'], tui: true });
+
+  assert.deepEqual(parseSshTarget(parsed.args), {
+    user: 'stanley',
+    host: 'ssh.example',
+    port: 2222,
+    original: 'stanley@Ssh.Example'
+  });
+});
+
+test('shell --tui parsing enables TUI without passing the flag to the child shell', () => {
+  assert.deepEqual(parseShellCommandArgs(['--tui']), { args: [], tui: true });
+  assert.deepEqual(parseShellCommandArgs([]), { args: [], tui: false });
+});
+
+test('run --tui parsing preserves the command argv after the runtime flag', () => {
+  assert.deepEqual(parseRunCommandArgs(['--tui', 'node', 'script.mjs', '--inspect']), {
+    args: ['node', 'script.mjs', '--inspect'],
+    tui: true
+  });
+});
+
+test('explicit TUI request warns once before fallback when PTY is unavailable', () => {
+  const capability = detectTuiCapability({
+    requested: true,
+    interactive: true,
+    json: false,
+    stdinIsTty: true,
+    stdoutIsTty: true,
+    stderrIsTty: true,
+    term: 'xterm-256color',
+    platform: 'linux',
+    rows: 20,
+    ptyAvailable: false
+  });
+
+  assert.deepEqual(capability, { enabled: false, warn: true, reason: 'pty_unavailable' });
+  assert.equal(tuiUnavailableWarning, 'onep tui: unavailable, using standard terminal mode');
 });
 
 test('status --json output matches contract shape', async () => {
