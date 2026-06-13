@@ -102,8 +102,8 @@ Footer colors:
   - Commit: `85cc1cb`
 - [x] Add PTY adapter
   - Commit: `d101e48`
-- [ ] Add runtime orchestrator
-  - Commit:
+- [x] Add runtime orchestrator
+  - Commit: `4dfcbd9`
 - [ ] Add status collector
   - Commit:
 
