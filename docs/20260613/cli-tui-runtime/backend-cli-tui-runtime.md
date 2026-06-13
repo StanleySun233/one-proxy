@@ -98,8 +98,8 @@ Footer colors:
   - Commit: `745c2bc`
 - [x] Add capability detector
   - Commit: `b421aa1`
-- [ ] Add footer planner and formatter
-  - Commit:
+- [x] Add footer planner and formatter
+  - Commit: `85cc1cb`
 - [ ] Add PTY adapter
   - Commit:
 - [ ] Add runtime orchestrator
