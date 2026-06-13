@@ -1,3 +1,11 @@
+var __rewriteRelativeImportExtension = (this && this.__rewriteRelativeImportExtension) || function (path, preserveJsx) {
+    if (typeof path === "string" && /^\.\.?\//.test(path)) {
+        return path.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function (m, tsx, d, ext, cm) {
+            return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m : (d + ext + "." + cm.toLowerCase() + "js");
+        });
+    }
+    return path;
+};
 import { spawn } from 'node:child_process';
 import { proxyEnv } from "./session-env.js";
 import { startDaemonSession } from "./daemon/lifecycle.js";
@@ -45,6 +53,72 @@ export async function startActivatedShell() {
     });
 }
 export async function shellCommand(_args, _context) {
+    const parsed = parseShellCommandArgs(_args);
+    if (parsed.tui && !_context.json) {
+        const tuiExitCode = await tryStartActivatedShellTui();
+        if (tuiExitCode !== null) {
+            return tuiExitCode;
+        }
+        process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
+    }
+    if (parsed.tui && _context.json) {
+        process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
+    }
     return startActivatedShell();
+}
+export function parseShellCommandArgs(argv) {
+    return stripTuiFlag(argv);
+}
+function stripTuiFlag(argv) {
+    const args = [];
+    let tui = false;
+    for (const value of argv) {
+        if (value === '--tui') {
+            tui = true;
+        }
+        else {
+            args.push(value);
+        }
+    }
+    return { args, tui };
+}
+async function tryStartActivatedShellTui() {
+    try {
+        const runtimePath = './tui/runtime.ts';
+        const statusPath = './tui/status.ts';
+        const [runtime, status] = await Promise.all([
+            import(__rewriteRelativeImportExtension(runtimePath)),
+            import(__rewriteRelativeImportExtension(statusPath))
+        ]);
+        if (!runtime.runTuiCommand || !status.buildTuiStatusSnapshot) {
+            return null;
+        }
+        const shell = defaultShell();
+        const session = await startDaemonSession();
+        try {
+            const result = await runtime.runTuiCommand({
+                executable: shell,
+                args: shellArgs(shell),
+                env: {
+                    ...process.env,
+                    ...proxyEnv(session.metadata.bindings)
+                },
+                status: await status.buildTuiStatusSnapshot()
+            });
+            if (typeof result === 'number') {
+                return result;
+            }
+            if (result.available === false || typeof result.exitCode !== 'number') {
+                return null;
+            }
+            return result.exitCode;
+        }
+        finally {
+            await session.end();
+        }
+    }
+    catch {
+        return null;
+    }
 }
 //# sourceMappingURL=shell.js.map

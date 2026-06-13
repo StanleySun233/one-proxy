@@ -2,6 +2,7 @@ import * as http from 'node:http';
 import * as net from 'node:net';
 import { closeServer, listenHttpServer, readConfig, readState, readTokens } from "./lifecycle.js";
 import { resolveRoute } from "./router.js";
+const proxyRetryBackoffs = [100, 250];
 export async function startHttpProxyListeners(input, bindings, liveState = false, onProxyActivity) {
     const httpServer = createHttpProxyServer(input, liveState, onProxyActivity);
     const httpsServer = createHttpProxyServer(input, liveState, onProxyActivity);
@@ -20,7 +21,12 @@ export async function startHttpProxyListeners(input, bindings, liveState = false
 export function createHttpProxyServer(input, liveState = false, onProxyActivity) {
     const server = http.createServer((request, response) => {
         onProxyActivity?.();
-        proxyHttpRequest(input, liveState, request, response);
+        proxyHttpRequest(input, liveState, request, response).catch(() => {
+            if (!response.headersSent) {
+                response.writeHead(502);
+            }
+            response.end();
+        });
     });
     server.on('connect', async (request, clientSocket, head) => {
         onProxyActivity?.();
@@ -80,23 +86,23 @@ async function proxyHttpRequest(input, liveState, request, response) {
             headers['proxy-authorization'] = `Bearer ${token}`;
         }
     }
-    const upstreamRequest = http.request({
+    const upstreamOptions = {
         host: route.mode === 'proxy' && route.topology ? route.topology.entryHost : target.host,
         port: route.mode === 'proxy' && route.topology ? route.topology.entryPort : target.port,
         method: request.method,
         path: route.mode === 'proxy' ? target.url : target.path,
         headers
-    }, (upstreamResponse) => {
-        response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
-        upstreamResponse.pipe(response);
-    });
-    upstreamRequest.on('error', () => {
+    };
+    try {
+        const body = await readRequestBody(request);
+        await forwardHttpWithRetry(request.method || 'GET', body, response, upstreamOptions);
+    }
+    catch {
         if (!response.headersSent) {
             response.writeHead(502);
         }
         response.end();
-    });
-    request.pipe(upstreamRequest);
+    }
 }
 async function proxyContext(input, liveState) {
     return liveState ? { config: await readConfig(), state: await readState() } : input;
@@ -144,5 +150,79 @@ function connectRequest(host, port, token) {
 }
 async function proxyToken() {
     return (await readTokens())?.proxyToken;
+}
+async function forwardHttpWithRetry(method, body, response, upstreamOptions) {
+    let attempt = 0;
+    for (;;) {
+        try {
+            const upstreamResponse = await sendProxyRequest(method, body, upstreamOptions);
+            if (attempt < proxyRetryBackoffs.length && retryableProxyStatus(upstreamResponse.statusCode)) {
+                const delay = proxyRetryBackoffs[attempt];
+                attempt += 1;
+                await sleep(delay);
+                continue;
+            }
+            response.writeHead(upstreamResponse.statusCode, upstreamResponse.headers);
+            response.end(method === 'HEAD' ? undefined : upstreamResponse.body);
+            return;
+        }
+        catch (error) {
+            if (attempt < proxyRetryBackoffs.length) {
+                const delay = proxyRetryBackoffs[attempt];
+                attempt += 1;
+                await sleep(delay);
+                continue;
+            }
+            throw error;
+        }
+    }
+}
+function readRequestBody(request) {
+    return new Promise((resolve, reject) => {
+        const chunks = [];
+        request.on('data', (chunk) => {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        request.on('end', () => resolve(Buffer.concat(chunks)));
+        request.on('error', reject);
+        request.on('aborted', () => reject(new Error('request_aborted')));
+    });
+}
+function sendProxyRequest(method, body, upstreamOptions) {
+    return new Promise((resolve, reject) => {
+        const upstreamRequest = http.request(upstreamOptions, (upstreamResponse) => {
+            const chunks = [];
+            upstreamResponse.on('data', (chunk) => {
+                chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            });
+            upstreamResponse.on('end', () => {
+                const responseBody = method === 'HEAD' ? Buffer.alloc(0) : Buffer.concat(chunks);
+                const contentLength = upstreamResponse.headers['content-length'];
+                if (method !== 'HEAD' && typeof contentLength === 'string' && Number(contentLength) !== responseBody.length) {
+                    reject(new Error('response_content_length_mismatch'));
+                    return;
+                }
+                resolve({
+                    statusCode: upstreamResponse.statusCode ?? 502,
+                    headers: upstreamResponse.headers,
+                    body: responseBody
+                });
+            });
+            upstreamResponse.on('error', reject);
+            upstreamResponse.on('aborted', () => reject(new Error('response_aborted')));
+        });
+        upstreamRequest.on('error', reject);
+        if (body.length > 0) {
+            upstreamRequest.end(body);
+            return;
+        }
+        upstreamRequest.end();
+    });
+}
+function retryableProxyStatus(statusCode) {
+    return statusCode === 502 || statusCode === 503 || statusCode === 504;
+}
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 //# sourceMappingURL=http-proxy.js.map

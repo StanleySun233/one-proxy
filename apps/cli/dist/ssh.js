@@ -1,3 +1,11 @@
+var __rewriteRelativeImportExtension = (this && this.__rewriteRelativeImportExtension) || function (path, preserveJsx) {
+    if (typeof path === "string" && /^\.\.?\//.test(path)) {
+        return path.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function (m, tsx, d, ext, cm) {
+            return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m : (d + ext + "." + cm.toLowerCase() + "js");
+        });
+    }
+    return path;
+};
 import { spawn } from 'node:child_process';
 import { ensureDaemon, readConfig, readState } from "./daemon/lifecycle.js";
 import { resolveRoute } from "./daemon/router.js";
@@ -8,9 +16,23 @@ export class SshCommandError extends Error {
         this.code = code;
     }
 }
-export async function runSsh(argv) {
-    const plan = await buildSshCommandPlan(argv);
+export async function runSsh(argv, context = { json: false }) {
+    const parsed = parseSshCommandArgs(argv);
+    const plan = await buildSshCommandPlan(parsed.args);
+    if (parsed.tui && !context.json) {
+        const tuiExitCode = await tryRunSshTui(plan);
+        if (tuiExitCode !== null) {
+            return tuiExitCode;
+        }
+        process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
+    }
+    if (parsed.tui && context.json) {
+        process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
+    }
     return await spawnSsh(plan.executable, plan.args);
+}
+export function parseSshCommandArgs(argv) {
+    return stripTuiFlag(argv);
 }
 export async function buildSshCommandPlan(argv) {
     const target = parseSshTarget(argv);
@@ -68,6 +90,48 @@ function proxyCommand(proxyHost, proxyPort) {
 }
 function shellQuote(value) {
     return `'${value.replace(/'/g, "'\\''")}'`;
+}
+function stripTuiFlag(argv) {
+    const args = [];
+    let tui = false;
+    for (const value of argv) {
+        if (value === '--tui') {
+            tui = true;
+        }
+        else {
+            args.push(value);
+        }
+    }
+    return { args, tui };
+}
+async function tryRunSshTui(plan) {
+    try {
+        const runtimePath = './tui/runtime.ts';
+        const statusPath = './tui/status.ts';
+        const [runtime, status] = await Promise.all([
+            import(__rewriteRelativeImportExtension(runtimePath)),
+            import(__rewriteRelativeImportExtension(statusPath))
+        ]);
+        if (!runtime.runTuiCommand || !status.buildTuiStatusSnapshot) {
+            return null;
+        }
+        const result = await runtime.runTuiCommand({
+            executable: plan.executable,
+            args: plan.args,
+            env: process.env,
+            status: await status.buildTuiStatusSnapshot({ route: plan.route })
+        });
+        if (typeof result === 'number') {
+            return result;
+        }
+        if (result.available === false || typeof result.exitCode !== 'number') {
+            return null;
+        }
+        return result.exitCode;
+    }
+    catch {
+        return null;
+    }
 }
 async function spawnSsh(executable, args) {
     const child = spawn(executable, args, { stdio: 'inherit' });

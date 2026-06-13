@@ -1,3 +1,11 @@
+var __rewriteRelativeImportExtension = (this && this.__rewriteRelativeImportExtension) || function (path, preserveJsx) {
+    if (typeof path === "string" && /^\.\.?\//.test(path)) {
+        return path.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function (m, tsx, d, ext, cm) {
+            return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m : (d + ext + "." + cm.toLowerCase() + "js");
+        });
+    }
+    return path;
+};
 import { spawn } from 'node:child_process';
 const preservedProxyVariables = [
     'HTTP_PROXY',
@@ -190,9 +198,20 @@ function spawnWindowsCommand(executable, args, env) {
     });
 }
 export async function runCommand(args, _context) {
-    const executable = args[0];
+    const parsed = parseRunCommandArgs(args);
+    const executable = parsed.args[0];
     if (!executable) {
         throw Object.assign(new Error('run requires a command.'), { code: 'COMMAND_NOT_FOUND', exitCode: 2 });
+    }
+    if (parsed.tui && !_context.json) {
+        const tuiExitCode = await tryRunCommandTui(executable, parsed.args.slice(1));
+        if (tuiExitCode !== null) {
+            return tuiExitCode;
+        }
+        process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
+    }
+    if (parsed.tui && _context.json) {
+        process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
     }
     const lifecycle = (await import("./daemon/lifecycle.js"));
     const session = await lifecycle.startDaemonSession?.();
@@ -205,8 +224,8 @@ export async function runCommand(args, _context) {
         ...proxyEnv(bindings)
     };
     const child = process.platform === 'win32'
-        ? spawnWindowsCommand(executable, args.slice(1), env)
-        : spawn(executable, args.slice(1), {
+        ? spawnWindowsCommand(executable, parsed.args.slice(1), env)
+        : spawn(executable, parsed.args.slice(1), {
             stdio: 'inherit',
             env
         });
@@ -230,5 +249,63 @@ export async function runCommand(args, _context) {
             }, reject);
         });
     });
+}
+export function parseRunCommandArgs(argv) {
+    return stripTuiFlag(argv);
+}
+function stripTuiFlag(argv) {
+    const args = [];
+    let tui = false;
+    for (const value of argv) {
+        if (value === '--tui') {
+            tui = true;
+        }
+        else {
+            args.push(value);
+        }
+    }
+    return { args, tui };
+}
+async function tryRunCommandTui(executable, args) {
+    try {
+        const runtimePath = './tui/runtime.ts';
+        const statusPath = './tui/status.ts';
+        const [runtime, status] = await Promise.all([
+            import(__rewriteRelativeImportExtension(runtimePath)),
+            import(__rewriteRelativeImportExtension(statusPath))
+        ]);
+        if (!runtime.runTuiCommand || !status.buildTuiStatusSnapshot) {
+            return null;
+        }
+        const lifecycle = (await import("./daemon/lifecycle.js"));
+        const session = await lifecycle.startDaemonSession?.();
+        if (!session) {
+            throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
+        }
+        try {
+            const result = await runtime.runTuiCommand({
+                executable,
+                args,
+                env: {
+                    ...process.env,
+                    ...proxyEnv(session.metadata.bindings)
+                },
+                status: await status.buildTuiStatusSnapshot()
+            });
+            if (typeof result === 'number') {
+                return result;
+            }
+            if (result.available === false || typeof result.exitCode !== 'number') {
+                return null;
+            }
+            return result.exitCode;
+        }
+        finally {
+            await session.end();
+        }
+    }
+    catch {
+        return null;
+    }
 }
 //# sourceMappingURL=session-env.js.map

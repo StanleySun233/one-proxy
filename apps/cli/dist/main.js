@@ -41,13 +41,13 @@ function usage() {
         '  sync',
         '  status [--json]',
         '  env [on|off]',
-        '  shell',
-        '  run <command...>',
+        '  shell [--tui]',
+        '  run [--tui] <command...>',
         '  monitor <command...>',
         '  override list|direct add <host>|proxy add <host>|remove <host>|clear',
         '  route <url-or-host> [--json]',
         '  test <url-or-host> [--json]',
-        '  ssh <host|user@host> [-p <port>]',
+        '  ssh <host|user@host> [-p <port>] [--tui]',
         '  doctor [--json]'
     ].join('\n');
 }

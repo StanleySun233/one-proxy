@@ -1,3 +1,4 @@
+import type { CliContext } from './main.ts';
 import type { RouteResult } from './daemon/router.ts';
 export type SshTarget = {
     user?: string;
@@ -14,6 +15,10 @@ export declare class SshCommandError extends Error {
     code: string;
     constructor(code: string, message: string);
 }
-export declare function runSsh(argv: string[]): Promise<number>;
+export declare function runSsh(argv: string[], context?: CliContext): Promise<number>;
+export declare function parseSshCommandArgs(argv: string[]): {
+    args: string[];
+    tui: boolean;
+};
 export declare function buildSshCommandPlan(argv: string[]): Promise<SshCommandPlan>;
 export declare function parseSshTarget(argv: string[]): SshTarget;
