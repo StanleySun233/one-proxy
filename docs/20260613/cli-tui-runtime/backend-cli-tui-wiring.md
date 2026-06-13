@@ -9,8 +9,8 @@
   - Commit: 8e7986b
 - [x] Route `onep shell --tui` through the TUI runtime in `apps/cli/src/shell.ts`
   - Commit: f7a7a10
-- [ ] Route `onep run --tui` through the TUI runtime in `apps/cli/src/session-env.ts`
-  - Commit:
+- [x] Route `onep run --tui` through the TUI runtime in `apps/cli/src/session-env.ts`
+  - Commit: 51a77a4
 - [ ] Update command usage text in `apps/cli/src/main.ts` for `--tui` options
   - Commit:
 - [ ] Add optional TUI dependency metadata in `apps/cli/package.json`
