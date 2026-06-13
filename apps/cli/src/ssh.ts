@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import type { CliContext } from './main.ts';
 import { ensureDaemon, readConfig, readState } from './daemon/lifecycle.ts';
 import { resolveRoute } from './daemon/router.ts';
 import type { RouteResult } from './daemon/router.ts';
@@ -16,6 +17,19 @@ export type SshCommandPlan = {
   route: RouteResult;
 };
 
+type TuiRuntimeModule = {
+  runTuiCommand?: (options: {
+    executable: string;
+    args: string[];
+    env?: NodeJS.ProcessEnv;
+    status?: unknown;
+  }) => Promise<number | { available?: boolean; exitCode?: number }>;
+};
+
+type TuiStatusModule = {
+  buildTuiStatusSnapshot?: (options: { route: RouteResult }) => Promise<unknown> | unknown;
+};
+
 export class SshCommandError extends Error {
   code: string;
 
@@ -25,8 +39,19 @@ export class SshCommandError extends Error {
   }
 }
 
-export async function runSsh(argv: string[]) {
-  const plan = await buildSshCommandPlan(argv);
+export async function runSsh(argv: string[], context: CliContext = { json: false }) {
+  const parsed = stripTuiFlag(argv);
+  const plan = await buildSshCommandPlan(parsed.args);
+  if (parsed.tui && !context.json) {
+    const tuiExitCode = await tryRunSshTui(plan);
+    if (tuiExitCode !== null) {
+      return tuiExitCode;
+    }
+    process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
+  }
+  if (parsed.tui && context.json) {
+    process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
+  }
   return await spawnSsh(plan.executable, plan.args);
 }
 
@@ -87,6 +112,48 @@ function proxyCommand(proxyHost: string, proxyPort: number) {
 
 function shellQuote(value: string) {
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function stripTuiFlag(argv: string[]) {
+  const args: string[] = [];
+  let tui = false;
+  for (const value of argv) {
+    if (value === '--tui') {
+      tui = true;
+    } else {
+      args.push(value);
+    }
+  }
+  return { args, tui };
+}
+
+async function tryRunSshTui(plan: SshCommandPlan): Promise<number | null> {
+  try {
+    const runtimePath = './tui/runtime.ts';
+    const statusPath = './tui/status.ts';
+    const [runtime, status] = await Promise.all([
+      import(runtimePath) as Promise<TuiRuntimeModule>,
+      import(statusPath) as Promise<TuiStatusModule>
+    ]);
+    if (!runtime.runTuiCommand || !status.buildTuiStatusSnapshot) {
+      return null;
+    }
+    const result = await runtime.runTuiCommand({
+      executable: plan.executable,
+      args: plan.args,
+      env: process.env,
+      status: await status.buildTuiStatusSnapshot({ route: plan.route })
+    });
+    if (typeof result === 'number') {
+      return result;
+    }
+    if (result.available === false || typeof result.exitCode !== 'number') {
+      return null;
+    }
+    return result.exitCode;
+  } catch {
+    return null;
+  }
 }
 
 async function spawnSsh(executable: string, args: string[]) {
