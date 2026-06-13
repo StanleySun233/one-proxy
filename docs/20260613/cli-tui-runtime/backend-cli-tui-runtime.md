@@ -104,8 +104,8 @@ Footer colors:
   - Commit: `d101e48`
 - [x] Add runtime orchestrator
   - Commit: `4dfcbd9`
-- [ ] Add status collector
-  - Commit:
+- [x] Add status collector
+  - Commit: `653523c`
 
 ## Blockers
 
