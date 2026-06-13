@@ -13,8 +13,8 @@
   - Commit: 51a77a4
 - [x] Update command usage text in `apps/cli/src/main.ts` for `--tui` options
   - Commit: 796bdea
-- [ ] Add optional TUI dependency metadata in `apps/cli/package.json`
-  - Commit:
+- [x] Add optional TUI dependency metadata in `apps/cli/package.json`
+  - Commit: af4384c
 
 ## Blockers
 
