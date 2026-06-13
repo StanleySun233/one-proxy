@@ -3,6 +3,19 @@ import type { CliContext } from './main.ts';
 import { proxyEnv } from './session-env.ts';
 import { startDaemonSession } from './daemon/lifecycle.ts';
 
+type TuiRuntimeModule = {
+  runTuiCommand?: (options: {
+    executable: string;
+    args: string[];
+    env?: NodeJS.ProcessEnv;
+    status?: unknown;
+  }) => Promise<number | { available?: boolean; exitCode?: number }>;
+};
+
+type TuiStatusModule = {
+  buildTuiStatusSnapshot?: (options?: Record<string, unknown>) => Promise<unknown> | unknown;
+};
+
 function defaultShell(): string {
   if (process.env.ONEPROXY_SHELL) {
     return process.env.ONEPROXY_SHELL;
@@ -50,5 +63,67 @@ export async function startActivatedShell(): Promise<number> {
 }
 
 export async function shellCommand(_args: string[], _context: CliContext): Promise<number> {
+  const parsed = stripTuiFlag(_args);
+  if (parsed.tui && !_context.json) {
+    const tuiExitCode = await tryStartActivatedShellTui();
+    if (tuiExitCode !== null) {
+      return tuiExitCode;
+    }
+    process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
+  }
+  if (parsed.tui && _context.json) {
+    process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
+  }
   return startActivatedShell();
+}
+
+function stripTuiFlag(argv: string[]) {
+  const args: string[] = [];
+  let tui = false;
+  for (const value of argv) {
+    if (value === '--tui') {
+      tui = true;
+    } else {
+      args.push(value);
+    }
+  }
+  return { args, tui };
+}
+
+async function tryStartActivatedShellTui(): Promise<number | null> {
+  try {
+    const runtimePath = './tui/runtime.ts';
+    const statusPath = './tui/status.ts';
+    const [runtime, status] = await Promise.all([
+      import(runtimePath) as Promise<TuiRuntimeModule>,
+      import(statusPath) as Promise<TuiStatusModule>
+    ]);
+    if (!runtime.runTuiCommand || !status.buildTuiStatusSnapshot) {
+      return null;
+    }
+    const shell = defaultShell();
+    const session = await startDaemonSession();
+    try {
+      const result = await runtime.runTuiCommand({
+        executable: shell,
+        args: shellArgs(shell),
+        env: {
+          ...process.env,
+          ...proxyEnv(session.metadata.bindings)
+        },
+        status: await status.buildTuiStatusSnapshot()
+      });
+      if (typeof result === 'number') {
+        return result;
+      }
+      if (result.available === false || typeof result.exitCode !== 'number') {
+        return null;
+      }
+      return result.exitCode;
+    } finally {
+      await session.end();
+    }
+  } catch {
+    return null;
+  }
 }
