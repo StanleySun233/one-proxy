@@ -100,8 +100,8 @@ Footer colors:
   - Commit: `b421aa1`
 - [x] Add footer planner and formatter
   - Commit: `85cc1cb`
-- [ ] Add PTY adapter
-  - Commit:
+- [x] Add PTY adapter
+  - Commit: `d101e48`
 - [ ] Add runtime orchestrator
   - Commit:
 - [ ] Add status collector
