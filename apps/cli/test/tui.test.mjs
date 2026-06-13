@@ -14,6 +14,7 @@ import {
   stripAnsi,
   visibleWidth
 } from '../src/tui/footer.ts';
+import { constrainTuiChildOutput } from '../src/tui/output-filter.ts';
 import { runTuiRuntime, runTuiSession } from '../src/tui/runtime.ts';
 
 function status(overrides = {}) {
@@ -239,6 +240,109 @@ test('runtime redraws footer after child TUI output', async () => {
 
   assert.equal(after > before, true);
   assert.equal(await session, 0);
+});
+
+test('runtime periodically redraws footer while child TUI is active', async () => {
+  const stdin = new FakeInput();
+  const stdout = new FakeOutput(100, 20);
+  const stderr = new FakeOutput(100, 20);
+  const pty = new FakePty();
+  const session = runTuiSession({
+    command: 'codex',
+    args: [],
+    env: {},
+    status: status(),
+    stdin,
+    stdout,
+    stderr,
+    ptyAdapter: {
+      spawn() {
+        return pty;
+      }
+    }
+  });
+  const before = stdout.chunks.filter((chunk) => chunk.includes('stanley@example.com')).length;
+  await new Promise((resolve) => setTimeout(resolve, 280));
+  const after = stdout.chunks.filter((chunk) => chunk.includes('stanley@example.com')).length;
+  pty.exit(0);
+
+  assert.equal(after > before, true);
+  assert.equal(await session, 0);
+});
+
+test('runtime constrains child full-screen control sequences to the main area', async () => {
+  const stdin = new FakeInput();
+  const stdout = new FakeOutput(100, 20);
+  const stderr = new FakeOutput(100, 20);
+  const pty = new FakePty();
+  const session = runTuiSession({
+    command: 'codex',
+    args: [],
+    env: {},
+    status: status(),
+    stdin,
+    stdout,
+    stderr,
+    ptyAdapter: {
+      spawn() {
+        return pty;
+      }
+    }
+  });
+
+  pty.emit('data', '\u001b[?1049h\u001b[2J\u001b[999;1Hchild tui');
+  pty.exit(0);
+  const output = stdout.chunks.join('');
+  const childOutput = stdout.chunks.find((chunk) => chunk.includes('child tui')) ?? '';
+
+  assert.equal(output.includes('\u001b[?1049h'), true);
+  assert.equal(output.includes('\u001b[2J'), false);
+  assert.equal(childOutput.includes('\u001b[17;1H\u001b[2K'), true);
+  assert.equal(childOutput.includes('\u001b[18;1H\u001b[2K'), false);
+  assert.equal(childOutput.includes('\u001b[17;1Hchild tui'), true);
+  assert.equal(await session, 0);
+});
+
+test('runtime buffers split child control sequences before constraining them', async () => {
+  const stdin = new FakeInput();
+  const stdout = new FakeOutput(100, 20);
+  const stderr = new FakeOutput(100, 20);
+  const pty = new FakePty();
+  const session = runTuiSession({
+    command: 'codex',
+    args: [],
+    env: {},
+    status: status(),
+    stdin,
+    stdout,
+    stderr,
+    ptyAdapter: {
+      spawn() {
+        return pty;
+      }
+    }
+  });
+
+  pty.emit('data', '\u001b[?104');
+  pty.emit('data', '9h\u001b[2');
+  pty.emit('data', 'J');
+  pty.exit(0);
+  const output = stdout.chunks.join('');
+
+  assert.equal(output.includes('\u001b[?1049h'), true);
+  assert.equal(output.includes('\u001b[2J'), false);
+  assert.equal(output.includes('\u001b[17;1H\u001b[2K'), true);
+  assert.equal(await session, 0);
+});
+
+test('output constraint preserves footer rows for direct terminal reset sequences', () => {
+  const output = constrainTuiChildOutput('\u001bc\u001b[!p\u001b[r', 17);
+
+  assert.equal(output.includes('\u001bc'), false);
+  assert.equal(output.includes('\u001b[!p'), false);
+  assert.equal(output.includes('\u001b[r'), false);
+  assert.equal(output.includes('\u001b[1;17r'), true);
+  assert.equal(output.includes('\u001b[18;1H\u001b[2K'), false);
 });
 
 test('runtime returns 1 when fake PTY exits by signal', async () => {

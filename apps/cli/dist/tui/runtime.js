@@ -1,5 +1,6 @@
 import { currentTuiCapabilityInput, detectTuiCapability, tuiFallbackMessage, tuiUnavailableWarning } from "./capability.js";
 import { planFooter, renderFooterLines, visibleWidth } from "./footer.js";
+import { ChildOutputFilter, isTuiControlOutput, scrollRegionSequence } from "./output-filter.js";
 import { isNodePtyAvailable, loadPtyAdapter } from "./pty.js";
 export async function runTuiRuntime(options) {
     const ptyAvailable = Boolean(options.ptyAdapter) || await isNodePtyAvailable();
@@ -57,6 +58,8 @@ class ActiveTuiRuntime {
     child = null;
     footerRows = 0;
     redrawTimer = null;
+    redrawInterval = null;
+    outputFilter = new ChildOutputFilter();
     options;
     ptyAdapter;
     stdin;
@@ -81,14 +84,18 @@ class ActiveTuiRuntime {
         this.wireInput();
         this.wireResize();
         this.applyScrollRegion();
+        this.startFooterMaintenance();
         const exit = this.waitForExit();
         await this.redrawFooter();
         return await exit;
     }
     wireOutput() {
         this.child?.onData((data) => {
-            this.stdout.write(data);
-            this.scheduleFooterRedraw();
+            const output = this.constrainChildOutput(data);
+            if (output) {
+                this.stdout.write(output);
+            }
+            this.scheduleFooterRedraw(shouldRedrawFooterImmediately(data) || shouldRedrawFooterImmediately(output) ? 0 : 16);
         });
     }
     wireInput() {
@@ -123,19 +130,33 @@ class ActiveTuiRuntime {
         this.applyScrollRegion();
         void this.redrawFooter();
     };
-    scheduleFooterRedraw() {
+    scheduleFooterRedraw(delayMs) {
         if (this.redrawTimer) {
-            return;
+            if (delayMs > 0) {
+                return;
+            }
+            clearTimeout(this.redrawTimer);
         }
         this.redrawTimer = setTimeout(() => {
             this.redrawTimer = null;
             void this.redrawFooter();
-        }, 16);
+        }, delayMs);
     }
     applyScrollRegion() {
+        this.stdout.write(scrollRegionSequence(this.mainRows()));
+    }
+    mainRows() {
         const rows = this.stdout.rows ?? 24;
-        const mainRows = Math.max(1, rows - this.footerRows);
-        this.stdout.write(`\u001b[1;${mainRows}r`);
+        return Math.max(1, rows - this.footerRows);
+    }
+    constrainChildOutput(data) {
+        return this.outputFilter.write(data, this.mainRows());
+    }
+    startFooterMaintenance() {
+        this.redrawInterval = setInterval(() => {
+            void this.redrawFooter();
+        }, 250);
+        this.redrawInterval.unref();
     }
     async redrawFooter() {
         const rows = this.stdout.rows ?? 24;
@@ -155,8 +176,13 @@ class ActiveTuiRuntime {
             clearTimeout(this.redrawTimer);
             this.redrawTimer = null;
         }
+        if (this.redrawInterval) {
+            clearInterval(this.redrawInterval);
+            this.redrawInterval = null;
+        }
         this.stdout.off('resize', this.resize);
         this.stdin.off('data', this.forwardInput);
+        this.outputFilter.clear();
         if (this.stdin.isTTY && this.stdin.setRawMode) {
             this.stdin.setRawMode(false);
         }
@@ -187,6 +213,9 @@ function clearFooter(stdout, rows) {
 }
 function resetScrollRegion(stdout) {
     stdout.write('\u001b[r');
+}
+function shouldRedrawFooterImmediately(data) {
+    return isTuiControlOutput(data);
 }
 function colorEnabled(stdout) {
     return Boolean(stdout.isTTY && !process.env.NO_COLOR && process.env.TERM !== 'dumb');
