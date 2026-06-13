@@ -96,8 +96,8 @@ Footer colors:
 
 - [x] Finalize optional TUI command flags, footer shape, color semantics, and fallback semantics in `docs/20260613/cli-tui-runtime/api-contract.md`
   - Commit: `745c2bc`
-- [ ] Add capability detector
-  - Commit:
+- [x] Add capability detector
+  - Commit: `b421aa1`
 - [ ] Add footer planner and formatter
   - Commit:
 - [ ] Add PTY adapter
