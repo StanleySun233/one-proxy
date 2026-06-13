@@ -46,3 +46,4 @@ export declare const minimumTuiRows = 10;
 export declare function detectTuiCapability(input: TuiCapabilityInput): TuiCapabilityResult;
 export declare function detectTuiCapability(input: TuiCapabilityProbeInput): TuiCapabilityProbeResult;
 export declare function currentTuiCapabilityInput(requested: boolean, interactive: boolean, json: boolean, ptyAvailable: boolean): TuiCapabilityInput;
+export declare function tuiFallbackMessage(reason?: TuiUnavailableReason): string;

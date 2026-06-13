@@ -1,4 +1,5 @@
 export { footerRowsForTerminal as footerRowsForTerminalHeight } from './footer.ts';
+import { missingNativeBuildTools, nativeBuildToolsHint } from '../install/native-hint.ts';
 
 export const tuiUnavailableWarning = '! TUI failed to start; falling back to standard terminal mode.';
 
@@ -142,4 +143,15 @@ export function currentTuiCapabilityInput(requested: boolean, interactive: boole
     rows: process.stdout.rows,
     ptyAvailable
   };
+}
+
+export function tuiFallbackMessage(reason?: TuiUnavailableReason): string {
+  if (reason !== 'pty_unavailable') {
+    return tuiUnavailableWarning;
+  }
+  const missing = missingNativeBuildTools();
+  if (missing.length === 0) {
+    return tuiUnavailableWarning;
+  }
+  return `${tuiUnavailableWarning}\n\n${nativeBuildToolsHint(missing)}`;
 }

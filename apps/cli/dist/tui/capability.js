@@ -1,4 +1,5 @@
 export { footerRowsForTerminal as footerRowsForTerminalHeight } from "./footer.js";
+import { missingNativeBuildTools, nativeBuildToolsHint } from "../install/native-hint.js";
 export const tuiUnavailableWarning = '! TUI failed to start; falling back to standard terminal mode.';
 export const minimumTuiRows = 10;
 const supportedPlatforms = new Set(['darwin', 'linux']);
@@ -82,5 +83,15 @@ export function currentTuiCapabilityInput(requested, interactive, json, ptyAvail
         rows: process.stdout.rows,
         ptyAvailable
     };
+}
+export function tuiFallbackMessage(reason) {
+    if (reason !== 'pty_unavailable') {
+        return tuiUnavailableWarning;
+    }
+    const missing = missingNativeBuildTools();
+    if (missing.length === 0) {
+        return tuiUnavailableWarning;
+    }
+    return `${tuiUnavailableWarning}\n\n${nativeBuildToolsHint(missing)}`;
 }
 //# sourceMappingURL=capability.js.map

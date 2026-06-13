@@ -199,14 +199,46 @@ test('runtime sizes fake PTY, resizes on terminal changes, and propagates exit c
   assert.deepEqual(spawnRequest.args, ['example.com']);
   assert.equal(spawnRequest.options.cols, 100);
   assert.equal(spawnRequest.options.rows, 17);
+  assert.equal(stdout.chunks.some((chunk) => chunk.includes('\u001b[1;17r')), true);
 
   stdout.columns = 80;
   stdout.rows = 15;
   stdout.emit('resize');
   assert.deepEqual(pty.resizes.at(-1), { columns: 80, rows: 13 });
+  assert.equal(stdout.chunks.some((chunk) => chunk.includes('\u001b[1;13r')), true);
 
   pty.exit(7);
   assert.equal(await session, 7);
+  assert.equal(stdout.chunks.some((chunk) => chunk.includes('\u001b[r')), true);
+});
+
+test('runtime redraws footer after child TUI output', async () => {
+  const stdin = new FakeInput();
+  const stdout = new FakeOutput(100, 20);
+  const stderr = new FakeOutput(100, 20);
+  const pty = new FakePty();
+  const session = runTuiSession({
+    command: 'codex',
+    args: [],
+    env: {},
+    status: status(),
+    stdin,
+    stdout,
+    stderr,
+    ptyAdapter: {
+      spawn() {
+        return pty;
+      }
+    }
+  });
+  const before = stdout.chunks.filter((chunk) => chunk.includes('stanley@example.com')).length;
+  pty.emit('data', '\u001b[2J\u001b[Hchild tui screen');
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  const after = stdout.chunks.filter((chunk) => chunk.includes('stanley@example.com')).length;
+  pty.exit(0);
+
+  assert.equal(after > before, true);
+  assert.equal(await session, 0);
 });
 
 test('runtime returns 1 when fake PTY exits by signal', async () => {
