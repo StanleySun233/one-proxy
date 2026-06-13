@@ -218,6 +218,9 @@ func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input pr
 
 	rules := s.store.ListRouteRulesForTenant(tenantCtx)
 	for _, rule := range rules {
+		if input.RuleID != "" && rule.ID == input.RuleID {
+			continue
+		}
 		if rule.Priority == input.Priority {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("Priority %d conflicts with existing rule", input.Priority))
 			break

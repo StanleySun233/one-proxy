@@ -138,8 +138,18 @@ func (s *MySQLStore) UpdateRouteRule(ruleID string, input proxy.UpdateRouteRuleI
 }
 
 func (s *MySQLStore) DeleteRouteRule(ruleID string) error {
-	_, err := s.db.Exec("DELETE FROM route_rules WHERE id = ?", ruleID)
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("DELETE FROM tenant_route_rules WHERE route_rule_id = ?", ruleID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("DELETE FROM route_rules WHERE id = ?", ruleID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *MySQLStore) RouteRuleBindingPermission(tenantCtx domain.TenantAuthContext, ruleID string) (domain.BindingPermission, bool) {

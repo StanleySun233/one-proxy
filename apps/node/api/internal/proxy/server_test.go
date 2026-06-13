@@ -533,6 +533,32 @@ func TestMatchSupportsDefaultRoute(t *testing.T) {
 	}
 }
 
+func TestMatchDomainSuffixSupportsRootAndSubdomains(t *testing.T) {
+	for _, value := range []string{".openai.com", "*.openai.com"} {
+		for _, target := range []string{"http://openai.com/", "http://api.openai.com/"} {
+			req := httptest.NewRequest(http.MethodGet, target, nil)
+			match := Match(policystore.Snapshot{
+				RouteRules: []domain.RouteRule{
+					{
+						ID:         "suffix",
+						MatchType:  domain.MatchTypeDomainSuffix,
+						MatchValue: value,
+						ActionType: domain.ActionTypeDirect,
+						Enabled:    true,
+					},
+				},
+			}, req)
+
+			if !match.Found {
+				t.Fatalf("suffix %q did not match %q", value, target)
+			}
+			if match.Rule.ID != "suffix" {
+				t.Fatalf("rule id = %q", match.Rule.ID)
+			}
+		}
+	}
+}
+
 func TestForwardProxyWebSocketUpgrade(t *testing.T) {
 	upgrader := websocket.Upgrader{}
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

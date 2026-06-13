@@ -96,9 +96,12 @@
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .console-user-card {
+  max-width: min(260px, 100%);
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -108,9 +111,23 @@
   background: color-mix(in srgb, var(--panel-2) 84%, var(--panel) 16%);
 }
 
+button.console-user-card {
+  color: var(--text);
+  cursor: pointer;
+}
+
+button.console-user-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--line) 64%);
+}
+
+.console-user-card > svg {
+  flex: 0 0 auto;
+}
+
 .console-user-avatar {
   width: 28px;
   height: 28px;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   border-radius: 10px;
@@ -120,18 +137,86 @@
   font-weight: 700;
 }
 
+.console-user-avatar.is-large {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  font-size: 17px;
+}
+
 .console-user-copy {
+  min-width: 0;
   display: grid;
   gap: 2px;
 }
 
 .console-user-copy strong {
   font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .console-user-copy span {
   color: var(--muted);
   font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-settings {
+  position: relative;
+  min-width: 0;
+}
+
+.account-settings-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - 44px));
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+  z-index: 45;
+  overflow-wrap: anywhere;
+}
+
+.account-settings-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.account-settings-head > div:last-child {
+  min-width: 0;
+}
+
+.account-settings-head h3 {
+  margin: 2px 0;
+  font-size: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-settings-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.account-settings-form {
+  display: grid;
+  gap: 12px;
+}
+
+.account-settings-logout {
+  width: 100%;
 }
 
 .console-workspace {
@@ -210,6 +295,26 @@
 }
 
 @media (max-width: 760px) {
+  .console-topbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .console-topbar-actions {
+    justify-content: flex-start;
+  }
+
+  .account-settings,
+  button.console-user-card {
+    width: 100%;
+    max-width: none;
+  }
+
+  .account-settings-panel {
+    left: 0;
+    right: auto;
+    width: min(360px, 100%);
+  }
+
   .console-page {
     padding: 14px;
     border-radius: 14px;

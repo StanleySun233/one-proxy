@@ -54,7 +54,7 @@ export default function RoutesPage() {
   const [actionFilter, setActionFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const formValues = form.watch();
-  const {validationPending, validationResult} = useRouteRuleValidation({accessToken, activeTenantId, formValues});
+  const {validationPending, validationResult} = useRouteRuleValidation({accessToken, activeTenantId, editingRuleId, formValues});
 
   const routeRulesQuery = useQuery({
     queryKey: ['route-rules', accessToken, activeTenantId],

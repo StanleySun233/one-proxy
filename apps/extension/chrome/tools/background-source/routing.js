@@ -10,7 +10,15 @@ export function sanitizeHost(value) {
 
 export function hostMatches(patterns, host) {
   const cleanHost = sanitizeHost(host);
-  return uniqueStrings(patterns).some((pattern) => wildcardToRegExp(pattern).test(cleanHost));
+  return uniqueStrings(patterns).some((pattern) => hostMatchesPattern(pattern, cleanHost));
+}
+
+function hostMatchesPattern(pattern, host) {
+  const cleanPattern = sanitizeHost(pattern);
+  if (cleanPattern.startsWith('*.') || cleanPattern.startsWith('.')) {
+    return domainSuffixMatches(cleanPattern, host);
+  }
+  return wildcardToRegExp(cleanPattern).test(host);
 }
 
 export function ipv4ToNumber(value) {
@@ -155,8 +163,8 @@ export function routeMatches(route, target) {
 }
 
 function domainSuffixMatches(value, host) {
-  const suffix = value.startsWith('*.') ? value.slice(1) : value;
-  return suffix.startsWith('.') && host.endsWith(suffix);
+  const suffix = value.replace(/^\*\./, '').replace(/^\./, '');
+  return Boolean(suffix) && (host === suffix || host.endsWith(`.${suffix}`));
 }
 
 function ipRangeMatches(value, host) {

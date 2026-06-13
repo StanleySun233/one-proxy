@@ -34,12 +34,24 @@ function cidrEntries(items) {
     .filter(Boolean);
 }
 
+function hostEntries(items) {
+  return uniqueStrings(items).flatMap((item) => {
+    if (item.startsWith('*.')) {
+      return [item.slice(2), item];
+    }
+    if (item.startsWith('.')) {
+      return [item.slice(1), `*${item}`];
+    }
+    return [item];
+  });
+}
+
 export function buildPacScript(state) {
   const group = activeGroupFrom(state);
   const helper = state.localHelper || {};
   const helperTarget = helper.enabled && helper.host && helper.port ? `${helper.scheme || 'SOCKS5'} ${helper.host}:${helper.port}` : '';
   const proxyTarget = helperTarget || (group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT');
-  const directHosts = uniqueStrings([
+  const directHosts = hostEntries([
     'localhost',
     '*.local',
     '*.lan',
@@ -49,7 +61,7 @@ export function buildPacScript(state) {
     ...(group ? group.directHosts : []),
     ...(state.localOverrides.directHosts || [])
   ]);
-  const proxyHosts = uniqueStrings([
+  const proxyHosts = hostEntries([
     ...(group ? group.proxyHosts : []),
     ...(state.localOverrides.proxyHosts || [])
   ]);

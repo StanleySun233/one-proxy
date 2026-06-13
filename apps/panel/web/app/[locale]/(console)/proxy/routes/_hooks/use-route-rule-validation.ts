@@ -10,10 +10,11 @@ import {routeRuleValidationPayload, RouteRuleFormValues, RouteRuleValidationPayl
 type UseRouteRuleValidationArgs = {
   accessToken: string;
   activeTenantId: string | null;
+  editingRuleId?: string;
   formValues: RouteRuleFormValues;
 };
 
-export function useRouteRuleValidation({accessToken, activeTenantId, formValues}: UseRouteRuleValidationArgs) {
+export function useRouteRuleValidation({accessToken, activeTenantId, editingRuleId, formValues}: UseRouteRuleValidationArgs) {
   const [validationResult, setValidationResult] = useState<RouteRuleValidationResult | null>(null);
   const [validationPending, setValidationPending] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,7 +48,7 @@ export function useRouteRuleValidation({accessToken, activeTenantId, formValues}
   }, [accessToken, activeTenantId]);
 
   useEffect(() => {
-    const payload = routeRuleValidationPayload(formValues);
+    const payload = routeRuleValidationPayload(formValues, editingRuleId || undefined);
     const validationKey = `${accessToken}:${activeTenantId}:${JSON.stringify(payload)}`;
 
     if (!accessToken || !payload.matchValue) {
@@ -86,7 +87,7 @@ export function useRouteRuleValidation({accessToken, activeTenantId, formValues}
         debounceRef.current = null;
       }
     };
-  }, [accessToken, activeTenantId, formValues, runValidation]);
+  }, [accessToken, activeTenantId, editingRuleId, formValues, runValidation]);
 
   return {validationPending, validationResult};
 }

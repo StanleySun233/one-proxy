@@ -29,7 +29,7 @@ func Match(snapshot policystore.Snapshot, req *http.Request) RouteMatch {
 				return RouteMatch{Rule: rule, Found: true}
 			}
 		case domain.MatchTypeDomainSuffix:
-			if strings.HasSuffix(strings.ToLower(name), strings.ToLower(rule.MatchValue)) {
+			if domainSuffixMatches(rule.MatchValue, name) {
 				return RouteMatch{Rule: rule, Found: true}
 			}
 		case domain.MatchTypeIP:
@@ -51,6 +51,12 @@ func Match(snapshot policystore.Snapshot, req *http.Request) RouteMatch {
 		}
 	}
 	return RouteMatch{}
+}
+
+func domainSuffixMatches(value string, host string) bool {
+	suffix := strings.TrimPrefix(strings.TrimPrefix(strings.ToLower(value), "*."), ".")
+	name := strings.ToLower(host)
+	return suffix != "" && (name == suffix || strings.HasSuffix(name, "."+suffix))
 }
 
 func requestProtocol(req *http.Request) string {

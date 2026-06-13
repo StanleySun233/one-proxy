@@ -209,13 +209,13 @@ export async function groupUse(args, context) {
 export function routeRulesFromBootstrap(group) {
     const directHosts = (group.directHosts ?? []).map((host) => ({
         id: `direct:${host}`,
-        type: 'domain',
+        type: routeTypeFromHostPattern(host),
         pattern: host,
         mode: 'direct'
     }));
     const proxyHosts = (group.proxyHosts ?? []).map((host) => ({
         id: `proxy:${host}`,
-        type: 'domain',
+        type: routeTypeFromHostPattern(host),
         pattern: host,
         mode: 'proxy'
     }));
@@ -232,10 +232,23 @@ function routeTypeFromMatchType(matchType) {
     if (normalized === 'suffix' || normalized === 'cidr' || normalized === 'wildcard') {
         return normalized;
     }
+    if (normalized === 'domain_suffix') {
+        return 'suffix';
+    }
     if (normalized === 'ip_cidr') {
         return 'cidr';
     }
     if (normalized === 'default') {
+        return 'wildcard';
+    }
+    return 'domain';
+}
+function routeTypeFromHostPattern(host) {
+    const normalized = host.trim().toLowerCase();
+    if (normalized.startsWith('*.') || normalized.startsWith('.')) {
+        return 'suffix';
+    }
+    if (normalized.includes('*')) {
         return 'wildcard';
     }
     return 'domain';

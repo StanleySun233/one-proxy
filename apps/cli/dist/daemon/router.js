@@ -67,7 +67,7 @@ function matchesRule(host, rule) {
         return pattern === '*' || hostMatchesPattern(host, pattern);
     }
     if (rule.type === 'suffix') {
-        return host === pattern || host.endsWith(`.${pattern.replace(/^\./, '')}`);
+        return hostMatchesSuffix(host, pattern);
     }
     if (rule.type === 'domain') {
         return host === pattern;
@@ -80,9 +80,16 @@ function matchesRule(host, rule) {
 function hostMatchesPattern(host, pattern) {
     if (pattern.startsWith('*.')) {
         const suffix = pattern.slice(2);
-        return host.endsWith(`.${suffix}`);
+        return hostMatchesSuffix(host, suffix);
+    }
+    if (pattern.startsWith('.')) {
+        return hostMatchesSuffix(host, pattern);
     }
     return host === pattern || host.endsWith(`.${pattern}`);
+}
+function hostMatchesSuffix(host, pattern) {
+    const suffix = pattern.replace(/^\*\./, '').replace(/^\./, '');
+    return host === suffix || host.endsWith(`.${suffix}`);
 }
 function matchesIpv4Cidr(host, cidr) {
     const [range, prefixText] = cidr.split('/');

@@ -17,6 +17,7 @@ import {useTheme} from 'next-themes';
 import {MouseEvent, ReactNode, useEffect, useState} from 'react';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 
+import {AccountSettingsPopover} from '@/components/account-settings-popover';
 import {useAuth} from '@/components/auth-provider';
 import {CapsuleSelect, CapsuleSelectGroup} from '@/components/common/capsule-select';
 import {Link, usePathname, useRouter} from '@/i18n/navigation';
@@ -28,7 +29,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
   const pathname = usePathname();
   const router = useRouter();
   const {resolvedTheme, setTheme} = useTheme();
-  const {session, tenantMemberships, activeTenant, switchTenant, logout} = useAuth();
+  const {session, tenantMemberships, activeTenant, switchTenant} = useAuth();
   const queryClient = useQueryClient();
   const accessToken = session?.accessToken || '';
   const activeTenantId = session?.activeTenantId || null;
@@ -204,18 +205,7 @@ export function ConsoleShell({children}: {children: ReactNode}) {
             />
           </CapsuleSelectGroup>
 
-          <div className="console-user-card">
-            <div className="console-user-avatar">{accountInitial}</div>
-            <div className="console-user-copy">
-              <strong>{session?.account.account || t('shell.name')}</strong>
-              <span>{accountRoleLabel}</span>
-            </div>
-            {session ? (
-              <button className="secondary-button" onClick={() => void logout()} type="button">
-                {t('auth.logout')}
-              </button>
-            ) : null}
-          </div>
+          <AccountSettingsPopover accountInitial={accountInitial} accountRoleLabel={accountRoleLabel} />
         </div>
       </header>
 

@@ -11,6 +11,7 @@ export type RouteRuleFormValues = {
 };
 
 export type RouteRuleValidationPayload = {
+  ruleId?: string;
   priority: number;
   matchType: string;
   matchValue: string;
@@ -19,7 +20,7 @@ export type RouteRuleValidationPayload = {
   destinationScope: string;
 };
 
-export type RouteRuleSubmitPayload = RouteRuleValidationPayload & {
+export type RouteRuleSubmitPayload = Omit<RouteRuleValidationPayload, 'ruleId'> & {
   enabled: boolean;
 };
 
@@ -47,8 +48,9 @@ export function routeRuleFormValues(rule: RouteRule): RouteRuleFormValues {
   };
 }
 
-export function routeRuleValidationPayload(values: RouteRuleFormValues): RouteRuleValidationPayload {
+export function routeRuleValidationPayload(values: RouteRuleFormValues, ruleId?: string): RouteRuleValidationPayload {
   return {
+    ruleId,
     priority: Number(values.priority) || 0,
     matchType: values.matchType,
     matchValue: values.matchValue.trim(),

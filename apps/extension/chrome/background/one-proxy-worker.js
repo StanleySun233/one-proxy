@@ -239,7 +239,15 @@ function sanitizeHost(value) {
 
 function hostMatches(patterns, host) {
   const cleanHost = sanitizeHost(host);
-  return uniqueStrings(patterns).some((pattern) => wildcardToRegExp(pattern).test(cleanHost));
+  return uniqueStrings(patterns).some((pattern) => hostMatchesPattern(pattern, cleanHost));
+}
+
+function hostMatchesPattern(pattern, host) {
+  const cleanPattern = sanitizeHost(pattern);
+  if (cleanPattern.startsWith('*.') || cleanPattern.startsWith('.')) {
+    return domainSuffixMatches(cleanPattern, host);
+  }
+  return wildcardToRegExp(cleanPattern).test(host);
 }
 
 function ipv4ToNumber(value) {
@@ -384,8 +392,8 @@ function routeMatches(route, target) {
 }
 
 function domainSuffixMatches(value, host) {
-  const suffix = value.startsWith('*.') ? value.slice(1) : value;
-  return suffix.startsWith('.') && host.endsWith(suffix);
+  const suffix = value.replace(/^\*\./, '').replace(/^\./, '');
+  return Boolean(suffix) && (host === suffix || host.endsWith(`.${suffix}`));
 }
 
 function ipRangeMatches(value, host) {
@@ -458,12 +466,24 @@ function cidrEntries(items) {
     .filter(Boolean);
 }
 
+function hostEntries(items) {
+  return uniqueStrings(items).flatMap((item) => {
+    if (item.startsWith('*.')) {
+      return [item.slice(2), item];
+    }
+    if (item.startsWith('.')) {
+      return [item.slice(1), `*${item}`];
+    }
+    return [item];
+  });
+}
+
 function buildPacScript(state) {
   const group = activeGroupFrom(state);
   const helper = state.localHelper || {};
   const helperTarget = helper.enabled && helper.host && helper.port ? `${helper.scheme || 'SOCKS5'} ${helper.host}:${helper.port}` : '';
   const proxyTarget = helperTarget || (group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT');
-  const directHosts = uniqueStrings([
+  const directHosts = hostEntries([
     'localhost',
     '*.local',
     '*.lan',
@@ -473,7 +493,7 @@ function buildPacScript(state) {
     ...(group ? group.directHosts : []),
     ...(state.localOverrides.directHosts || [])
   ]);
-  const proxyHosts = uniqueStrings([
+  const proxyHosts = hostEntries([
     ...(group ? group.proxyHosts : []),
     ...(state.localOverrides.proxyHosts || [])
   ]);

@@ -179,6 +179,41 @@ test('route matching returns proxied topology for suffix policy', () => {
   });
 });
 
+test('route matching treats dot and wildcard suffix policies as root plus subdomains', () => {
+  for (const pattern of ['.openai.com', '*.openai.com']) {
+    for (const target of ['openai.com', 'api.openai.com']) {
+      const route = resolveRoute({
+        config: {
+          schemaVersion: 1,
+          activeTenantId: 'tenant_1',
+          activeGroupId: 'group_1',
+          overrides: { direct: [], proxy: [] }
+        },
+        state: {
+          schemaVersion: 1,
+          bootstrap: {
+            entryNodes: [{ id: 'entry_1', host: 'edge.example.com', port: 443, protocol: 'connect' }]
+          },
+          routeGroups: [
+            {
+              id: 'group_1',
+              tenantId: 'tenant_1',
+              name: 'Default',
+              rules: [{ id: `rule_${pattern}`, type: 'suffix', pattern, mode: 'proxy' }]
+            }
+          ]
+        },
+        target,
+        protocol: 'https'
+      });
+
+      assert.equal(route.mode, 'proxy');
+      assert.equal(route.matched.ruleType, 'suffix');
+      assert.equal(route.matched.pattern, pattern);
+    }
+  }
+});
+
 test('env off prints shell restoration output', async () => {
   await withHome(async (home) => {
     const result = runCli(['env', 'off'], home, { ONEPROXY_SHELL: '/bin/bash' });
@@ -298,14 +333,31 @@ test('bootstrap route conversion preserves cidr match type', () => {
     name: 'hk-public-node',
     routes: [
       { id: 'route_1', matchType: 'ip_cidr', matchValue: '172.20.116.0/24', actionType: 'chain' },
-      { id: 'route_2', matchType: 'suffix', matchValue: 'example.com', actionType: 'direct' },
-      { id: 'route_3', matchType: 'default', matchValue: '*', actionType: 'proxy' }
+      { id: 'route_2', matchType: 'domain_suffix', matchValue: '.example.com', actionType: 'direct' },
+      { id: 'route_3', matchType: 'suffix', matchValue: 'legacy.example.com', actionType: 'direct' },
+      { id: 'route_4', matchType: 'default', matchValue: '*', actionType: 'proxy' }
     ]
   });
 
   assert.deepEqual(rules, [
     { id: 'route_1', type: 'cidr', pattern: '172.20.116.0/24', mode: 'proxy' },
-    { id: 'route_2', type: 'suffix', pattern: 'example.com', mode: 'direct' },
-    { id: 'route_3', type: 'wildcard', pattern: '*', mode: 'proxy' }
+    { id: 'route_2', type: 'suffix', pattern: '.example.com', mode: 'direct' },
+    { id: 'route_3', type: 'suffix', pattern: 'legacy.example.com', mode: 'direct' },
+    { id: 'route_4', type: 'wildcard', pattern: '*', mode: 'proxy' }
+  ]);
+});
+
+test('bootstrap host pattern conversion preserves suffix semantics', () => {
+  const rules = routeRulesFromBootstrap({
+    id: 'group_1',
+    name: 'hk-public-node',
+    proxyHosts: ['*.openai.com'],
+    directHosts: ['.example.com', 'exact.example.net']
+  });
+
+  assert.deepEqual(rules, [
+    { id: 'direct:.example.com', type: 'suffix', pattern: '.example.com', mode: 'direct' },
+    { id: 'direct:exact.example.net', type: 'domain', pattern: 'exact.example.net', mode: 'direct' },
+    { id: 'proxy:*.openai.com', type: 'suffix', pattern: '*.openai.com', mode: 'proxy' }
   ]);
 });

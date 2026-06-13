@@ -57,6 +57,7 @@ type MatchType struct {
 }
 
 type ValidateRouteRuleInput struct {
+	RuleID           string `json:"ruleId"`
 	Priority         int    `json:"priority"`
 	MatchType        string `json:"matchType"`
 	MatchValue       string `json:"matchValue"`

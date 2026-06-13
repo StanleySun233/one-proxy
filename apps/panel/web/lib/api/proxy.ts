@@ -137,6 +137,7 @@ export function deleteRouteRule(accessToken: string, tenantId: string | null, ru
 }
 
 export function validateRouteRule(accessToken: string, tenantId: string | null, payload: {
+  ruleId?: string;
   priority: number;
   matchType: string;
   matchValue: string;

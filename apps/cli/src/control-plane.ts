@@ -312,13 +312,13 @@ export async function groupUse(args: string[], context: CliContext): Promise<voi
 export function routeRulesFromBootstrap(group: NonNullable<ExtensionBootstrap['groups']>[number]): RouteRule[] {
   const directHosts = (group.directHosts ?? []).map((host) => ({
     id: `direct:${host}`,
-    type: 'domain' as const,
+    type: routeTypeFromHostPattern(host),
     pattern: host,
     mode: 'direct' as const
   }));
   const proxyHosts = (group.proxyHosts ?? []).map((host) => ({
     id: `proxy:${host}`,
-    type: 'domain' as const,
+    type: routeTypeFromHostPattern(host),
     pattern: host,
     mode: 'proxy' as const
   }));
@@ -336,10 +336,24 @@ function routeTypeFromMatchType(matchType: string): RouteRule['type'] {
   if (normalized === 'suffix' || normalized === 'cidr' || normalized === 'wildcard') {
     return normalized;
   }
+  if (normalized === 'domain_suffix') {
+    return 'suffix';
+  }
   if (normalized === 'ip_cidr') {
     return 'cidr';
   }
   if (normalized === 'default') {
+    return 'wildcard';
+  }
+  return 'domain';
+}
+
+function routeTypeFromHostPattern(host: string): RouteRule['type'] {
+  const normalized = host.trim().toLowerCase();
+  if (normalized.startsWith('*.') || normalized.startsWith('.')) {
+    return 'suffix';
+  }
+  if (normalized.includes('*')) {
     return 'wildcard';
   }
   return 'domain';
