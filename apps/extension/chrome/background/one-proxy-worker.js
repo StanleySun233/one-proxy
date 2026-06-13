@@ -929,11 +929,15 @@ function pageFor(tabId, url) {
     host: hostOf(url),
     openedAt: nowIso(),
     requestCount: 0,
+    responseCount: 0,
     proxiedRequestCount: 0,
     directRequestCount: 0,
     failureCount: 0,
     uploadBytes: 0,
     downloadBytes: 0,
+    latencyMs: 0,
+    latencyTotalMs: 0,
+    latencyCount: 0,
     lastErrorCode: '',
     lastErrorMessage: ''
   };
@@ -971,6 +975,21 @@ function contentLength(headers) {
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
+function recordLatency(page, tracked) {
+  if (!page || !tracked || tracked.responseSeen) {
+    return;
+  }
+  const latencyMs = Date.now() - tracked.startedAt;
+  if (latencyMs <= 0) {
+    return;
+  }
+  tracked.responseSeen = true;
+  page.responseCount += 1;
+  page.latencyTotalMs += latencyMs;
+  page.latencyCount += 1;
+  page.latencyMs = Math.round(page.latencyTotalMs / page.latencyCount);
+}
+
 function trackStarted(details) {
   if (details.tabId < 0 || !details.url) {
     return;
@@ -982,7 +1001,7 @@ function trackStarted(details) {
   page.requestCount += 1;
   const uploadBytes = estimateUploadBytes(details.requestBody);
   page.uploadBytes += uploadBytes;
-  requestsById.set(details.requestId, { tabId: details.tabId, uploadBytes });
+  requestsById.set(details.requestId, { tabId: details.tabId, uploadBytes, startedAt: Date.now(), responseSeen: false });
   getState()
     .then((state) => {
       const route = routePreviewForUrl(state, details.url);
@@ -1006,10 +1025,16 @@ function trackHeaders(details) {
   if (!page) {
     return;
   }
+  recordLatency(page, tracked);
   page.downloadBytes += contentLength(details.responseHeaders);
 }
 
 function trackFinished(details) {
+  const tracked = requestsById.get(details.requestId);
+  if (tracked) {
+    const page = pagesByTab.get(tracked.tabId);
+    recordLatency(page, tracked);
+  }
   requestsById.delete(details.requestId);
 }
 
@@ -1250,10 +1275,6 @@ function mergePageSnapshot(route, metrics, remoteStatus) {
   };
 }
 
-function totalPathLatency(pathHealth) {
-  return (pathHealth.linkTimings || []).reduce((total, item) => total + Number(item.roundTripMs || 0), 0);
-}
-
 function pathPayload(state, route, status, pageHost) {
   const topology = Array.isArray(route.topology) ? route.topology : [];
   const transport = state.localHelper && state.localHelper.enabled ? 'direct_quic' : (status && status.path && status.path.transport ? String(status.path.transport) : 'relay');
@@ -1290,6 +1311,56 @@ function requestRemoteStatus(state, route, routeInfo) {
   });
 }
 
+function emptyPathHealth() {
+  return {
+    sampleTsMs: Date.now(),
+    linkTimings: []
+  };
+}
+
+function statusFrom(remoteStatus, metrics) {
+  const remote = String((remoteStatus && remoteStatus.status) || '').trim();
+  if (remote && remote !== 'unknown') {
+    return remote;
+  }
+  if (metrics && Number(metrics.failureCount || 0) > 0) {
+    return 'error';
+  }
+  if (metrics && Number(metrics.responseCount || 0) > 0 && Number(metrics.proxiedRequestCount || 0) > 0) {
+    return 'ok';
+  }
+  return remote || 'unknown';
+}
+
+function effectiveLatencyMs(remoteStatus, metrics) {
+  const remoteLatencyMs = Number((remoteStatus && remoteStatus.latencyMs) || 0);
+  if (remoteLatencyMs > 0) {
+    return remoteLatencyMs;
+  }
+  const localLatencyMs = Number((metrics && metrics.latencyMs) || 0);
+  return localLatencyMs > 0 ? localLatencyMs : 0;
+}
+
+function normalizeNodeTimings(items) {
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    nodeId: item.nodeId || '',
+    processAvgMs: Number(item.processAvgMs || 0),
+    responseProcessAvgMs: Number(item.responseProcessAvgMs || 0),
+    sampleTsMs: Number(item.sampleTsMs || 0),
+    count: Number(item.count || 1)
+  })).filter((item) => item.nodeId);
+}
+
+function normalizeLinkTimings(items) {
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    fromNodeId: item.fromNodeId || '',
+    toNodeId: item.toNodeId || '',
+    roundTripMs: Number(item.roundTripMs || item.rttMs || 0),
+    sampleTsMs: Number(item.sampleTsMs || 0),
+    count: Number(item.count || 1)
+  })).filter((item) => item.fromNodeId && item.toNodeId);
+}
+
 function shouldDisplay(state, route) {
   const controlPlaneHost = urlHostname(state.controlPlaneUrl);
   if (!route.host || route.host === controlPlaneHost) {
@@ -1313,22 +1384,27 @@ function getStatusBubblePageStatus(message, sender) {
         };
       }
       return Promise.all([
-        requestRemoteStatus(state, route, routeInfo),
-        measurePathHealth(state, group, route)
+        Promise.resolve().then(() => requestRemoteStatus(state, route, routeInfo)).catch((error) => ({
+          status: 'unknown',
+          lastErrorCode: 'page_status_failed',
+          lastErrorMessage: error.message || 'page_status_failed'
+        })),
+        Promise.resolve().then(() => measurePathHealth(state, group, route)).catch(() => emptyPathHealth())
       ]).then(([remoteStatus, pathHealth]) => {
-        if (!remoteStatus) {
-          throw new Error('status_bubble_page_status_required');
-        }
-        const status = remoteStatus;
+        const status = remoteStatus || { status: 'unknown' };
         const page = mergePageSnapshot(route, metrics, status);
         const uploadBytes = Number(status.uploadBytes || (metrics && metrics.uploadBytes) || 0);
         const downloadBytes = Number(status.downloadBytes || (metrics && metrics.downloadBytes) || 0);
-        const latencyMs = totalPathLatency(pathHealth);
+        const latencyMs = effectiveLatencyMs(status, metrics);
+        const actualNodeTimings = normalizeNodeTimings(status.nodeTimings);
+        const actualLinkTimings = normalizeLinkTimings(status.linkTimings);
+        const linkTimings = actualLinkTimings.length > 0 ? actualLinkTimings : normalizeLinkTimings(pathHealth.linkTimings);
         const lastErrorCode = status.lastErrorCode || (metrics && metrics.lastErrorCode) || '';
         const lastErrorMessage = status.lastErrorMessage || (metrics && metrics.lastErrorMessage) || '';
+        const displayStatus = statusFrom(status, metrics);
         return {
-          status: status.status || 'unknown',
-          color: colorFor(status.status, latencyMs, route.mode),
+          status: displayStatus,
+          color: colorFor(displayStatus, latencyMs, route.mode),
           display: shouldDisplay(state, route),
           account: state.session.account || '',
           tenant: tenantFrom(state),
@@ -1338,13 +1414,13 @@ function getStatusBubblePageStatus(message, sender) {
           io: {
             uploadBytes,
             downloadBytes,
-            correlated: Boolean(status.correlated)
+            correlated: Boolean(status.correlated || (metrics && metrics.responseCount > 0))
           },
           latencyMs,
           path: pathPayload(state, route, status, page.host),
           labels: labels(),
-          nodeTimings: [],
-          linkTimings: pathHealth.linkTimings,
+          nodeTimings: actualNodeTimings,
+          linkTimings,
           policyRevision: status.policyRevision || state.remote.policyRevision || '',
           configFetchedAt: state.remote.fetchedAt || '',
           lastError: {

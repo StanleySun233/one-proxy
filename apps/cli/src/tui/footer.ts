@@ -46,7 +46,7 @@ const darkForeground = '\u001b[38;2;26;32;44m';
 const styles = {
   mint: segmentStyle(186, 242, 214),
   lavender: segmentStyle(218, 207, 255),
-  yellow: segmentStyle(255, 236, 169),
+  butter: segmentStyle(255, 236, 169),
   coral: segmentStyle(255, 190, 171),
   gray: segmentStyle(217, 222, 226),
   blue: foregroundStyle(93, 148, 255),
@@ -63,7 +63,34 @@ export function footerRowsForTerminal(terminalRows: number): number {
   if (terminalRows >= 14) {
     return 2;
   }
+  if (terminalRows < 10) {
+    return 0;
+  }
   return 1;
+}
+
+export type FormatFooterOptions = {
+  columns: number;
+  footerRows: number;
+  color: boolean;
+};
+
+export type FormattedFooter = {
+  lines: string[];
+};
+
+export function formatFooter(snapshot: TuiStatusSnapshot, options: FormatFooterOptions): FormattedFooter {
+  const lines = [];
+  if (options.footerRows >= 1) {
+    lines.push(truncateVisible(renderStatusLine(snapshot, options.color), options.columns));
+  }
+  if (options.footerRows >= 2) {
+    lines.push(rightAlign(renderTotalsLine(snapshot, options.color), options.columns));
+  }
+  if (options.footerRows >= 3) {
+    lines.push(truncateMiddleVisible(renderPathLine(snapshot, options.color), options.columns));
+  }
+  return { lines };
 }
 
 export function planFooter(terminalColumns: number, terminalRows: number): FooterPlan {
@@ -80,15 +107,11 @@ export function planFooter(terminalColumns: number, terminalRows: number): Foote
 }
 
 export function renderFooterLines(snapshot: TuiStatusSnapshot, options: RenderFooterOptions): string[] {
-  const rowCount = footerRowsForTerminal(options.rows);
-  const lines = [truncateVisible(renderStatusLine(snapshot, options.color), options.columns)];
-  if (rowCount >= 2) {
-    lines.push(rightAlign(renderTotalsLine(snapshot, options.color), options.columns));
-  }
-  if (rowCount >= 3) {
-    lines.push(truncateMiddleVisible(renderPathLine(snapshot, options.color), options.columns));
-  }
-  return lines;
+  return formatFooter(snapshot, {
+    columns: options.columns,
+    footerRows: footerRowsForTerminal(options.rows),
+    color: options.color
+  }).lines;
 }
 
 export function renderStatusLine(snapshot: TuiStatusSnapshot, color: boolean): string {
@@ -126,6 +149,26 @@ export function renderPathLine(snapshot: TuiStatusSnapshot, color: boolean): str
     return line;
   }
   return `${line}${separator}${colorize(snapshot.path.fallbackReason, styles.fallback, color)}`;
+}
+
+export function formatPathText(path: Pick<TuiStatusSnapshot['path'], 'nodes'>): string {
+  return path.nodes
+    .map((node) => (node.name || node.id).trim())
+    .filter(Boolean)
+    .join('-');
+}
+
+export function latencyStyleName(pingMs: number | null): 'gray' | 'mint' | 'butter' | 'coral' {
+  if (pingMs === null) {
+    return 'gray';
+  }
+  if (pingMs < 100) {
+    return 'mint';
+  }
+  if (pingMs < 300) {
+    return 'butter';
+  }
+  return 'coral';
 }
 
 export function visibleWidth(value: string): number {
@@ -193,8 +236,8 @@ function formatBytes(bytes: number | null): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let value = bytes;
   let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
     unit += 1;
   }
   if (unit === 0) {
@@ -204,16 +247,7 @@ function formatBytes(bytes: number | null): string {
 }
 
 function pingStyle(pingMs: number | null): Style {
-  if (pingMs === null) {
-    return styles.gray;
-  }
-  if (pingMs < 100) {
-    return styles.mint;
-  }
-  if (pingMs < 300) {
-    return styles.yellow;
-  }
-  return styles.coral;
+  return styles[latencyStyleName(pingMs)];
 }
 
 function pathNodeStyle(node: TuiPathNode, index: number): Style {
@@ -223,11 +257,11 @@ function pathNodeStyle(node: TuiPathNode, index: number): Style {
   if (node.kind === 'web') {
     return styles.coral;
   }
-  return index % 2 === 0 ? styles.lavender : styles.yellow;
+  return index % 2 === 0 ? styles.lavender : styles.butter;
 }
 
 function styleSegment(value: string, style: Style, color: boolean): string {
-  return colorize(` ${value} `, style, color);
+  return color ? colorize(` ${value} `, style, true) : value;
 }
 
 function colorize(value: string, style: Style, color: boolean): string {

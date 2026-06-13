@@ -40,7 +40,7 @@ export class SshCommandError extends Error {
 }
 
 export async function runSsh(argv: string[], context: CliContext = { json: false }) {
-  const parsed = stripTuiFlag(argv);
+  const parsed = parseSshCommandArgs(argv);
   const plan = await buildSshCommandPlan(parsed.args);
   if (parsed.tui && !context.json) {
     const tuiExitCode = await tryRunSshTui(plan);
@@ -53,6 +53,10 @@ export async function runSsh(argv: string[], context: CliContext = { json: false
     process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
   }
   return await spawnSsh(plan.executable, plan.args);
+}
+
+export function parseSshCommandArgs(argv: string[]) {
+  return stripTuiFlag(argv);
 }
 
 export async function buildSshCommandPlan(argv: string[]): Promise<SshCommandPlan> {

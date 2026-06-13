@@ -9,6 +9,7 @@ export type PtyProcess = {
 
 export type PtySpawnOptions = {
   columns: number;
+  cols?: number;
   rows: number;
   cwd?: string;
   env?: NodeJS.ProcessEnv;

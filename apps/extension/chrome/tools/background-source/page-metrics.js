@@ -18,11 +18,15 @@ function pageFor(tabId, url) {
     host: hostOf(url),
     openedAt: nowIso(),
     requestCount: 0,
+    responseCount: 0,
     proxiedRequestCount: 0,
     directRequestCount: 0,
     failureCount: 0,
     uploadBytes: 0,
     downloadBytes: 0,
+    latencyMs: 0,
+    latencyTotalMs: 0,
+    latencyCount: 0,
     lastErrorCode: '',
     lastErrorMessage: ''
   };
@@ -60,6 +64,21 @@ function contentLength(headers) {
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
+function recordLatency(page, tracked) {
+  if (!page || !tracked || tracked.responseSeen) {
+    return;
+  }
+  const latencyMs = Date.now() - tracked.startedAt;
+  if (latencyMs <= 0) {
+    return;
+  }
+  tracked.responseSeen = true;
+  page.responseCount += 1;
+  page.latencyTotalMs += latencyMs;
+  page.latencyCount += 1;
+  page.latencyMs = Math.round(page.latencyTotalMs / page.latencyCount);
+}
+
 function trackStarted(details) {
   if (details.tabId < 0 || !details.url) {
     return;
@@ -71,7 +90,7 @@ function trackStarted(details) {
   page.requestCount += 1;
   const uploadBytes = estimateUploadBytes(details.requestBody);
   page.uploadBytes += uploadBytes;
-  requestsById.set(details.requestId, { tabId: details.tabId, uploadBytes });
+  requestsById.set(details.requestId, { tabId: details.tabId, uploadBytes, startedAt: Date.now(), responseSeen: false });
   getState()
     .then((state) => {
       const route = routePreviewForUrl(state, details.url);
@@ -95,10 +114,16 @@ function trackHeaders(details) {
   if (!page) {
     return;
   }
+  recordLatency(page, tracked);
   page.downloadBytes += contentLength(details.responseHeaders);
 }
 
 function trackFinished(details) {
+  const tracked = requestsById.get(details.requestId);
+  if (tracked) {
+    const page = pagesByTab.get(tracked.tabId);
+    recordLatency(page, tracked);
+  }
   requestsById.delete(details.requestId);
 }
 

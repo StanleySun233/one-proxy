@@ -98,8 +98,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				MatchType:  domain.MatchTypeDefault,
 				MatchValue: targetHostForAudit(req),
 			}, validation.TenantID, revision)
-			tracker.finish(0, 0, domain.ProxySessionStatusError, "route_not_found", "route_not_found")
-			http.Error(w, "route_not_found", http.StatusForbidden)
+			tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorRouteNotFound, proxyErrorRouteNotFound)
+			writeProxyError(w, req, proxyErrorRouteNotFound, http.StatusForbidden)
 			return
 		}
 		match = RouteMatch{Rule: domain.RouteRule{
@@ -122,8 +122,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case domain.ActionTypeChain:
 		s.forwardChain(w, req, snapshot, match.Rule, tracker)
 	default:
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "unsupported_route_action", "unsupported_route_action")
-		http.Error(w, "unsupported_route_action", http.StatusBadRequest)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorUnsupportedRouteAction, proxyErrorUnsupportedRouteAction)
+		writeProxyError(w, req, proxyErrorUnsupportedRouteAction, http.StatusBadRequest)
 	}
 }
 

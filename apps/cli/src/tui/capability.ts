@@ -1,3 +1,5 @@
+export { footerRowsForTerminal as footerRowsForTerminalHeight } from './footer.ts';
+
 export const tuiUnavailableWarning = 'onep tui: unavailable, using standard terminal mode';
 
 export type TuiCapabilityInput = {
@@ -19,6 +21,24 @@ export type TuiCapabilityResult = {
   reason?: TuiUnavailableReason;
 };
 
+export type TuiCapabilityProbeInput = {
+  requested: boolean;
+  interactive?: boolean;
+  json: boolean;
+  stdin: { isTTY?: boolean };
+  stdout: { isTTY?: boolean; rows?: number };
+  stderr: { isTTY?: boolean };
+  env?: NodeJS.ProcessEnv;
+  platform: NodeJS.Platform;
+  ptyAvailable: boolean;
+};
+
+export type TuiCapabilityProbeResult = {
+  available: boolean;
+  reason: TuiCapabilityProbeReason | null;
+  color: boolean;
+};
+
 export type TuiUnavailableReason =
   | 'not_requested'
   | 'not_interactive'
@@ -29,10 +49,24 @@ export type TuiUnavailableReason =
   | 'terminal_too_small'
   | 'pty_unavailable';
 
+export type TuiCapabilityProbeReason = Exclude<TuiUnavailableReason, 'json'> | 'json_output';
+
 export const minimumTuiRows = 10;
 const supportedPlatforms = new Set<NodeJS.Platform>(['darwin', 'linux']);
 
-export function detectTuiCapability(input: TuiCapabilityInput): TuiCapabilityResult {
+export function detectTuiCapability(input: TuiCapabilityInput): TuiCapabilityResult;
+export function detectTuiCapability(input: TuiCapabilityProbeInput): TuiCapabilityProbeResult;
+export function detectTuiCapability(input: TuiCapabilityInput | TuiCapabilityProbeInput): TuiCapabilityResult | TuiCapabilityProbeResult {
+  if (isProbeInput(input)) {
+    const normalized = normalizeProbeInput(input);
+    const reason = unavailableReason(normalized);
+    return {
+      available: reason === null,
+      reason: probeReason(reason),
+      color: Boolean(input.stdout.isTTY && input.env?.TERM !== 'dumb' && !input.env?.NO_COLOR)
+    };
+  }
+
   const reason = unavailableReason(input);
   if (!reason) {
     return { enabled: true, warn: false };
@@ -42,6 +76,29 @@ export function detectTuiCapability(input: TuiCapabilityInput): TuiCapabilityRes
     warn: input.requested && reason !== 'not_requested',
     reason
   };
+}
+
+function isProbeInput(input: TuiCapabilityInput | TuiCapabilityProbeInput): input is TuiCapabilityProbeInput {
+  return 'stdin' in input;
+}
+
+function normalizeProbeInput(input: TuiCapabilityProbeInput): TuiCapabilityInput {
+  return {
+    requested: input.requested,
+    interactive: input.interactive ?? true,
+    json: input.json,
+    stdinIsTty: Boolean(input.stdin.isTTY),
+    stdoutIsTty: Boolean(input.stdout.isTTY),
+    stderrIsTty: Boolean(input.stderr.isTTY),
+    term: input.env?.TERM,
+    platform: input.platform,
+    rows: input.stdout.rows,
+    ptyAvailable: input.ptyAvailable
+  };
+}
+
+function probeReason(reason: TuiUnavailableReason | null): TuiCapabilityProbeReason | null {
+  return reason === 'json' ? 'json_output' : reason;
 }
 
 function unavailableReason(input: TuiCapabilityInput): TuiUnavailableReason | null {

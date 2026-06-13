@@ -15,15 +15,15 @@ func (s *Server) upgradeDirect(w http.ResponseWriter, req *http.Request, tracker
 	targetHost, targetPort := targetAddress(req)
 	targetConn, err := net.Dial("tcp", net.JoinHostPort(targetHost, strconv.Itoa(targetPort)))
 	if err != nil {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "connect_failed", "connect_failed")
-		http.Error(w, "connect_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorConnectFailed, proxyErrorConnectFailed)
+		writeProxyError(w, req, proxyErrorConnectFailed, http.StatusBadGateway)
 		return
 	}
 	tracker.markForward()
 	if err := writeUpgradeRequest(targetConn, req, false); err != nil {
 		targetConn.Close()
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "upgrade_write_failed", "upgrade_write_failed")
-		http.Error(w, "upgrade_write_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorUpgradeWriteFailed, proxyErrorUpgradeWriteFailed)
+		writeProxyError(w, req, proxyErrorUpgradeWriteFailed, http.StatusBadGateway)
 		return
 	}
 	completeUpgrade(w, req, targetConn, tracker)
@@ -32,15 +32,15 @@ func (s *Server) upgradeDirect(w http.ResponseWriter, req *http.Request, tracker
 func (s *Server) upgradeViaProxy(w http.ResponseWriter, req *http.Request, nextHop domain.Node, tracker *proxySessionTracker) {
 	proxyConn, err := net.Dial("tcp", net.JoinHostPort(nextHop.PublicHost, strconv.Itoa(nextHop.PublicPort)))
 	if err != nil {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "next_hop_connect_failed", "next_hop_connect_failed")
-		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)
+		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
 		return
 	}
 	tracker.markForward()
 	if err := writeUpgradeRequest(proxyConn, req, true); err != nil {
 		proxyConn.Close()
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "upgrade_write_failed", "upgrade_write_failed")
-		http.Error(w, "upgrade_write_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorUpgradeWriteFailed, proxyErrorUpgradeWriteFailed)
+		writeProxyError(w, req, proxyErrorUpgradeWriteFailed, http.StatusBadGateway)
 		return
 	}
 	completeUpgrade(w, req, proxyConn, tracker)
@@ -50,15 +50,15 @@ func (s *Server) upgradeViaStream(w http.ResponseWriter, req *http.Request, hop 
 	targetHost, targetPort := targetAddress(req)
 	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.tunnelRegistry, hop, targetHost, targetPort)
 	if err != nil {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "next_hop_connect_failed", "next_hop_connect_failed")
-		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)
+		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
 		return
 	}
 	tracker.markForward()
 	if err := writeUpgradeRequest(streamConn, req, false); err != nil {
 		streamConn.Close()
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "upgrade_write_failed", "upgrade_write_failed")
-		http.Error(w, "upgrade_write_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorUpgradeWriteFailed, proxyErrorUpgradeWriteFailed)
+		writeProxyError(w, req, proxyErrorUpgradeWriteFailed, http.StatusBadGateway)
 		return
 	}
 	completeUpgrade(w, req, streamConn, tracker)
@@ -86,8 +86,8 @@ func completeUpgrade(w http.ResponseWriter, req *http.Request, backendConn net.C
 	resp, err := http.ReadResponse(reader, req)
 	if err != nil {
 		backendConn.Close()
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "upgrade_response_failed", "upgrade_response_failed")
-		http.Error(w, "upgrade_response_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorUpgradeResponseFailed, proxyErrorUpgradeResponseFailed)
+		writeProxyError(w, req, proxyErrorUpgradeResponseFailed, http.StatusBadGateway)
 		return
 	}
 	tracker.markResponseReceive()
@@ -102,27 +102,27 @@ func completeUpgrade(w http.ResponseWriter, req *http.Request, backendConn net.C
 		}
 		w.WriteHeader(resp.StatusCode)
 		_, _ = io.Copy(w, resp.Body)
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "upgrade_rejected", "upgrade_rejected")
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorUpgradeRejected, proxyErrorUpgradeRejected)
 		return
 	}
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
 		backendConn.Close()
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "hijack_not_supported", "hijack_not_supported")
-		http.Error(w, "hijack_not_supported", http.StatusInternalServerError)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorHijackNotSupported, proxyErrorHijackNotSupported)
+		writeProxyError(w, req, proxyErrorHijackNotSupported, http.StatusInternalServerError)
 		return
 	}
 	clientConn, _, err := hijacker.Hijack()
 	if err != nil {
 		backendConn.Close()
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "hijack_failed", "hijack_failed")
-		http.Error(w, "hijack_failed", http.StatusInternalServerError)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorHijackFailed, proxyErrorHijackFailed)
+		writeProxyError(w, req, proxyErrorHijackFailed, http.StatusInternalServerError)
 		return
 	}
 	if err := resp.Write(clientConn); err != nil {
 		clientConn.Close()
 		backendConn.Close()
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "upgrade_write_failed", "upgrade_write_failed")
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorUpgradeWriteFailed, proxyErrorUpgradeWriteFailed)
 		return
 	}
 	tracker.finish(0, 0, domain.ProxySessionStatusOK, "", "")

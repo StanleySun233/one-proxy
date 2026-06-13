@@ -236,7 +236,7 @@ function spawnWindowsCommand(executable: string, args: string[], env: NodeJS.Pro
 }
 
 export async function runCommand(args: string[], _context: CliContext): Promise<number> {
-  const parsed = stripTuiFlag(args);
+  const parsed = parseRunCommandArgs(args);
   const executable = parsed.args[0];
   if (!executable) {
     throw Object.assign(new Error('run requires a command.'), { code: 'COMMAND_NOT_FOUND', exitCode: 2 });
@@ -287,6 +287,10 @@ export async function runCommand(args: string[], _context: CliContext): Promise<
       }, reject);
     });
   });
+}
+
+export function parseRunCommandArgs(argv: string[]) {
+  return stripTuiFlag(argv);
 }
 
 function stripTuiFlag(argv: string[]) {

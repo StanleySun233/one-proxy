@@ -63,7 +63,7 @@ export async function startActivatedShell(): Promise<number> {
 }
 
 export async function shellCommand(_args: string[], _context: CliContext): Promise<number> {
-  const parsed = stripTuiFlag(_args);
+  const parsed = parseShellCommandArgs(_args);
   if (parsed.tui && !_context.json) {
     const tuiExitCode = await tryStartActivatedShellTui();
     if (tuiExitCode !== null) {
@@ -75,6 +75,10 @@ export async function shellCommand(_args: string[], _context: CliContext): Promi
     process.stderr.write('onep tui: unavailable, using standard terminal mode\n');
   }
   return startActivatedShell();
+}
+
+export function parseShellCommandArgs(argv: string[]) {
+  return stripTuiFlag(argv);
 }
 
 function stripTuiFlag(argv: string[]) {

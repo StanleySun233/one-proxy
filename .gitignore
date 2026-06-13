@@ -154,6 +154,11 @@ activemq-data/
 .codex/
 releases/
 docs/
+!docs/
+docs/*
+!docs/20260613/
+!docs/20260613/cli-tui-runtime/
+!docs/20260613/cli-tui-runtime/**
 env/
 venv/
 ENV/

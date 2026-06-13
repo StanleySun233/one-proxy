@@ -10,8 +10,8 @@ import (
 func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot policystore.Snapshot, rule domain.RouteRule, tracker *proxySessionTracker) {
 	hop, ok := s.resolveChainHop(snapshot, rule.ChainID)
 	if !ok {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "invalid_chain_route", "invalid_chain_route")
-		http.Error(w, "invalid_chain_route", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorInvalidChainRoute, proxyErrorInvalidChainRoute)
+		writeProxyError(w, req, proxyErrorInvalidChainRoute, http.StatusBadGateway)
 		return
 	}
 	if hop.isLast {
@@ -39,8 +39,8 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 		return
 	}
 	if hop.node.PublicHost == "" || hop.node.PublicPort <= 0 {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "next_hop_unreachable", "next_hop_unreachable")
-		http.Error(w, "next_hop_unreachable", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopUnreachable, proxyErrorNextHopUnreachable)
+		writeProxyError(w, req, proxyErrorNextHopUnreachable, http.StatusBadGateway)
 		return
 	}
 	if req.Method == http.MethodConnect {

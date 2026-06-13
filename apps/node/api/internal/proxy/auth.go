@@ -107,7 +107,7 @@ func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) (Tok
 	validation := s.authorizer.Authorize(req.Context(), token)
 	if token == "" || !validation.Valid {
 		w.Header().Set("X-One-Proxy-Authenticate", "required")
-		http.Error(w, "reverse_auth_required", http.StatusUnauthorized)
+		writeProxyError(w, req, proxyErrorReverseAuthRequired, http.StatusUnauthorized)
 		return TokenValidation{}, false
 	}
 	if source == reverseTokenSourceQuery {
@@ -129,7 +129,7 @@ func (s *Server) authorizeForwardRequest(w http.ResponseWriter, req *http.Reques
 	validation := s.authorizer.Authorize(req.Context(), token)
 	if token == "" || !validation.Valid {
 		w.Header().Set("Proxy-Authenticate", `Basic realm="one-proxy"`)
-		http.Error(w, "proxy_auth_required", http.StatusProxyAuthRequired)
+		writeProxyError(w, req, proxyErrorProxyAuthRequired, http.StatusProxyAuthRequired)
 		return TokenValidation{}, false
 	}
 	return validation, true

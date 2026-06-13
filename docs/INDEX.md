@@ -15,5 +15,6 @@
 
 | Date | Requirement | Roadmap |
 |------|-------------|---------|
+| 20260613 | cli-tui-runtime | [→](./20260613/cli-tui-runtime/dev-roadmap.md) |
 | 20260607 | cli-connection-monitor | [→](./20260607/cli-connection-monitor/dev-roadmap.md) |
 | 20260606 | cli-session-proxy | [→](./20260606/cli-session-proxy/dev-roadmap.md) |

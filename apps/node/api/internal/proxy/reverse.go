@@ -16,8 +16,8 @@ import (
 func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {
 	body, err := readForwardRequestBody(req)
 	if err != nil {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "reverse_forward_failed", "reverse_forward_failed")
-		http.Error(w, "reverse_forward_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorReverseForwardFailed, proxyErrorReverseForwardFailed)
+		writeProxyError(w, req, proxyErrorReverseForwardFailed, http.StatusBadGateway)
 		return
 	}
 	uploadBytes := int64(len(body))
@@ -27,23 +27,16 @@ func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request, tracke
 	tracker.markForward()
 	resp, err := s.roundTripReverseWithRetry(transport, req, body)
 	if err != nil {
-		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, "reverse_forward_failed", "reverse_forward_failed")
-		http.Error(w, "reverse_forward_failed", http.StatusBadGateway)
+		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, proxyErrorReverseForwardFailed, proxyErrorReverseForwardFailed)
+		writeProxyError(w, req, proxyErrorReverseForwardFailed, http.StatusBadGateway)
 		return
 	}
 	tracker.markResponseReceive()
-	removeHopByHopHeaders(resp.header)
-	for key, values := range resp.header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-	w.WriteHeader(resp.statusCode)
-	_, _ = w.Write(resp.body)
-	tracker.finish(uploadBytes, int64(len(resp.body)), domain.ProxySessionStatusOK, "", "")
+	downloadBytes := writeForwardResponse(w, resp)
+	tracker.finish(uploadBytes, downloadBytes, domain.ProxySessionStatusOK, "", "")
 }
 
-func (s *Server) roundTripReverseWithRetry(transport *http.Transport, req *http.Request, body []byte) (bufferedForwardResponse, error) {
+func (s *Server) roundTripReverseWithRetry(transport *http.Transport, req *http.Request, body []byte) (forwardResponse, error) {
 	attempts := 1 + len(forwardRetryBackoffs)
 	var lastErr error
 	for attempt := 0; attempt < attempts; attempt++ {
@@ -56,18 +49,22 @@ func (s *Server) roundTripReverseWithRetry(transport *http.Transport, req *http.
 			lastErr = err
 			continue
 		}
-		buffered, err := readForwardResponse(resp, outbound.Method)
-		_ = resp.Body.Close()
+		if attempt+1 < attempts && retryableForwardStatus(resp.StatusCode) {
+			_ = resp.Body.Close()
+			continue
+		}
+		forwarded, err := readForwardResponse(resp, outbound.Method)
 		if err != nil {
+			_ = resp.Body.Close()
 			lastErr = err
 			continue
 		}
-		if attempt+1 < attempts && retryableForwardStatus(buffered.statusCode) {
-			continue
+		if forwarded.stream == nil {
+			_ = resp.Body.Close()
 		}
-		return buffered, nil
+		return forwarded, nil
 	}
-	return bufferedForwardResponse{}, lastErr
+	return forwardResponse{}, lastErr
 }
 
 func (s *Server) newReverseRequest(req *http.Request, body []byte) *http.Request {
@@ -93,8 +90,8 @@ func (s *Server) upgradeReverse(w http.ResponseWriter, req *http.Request, tracke
 	targetURL := s.reverseURL(req)
 	targetConn, err := dialReverseTarget(targetURL)
 	if err != nil {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "reverse_connect_failed", "reverse_connect_failed")
-		http.Error(w, "reverse_connect_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorReverseConnectFailed, proxyErrorReverseConnectFailed)
+		writeProxyError(w, req, proxyErrorReverseConnectFailed, http.StatusBadGateway)
 		return
 	}
 	tracker.markForward()
@@ -111,8 +108,8 @@ func (s *Server) upgradeReverse(w http.ResponseWriter, req *http.Request, tracke
 	rewriteOrigin(outbound, s.reverseTarget)
 	if err := outbound.Write(targetConn); err != nil {
 		targetConn.Close()
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "reverse_upgrade_write_failed", "reverse_upgrade_write_failed")
-		http.Error(w, "reverse_upgrade_write_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorReverseUpgradeWriteFailed, proxyErrorReverseUpgradeWriteFailed)
+		writeProxyError(w, req, proxyErrorReverseUpgradeWriteFailed, http.StatusBadGateway)
 		return
 	}
 	completeUpgrade(w, outbound, targetConn, tracker)

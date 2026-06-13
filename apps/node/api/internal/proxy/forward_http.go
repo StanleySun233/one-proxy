@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
@@ -16,10 +17,25 @@ import (
 
 var forwardRetryBackoffs = []time.Duration{100 * time.Millisecond, 250 * time.Millisecond}
 
-type bufferedForwardResponse struct {
+type forwardResponse struct {
 	statusCode int
 	header     http.Header
 	body       []byte
+	stream     io.ReadCloser
+}
+
+type closingReadCloser struct {
+	io.ReadCloser
+	close func() error
+}
+
+func (c closingReadCloser) Close() error {
+	closeErr := c.close()
+	err := c.ReadCloser.Close()
+	if err != nil {
+		return err
+	}
+	return closeErr
 }
 
 func (s *Server) forwardDirect(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {
@@ -38,8 +54,8 @@ func (s *Server) forwardHTTP(w http.ResponseWriter, req *http.Request, proxyURL 
 	targetHost, _ := targetAddress(req)
 	body, err := readForwardRequestBody(req)
 	if err != nil {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "forward_failed", "forward_failed")
-		http.Error(w, "forward_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorForwardFailed, proxyErrorForwardFailed)
+		writeProxyError(w, req, proxyErrorForwardFailed, http.StatusBadGateway)
 		return
 	}
 	uploadBytes := int64(len(body))
@@ -59,23 +75,16 @@ func (s *Server) forwardHTTP(w http.ResponseWriter, req *http.Request, proxyURL 
 		tracker.addLinkTiming(s.nodeIDGetter(), timingTarget, roundTripStarted)
 	}
 	if err != nil {
-		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, "forward_failed", "forward_failed")
-		http.Error(w, "forward_failed", http.StatusBadGateway)
+		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, proxyErrorForwardFailed, proxyErrorForwardFailed)
+		writeProxyError(w, req, proxyErrorForwardFailed, http.StatusBadGateway)
 		return
 	}
 	tracker.markResponseReceive()
-	removeHopByHopHeaders(resp.header)
-	for key, values := range resp.header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-	w.WriteHeader(resp.statusCode)
-	_, _ = w.Write(resp.body)
-	tracker.finish(uploadBytes, int64(len(resp.body)), domain.ProxySessionStatusOK, "", "")
+	downloadBytes := writeForwardResponse(w, resp)
+	tracker.finish(uploadBytes, downloadBytes, domain.ProxySessionStatusOK, "", "")
 }
 
-func roundTripWithRetry(transport *http.Transport, req *http.Request, body []byte) (bufferedForwardResponse, error) {
+func roundTripWithRetry(transport *http.Transport, req *http.Request, body []byte) (forwardResponse, error) {
 	attempts := 1 + len(forwardRetryBackoffs)
 	var lastErr error
 	for attempt := 0; attempt < attempts; attempt++ {
@@ -88,18 +97,22 @@ func roundTripWithRetry(transport *http.Transport, req *http.Request, body []byt
 			lastErr = err
 			continue
 		}
-		buffered, err := readForwardResponse(resp, outbound.Method)
-		_ = resp.Body.Close()
+		if attempt+1 < attempts && retryableForwardStatus(resp.StatusCode) {
+			_ = resp.Body.Close()
+			continue
+		}
+		forwarded, err := readForwardResponse(resp, outbound.Method)
 		if err != nil {
+			_ = resp.Body.Close()
 			lastErr = err
 			continue
 		}
-		if attempt+1 < attempts && retryableForwardStatus(buffered.statusCode) {
-			continue
+		if forwarded.stream == nil {
+			_ = resp.Body.Close()
 		}
-		return buffered, nil
+		return forwarded, nil
 	}
-	return bufferedForwardResponse{}, lastErr
+	return forwardResponse{}, lastErr
 }
 
 func readForwardRequestBody(req *http.Request) ([]byte, error) {
@@ -125,19 +138,72 @@ func newForwardRequest(req *http.Request, body []byte) *http.Request {
 	return outbound
 }
 
-func readForwardResponse(resp *http.Response, method string) (bufferedForwardResponse, error) {
+func readForwardResponse(resp *http.Response, method string) (forwardResponse, error) {
+	if shouldStreamForwardResponse(resp, method) {
+		return forwardResponse{
+			statusCode: resp.StatusCode,
+			header:     resp.Header.Clone(),
+			stream:     resp.Body,
+		}, nil
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return bufferedForwardResponse{}, err
+		return forwardResponse{}, err
 	}
 	if method != http.MethodHead && resp.ContentLength >= 0 && resp.ContentLength != int64(len(body)) {
-		return bufferedForwardResponse{}, errors.New("response_content_length_mismatch")
+		return forwardResponse{}, errors.New("response_content_length_mismatch")
 	}
-	return bufferedForwardResponse{
+	return forwardResponse{
 		statusCode: resp.StatusCode,
 		header:     resp.Header.Clone(),
 		body:       body,
 	}, nil
+}
+
+func shouldStreamForwardResponse(resp *http.Response, method string) bool {
+	return method != http.MethodHead && strings.HasPrefix(strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))), "text/event-stream")
+}
+
+func writeForwardResponse(w http.ResponseWriter, resp forwardResponse) int64 {
+	header := resp.header.Clone()
+	removeHopByHopHeaders(header)
+	for key, values := range header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(resp.statusCode)
+	if resp.stream == nil {
+		n, _ := w.Write(resp.body)
+		return int64(n)
+	}
+	defer resp.stream.Close()
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	return copyForwardStream(w, resp.stream)
+}
+
+func copyForwardStream(w http.ResponseWriter, stream io.Reader) int64 {
+	flusher, _ := w.(http.Flusher)
+	buffer := make([]byte, 32*1024)
+	var total int64
+	for {
+		n, readErr := stream.Read(buffer)
+		if n > 0 {
+			written, writeErr := w.Write(buffer[:n])
+			total += int64(written)
+			if flusher != nil {
+				flusher.Flush()
+			}
+			if writeErr != nil || written != n {
+				return total
+			}
+		}
+		if readErr != nil {
+			return total
+		}
+	}
 }
 
 func retryableForwardStatus(statusCode int) bool {
@@ -148,8 +214,8 @@ func (s *Server) forwardViaStream(w http.ResponseWriter, req *http.Request, hop 
 	targetHost, targetPort := targetAddress(req)
 	body, err := readForwardRequestBody(req)
 	if err != nil {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "stream_response_failed", "stream_response_failed")
-		http.Error(w, "stream_response_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorStreamResponseFailed, proxyErrorStreamResponseFailed)
+		writeProxyError(w, req, proxyErrorStreamResponseFailed, http.StatusBadGateway)
 		return
 	}
 	uploadBytes := int64(len(body))
@@ -158,23 +224,16 @@ func (s *Server) forwardViaStream(w http.ResponseWriter, req *http.Request, hop 
 	resp, err := s.roundTripStreamWithRetry(req, hop, targetHost, targetPort, body)
 	tracker.addLinkTiming(s.nodeIDGetter(), hop.node.ID, streamStarted)
 	if err != nil {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, "next_hop_connect_failed", "next_hop_connect_failed")
-		http.Error(w, "next_hop_connect_failed", http.StatusBadGateway)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)
+		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
 		return
 	}
 	tracker.markResponseReceive()
-	removeHopByHopHeaders(resp.header)
-	for key, values := range resp.header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-	w.WriteHeader(resp.statusCode)
-	_, _ = w.Write(resp.body)
-	tracker.finish(uploadBytes, int64(len(resp.body)), domain.ProxySessionStatusOK, "", "")
+	downloadBytes := writeForwardResponse(w, resp)
+	tracker.finish(uploadBytes, downloadBytes, domain.ProxySessionStatusOK, "", "")
 }
 
-func (s *Server) roundTripStreamWithRetry(req *http.Request, hop chainHop, targetHost string, targetPort int, body []byte) (bufferedForwardResponse, error) {
+func (s *Server) roundTripStreamWithRetry(req *http.Request, hop chainHop, targetHost string, targetPort int, body []byte) (forwardResponse, error) {
 	attempts := 1 + len(forwardRetryBackoffs)
 	var lastErr error
 	for attempt := 0; attempt < attempts; attempt++ {
@@ -199,19 +258,27 @@ func (s *Server) roundTripStreamWithRetry(req *http.Request, hop chainHop, targe
 			lastErr = err
 			continue
 		}
-		buffered, err := readForwardResponse(resp, outbound.Method)
-		_ = resp.Body.Close()
-		_ = streamConn.Close()
+		if attempt+1 < attempts && retryableForwardStatus(resp.StatusCode) {
+			_ = resp.Body.Close()
+			_ = streamConn.Close()
+			continue
+		}
+		forwarded, err := readForwardResponse(resp, outbound.Method)
 		if err != nil {
+			_ = resp.Body.Close()
+			_ = streamConn.Close()
 			lastErr = err
 			continue
 		}
-		if attempt+1 < attempts && retryableForwardStatus(buffered.statusCode) {
-			continue
+		if forwarded.stream != nil {
+			forwarded.stream = closingReadCloser{ReadCloser: forwarded.stream, close: streamConn.Close}
+			return forwarded, nil
 		}
-		return buffered, nil
+		_ = resp.Body.Close()
+		_ = streamConn.Close()
+		return forwarded, nil
 	}
-	return bufferedForwardResponse{}, lastErr
+	return forwardResponse{}, lastErr
 }
 
 func newStreamForwardRequest(req *http.Request, body []byte) *http.Request {
