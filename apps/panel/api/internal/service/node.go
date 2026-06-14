@@ -69,6 +69,21 @@ func (c *ControlPlane) DeleteNode(tenantCtx domain.TenantAuthContext, nodeID str
 	return c.store.DeleteNode(nodeID)
 }
 
+func (c *ControlPlane) NodeDeleteImpact(tenantCtx domain.TenantAuthContext, nodeID string) (domain.NodeDeleteImpact, error) {
+	if nodeID == "" {
+		return domain.NodeDeleteImpact{}, invalidInput("missing_node_id")
+	}
+	if err := c.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return c.store.NodeBindingPermission(tenantCtx, nodeID)
+	}); err != nil {
+		return domain.NodeDeleteImpact{}, err
+	}
+	if !tenantCtx.SuperAdmin && c.store.CountNodeBindings(nodeID) > 1 {
+		return domain.NodeDeleteImpact{}, newError(http.StatusConflict, "shared_resource_delete_forbidden")
+	}
+	return c.store.GetNodeDeleteImpact(nodeID)
+}
+
 type NodeManageAccessResult struct {
 	NodeID     string                   `json:"nodeId"`
 	Allowed    bool                     `json:"allowed"`

@@ -193,6 +193,67 @@ func (s *MySQLStore) UpdateNode(nodeID string, input domain.UpdateNodeInput) (do
 	return domain.Node{}, sql.ErrNoRows
 }
 
+func (s *MySQLStore) GetNodeDeleteImpact(nodeID string) (domain.NodeDeleteImpact, error) {
+	impact := domain.NodeDeleteImpact{NodeID: nodeID}
+	chainIDs, err := nodeChainIDs(s.db, nodeID)
+	if err != nil {
+		return impact, err
+	}
+	pathCondition, pathArgs := nodeDeleteAccessPathCondition(nodeID, chainIDs)
+
+	if impact.Delete.Node, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM nodes WHERE id = ?", nodeID); err != nil {
+		return impact, err
+	}
+	impact.Delete.Chains = len(chainIDs)
+	if impact.Delete.ChainHops, err = s.countNodeDeleteRowsIn("SELECT COUNT(*) FROM chain_hops WHERE chain_id IN (%s)", chainIDs); err != nil {
+		return impact, err
+	}
+	if impact.Delete.RouteRules, err = s.countNodeDeleteRowsIn("SELECT COUNT(*) FROM route_rules WHERE chain_id IN (%s)", chainIDs); err != nil {
+		return impact, err
+	}
+	if impact.Delete.AccessPaths, err = s.countNodeDeleteRows(fmt.Sprintf("SELECT COUNT(DISTINCT id) FROM node_access_paths WHERE %s", pathCondition), pathArgs...); err != nil {
+		return impact, err
+	}
+	onboardingArgs := append([]any{nodeID}, pathArgs...)
+	if impact.Delete.OnboardingTasks, err = s.countNodeDeleteRows(fmt.Sprintf("SELECT COUNT(DISTINCT id) FROM node_onboarding_tasks WHERE target_node_id = ? OR path_id IN (SELECT id FROM node_access_paths WHERE %s)", pathCondition), onboardingArgs...); err != nil {
+		return impact, err
+	}
+	if impact.Delete.ChainProbeResults, err = s.countNodeDeleteChainProbeResults(nodeID, chainIDs); err != nil {
+		return impact, err
+	}
+	if impact.Delete.RuntimeTransports, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM node_transports WHERE node_id = ? OR parent_node_id = ?", nodeID, nodeID); err != nil {
+		return impact, err
+	}
+	if impact.Delete.NodeLinks, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM node_links WHERE source_node_id = ? OR target_node_id = ?", nodeID, nodeID); err != nil {
+		return impact, err
+	}
+	if impact.Delete.PolicyAssignments, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM node_policy_assignments WHERE node_id = ?", nodeID); err != nil {
+		return impact, err
+	}
+	if impact.Delete.HealthSnapshots, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM node_health_snapshots WHERE node_id = ?", nodeID); err != nil {
+		return impact, err
+	}
+	if impact.Delete.SLAMinutes, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM node_sla_minutes WHERE node_id = ?", nodeID); err != nil {
+		return impact, err
+	}
+	if impact.Delete.APITokens, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM node_api_tokens WHERE node_id = ?", nodeID); err != nil {
+		return impact, err
+	}
+	if impact.Delete.TrustMaterials, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM node_trust_materials WHERE node_id = ?", nodeID); err != nil {
+		return impact, err
+	}
+	if impact.Delete.BootstrapTokens, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM bootstrap_tokens WHERE target_id = ?", nodeID); err != nil {
+		return impact, err
+	}
+	if impact.Delete.TenantBindings, err = s.countNodeDeleteTenantBindings(nodeID, chainIDs, pathCondition, pathArgs); err != nil {
+		return impact, err
+	}
+	if impact.Update.ChildNodesDetached, err = s.countNodeDeleteRows("SELECT COUNT(*) FROM nodes WHERE parent_node_id = ?", nodeID); err != nil {
+		return impact, err
+	}
+	return impact, nil
+}
+
 func (s *MySQLStore) DeleteNode(nodeID string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -246,8 +307,12 @@ func (s *MySQLStore) DeleteNode(nodeID string) error {
 	return tx.Commit()
 }
 
-func nodeChainIDs(tx *sql.Tx, nodeID string) ([]string, error) {
-	rows, err := tx.Query("SELECT DISTINCT chain_id FROM chain_hops WHERE node_id = ? ORDER BY chain_id", nodeID)
+type nodeChainQuerier interface {
+	Query(query string, args ...any) (*sql.Rows, error)
+}
+
+func nodeChainIDs(db nodeChainQuerier, nodeID string) ([]string, error) {
+	rows, err := db.Query("SELECT DISTINCT chain_id FROM chain_hops WHERE node_id = ? ORDER BY chain_id", nodeID)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +332,7 @@ func deleteChainsForNodeDelete(tx *sql.Tx, chainIDs []string) error {
 	if len(chainIDs) == 0 {
 		return nil
 	}
-	placeholders := strings.TrimRight(strings.Repeat("?,", len(chainIDs)), ",")
+	placeholders := questionPlaceholders(len(chainIDs))
 	statements := []string{
 		fmt.Sprintf("DELETE FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id IN (%s))", placeholders),
 		fmt.Sprintf("DELETE FROM route_rules WHERE chain_id IN (%s)", placeholders),
@@ -285,6 +350,73 @@ func deleteChainsForNodeDelete(tx *sql.Tx, chainIDs []string) error {
 		}
 	}
 	return nil
+}
+
+func (s *MySQLStore) countNodeDeleteRows(query string, args ...any) (int, error) {
+	var count int
+	err := s.db.QueryRow(query, args...).Scan(&count)
+	return count, err
+}
+
+func (s *MySQLStore) countNodeDeleteRowsIn(queryFormat string, values []string) (int, error) {
+	if len(values) == 0 {
+		return 0, nil
+	}
+	return s.countNodeDeleteRows(fmt.Sprintf(queryFormat, questionPlaceholders(len(values))), stringArgs(values)...)
+}
+
+func (s *MySQLStore) countNodeDeleteChainProbeResults(nodeID string, chainIDs []string) (int, error) {
+	if len(chainIDs) == 0 {
+		return s.countNodeDeleteRows("SELECT COUNT(DISTINCT chain_id) FROM chain_probe_results WHERE blocking_node_id = ?", nodeID)
+	}
+	args := append(stringArgs(chainIDs), nodeID)
+	return s.countNodeDeleteRows(fmt.Sprintf("SELECT COUNT(DISTINCT chain_id) FROM chain_probe_results WHERE chain_id IN (%s) OR blocking_node_id = ?", questionPlaceholders(len(chainIDs))), args...)
+}
+
+func (s *MySQLStore) countNodeDeleteTenantBindings(nodeID string, chainIDs []string, pathCondition string, pathArgs []any) (int, error) {
+	total, err := s.countNodeDeleteRows("SELECT COUNT(*) FROM tenant_nodes WHERE node_id = ?", nodeID)
+	if err != nil {
+		return 0, err
+	}
+	count, err := s.countNodeDeleteRows("SELECT COUNT(*) FROM tenant_node_links WHERE node_link_id IN (SELECT id FROM node_links WHERE source_node_id = ? OR target_node_id = ?)", nodeID, nodeID)
+	if err != nil {
+		return 0, err
+	}
+	total += count
+	count, err = s.countNodeDeleteRows(fmt.Sprintf("SELECT COUNT(*) FROM tenant_access_paths WHERE access_path_id IN (SELECT id FROM node_access_paths WHERE %s)", pathCondition), pathArgs...)
+	if err != nil {
+		return 0, err
+	}
+	total += count
+	count, err = s.countNodeDeleteRowsIn("SELECT COUNT(*) FROM tenant_chains WHERE chain_id IN (%s)", chainIDs)
+	if err != nil {
+		return 0, err
+	}
+	total += count
+	if len(chainIDs) == 0 {
+		return total, nil
+	}
+	count, err = s.countNodeDeleteRows(fmt.Sprintf("SELECT COUNT(*) FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id IN (%s))", questionPlaceholders(len(chainIDs))), stringArgs(chainIDs)...)
+	if err != nil {
+		return 0, err
+	}
+	return total + count, nil
+}
+
+func nodeDeleteAccessPathCondition(nodeID string, chainIDs []string) (string, []any) {
+	conditions := make([]string, 0, 4)
+	args := make([]any, 0, len(chainIDs)+3)
+	if len(chainIDs) > 0 {
+		conditions = append(conditions, fmt.Sprintf("chain_id IN (%s)", questionPlaceholders(len(chainIDs))))
+		args = append(args, stringArgs(chainIDs)...)
+	}
+	conditions = append(conditions, "target_node_id = ?", "entry_node_id = ?", "JSON_CONTAINS(relay_node_ids_json, JSON_QUOTE(?))")
+	args = append(args, nodeID, nodeID, nodeID)
+	return strings.Join(conditions, " OR "), args
+}
+
+func questionPlaceholders(count int) string {
+	return strings.TrimRight(strings.Repeat("?,", count), ",")
 }
 
 func stringArgs(values []string) []any {

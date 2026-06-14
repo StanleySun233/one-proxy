@@ -46,6 +46,7 @@ type NodeStore interface {
 	CreateNode(input domain.CreateNodeInput) (domain.Node, error)
 	CreateNodeForTenant(tenantCtx domain.TenantAuthContext, input domain.CreateNodeInput) (domain.Node, error)
 	UpdateNode(nodeID string, input domain.UpdateNodeInput) (domain.Node, error)
+	GetNodeDeleteImpact(nodeID string) (domain.NodeDeleteImpact, error)
 	DeleteNode(nodeID string) error
 	NodeBindingPermission(tenantCtx domain.TenantAuthContext, nodeID string) (domain.BindingPermission, bool)
 	CountNodeBindings(nodeID string) int

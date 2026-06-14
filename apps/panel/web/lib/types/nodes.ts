@@ -31,6 +31,31 @@ export type Node = ResourcePermissionMetadata & {
   rejectReason?: string;
 };
 
+export type NodeDeleteImpact = {
+  nodeId: string;
+  delete: {
+    node: number;
+    chains: number;
+    chainHops: number;
+    routeRules: number;
+    accessPaths: number;
+    onboardingTasks: number;
+    chainProbeResults: number;
+    runtimeTransports: number;
+    nodeLinks: number;
+    policyAssignments: number;
+    healthSnapshots: number;
+    slaMinutes: number;
+    apiTokens: number;
+    trustMaterials: number;
+    bootstrapTokens: number;
+    tenantBindings: number;
+  };
+  update: {
+    childNodesDetached: number;
+  };
+};
+
 export type NodeLink = ResourcePermissionMetadata & {
   id: string;
   sourceNodeId: string;

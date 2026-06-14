@@ -4,6 +4,7 @@ export { login, refreshSession, logout } from './auth';
 export {
   getNodes,
   updateNode,
+  getNodeDeleteImpact,
   deleteNode,
   approveNode,
   rejectNode,

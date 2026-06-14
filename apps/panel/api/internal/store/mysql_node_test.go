@@ -7,8 +7,11 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
+
+	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
 )
 
 type nodeDeleteCall struct {
@@ -20,6 +23,7 @@ type nodeDeleteRecord struct {
 	mu       sync.Mutex
 	calls    []nodeDeleteCall
 	chainIDs []string
+	counts   map[string]int
 }
 
 func (r *nodeDeleteRecord) add(query string, args []driver.Value) {
@@ -74,11 +78,14 @@ func (c *nodeDeleteConn) ExecContext(_ context.Context, query string, args []dri
 
 func (c *nodeDeleteConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	c.record.add(query, namedValues(args))
+	if strings.HasPrefix(strings.TrimSpace(query), "SELECT COUNT") {
+		return &nodeDeleteRows{columns: []string{"count"}, values: [][]driver.Value{{c.record.counts[query]}}}, nil
+	}
 	values := make([][]driver.Value, 0, len(c.record.chainIDs))
 	for _, chainID := range c.record.chainIDs {
 		values = append(values, []driver.Value{chainID})
 	}
-	return &nodeDeleteRows{values: values}, nil
+	return &nodeDeleteRows{columns: []string{"chain_id"}, values: values}, nil
 }
 
 type nodeDeleteTx struct {
@@ -96,12 +103,13 @@ func (tx *nodeDeleteTx) Rollback() error {
 }
 
 type nodeDeleteRows struct {
-	values [][]driver.Value
-	index  int
+	columns []string
+	values  [][]driver.Value
+	index   int
 }
 
 func (r *nodeDeleteRows) Columns() []string {
-	return []string{"chain_id"}
+	return r.columns
 }
 
 func (r *nodeDeleteRows) Close() error {
@@ -186,5 +194,69 @@ func TestDeleteNodeDeletesRelationshipsBeforeNode(t *testing.T) {
 	}
 	if got := record.snapshot(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("calls = %#v, want %#v", got, want)
+	}
+}
+
+func TestGetNodeDeleteImpactCountsRelationships(t *testing.T) {
+	record := &nodeDeleteRecord{
+		chainIDs: []string{"chain-1", "chain-2"},
+		counts: map[string]int{
+			"SELECT COUNT(*) FROM nodes WHERE id = ?":                  1,
+			"SELECT COUNT(*) FROM chain_hops WHERE chain_id IN (?,?)":  4,
+			"SELECT COUNT(*) FROM route_rules WHERE chain_id IN (?,?)": 3,
+			"SELECT COUNT(DISTINCT id) FROM node_access_paths WHERE chain_id IN (?,?) OR target_node_id = ? OR entry_node_id = ? OR JSON_CONTAINS(relay_node_ids_json, JSON_QUOTE(?))":                                                                               5,
+			"SELECT COUNT(DISTINCT id) FROM node_onboarding_tasks WHERE target_node_id = ? OR path_id IN (SELECT id FROM node_access_paths WHERE chain_id IN (?,?) OR target_node_id = ? OR entry_node_id = ? OR JSON_CONTAINS(relay_node_ids_json, JSON_QUOTE(?)))": 6,
+			"SELECT COUNT(DISTINCT chain_id) FROM chain_probe_results WHERE chain_id IN (?,?) OR blocking_node_id = ?":                                                                                                                                               2,
+			"SELECT COUNT(*) FROM node_transports WHERE node_id = ? OR parent_node_id = ?":                                                                                                                                                                           7,
+			"SELECT COUNT(*) FROM node_links WHERE source_node_id = ? OR target_node_id = ?":                                                                                                                                                                         8,
+			"SELECT COUNT(*) FROM node_policy_assignments WHERE node_id = ?":                                                                                                                                                                                         9,
+			"SELECT COUNT(*) FROM node_health_snapshots WHERE node_id = ?":                                                                                                                                                                                           10,
+			"SELECT COUNT(*) FROM node_sla_minutes WHERE node_id = ?":                                                                                                                                                                                                11,
+			"SELECT COUNT(*) FROM node_api_tokens WHERE node_id = ?":                                                                                                                                                                                                 12,
+			"SELECT COUNT(*) FROM node_trust_materials WHERE node_id = ?":                                                                                                                                                                                            13,
+			"SELECT COUNT(*) FROM bootstrap_tokens WHERE target_id = ?":                                                                                                                                                                                              14,
+			"SELECT COUNT(*) FROM tenant_nodes WHERE node_id = ?":                                                                                                                                                                                                    1,
+			"SELECT COUNT(*) FROM tenant_node_links WHERE node_link_id IN (SELECT id FROM node_links WHERE source_node_id = ? OR target_node_id = ?)":                                                                                                                2,
+			"SELECT COUNT(*) FROM tenant_access_paths WHERE access_path_id IN (SELECT id FROM node_access_paths WHERE chain_id IN (?,?) OR target_node_id = ? OR entry_node_id = ? OR JSON_CONTAINS(relay_node_ids_json, JSON_QUOTE(?)))": 3,
+			"SELECT COUNT(*) FROM tenant_chains WHERE chain_id IN (?,?)":                                                          4,
+			"SELECT COUNT(*) FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id IN (?,?))": 5,
+			"SELECT COUNT(*) FROM nodes WHERE parent_node_id = ?":                                                                 16,
+		},
+	}
+	db := openNodeDeleteTestDB(t, record)
+	defer db.Close()
+
+	store := &MySQLStore{db: db}
+	got, err := store.GetNodeDeleteImpact("node-1")
+	if err != nil {
+		t.Fatalf("GetNodeDeleteImpact: %v", err)
+	}
+
+	want := domain.NodeDeleteImpact{
+		NodeID: "node-1",
+		Delete: domain.NodeDeleteImpactDelete{
+			Node:              1,
+			Chains:            2,
+			ChainHops:         4,
+			RouteRules:        3,
+			AccessPaths:       5,
+			OnboardingTasks:   6,
+			ChainProbeResults: 2,
+			RuntimeTransports: 7,
+			NodeLinks:         8,
+			PolicyAssignments: 9,
+			HealthSnapshots:   10,
+			SLAMinutes:        11,
+			APITokens:         12,
+			TrustMaterials:    13,
+			BootstrapTokens:   14,
+			TenantBindings:    15,
+		},
+		Update: domain.NodeDeleteImpactUpdate{
+			ChildNodesDetached: 16,
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("impact = %#v, want %#v", got, want)
 	}
 }

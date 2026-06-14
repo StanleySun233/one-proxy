@@ -38,6 +38,35 @@ type UpdateNodeInput struct {
 	Status       string `json:"status"`
 }
 
+type NodeDeleteImpact struct {
+	NodeID string                 `json:"nodeId"`
+	Delete NodeDeleteImpactDelete `json:"delete"`
+	Update NodeDeleteImpactUpdate `json:"update"`
+}
+
+type NodeDeleteImpactDelete struct {
+	Node              int `json:"node"`
+	Chains            int `json:"chains"`
+	ChainHops         int `json:"chainHops"`
+	RouteRules        int `json:"routeRules"`
+	AccessPaths       int `json:"accessPaths"`
+	OnboardingTasks   int `json:"onboardingTasks"`
+	ChainProbeResults int `json:"chainProbeResults"`
+	RuntimeTransports int `json:"runtimeTransports"`
+	NodeLinks         int `json:"nodeLinks"`
+	PolicyAssignments int `json:"policyAssignments"`
+	HealthSnapshots   int `json:"healthSnapshots"`
+	SLAMinutes        int `json:"slaMinutes"`
+	APITokens         int `json:"apiTokens"`
+	TrustMaterials    int `json:"trustMaterials"`
+	BootstrapTokens   int `json:"bootstrapTokens"`
+	TenantBindings    int `json:"tenantBindings"`
+}
+
+type NodeDeleteImpactUpdate struct {
+	ChildNodesDetached int `json:"childNodesDetached"`
+}
+
 type NodeLink struct {
 	ID           string `json:"id"`
 	CreateID     string `json:"createId"`

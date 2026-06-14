@@ -1,6 +1,7 @@
 import { request } from './client';
 import type {
   Node,
+  NodeDeleteImpact,
   NodeTransport,
   BootstrapToken,
   UnconsumedBootstrapToken,
@@ -35,6 +36,10 @@ export function updateNode(
     tenantId,
     body: payload
   });
+}
+
+export function getNodeDeleteImpact(accessToken: string, tenantId: string | null, nodeID: string) {
+  return request<NodeDeleteImpact>(`/nodes/${nodeID}/delete-impact`, {accessToken, tenantId});
 }
 
 export function deleteNode(accessToken: string, tenantId: string | null, nodeID: string) {

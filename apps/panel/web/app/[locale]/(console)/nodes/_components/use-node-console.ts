@@ -15,6 +15,7 @@ import {
   deleteNode,
   deleteNodeLink,
   fetchEnums,
+  getNodeDeleteImpact,
   getNodeHealth,
   getNodeLinks,
   getNodes,
@@ -192,6 +193,13 @@ export function useNodeConsole() {
     }
   });
 
+  const nodeDeleteImpactMutation = useMutation({
+    mutationFn: (nodeID: string) => getNodeDeleteImpact(accessToken, activeTenantId, nodeID),
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
   const deleteBootstrapTokenMutation = useMutation({
     mutationFn: (tokenID: string) => deleteBootstrapToken(accessToken, activeTenantId, tokenID),
     onSuccess: () => {
@@ -272,6 +280,7 @@ export function useNodeConsole() {
     approve: approveMutation,
     rejectNode: rejectNodeMutation,
     updateNode: updateNodeMutation,
+    nodeDeleteImpact: nodeDeleteImpactMutation,
     deleteNode: deleteNodeMutation,
     deleteBootstrapToken: deleteBootstrapTokenMutation,
     createNodeLink: createNodeLinkMutation,

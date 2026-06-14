@@ -8,12 +8,36 @@ import {AuthGate} from '@/components/auth-gate';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
 import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {fetchEnums} from '@/lib/api';
+import type {NodeDeleteImpact} from '@/lib/types';
 
 import {useNodeConsole} from './use-node-console';
 import {deriveNodeHealthState} from './node-utils';
 import {RegistryNodeEditor} from './registry-node-editor';
 import {RegistryNodeTable} from './registry-node-table';
 import {RegistryNodeFormState, RegistryNodeRow} from './types';
+
+const deleteImpactRows: Array<[keyof NodeDeleteImpact['delete'], string]> = [
+  ['node', 'deleteImpactNode'],
+  ['chains', 'deleteImpactChains'],
+  ['chainHops', 'deleteImpactChainHops'],
+  ['routeRules', 'deleteImpactRouteRules'],
+  ['accessPaths', 'deleteImpactAccessPaths'],
+  ['onboardingTasks', 'deleteImpactOnboardingTasks'],
+  ['chainProbeResults', 'deleteImpactChainProbeResults'],
+  ['runtimeTransports', 'deleteImpactRuntimeTransports'],
+  ['nodeLinks', 'deleteImpactNodeLinks'],
+  ['policyAssignments', 'deleteImpactPolicyAssignments'],
+  ['healthSnapshots', 'deleteImpactHealthSnapshots'],
+  ['slaMinutes', 'deleteImpactSLAMinutes'],
+  ['apiTokens', 'deleteImpactAPITokens'],
+  ['trustMaterials', 'deleteImpactTrustMaterials'],
+  ['bootstrapTokens', 'deleteImpactBootstrapTokens'],
+  ['tenantBindings', 'deleteImpactTenantBindings']
+];
+
+const updateImpactRows: Array<[keyof NodeDeleteImpact['update'], string]> = [
+  ['childNodesDetached', 'deleteImpactChildNodesDetached']
+];
 
 export function NodeRegistryPageContent() {
   const t = useTranslations();
@@ -101,8 +125,32 @@ export function NodeRegistryPageContent() {
     }
   }, [editingNodeID, nodes]);
 
-  const deleteNode = (node: RegistryNodeRow) => {
-    if (!window.confirm(nodesT('deleteNodeConfirm', {name: node.name}))) {
+  const deleteNode = async (node: RegistryNodeRow) => {
+    let impact: NodeDeleteImpact;
+    try {
+      impact = await nodeConsole.nodeDeleteImpact.mutateAsync(node.id);
+    } catch {
+      return;
+    }
+    const deletedLines = deleteImpactRows
+      .map(([key, labelKey]) => ({count: impact.delete[key], label: nodesT(labelKey)}))
+      .filter((item) => item.count > 0)
+      .map((item) => `- ${item.label}: ${item.count}`);
+    const updatedLines = updateImpactRows
+      .map(([key, labelKey]) => ({count: impact.update[key], label: nodesT(labelKey)}))
+      .filter((item) => item.count > 0)
+      .map((item) => `- ${item.label}: ${item.count}`);
+    const confirmLines = [nodesT('deleteNodeConfirm', {name: node.name})];
+    if (deletedLines.length > 0) {
+      confirmLines.push('', nodesT('deleteImpactDeleted'), ...deletedLines);
+    } else {
+      confirmLines.push('', nodesT('deleteImpactEmpty'));
+    }
+    if (updatedLines.length > 0) {
+      confirmLines.push('', nodesT('deleteImpactUpdated'), ...updatedLines);
+    }
+    confirmLines.push('', nodesT('deleteImpactContinue'));
+    if (!window.confirm(confirmLines.join('\n'))) {
       return;
     }
     if (editingNodeID === node.id) {
@@ -181,7 +229,7 @@ export function NodeRegistryPageContent() {
         <ConsoleList count={filteredNodes.length} title={nodesT('registryTitle')}>
           <RegistryNodeTable
             canWrite={nodeConsole.canWrite}
-            deletePending={nodeConsole.deleteNode.isPending}
+            deletePending={nodeConsole.deleteNode.isPending || nodeConsole.nodeDeleteImpact.isPending}
             editingNodeID={editingNodeID}
             enums={enums}
             filteredNodes={filteredNodes}

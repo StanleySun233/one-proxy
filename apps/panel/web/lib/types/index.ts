@@ -3,6 +3,7 @@ export type {
   Node,
   NodeAccessPath,
   NodeAccessPathPayload,
+  NodeDeleteImpact,
   NodeLink,
   NodeTransport,
   NodeHealth,

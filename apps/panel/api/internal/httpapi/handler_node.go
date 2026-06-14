@@ -35,6 +35,10 @@ func (r *Router) handleNodeByID(w http.ResponseWriter, req *http.Request) {
 		r.handleNodeManageAccess(w, req)
 		return
 	}
+	if strings.HasSuffix(req.URL.Path, "/delete-impact") {
+		r.handleNodeDeleteImpact(w, req)
+		return
+	}
 	if strings.HasSuffix(req.URL.Path, "/approve") {
 		r.handleNodeApprove(w, req)
 		return
@@ -102,6 +106,29 @@ func (r *Router) handleNodeManageAccess(w http.ResponseWriter, req *http.Request
 	result := r.service.NodeManageAccess(tenantCtx, nodeID)
 	if !result.Allowed {
 		writeError(w, http.StatusForbidden, result.Reason)
+		return
+	}
+	writeSuccess(w, http.StatusOK, result)
+}
+
+func (r *Router) handleNodeDeleteImpact(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	nodeID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/nodes/"), "/delete-impact")
+	if nodeID == "" {
+		writeError(w, http.StatusBadRequest, "missing_node_id")
+		return
+	}
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	result, err := r.service.NodeDeleteImpact(tenantCtx, nodeID)
+	if err != nil {
+		writeServiceError(w, req, err, "delete_impact_failed")
 		return
 	}
 	writeSuccess(w, http.StatusOK, result)
