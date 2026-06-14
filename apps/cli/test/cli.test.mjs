@@ -18,7 +18,7 @@ import { resolveRoute } from '../src/daemon/router.ts';
 import { parseSshCommandArgs, parseSshTarget } from '../src/ssh.ts';
 import { parseShellCommandArgs } from '../src/shell.ts';
 import { parseEnvCommandArgs, parseRunCommandArgs, proxyEnv } from '../src/session-env.ts';
-import { runIsolationInternals } from '../src/run-isolation.ts';
+import { runIsolationInternals, runProxyOnlyBestEffortCommand } from '../src/run-isolation.ts';
 import { detectTuiCapability, tuiUnavailableWarning } from '../src/tui/capability.ts';
 import { buildTuiStatusSnapshot, collectTuiStatusSnapshot } from '../src/tui/status.ts';
 
@@ -269,6 +269,27 @@ test('run isolation firewall allows only the proxy-only port before rejecting eg
     '-m', 'cgroup', '--path', 'oneproxy-run-test',
     '-j', 'REJECT'
   ]);
+});
+
+test('run isolation fallback detection only matches isolation support errors', () => {
+  assert.equal(runIsolationInternals.isProxyIsolationUnavailable(Object.assign(new Error('missing root'), { code: 'PROXY_ISOLATION_REQUIRED' })), true);
+  assert.equal(runIsolationInternals.isProxyIsolationUnavailable(Object.assign(new Error('cleanup failed'), { code: 'PROXY_ISOLATION_CLEANUP_FAILED' })), false);
+});
+
+test('best-effort run passes proxy-only environment to the child', async () => {
+  const exitCode = await runProxyOnlyBestEffortCommand({
+    executable: process.execPath,
+    args: ['-e', 'process.exit(process.env.HTTP_PROXY === "http://127.0.0.1:12000" && process.env.NO_PROXY === "" && process.env.ONEPROXY_PROXY_ONLY === "1" ? 0 : 9)'],
+    env: {
+      ...process.env,
+      HTTP_PROXY: 'http://127.0.0.1:12000',
+      NO_PROXY: '',
+      ONEPROXY_PROXY_ONLY: '1'
+    },
+    proxyPort: 12000
+  });
+
+  assert.equal(exitCode, 0);
 });
 
 test('command parser handles help and unknown commands', async () => {

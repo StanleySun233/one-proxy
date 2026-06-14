@@ -23,12 +23,16 @@ type FirewallRule = {
 
 export async function runProxyOnlyIsolatedCommand(input: IsolatedRunInput): Promise<number> {
   await requireProxyIsolationSupport();
-  const cgroup = await createRunCgroup();
+  const cgroup = await createRunCgroup().catch((error) => {
+    throw proxyIsolationUnavailable('onep run could not create cgroup isolation.', error);
+  });
   const rules = firewallRules(input.proxyPort, cgroup.relativePath);
   const installed: FirewallRule[] = [];
   try {
     for (const rule of [...rules].reverse()) {
-      await execFileAsync(rule.command, rule.add);
+      await execFileAsync(rule.command, rule.add).catch((error) => {
+        throw proxyIsolationUnavailable('onep run could not install proxy isolation firewall rules.', error);
+      });
       installed.push(rule);
     }
     return await spawnInCgroup(input, cgroup.path);
@@ -41,20 +45,48 @@ export async function runProxyOnlyIsolatedCommand(input: IsolatedRunInput): Prom
   }
 }
 
+export async function runProxyOnlyBestEffortCommand(input: IsolatedRunInput): Promise<number> {
+  const child = spawn(input.executable, input.args, {
+    stdio: 'inherit',
+    env: input.env
+  });
+  if (!child.pid) {
+    throw Object.assign(new Error('Unable to start command.'), { code: 'COMMAND_NOT_FOUND' });
+  }
+  const signalHandlers = installSignalHandlers(child.pid);
+  try {
+    return await waitForChild(child);
+  } finally {
+    for (const [signal, handler] of signalHandlers) {
+      process.off(signal, handler);
+    }
+  }
+}
+
+export function isProxyIsolationUnavailable(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === 'PROXY_ISOLATION_REQUIRED';
+}
+
 async function requireProxyIsolationSupport(): Promise<void> {
   if (process.platform !== 'linux') {
-    throw Object.assign(new Error('onep run requires Linux proxy isolation.'), { code: 'PROXY_ISOLATION_REQUIRED', exitCode: 2 });
+    throw proxyIsolationUnavailable('onep run requires Linux proxy isolation.');
   }
   if (typeof process.getuid !== 'function' || process.getuid() !== 0) {
-    throw Object.assign(new Error('onep run requires root so direct network egress can be blocked.'), { code: 'PROXY_ISOLATION_REQUIRED', exitCode: 2 });
+    throw proxyIsolationUnavailable('onep run requires root so direct network egress can be blocked.');
   }
   if (!fsSync.existsSync(path.join(cgroupRoot, 'cgroup.controllers'))) {
-    throw Object.assign(new Error('onep run requires cgroup v2 at /sys/fs/cgroup.'), { code: 'PROXY_ISOLATION_REQUIRED', exitCode: 2 });
+    throw proxyIsolationUnavailable('onep run requires cgroup v2 at /sys/fs/cgroup.');
   }
   await Promise.all([
     execFileAsync('iptables', ['--version']),
     execFileAsync('ip6tables', ['--version'])
-  ]);
+  ]).catch((error) => {
+    throw proxyIsolationUnavailable('onep run requires iptables and ip6tables for proxy isolation.', error);
+  });
+}
+
+function proxyIsolationUnavailable(message: string, cause?: unknown): Error {
+  return Object.assign(new Error(message), { code: 'PROXY_ISOLATION_REQUIRED', exitCode: 2, cause });
 }
 
 async function createRunCgroup(): Promise<{ path: string; relativePath: string }> {
@@ -196,5 +228,6 @@ function numericEnv(key: string): number | undefined {
 }
 
 export const runIsolationInternals = {
+  isProxyIsolationUnavailable,
   firewallRules
 };

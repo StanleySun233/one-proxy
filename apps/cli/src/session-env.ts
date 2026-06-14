@@ -1,5 +1,5 @@
 import type { CliContext } from './main.ts';
-import { runProxyOnlyIsolatedCommand } from './run-isolation.ts';
+import { isProxyIsolationUnavailable, runProxyOnlyBestEffortCommand, runProxyOnlyIsolatedCommand } from './run-isolation.ts';
 import {
   readConfig,
   readState,
@@ -284,7 +284,7 @@ export async function envOff(args: string[] = []): Promise<void> {
   process.stdout.write(deactivationScript(shell));
 }
 
-export async function runCommand(args: string[], _context: CliContext): Promise<number> {
+export async function runCommand(args: string[], context: CliContext): Promise<number> {
   const parsed = parseRunCommandArgs(args);
   const executable = parsed.args[0];
   if (!executable) {
@@ -300,7 +300,7 @@ export async function runCommand(args: string[], _context: CliContext): Promise<
     if (!proxyOnlyPort) {
       throw Object.assign(new Error('Daemon did not return proxy-only binding'), { code: 'DAEMON_UNAVAILABLE' });
     }
-    return await runProxyOnlyIsolatedCommand({
+    const runInput = {
       executable,
       args: parsed.args.slice(1),
       env: {
@@ -308,7 +308,18 @@ export async function runCommand(args: string[], _context: CliContext): Promise<
         ...proxyOnlyEnv(session.metadata.bindings)
       },
       proxyPort: proxyOnlyPort
-    });
+    };
+    try {
+      return await runProxyOnlyIsolatedCommand(runInput);
+    } catch (error) {
+      if (!isProxyIsolationUnavailable(error)) {
+        throw error;
+      }
+      if (!context.json) {
+        process.stderr.write('onep run: root isolation is unavailable; falling back to proxy environment mode. Programs that ignore HTTP_PROXY/HTTPS_PROXY/ALL_PROXY may bypass OneProxy.\n');
+      }
+      return await runProxyOnlyBestEffortCommand(runInput);
+    }
   } finally {
     await session.end();
   }
