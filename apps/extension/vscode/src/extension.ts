@@ -71,12 +71,13 @@ const sessionKey = 'oneproxy.session';
 const sshConnectionKey = 'oneproxy.sshConnection';
 
 export function activate(context: vscode.ExtensionContext) {
+  syncExtensionSessionIfReady(context).catch(() => {});
   context.subscriptions.push(
     vscode.commands.registerCommand('oneproxy.login', () => login(context)),
-    vscode.commands.registerCommand('oneproxy.selectSshTarget', () => selectSshTarget(context)),
-    vscode.commands.registerCommand('oneproxy.writeSshConfig', () => writeSshConfig(context)),
-    vscode.commands.registerCommand('oneproxy.connectRemoteSsh', () => connectRemoteSsh(context)),
-    vscode.commands.registerCommand('oneproxy.setSshProxyMode', () => setSshProxyMode(context))
+    vscode.commands.registerCommand('oneproxy.selectSshTarget', () => runWithSyncedSession(context, () => selectSshTarget(context))),
+    vscode.commands.registerCommand('oneproxy.writeSshConfig', () => runWithSyncedSession(context, () => writeSshConfig(context))),
+    vscode.commands.registerCommand('oneproxy.connectRemoteSsh', () => runWithSyncedSession(context, () => connectRemoteSsh(context))),
+    vscode.commands.registerCommand('oneproxy.setSshProxyMode', () => runWithSyncedSession(context, () => setSshProxyMode(context)))
   );
 }
 
@@ -220,7 +221,18 @@ async function apiRequest<T>(context: vscode.ExtensionContext, apiPath: string):
 }
 
 async function syncProxyToken(context: vscode.ExtensionContext): Promise<Session> {
-  const session = await readSession(context);
+  return syncExtensionSession(context, await readSession(context));
+}
+
+async function syncExtensionSessionIfReady(context: vscode.ExtensionContext): Promise<void> {
+  const raw = await context.secrets.get(sessionKey);
+  if (!raw) {
+    return;
+  }
+  await syncExtensionSession(context, JSON.parse(raw) as Session);
+}
+
+async function syncExtensionSession(context: vscode.ExtensionContext, session: Session): Promise<Session> {
   const result = await extensionBootstrapWithRefresh(context, session);
   const next = {
     ...result.session,
@@ -229,6 +241,11 @@ async function syncProxyToken(context: vscode.ExtensionContext): Promise<Session
   };
   await context.secrets.store(sessionKey, JSON.stringify(next));
   return next;
+}
+
+async function runWithSyncedSession<T>(context: vscode.ExtensionContext, operation: () => Promise<T>): Promise<T> {
+  await syncExtensionSessionIfReady(context).catch(() => {});
+  return operation();
 }
 
 async function extensionBootstrapWithRefresh(context: vscode.ExtensionContext, session: Session): Promise<{ session: Session; bootstrap: BootstrapResponse }> {

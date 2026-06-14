@@ -3,6 +3,8 @@ import type { CliContext } from './main.ts';
 import { runTuiCommand } from './tui/runtime.ts';
 import { buildTuiStatusSnapshot } from './tui/status.ts';
 import {
+  readConfig,
+  readState,
   type DaemonBindings
 } from './storage.ts';
 
@@ -41,26 +43,38 @@ export async function ensureSessionProxyBindings(): Promise<DaemonBindings> {
   return lifecycle;
 }
 
-export function proxyEnv(bindings: DaemonBindings): Record<string, string> {
+export function proxyEnv(bindings: DaemonBindings, extraNoProxyHosts: string[] = []): Record<string, string> {
   const httpProxy = `http://${bindings.host}:${bindings.httpPort}`;
   const httpsProxy = `http://${bindings.host}:${bindings.httpsPort}`;
+  const noProxy = noProxyValue(extraNoProxyHosts);
   return {
     HTTP_PROXY: httpProxy,
     HTTPS_PROXY: httpsProxy,
     ALL_PROXY: httpProxy,
-    NO_PROXY: 'localhost,127.0.0.1,::1',
+    NO_PROXY: noProxy,
+    http_proxy: httpProxy,
+    https_proxy: httpsProxy,
+    all_proxy: httpProxy,
+    no_proxy: noProxy,
     ONEPROXY_ACTIVE: '1',
     ONEPROXY_HTTP_PORT: String(bindings.httpPort),
     ONEPROXY_HTTPS_PORT: String(bindings.httpsPort)
   };
 }
 
-export async function sessionProxyEnv(): Promise<Record<string, string>> {
-  return proxyEnv(await ensureSessionProxyBindings());
+export async function sessionProxyEnv(bindings?: DaemonBindings): Promise<Record<string, string>> {
+  const resolvedBindings = bindings ?? await ensureSessionProxyBindings();
+  const env = proxyEnv(resolvedBindings);
+  const noProxy = noProxyValue(await proxyBypassHosts());
+  return {
+    ...env,
+    NO_PROXY: noProxy,
+    no_proxy: noProxy
+  };
 }
 
-function shellFamily(): 'posix' | 'fish' | 'powershell' | 'cmd' {
-  const shell = `${process.env.ONEPROXY_SHELL || process.env.SHELL || process.env.ComSpec || ''}`.toLowerCase();
+function shellFamily(shellOverride?: string): 'posix' | 'fish' | 'powershell' | 'cmd' {
+  const shell = `${shellOverride || process.env.ONEPROXY_SHELL || process.env.SHELL || process.env.ComSpec || ''}`.toLowerCase();
   if (shell.includes('fish')) {
     return 'fish';
   }
@@ -71,6 +85,29 @@ function shellFamily(): 'posix' | 'fish' | 'powershell' | 'cmd' {
     return 'cmd';
   }
   return 'posix';
+}
+
+function noProxyValue(extraHosts: string[] = []): string {
+  return [...new Set(['localhost', '127.0.0.1', '::1', ...extraHosts].map((item) => item.trim()).filter(Boolean))].join(',');
+}
+
+async function proxyBypassHosts(): Promise<string[]> {
+  const [config, state] = await Promise.all([readConfig(), readState()]);
+  return [
+    hostnameFromUrl(config.controlPlaneUrl),
+    ...(state.bootstrap?.entryNodes ?? []).map((node) => node.host)
+  ].filter(Boolean);
+}
+
+function hostnameFromUrl(value: string | undefined): string {
+  if (!value) {
+    return '';
+  }
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return '';
+  }
 }
 
 function quotePosix(value: string): string {
@@ -175,9 +212,8 @@ function cmdOff(): string {
   return `${lines.join('\r\n')}\r\n`;
 }
 
-function activationScript(bindings: DaemonBindings): string {
-  const env = proxyEnv(bindings);
-  switch (shellFamily()) {
+function activationScript(env: Record<string, string>, shell?: string): string {
+  switch (shellFamily(shell)) {
     case 'fish':
       return fishOn(env);
     case 'powershell':
@@ -189,8 +225,8 @@ function activationScript(bindings: DaemonBindings): string {
   }
 }
 
-function deactivationScript(): string {
-  switch (shellFamily()) {
+function deactivationScript(shell?: string): string {
+  switch (shellFamily(shell)) {
     case 'fish':
       return fishOff();
     case 'powershell':
@@ -202,12 +238,31 @@ function deactivationScript(): string {
   }
 }
 
-export async function envOn(): Promise<void> {
-  process.stdout.write(activationScript(await ensureSessionProxyBindings()));
+export function parseEnvCommandArgs(argv: string[]) {
+  let shell: string | undefined;
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index];
+    if (value === '--shell') {
+      shell = argv[index + 1];
+      index += 1;
+      if (!shell) {
+        throw Object.assign(new Error('env --shell requires a shell name.'), { code: 'SYNTAX_ERROR', exitCode: 2 });
+      }
+      continue;
+    }
+    throw Object.assign(new Error(`Unknown env option: ${value}`), { code: 'SYNTAX_ERROR', exitCode: 2 });
+  }
+  return { shell };
 }
 
-export async function envOff(): Promise<void> {
-  process.stdout.write(deactivationScript());
+export async function envOn(args: string[] = []): Promise<void> {
+  const { shell } = parseEnvCommandArgs(args);
+  process.stdout.write(activationScript(await sessionProxyEnv(), shell));
+}
+
+export async function envOff(args: string[] = []): Promise<void> {
+  const { shell } = parseEnvCommandArgs(args);
+  process.stdout.write(deactivationScript(shell));
 }
 
 function quoteWindowsCommand(value: string): string {
@@ -244,7 +299,7 @@ export async function runCommand(args: string[], _context: CliContext): Promise<
   const bindings = session.metadata.bindings;
   const env = {
     ...process.env,
-    ...proxyEnv(bindings)
+    ...(await sessionProxyEnv(bindings))
   };
   const child = process.platform === 'win32'
     ? spawnWindowsCommand(executable, parsed.args.slice(1), env)
@@ -303,7 +358,7 @@ async function tryRunCommandTui(executable: string, args: string[]): Promise<num
       args,
       env: {
         ...process.env,
-        ...proxyEnv(session.metadata.bindings)
+        ...(await sessionProxyEnv(session.metadata.bindings))
       },
       status: await buildTuiStatusSnapshot()
     });

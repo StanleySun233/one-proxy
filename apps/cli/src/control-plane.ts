@@ -4,6 +4,7 @@ import {
   clearTokens,
   activeProfileName,
   addProfile,
+  appendLog,
   readConfig,
   readState,
   readTokens,
@@ -82,6 +83,11 @@ type ExtensionBootstrap = {
       topology?: Array<{ id: string; publicHost?: string; publicPort?: number; mode?: string }>;
     }>;
   }>;
+};
+
+type SyncResult = {
+  policyRevision?: string;
+  groupCount: number;
 };
 
 function print(value: unknown, context: CliContext): void {
@@ -210,6 +216,9 @@ export async function login(args: string[], context: CliContext): Promise<void> 
   const defaultTenantId = result.activeTenantId || (memberships.length === 1 ? tenantIdOf(memberships[0]) : undefined);
   await writeConfig({ ...nextConfig, activeTenantId: defaultTenantId || config.activeTenantId });
   await writeTokens(tokens);
+  if (defaultTenantId) {
+    await syncRemoteStateWithRefresh({ ...nextConfig, activeTenantId: defaultTenantId || config.activeTenantId }, tokens);
+  }
   print(
     context.json
       ? { account: tokens.account, activeTenantId: defaultTenantId ?? null, tenantSelectionRequired: !defaultTenantId }
@@ -271,11 +280,13 @@ export async function tenantUse(args: string[], context: CliContext): Promise<vo
   const nextTenantId = tenantIdOf(tenant);
   const state = await readState();
   const currentGroup = state.routeGroups.find((group) => group.id === config.activeGroupId);
-  await writeConfig({
+  const nextConfig = {
     ...config,
     activeTenantId: nextTenantId,
     activeGroupId: currentGroup?.tenantId === nextTenantId ? config.activeGroupId : undefined
-  });
+  };
+  await writeConfig(nextConfig);
+  await syncRemoteStateWithRefresh(nextConfig, await requireTokens());
   print(context.json ? { activeTenantId: tenantIdOf(tenant) } : `Active tenant: ${tenantNameOf(tenant)}`, context);
 }
 
@@ -359,12 +370,13 @@ function routeTypeFromHostPattern(host: string): RouteRule['type'] {
   return 'domain';
 }
 
-export async function sync(_args: string[], context: CliContext): Promise<void> {
-  const config = await readConfig();
+async function syncRemoteState(config: OneProxyConfig, tokens: OneProxyTokens): Promise<SyncResult> {
   if (!config.activeTenantId) {
     throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
   }
-  const tokens = await requireTokens();
+  if (!tokens.accessToken) {
+    throw Object.assign(new Error('Authentication is required. Run onep login.'), { code: 'AUTH_REQUIRED' });
+  }
   const bootstrap = await request<ExtensionBootstrap>(config, '/proxy/extension/bootstrap', {
     accessToken: tokens.accessToken,
     tenantId: config.activeTenantId
@@ -400,5 +412,36 @@ export async function sync(_args: string[], context: CliContext): Promise<void> 
   if (activeGroup?.id && activeGroup.id !== config.activeGroupId) {
     await writeConfig({ ...config, activeGroupId: activeGroup.id });
   }
-  print(context.json ? { synced: true, policyRevision: state.policyRevision, groupCount: routeGroups.length } : `Synced ${routeGroups.length} group(s).`, context);
+  return { policyRevision: state.policyRevision, groupCount: routeGroups.length };
+}
+
+async function syncRemoteStateWithRefresh(config: OneProxyConfig, tokens: OneProxyTokens): Promise<SyncResult> {
+  try {
+    return await syncRemoteState(config, tokens);
+  } catch (error) {
+    if ((error as { code?: string }).code !== 'AUTH_REQUIRED' || !tokens.refreshToken) {
+      throw error;
+    }
+    const refreshed = await refreshSession();
+    return syncRemoteState(await readConfig(), refreshed);
+  }
+}
+
+export async function autoSyncRemoteState(): Promise<boolean> {
+  const [config, tokens] = await Promise.all([readConfig(), readTokens()]);
+  if (!config.controlPlaneUrl || !config.activeTenantId || !tokens?.accessToken) {
+    return false;
+  }
+  try {
+    await syncRemoteStateWithRefresh(config, tokens);
+    return true;
+  } catch (error) {
+    await appendLog(`auto sync failed: ${(error as Error).message || String(error)}`).catch(() => {});
+    return false;
+  }
+}
+
+export async function sync(_args: string[], context: CliContext): Promise<void> {
+  const result = await syncRemoteStateWithRefresh(await readConfig(), await requireTokens());
+  print(context.json ? { synced: true, policyRevision: result.policyRevision, groupCount: result.groupCount } : `Synced ${result.groupCount} group(s).`, context);
 }

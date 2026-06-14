@@ -5,6 +5,9 @@ import { getComputedState, registerMessageHandler } from './messages.js';
 import { runProxyMonitor } from './monitor.js';
 import { registerPageMetrics } from './page-metrics.js';
 import { registerProxyAuthHandler, updateProxyAuthCache } from './proxy-auth.js';
+import { syncRemoteConfigIfReady } from './api.js';
+
+let startupSyncPromise = null;
 
 function broadcastState() {
   return getComputedState()
@@ -18,6 +21,15 @@ function ensureMonitorAlarm() {
   }
 }
 
+function syncRemoteOnce() {
+  if (!startupSyncPromise) {
+    startupSyncPromise = getState()
+      .then((state) => syncRemoteConfigIfReady(state))
+      .then(() => getState());
+  }
+  return startupSyncPromise;
+}
+
 configureStateEffects((state) => {
   updateProxyAuthCache(state);
   return applyProxy(state).then(() => broadcastState());
@@ -25,7 +37,7 @@ configureStateEffects((state) => {
 
 chrome.runtime.onInstalled.addListener(() => {
   ensureMonitorAlarm();
-  getState()
+  syncRemoteOnce()
     .then((state) => persistState(state))
     .then(() => appendLog('info', 'extension_installed'))
     .catch((error) => appendLog('error', 'extension_installed_failed', { message: error.message || 'install_failed' }));
@@ -33,7 +45,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onStartup.addListener(() => {
   ensureMonitorAlarm();
-  getState()
+  syncRemoteOnce()
     .then((state) => {
       updateProxyAuthCache(state);
       return applyProxy(state);
@@ -71,7 +83,7 @@ function bootstrap() {
   registerPageMetrics();
   registerProxyAuthHandler();
   registerMessageHandler();
-  return getState().then((state) => updateProxyAuthCache(state));
+  return syncRemoteOnce().then((state) => updateProxyAuthCache(state));
 }
 
 bootstrap().catch((error) => {

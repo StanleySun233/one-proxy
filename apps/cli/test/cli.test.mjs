@@ -17,7 +17,7 @@ import { routeRulesFromBootstrap } from '../src/control-plane.ts';
 import { resolveRoute } from '../src/daemon/router.ts';
 import { parseSshCommandArgs, parseSshTarget } from '../src/ssh.ts';
 import { parseShellCommandArgs } from '../src/shell.ts';
-import { parseRunCommandArgs } from '../src/session-env.ts';
+import { parseEnvCommandArgs, parseRunCommandArgs, proxyEnv } from '../src/session-env.ts';
 import { detectTuiCapability, tuiUnavailableWarning } from '../src/tui/capability.ts';
 import { buildTuiStatusSnapshot, collectTuiStatusSnapshot } from '../src/tui/status.ts';
 
@@ -223,6 +223,30 @@ test('env off prints shell restoration output', async () => {
   });
 });
 
+test('env command accepts explicit common POSIX shells', () => {
+  assert.deepEqual(parseEnvCommandArgs(['--shell', 'bash']), { shell: 'bash' });
+  assert.deepEqual(parseEnvCommandArgs(['--shell', 'zsh']), { shell: 'zsh' });
+  assert.deepEqual(parseEnvCommandArgs(['--shell', 'sh']), { shell: 'sh' });
+});
+
+test('proxy env includes lower-case variables and bypass hosts', () => {
+  const env = proxyEnv({
+    host: '127.0.0.1',
+    httpPort: 10080,
+    httpsPort: 10081,
+    ipcPort: 10082
+  }, ['panel.example.com', 'edge.example.com']);
+
+  assert.equal(env.HTTP_PROXY, 'http://127.0.0.1:10080');
+  assert.equal(env.http_proxy, env.HTTP_PROXY);
+  assert.equal(env.HTTPS_PROXY, 'http://127.0.0.1:10081');
+  assert.equal(env.https_proxy, env.HTTPS_PROXY);
+  assert.equal(env.ALL_PROXY, env.HTTP_PROXY);
+  assert.equal(env.all_proxy, env.HTTP_PROXY);
+  assert.equal(env.NO_PROXY, 'localhost,127.0.0.1,::1,panel.example.com,edge.example.com');
+  assert.equal(env.no_proxy, env.NO_PROXY);
+});
+
 test('command parser handles help and unknown commands', async () => {
   await withHome(async (home) => {
     const help = runCli(['help'], home);
@@ -250,6 +274,8 @@ test('ssh --tui parsing strips the runtime flag before target parsing', () => {
 test('shell --tui parsing enables TUI without passing the flag to the child shell', () => {
   assert.deepEqual(parseShellCommandArgs(['--tui']), { args: [], tui: true });
   assert.deepEqual(parseShellCommandArgs([]), { args: [], tui: false });
+  assert.deepEqual(parseShellCommandArgs(['--shell', 'zsh']), { args: [], tui: false, shell: 'zsh' });
+  assert.deepEqual(parseShellCommandArgs(['--tui', '--shell', 'bash']), { args: [], tui: true, shell: 'bash' });
 });
 
 test('run --tui parsing preserves the command argv after the runtime flag', () => {

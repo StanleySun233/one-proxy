@@ -1,11 +1,14 @@
 import { spawn } from 'node:child_process';
 import type { CliContext } from './main.ts';
-import { proxyEnv } from './session-env.ts';
+import { sessionProxyEnv } from './session-env.ts';
 import { startDaemonSession } from './daemon/lifecycle.ts';
 import { runTuiCommand } from './tui/runtime.ts';
 import { buildTuiStatusSnapshot } from './tui/status.ts';
 
-function defaultShell(): string {
+function defaultShell(shellOverride?: string): string {
+  if (shellOverride) {
+    return shellOverride;
+  }
   if (process.env.ONEPROXY_SHELL) {
     return process.env.ONEPROXY_SHELL;
   }
@@ -23,8 +26,8 @@ function shellArgs(shell: string): string[] {
   return ['-i'];
 }
 
-export async function startActivatedShell(): Promise<number> {
-  const shell = defaultShell();
+export async function startActivatedShell(shellOverride?: string): Promise<number> {
+  const shell = defaultShell(shellOverride);
   const session = await startDaemonSession();
   process.stdout.write(`OneProxy shell active: ${shell}\n`);
   process.stdout.write('Exit this shell to turn it off.\n');
@@ -32,7 +35,7 @@ export async function startActivatedShell(): Promise<number> {
     stdio: 'inherit',
     env: {
       ...process.env,
-      ...proxyEnv(session.metadata.bindings)
+      ...(await sessionProxyEnv(session.metadata.bindings))
     }
   });
   return new Promise((resolve, reject) => {
@@ -54,33 +57,42 @@ export async function startActivatedShell(): Promise<number> {
 export async function shellCommand(_args: string[], _context: CliContext): Promise<number> {
   const parsed = parseShellCommandArgs(_args);
   if (!_context.json) {
-    const tuiExitCode = await tryStartActivatedShellTui();
+    const tuiExitCode = await tryStartActivatedShellTui(parsed.shell);
     if (tuiExitCode !== null) {
       return tuiExitCode;
     }
   }
-  return startActivatedShell();
+  return startActivatedShell(parsed.shell);
 }
 
-export function parseShellCommandArgs(argv: string[]) {
-  return stripTuiFlag(argv);
-}
-
-function stripTuiFlag(argv: string[]) {
+export function parseShellCommandArgs(argv: string[]): { args: string[]; tui: boolean; shell?: string } {
   const args: string[] = [];
   let tui = false;
-  for (const value of argv) {
+  let shell: string | undefined;
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index];
     if (value === '--tui') {
       tui = true;
-    } else {
-      args.push(value);
+      continue;
     }
+    if (value === '--shell') {
+      shell = argv[index + 1];
+      index += 1;
+      if (!shell) {
+        throw Object.assign(new Error('shell --shell requires a shell name.'), { code: 'SYNTAX_ERROR', exitCode: 2 });
+      }
+      continue;
+    }
+    args.push(value);
+  }
+  if (shell) {
+    return { args, tui, shell };
   }
   return { args, tui };
 }
 
-async function tryStartActivatedShellTui(): Promise<number | null> {
-  const shell = defaultShell();
+async function tryStartActivatedShellTui(shellOverride?: string): Promise<number | null> {
+  const shell = defaultShell(shellOverride);
   const session = await startDaemonSession();
   try {
     const result = await runTuiCommand({
@@ -88,7 +100,7 @@ async function tryStartActivatedShellTui(): Promise<number | null> {
       args: shellArgs(shell),
       env: {
         ...process.env,
-        ...proxyEnv(session.metadata.bindings)
+        ...(await sessionProxyEnv(session.metadata.bindings))
       },
       status: await buildTuiStatusSnapshot()
     });

@@ -786,6 +786,18 @@ function syncRemoteConfig(sourceState) {
   });
 }
 
+function syncRemoteConfigIfReady(sourceState) {
+  return (sourceState ? Promise.resolve(sourceState) : getState()).then((source) => {
+    const state = mergeState(source);
+    if (!state.controlPlaneUrl || !state.session.accessToken || !state.session.activeTenantId) {
+      return null;
+    }
+    return syncRemoteConfig(state).catch((error) => appendLog('error', 'auto_remote_sync_failed', {
+      message: error.message || 'sync_failed'
+    }).then(() => null));
+  });
+}
+
 function getExtensionPageStatus(state, params) {
   const query = new URLSearchParams();
   if (params.host) {
@@ -1669,10 +1681,21 @@ function broadcastState() {
     .catch(() => {});
 }
 
+let startupSyncPromise = null;
+
 function ensureMonitorAlarm() {
   if (chrome.alarms) {
     chrome.alarms.create('proxy-monitor', { periodInMinutes: 1 });
   }
+}
+
+function syncRemoteOnce() {
+  if (!startupSyncPromise) {
+    startupSyncPromise = getState()
+      .then((state) => syncRemoteConfigIfReady(state))
+      .then(() => getState());
+  }
+  return startupSyncPromise;
 }
 
 configureStateEffects((state) => {
@@ -1682,7 +1705,7 @@ configureStateEffects((state) => {
 
 chrome.runtime.onInstalled.addListener(() => {
   ensureMonitorAlarm();
-  getState()
+  syncRemoteOnce()
     .then((state) => persistState(state))
     .then(() => appendLog('info', 'extension_installed'))
     .catch((error) => appendLog('error', 'extension_installed_failed', { message: error.message || 'install_failed' }));
@@ -1690,7 +1713,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onStartup.addListener(() => {
   ensureMonitorAlarm();
-  getState()
+  syncRemoteOnce()
     .then((state) => {
       updateProxyAuthCache(state);
       return applyProxy(state);
@@ -1728,7 +1751,7 @@ function bootstrap() {
   registerPageMetrics();
   registerProxyAuthHandler();
   registerMessageHandler();
-  return getState().then((state) => updateProxyAuthCache(state));
+  return syncRemoteOnce().then((state) => updateProxyAuthCache(state));
 }
 
 bootstrap().catch((error) => {

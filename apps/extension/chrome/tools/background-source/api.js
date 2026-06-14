@@ -187,6 +187,18 @@ export function syncRemoteConfig(sourceState) {
   });
 }
 
+export function syncRemoteConfigIfReady(sourceState) {
+  return (sourceState ? Promise.resolve(sourceState) : getState()).then((source) => {
+    const state = mergeState(source);
+    if (!state.controlPlaneUrl || !state.session.accessToken || !state.session.activeTenantId) {
+      return null;
+    }
+    return syncRemoteConfig(state).catch((error) => appendLog('error', 'auto_remote_sync_failed', {
+      message: error.message || 'sync_failed'
+    }).then(() => null));
+  });
+}
+
 export function getExtensionPageStatus(state, params) {
   const query = new URLSearchParams();
   if (params.host) {

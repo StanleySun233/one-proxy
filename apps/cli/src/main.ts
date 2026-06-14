@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as fs from 'node:fs/promises';
-import { login, logout, sync, tenantList, tenantUse, groupList, groupUse } from './control-plane.ts';
+import { autoSyncRemoteState, login, logout, sync, tenantList, tenantUse, groupList, groupUse } from './control-plane.ts';
 import { envOff, envOn, runCommand } from './session-env.ts';
 import { doctor, overrideCommand, routeCommand, statusCommand, testCommand, writeError } from './commands.ts';
 import { serveDaemon } from './daemon/lifecycle.ts';
@@ -9,6 +9,7 @@ import { profileCommand } from './profile.ts';
 import { initCommand } from './init.ts';
 import { shellCommand } from './shell.ts';
 import { monitorCommand } from './monitor.ts';
+import { maybeHandleCliUpdate } from './update-check.ts';
 
 export type CliContext = {
   json: boolean;
@@ -48,8 +49,8 @@ function usage(): string {
     '  group list|use <name-or-id>',
     '  sync',
     '  status [--json]',
-    '  env [on|off]',
-    '  shell',
+    '  env [on|off] [--shell bash|zsh|sh|fish]',
+    '  shell [--shell bash|zsh|sh]',
     '  run <command...>',
     '  monitor <command...>',
     '  override list|direct add <host>|proxy add <host>|remove <host>|clear',
@@ -93,12 +94,13 @@ const handlers: Record<string, CommandHandler> = {
     throw Object.assign(new Error('daemon requires serve'), { code: 'SYNTAX_ERROR', exitCode: 2 });
   },
   env: async (args) => {
-    const mode = args[0] ?? 'on';
+    const mode = args[0] && !args[0].startsWith('-') ? args[0] : 'on';
+    const options = mode === args[0] ? args.slice(1) : args;
     if (mode === 'on') {
-      return envOn();
+      return envOn(options);
     }
     if (mode === 'off') {
-      return envOff();
+      return envOff(options);
     }
     throw Object.assign(new Error(`Unknown env mode: ${mode}`), { code: 'SYNTAX_ERROR', exitCode: 2 });
   },
@@ -136,8 +138,21 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     writeError({ code: 'COMMAND_NOT_FOUND', message: `Unknown command: ${command}` }, parsed.context);
     return 2;
   }
+  if (await maybeHandleCliUpdate(command, parsed.context, await packageVersion())) {
+    return 0;
+  }
+  if (shouldAutoSync(command)) {
+    await autoSyncRemoteState();
+  }
   const code = await handler(parsed.args.slice(1), parsed.context);
   return typeof code === 'number' ? code : 0;
+}
+
+function shouldAutoSync(command: string): boolean {
+  if (process.env.ONEPROXY_DAEMON_CHILD === '1') {
+    return false;
+  }
+  return !new Set(['daemon', 'init', 'login', 'logout', 'sync', 'version']).has(command);
 }
 
 main()

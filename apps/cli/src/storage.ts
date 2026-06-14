@@ -15,6 +15,7 @@ export type OneProxyConfig = {
   controlPlaneUrl?: string;
   activeTenantId?: string;
   activeGroupId?: string;
+  ignoredCliVersion?: string;
   overrides: LocalOverrides;
 };
 
