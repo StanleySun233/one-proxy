@@ -105,6 +105,7 @@ export async function statusCommand(_args, context) {
         localPorts: {
             http: ports?.httpPort ?? null,
             https: ports?.httpsPort ?? null,
+            proxyOnly: ports?.proxyOnlyPort ?? null,
             ipc: ports?.ipcPort ?? null
         },
         portSelection: daemon && running ? daemon.portSelection ?? null : null,

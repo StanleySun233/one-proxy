@@ -5,6 +5,7 @@ export type RouteResolverInput = {
     state: OneProxyState;
     target: string;
     protocol?: string;
+    proxyOnly?: boolean;
 };
 export type RouteResult = {
     target: string;
@@ -12,7 +13,7 @@ export type RouteResult = {
     port: number;
     mode: RouteMode;
     matched: {
-        source: 'local_override_direct' | 'local_override_proxy' | 'policy' | 'default_direct';
+        source: 'local_override_direct' | 'local_override_proxy' | 'policy' | 'default_direct' | 'proxy_only';
         ruleId?: string;
         ruleType?: RouteRule['type'];
         pattern?: string;

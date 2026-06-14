@@ -3,6 +3,9 @@ export function resolveRoute(input) {
     const host = target.host.toLowerCase();
     const group = activeRouteGroup(input);
     const entryNode = firstEntryNode(input.state);
+    if (input.proxyOnly) {
+        return routeResult(input, target, 'proxy', { source: 'proxy_only' }, group, entryNode);
+    }
     if (matchesOverride(host, input.config.overrides?.direct ?? [])) {
         return routeResult(input, target, 'direct', { source: 'local_override_direct' }, group, null);
     }

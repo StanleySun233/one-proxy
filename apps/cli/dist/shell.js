@@ -1,17 +1,9 @@
 import { spawn } from 'node:child_process';
-import { proxyEnv } from "./session-env.js";
+import { sessionProxyEnv } from "./session-env.js";
 import { startDaemonSession } from "./daemon/lifecycle.js";
 import { runTuiCommand } from "./tui/runtime.js";
 import { buildTuiStatusSnapshot } from "./tui/status.js";
-function defaultShell() {
-    if (process.env.ONEPROXY_SHELL) {
-        return process.env.ONEPROXY_SHELL;
-    }
-    if (process.platform === 'win32') {
-        return process.env.ComSpec || 'cmd.exe';
-    }
-    return process.env.SHELL || '/bin/sh';
-}
+import { detectShellPath } from "./shell-detect.js";
 function shellArgs(shell) {
     const normalized = shell.toLowerCase();
     if (process.platform === 'win32' || normalized.includes('cmd.exe') || normalized.includes('powershell') || normalized.includes('pwsh')) {
@@ -20,7 +12,7 @@ function shellArgs(shell) {
     return ['-i'];
 }
 export async function startActivatedShell() {
-    const shell = defaultShell();
+    const shell = detectShellPath();
     const session = await startDaemonSession();
     process.stdout.write(`OneProxy shell active: ${shell}\n`);
     process.stdout.write('Exit this shell to turn it off.\n');
@@ -28,7 +20,7 @@ export async function startActivatedShell() {
         stdio: 'inherit',
         env: {
             ...process.env,
-            ...proxyEnv(session.metadata.bindings)
+            ...(await sessionProxyEnv(session.metadata.bindings))
         }
     });
     return new Promise((resolve, reject) => {
@@ -47,7 +39,7 @@ export async function startActivatedShell() {
     });
 }
 export async function shellCommand(_args, _context) {
-    const parsed = parseShellCommandArgs(_args);
+    parseShellCommandArgs(_args);
     if (!_context.json) {
         const tuiExitCode = await tryStartActivatedShellTui();
         if (tuiExitCode !== null) {
@@ -57,23 +49,19 @@ export async function shellCommand(_args, _context) {
     return startActivatedShell();
 }
 export function parseShellCommandArgs(argv) {
-    return stripTuiFlag(argv);
-}
-function stripTuiFlag(argv) {
     const args = [];
     let tui = false;
     for (const value of argv) {
         if (value === '--tui') {
             tui = true;
+            continue;
         }
-        else {
-            args.push(value);
-        }
+        throw Object.assign(new Error(`Unknown shell option: ${value}`), { code: 'SYNTAX_ERROR', exitCode: 2 });
     }
     return { args, tui };
 }
 async function tryStartActivatedShellTui() {
-    const shell = defaultShell();
+    const shell = detectShellPath();
     const session = await startDaemonSession();
     try {
         const result = await runTuiCommand({
@@ -81,7 +69,7 @@ async function tryStartActivatedShellTui() {
             args: shellArgs(shell),
             env: {
                 ...process.env,
-                ...proxyEnv(session.metadata.bindings)
+                ...(await sessionProxyEnv(session.metadata.bindings))
             },
             status: await buildTuiStatusSnapshot()
         });

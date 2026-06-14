@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as fs from 'node:fs/promises';
-import { login, logout, sync, tenantList, tenantUse, groupList, groupUse } from "./control-plane.js";
+import { autoSyncRemoteState, login, logout, sync, tenantList, tenantUse, groupList, groupUse } from "./control-plane.js";
 import { envOff, envOn, runCommand } from "./session-env.js";
 import { doctor, overrideCommand, routeCommand, statusCommand, testCommand, writeError } from "./commands.js";
 import { serveDaemon } from "./daemon/lifecycle.js";
@@ -9,6 +9,7 @@ import { profileCommand } from "./profile.js";
 import { initCommand } from "./init.js";
 import { shellCommand } from "./shell.js";
 import { monitorCommand } from "./monitor.js";
+import { maybeHandleCliUpdate } from "./update-check.js";
 async function packageVersion() {
     const packageJson = JSON.parse(await fs.readFile(new URL('../package.json', import.meta.url), 'utf8'));
     return packageJson.version;
@@ -83,12 +84,13 @@ const handlers = {
         throw Object.assign(new Error('daemon requires serve'), { code: 'SYNTAX_ERROR', exitCode: 2 });
     },
     env: async (args) => {
-        const mode = args[0] ?? 'on';
+        const mode = args[0] && !args[0].startsWith('-') ? args[0] : 'on';
+        const options = mode === args[0] ? args.slice(1) : args;
         if (mode === 'on') {
-            return envOn();
+            return envOn(options);
         }
         if (mode === 'off') {
-            return envOff();
+            return envOff(options);
         }
         throw Object.assign(new Error(`Unknown env mode: ${mode}`), { code: 'SYNTAX_ERROR', exitCode: 2 });
     },
@@ -125,8 +127,20 @@ export async function main(argv = process.argv.slice(2)) {
         writeError({ code: 'COMMAND_NOT_FOUND', message: `Unknown command: ${command}` }, parsed.context);
         return 2;
     }
+    if (await maybeHandleCliUpdate(command, parsed.context, await packageVersion())) {
+        return 0;
+    }
+    if (shouldAutoSync(command)) {
+        await autoSyncRemoteState();
+    }
     const code = await handler(parsed.args.slice(1), parsed.context);
     return typeof code === 'number' ? code : 0;
+}
+function shouldAutoSync(command) {
+    if (process.env.ONEPROXY_DAEMON_CHILD === '1') {
+        return false;
+    }
+    return !new Set(['daemon', 'init', 'login', 'logout', 'sync', 'version']).has(command);
 }
 main()
     .then((code) => {

@@ -6,22 +6,28 @@ const proxyRetryBackoffs = [100, 250];
 export async function startHttpProxyListeners(input, bindings, liveState = false, onProxyActivity) {
     const httpServer = createHttpProxyServer(input, liveState, onProxyActivity);
     const httpsServer = createHttpProxyServer(input, liveState, onProxyActivity);
-    await Promise.all([
+    const proxyOnlyServer = bindings.proxyOnlyPort !== undefined ? createHttpProxyServer(input, liveState, onProxyActivity, true) : undefined;
+    const listeners = [
         listenHttpServer(httpServer, bindings.httpPort),
         listenHttpServer(httpsServer, bindings.httpsPort)
-    ]);
+    ];
+    if (proxyOnlyServer) {
+        listeners.push(listenHttpServer(proxyOnlyServer, bindings.proxyOnlyPort ?? 0));
+    }
+    await Promise.all(listeners);
     return {
         httpServer,
         httpsServer,
+        proxyOnlyServer,
         close: async () => {
-            await Promise.all([closeServer(httpServer), closeServer(httpsServer)]);
+            await Promise.all([closeServer(httpServer), closeServer(httpsServer), proxyOnlyServer ? closeServer(proxyOnlyServer) : Promise.resolve()]);
         }
     };
 }
-export function createHttpProxyServer(input, liveState = false, onProxyActivity) {
+export function createHttpProxyServer(input, liveState = false, onProxyActivity, proxyOnly = false) {
     const server = http.createServer((request, response) => {
         onProxyActivity?.();
-        proxyHttpRequest(input, liveState, request, response).catch(() => {
+        proxyHttpRequest(input, liveState, request, response, proxyOnly).catch(() => {
             if (!response.headersSent) {
                 response.writeHead(502);
             }
@@ -36,7 +42,7 @@ export function createHttpProxyServer(input, liveState = false, onProxyActivity)
             return;
         }
         const context = await proxyContext(input, liveState);
-        const route = resolveRoute({ ...context, target: `${target.host}:${target.port}`, protocol: 'connect' });
+        const route = resolveRoute({ ...context, target: `${target.host}:${target.port}`, protocol: 'connect', proxyOnly });
         if (route.mode === 'proxy' && !route.topology) {
             clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n');
             return;
@@ -64,7 +70,7 @@ export function createHttpProxyServer(input, liveState = false, onProxyActivity)
     });
     return server;
 }
-async function proxyHttpRequest(input, liveState, request, response) {
+async function proxyHttpRequest(input, liveState, request, response, proxyOnly) {
     const target = parseHttpTarget(request);
     if (!target) {
         response.writeHead(400);
@@ -72,7 +78,7 @@ async function proxyHttpRequest(input, liveState, request, response) {
         return;
     }
     const context = await proxyContext(input, liveState);
-    const route = resolveRoute({ ...context, target: target.url, protocol: target.protocol });
+    const route = resolveRoute({ ...context, target: target.url, protocol: target.protocol, proxyOnly });
     if (route.mode === 'proxy' && !route.topology) {
         response.writeHead(502);
         response.end();

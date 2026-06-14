@@ -1,5 +1,5 @@
 import { promptPassword, promptText } from "./prompt.js";
-import { clearTokens, activeProfileName, addProfile, readConfig, readState, readTokens, writeConfig, writeState, writeTokens, useProfile } from "./storage.js";
+import { clearTokens, activeProfileName, addProfile, appendLog, readConfig, readState, readTokens, writeConfig, writeState, writeTokens, useProfile } from "./storage.js";
 function print(value, context) {
     if (context.json) {
         process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -118,6 +118,9 @@ export async function login(args, context) {
     const defaultTenantId = result.activeTenantId || (memberships.length === 1 ? tenantIdOf(memberships[0]) : undefined);
     await writeConfig({ ...nextConfig, activeTenantId: defaultTenantId || config.activeTenantId });
     await writeTokens(tokens);
+    if (defaultTenantId) {
+        await syncRemoteStateWithRefresh({ ...nextConfig, activeTenantId: defaultTenantId || config.activeTenantId }, tokens);
+    }
     print(context.json
         ? { account: tokens.account, activeTenantId: defaultTenantId ?? null, tenantSelectionRequired: !defaultTenantId }
         : `Logged in as ${tokens.account?.email || tokens.account?.account || tokens.account?.id}.` +
@@ -171,11 +174,13 @@ export async function tenantUse(args, context) {
     const nextTenantId = tenantIdOf(tenant);
     const state = await readState();
     const currentGroup = state.routeGroups.find((group) => group.id === config.activeGroupId);
-    await writeConfig({
+    const nextConfig = {
         ...config,
         activeTenantId: nextTenantId,
         activeGroupId: currentGroup?.tenantId === nextTenantId ? config.activeGroupId : undefined
-    });
+    };
+    await writeConfig(nextConfig);
+    await syncRemoteStateWithRefresh(nextConfig, await requireTokens());
     print(context.json ? { activeTenantId: tenantIdOf(tenant) } : `Active tenant: ${tenantNameOf(tenant)}`, context);
 }
 export async function groupList(_args, context) {
@@ -253,12 +258,13 @@ function routeTypeFromHostPattern(host) {
     }
     return 'domain';
 }
-export async function sync(_args, context) {
-    const config = await readConfig();
+async function syncRemoteState(config, tokens) {
     if (!config.activeTenantId) {
         throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
     }
-    const tokens = await requireTokens();
+    if (!tokens.accessToken) {
+        throw Object.assign(new Error('Authentication is required. Run onep login.'), { code: 'AUTH_REQUIRED' });
+    }
     const bootstrap = await request(config, '/proxy/extension/bootstrap', {
         accessToken: tokens.accessToken,
         tenantId: config.activeTenantId
@@ -294,6 +300,36 @@ export async function sync(_args, context) {
     if (activeGroup?.id && activeGroup.id !== config.activeGroupId) {
         await writeConfig({ ...config, activeGroupId: activeGroup.id });
     }
-    print(context.json ? { synced: true, policyRevision: state.policyRevision, groupCount: routeGroups.length } : `Synced ${routeGroups.length} group(s).`, context);
+    return { policyRevision: state.policyRevision, groupCount: routeGroups.length };
+}
+async function syncRemoteStateWithRefresh(config, tokens) {
+    try {
+        return await syncRemoteState(config, tokens);
+    }
+    catch (error) {
+        if (error.code !== 'AUTH_REQUIRED' || !tokens.refreshToken) {
+            throw error;
+        }
+        const refreshed = await refreshSession();
+        return syncRemoteState(await readConfig(), refreshed);
+    }
+}
+export async function autoSyncRemoteState() {
+    const [config, tokens] = await Promise.all([readConfig(), readTokens()]);
+    if (!config.controlPlaneUrl || !config.activeTenantId || !tokens?.accessToken) {
+        return false;
+    }
+    try {
+        await syncRemoteStateWithRefresh(config, tokens);
+        return true;
+    }
+    catch (error) {
+        await appendLog(`auto sync failed: ${error.message || String(error)}`).catch(() => { });
+        return false;
+    }
+}
+export async function sync(_args, context) {
+    const result = await syncRemoteStateWithRefresh(await readConfig(), await requireTokens());
+    print(context.json ? { synced: true, policyRevision: result.policyRevision, groupCount: result.groupCount } : `Synced ${result.groupCount} group(s).`, context);
 }
 //# sourceMappingURL=control-plane.js.map

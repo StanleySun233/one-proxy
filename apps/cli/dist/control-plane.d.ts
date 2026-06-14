@@ -37,5 +37,6 @@ export declare function tenantUse(args: string[], context: CliContext): Promise<
 export declare function groupList(_args: string[], context: CliContext): Promise<void>;
 export declare function groupUse(args: string[], context: CliContext): Promise<void>;
 export declare function routeRulesFromBootstrap(group: NonNullable<ExtensionBootstrap['groups']>[number]): RouteRule[];
+export declare function autoSyncRemoteState(): Promise<boolean>;
 export declare function sync(_args: string[], context: CliContext): Promise<void>;
 export {};

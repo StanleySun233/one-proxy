@@ -8,6 +8,7 @@ export type OneProxyConfig = {
     controlPlaneUrl?: string;
     activeTenantId?: string;
     activeGroupId?: string;
+    ignoredCliVersion?: string;
     overrides: LocalOverrides;
 };
 export type Account = {
@@ -59,6 +60,7 @@ export type DaemonBindings = {
     httpPort: number;
     httpsPort: number;
     ipcPort?: number;
+    proxyOnlyPort?: number;
 };
 export type DaemonMetadata = {
     schemaVersion: number;

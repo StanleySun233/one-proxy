@@ -1,6 +1,6 @@
-import { spawn } from 'node:child_process';
-import { runTuiCommand } from "./tui/runtime.js";
-import { buildTuiStatusSnapshot } from "./tui/status.js";
+import { isProxyIsolationUnavailable, proxyIsolationHelp, runProxyOnlyBestEffortCommand, runProxyOnlyIsolatedCommand } from "./run-isolation.js";
+import { detectShellFamily } from "./shell-detect.js";
+import { readConfig, readState } from "./storage.js";
 const preservedProxyVariables = [
     'HTTP_PROXY',
     'HTTPS_PROXY',
@@ -27,34 +27,74 @@ export async function ensureSessionProxyBindings() {
     }
     return lifecycle;
 }
-export function proxyEnv(bindings) {
+export function proxyEnv(bindings, extraNoProxyHosts = []) {
     const httpProxy = `http://${bindings.host}:${bindings.httpPort}`;
     const httpsProxy = `http://${bindings.host}:${bindings.httpsPort}`;
+    const noProxy = noProxyValue(extraNoProxyHosts);
     return {
         HTTP_PROXY: httpProxy,
         HTTPS_PROXY: httpsProxy,
         ALL_PROXY: httpProxy,
-        NO_PROXY: 'localhost,127.0.0.1,::1',
+        NO_PROXY: noProxy,
+        http_proxy: httpProxy,
+        https_proxy: httpsProxy,
+        all_proxy: httpProxy,
+        no_proxy: noProxy,
         ONEPROXY_ACTIVE: '1',
         ONEPROXY_HTTP_PORT: String(bindings.httpPort),
         ONEPROXY_HTTPS_PORT: String(bindings.httpsPort)
     };
 }
-export async function sessionProxyEnv() {
-    return proxyEnv(await ensureSessionProxyBindings());
+export function proxyOnlyEnv(bindings) {
+    if (!bindings.proxyOnlyPort) {
+        throw Object.assign(new Error('Daemon did not return proxy-only binding'), { code: 'DAEMON_UNAVAILABLE' });
+    }
+    const proxy = `http://${bindings.host}:${bindings.proxyOnlyPort}`;
+    return {
+        HTTP_PROXY: proxy,
+        HTTPS_PROXY: proxy,
+        ALL_PROXY: proxy,
+        NO_PROXY: '',
+        http_proxy: proxy,
+        https_proxy: proxy,
+        all_proxy: proxy,
+        no_proxy: '',
+        ONEPROXY_ACTIVE: '1',
+        ONEPROXY_PROXY_ONLY: '1',
+        ONEPROXY_HTTP_PORT: String(bindings.proxyOnlyPort),
+        ONEPROXY_HTTPS_PORT: String(bindings.proxyOnlyPort)
+    };
 }
-function shellFamily() {
-    const shell = `${process.env.ONEPROXY_SHELL || process.env.SHELL || process.env.ComSpec || ''}`.toLowerCase();
-    if (shell.includes('fish')) {
-        return 'fish';
+export async function sessionProxyEnv(bindings) {
+    const resolvedBindings = bindings ?? await ensureSessionProxyBindings();
+    const env = proxyEnv(resolvedBindings);
+    const noProxy = noProxyValue(await proxyBypassHosts());
+    return {
+        ...env,
+        NO_PROXY: noProxy,
+        no_proxy: noProxy
+    };
+}
+function noProxyValue(extraHosts = []) {
+    return [...new Set(['localhost', '127.0.0.1', '::1', ...extraHosts].map((item) => item.trim()).filter(Boolean))].join(',');
+}
+async function proxyBypassHosts() {
+    const [config, state] = await Promise.all([readConfig(), readState()]);
+    return [
+        hostnameFromUrl(config.controlPlaneUrl),
+        ...(state.bootstrap?.entryNodes ?? []).map((node) => node.host)
+    ].filter(Boolean);
+}
+function hostnameFromUrl(value) {
+    if (!value) {
+        return '';
     }
-    if (shell.includes('powershell') || shell.includes('pwsh')) {
-        return 'powershell';
+    try {
+        return new URL(value).hostname;
     }
-    if (process.platform === 'win32' && shell.includes('cmd')) {
-        return 'cmd';
+    catch {
+        return '';
     }
-    return 'posix';
 }
 function quotePosix(value) {
     return `'${value.replace(/'/g, "'\\''")}'`;
@@ -148,9 +188,8 @@ function cmdOff() {
     }
     return `${lines.join('\r\n')}\r\n`;
 }
-function activationScript(bindings) {
-    const env = proxyEnv(bindings);
-    switch (shellFamily()) {
+function activationScript(env) {
+    switch (detectShellFamily()) {
         case 'fish':
             return fishOn(env);
         case 'powershell':
@@ -162,7 +201,7 @@ function activationScript(bindings) {
     }
 }
 function deactivationScript() {
-    switch (shellFamily()) {
+    switch (detectShellFamily()) {
         case 'fish':
             return fishOff();
         case 'powershell':
@@ -173,72 +212,69 @@ function deactivationScript() {
             return posixOff();
     }
 }
-export async function envOn() {
-    process.stdout.write(activationScript(await ensureSessionProxyBindings()));
+export function parseEnvCommandArgs(argv) {
+    for (const value of argv) {
+        throw Object.assign(new Error(`Unknown env option: ${value}`), { code: 'SYNTAX_ERROR', exitCode: 2 });
+    }
+    return {};
 }
-export async function envOff() {
+export async function envOn(args = []) {
+    parseEnvCommandArgs(args);
+    process.stdout.write(activationScript(await sessionProxyEnv()));
+}
+export async function envOff(args = []) {
+    parseEnvCommandArgs(args);
     process.stdout.write(deactivationScript());
 }
-function quoteWindowsCommand(value) {
-    return `"${value.replace(/"/g, '""')}"`;
-}
-function spawnWindowsCommand(executable, args, env) {
-    const shell = process.env.ComSpec || 'cmd.exe';
-    const command = ['start', '""', '/wait', quoteWindowsCommand(executable), ...args.map(quoteWindowsCommand)].join(' ');
-    return spawn(shell, ['/d', '/s', '/c', command], {
-        stdio: 'inherit',
-        windowsHide: false,
-        env
-    });
-}
-export async function runCommand(args, _context) {
+export async function runCommand(args, context) {
     const parsed = parseRunCommandArgs(args);
     const executable = parsed.args[0];
     if (!executable) {
         throw Object.assign(new Error('run requires a command.'), { code: 'COMMAND_NOT_FOUND', exitCode: 2 });
-    }
-    if (!_context.json) {
-        const tuiExitCode = await tryRunCommandTui(executable, parsed.args.slice(1));
-        if (tuiExitCode !== null) {
-            return tuiExitCode;
-        }
     }
     const lifecycle = (await import("./daemon/lifecycle.js"));
     const session = await lifecycle.startDaemonSession?.();
     if (!session) {
         throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
     }
-    const bindings = session.metadata.bindings;
-    const env = {
-        ...process.env,
-        ...proxyEnv(bindings)
-    };
-    const child = process.platform === 'win32'
-        ? spawnWindowsCommand(executable, parsed.args.slice(1), env)
-        : spawn(executable, parsed.args.slice(1), {
-            stdio: 'inherit',
-            env
-        });
-    return new Promise((resolve, reject) => {
-        child.once('error', (error) => {
-            session.end().then(() => {
-                if (error.code === 'ENOENT') {
-                    reject(Object.assign(new Error(`Command not found: ${executable}`), { code: 'COMMAND_NOT_FOUND' }));
-                    return;
-                }
-                reject(error);
-            }, reject);
-        });
-        child.once('exit', (code, signal) => {
-            session.end().then(() => {
-                if (signal) {
-                    resolve(1);
-                    return;
-                }
-                resolve(code ?? 0);
-            }, reject);
-        });
-    });
+    try {
+        const proxyOnlyPort = session.metadata.bindings.proxyOnlyPort;
+        if (!proxyOnlyPort) {
+            throw Object.assign(new Error('Daemon did not return proxy-only binding'), { code: 'DAEMON_UNAVAILABLE' });
+        }
+        const runInput = {
+            executable,
+            args: parsed.args.slice(1),
+            env: {
+                ...process.env,
+                ...proxyOnlyEnv(session.metadata.bindings)
+            },
+            proxyPort: proxyOnlyPort
+        };
+        try {
+            return await runProxyOnlyIsolatedCommand(runInput);
+        }
+        catch (error) {
+            if (!isProxyIsolationUnavailable(error)) {
+                throw error;
+            }
+            if (!context.json) {
+                process.stderr.write(proxyIsolationFallbackMessage(error));
+            }
+            return await runProxyOnlyBestEffortCommand(runInput);
+        }
+    }
+    finally {
+        await session.end();
+    }
+}
+function proxyIsolationFallbackMessage(error) {
+    const lines = [
+        'onep run: strict proxy isolation is unavailable; falling back to proxy environment mode.',
+        'Programs that ignore HTTP_PROXY/HTTPS_PROXY/ALL_PROXY may bypass OneProxy.',
+        ...proxyIsolationHelp(error)
+    ];
+    return `${lines.join('\n')}\n`;
 }
 export function parseRunCommandArgs(argv) {
     return stripTuiFlag(argv);
@@ -255,33 +291,5 @@ function stripTuiFlag(argv) {
         }
     }
     return { args, tui };
-}
-async function tryRunCommandTui(executable, args) {
-    const lifecycle = (await import("./daemon/lifecycle.js"));
-    const session = await lifecycle.startDaemonSession?.();
-    if (!session) {
-        throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
-    }
-    try {
-        const result = await runTuiCommand({
-            executable,
-            args,
-            env: {
-                ...process.env,
-                ...proxyEnv(session.metadata.bindings)
-            },
-            status: await buildTuiStatusSnapshot()
-        });
-        if (!result.available) {
-            return null;
-        }
-        if (typeof result.exitCode !== 'number') {
-            throw Object.assign(new Error('TUI exited without a child exit code'), { code: 'TUI_RUNTIME_ERROR' });
-        }
-        return result.exitCode;
-    }
-    finally {
-        await session.end();
-    }
 }
 //# sourceMappingURL=session-env.js.map

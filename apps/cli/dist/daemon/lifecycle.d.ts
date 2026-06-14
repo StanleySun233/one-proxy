@@ -59,6 +59,7 @@ export type DaemonBindings = {
     httpPort: number;
     httpsPort: number;
     ipcPort: number;
+    proxyOnlyPort: number;
 };
 export type DaemonMetadata = {
     schemaVersion: number;
