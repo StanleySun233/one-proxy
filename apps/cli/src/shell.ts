@@ -4,18 +4,10 @@ import { sessionProxyEnv } from './session-env.ts';
 import { startDaemonSession } from './daemon/lifecycle.ts';
 import { runTuiCommand } from './tui/runtime.ts';
 import { buildTuiStatusSnapshot } from './tui/status.ts';
+import { detectShellPath } from './shell-detect.ts';
 
 function defaultShell(shellOverride?: string): string {
-  if (shellOverride) {
-    return shellOverride;
-  }
-  if (process.env.ONEPROXY_SHELL) {
-    return process.env.ONEPROXY_SHELL;
-  }
-  if (process.platform === 'win32') {
-    return process.env.ComSpec || 'cmd.exe';
-  }
-  return process.env.SHELL || '/bin/sh';
+  return detectShellPath({ shellOverride });
 }
 
 function shellArgs(shell: string): string[] {

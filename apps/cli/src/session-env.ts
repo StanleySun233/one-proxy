@@ -1,5 +1,6 @@
 import type { CliContext } from './main.ts';
-import { isProxyIsolationUnavailable, runProxyOnlyBestEffortCommand, runProxyOnlyIsolatedCommand } from './run-isolation.ts';
+import { isProxyIsolationUnavailable, proxyIsolationHelp, runProxyOnlyBestEffortCommand, runProxyOnlyIsolatedCommand } from './run-isolation.ts';
+import { detectShellFamily } from './shell-detect.ts';
 import {
   readConfig,
   readState,
@@ -90,20 +91,6 @@ export async function sessionProxyEnv(bindings?: DaemonBindings): Promise<Record
     NO_PROXY: noProxy,
     no_proxy: noProxy
   };
-}
-
-function shellFamily(shellOverride?: string): 'posix' | 'fish' | 'powershell' | 'cmd' {
-  const shell = `${shellOverride || process.env.ONEPROXY_SHELL || process.env.SHELL || process.env.ComSpec || ''}`.toLowerCase();
-  if (shell.includes('fish')) {
-    return 'fish';
-  }
-  if (shell.includes('powershell') || shell.includes('pwsh')) {
-    return 'powershell';
-  }
-  if (process.platform === 'win32' && shell.includes('cmd')) {
-    return 'cmd';
-  }
-  return 'posix';
 }
 
 function noProxyValue(extraHosts: string[] = []): string {
@@ -232,7 +219,7 @@ function cmdOff(): string {
 }
 
 function activationScript(env: Record<string, string>, shell?: string): string {
-  switch (shellFamily(shell)) {
+  switch (detectShellFamily({ shellOverride: shell })) {
     case 'fish':
       return fishOn(env);
     case 'powershell':
@@ -245,7 +232,7 @@ function activationScript(env: Record<string, string>, shell?: string): string {
 }
 
 function deactivationScript(shell?: string): string {
-  switch (shellFamily(shell)) {
+  switch (detectShellFamily({ shellOverride: shell })) {
     case 'fish':
       return fishOff();
     case 'powershell':
@@ -316,13 +303,22 @@ export async function runCommand(args: string[], context: CliContext): Promise<n
         throw error;
       }
       if (!context.json) {
-        process.stderr.write('onep run: root isolation is unavailable; falling back to proxy environment mode. Programs that ignore HTTP_PROXY/HTTPS_PROXY/ALL_PROXY may bypass OneProxy.\n');
+        process.stderr.write(proxyIsolationFallbackMessage(error));
       }
       return await runProxyOnlyBestEffortCommand(runInput);
     }
   } finally {
     await session.end();
   }
+}
+
+function proxyIsolationFallbackMessage(error: unknown): string {
+  const lines = [
+    'onep run: strict proxy isolation is unavailable; falling back to proxy environment mode.',
+    'Programs that ignore HTTP_PROXY/HTTPS_PROXY/ALL_PROXY may bypass OneProxy.',
+    ...proxyIsolationHelp(error)
+  ];
+  return `${lines.join('\n')}\n`;
 }
 
 export function parseRunCommandArgs(argv: string[]) {

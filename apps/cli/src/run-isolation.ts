@@ -21,17 +21,25 @@ type FirewallRule = {
   remove: string[];
 };
 
+type ProxyIsolationReason =
+  | 'non_linux'
+  | 'not_root'
+  | 'missing_cgroup_v2'
+  | 'missing_iptables'
+  | 'cgroup_create_failed'
+  | 'firewall_install_failed';
+
 export async function runProxyOnlyIsolatedCommand(input: IsolatedRunInput): Promise<number> {
   await requireProxyIsolationSupport();
   const cgroup = await createRunCgroup().catch((error) => {
-    throw proxyIsolationUnavailable('onep run could not create cgroup isolation.', error);
+    throw proxyIsolationUnavailable('cgroup_create_failed', 'onep run could not create cgroup isolation.', error);
   });
   const rules = firewallRules(input.proxyPort, cgroup.relativePath);
   const installed: FirewallRule[] = [];
   try {
     for (const rule of [...rules].reverse()) {
       await execFileAsync(rule.command, rule.add).catch((error) => {
-        throw proxyIsolationUnavailable('onep run could not install proxy isolation firewall rules.', error);
+        throw proxyIsolationUnavailable('firewall_install_failed', 'onep run could not install proxy isolation firewall rules.', error);
       });
       installed.push(rule);
     }
@@ -67,26 +75,63 @@ export function isProxyIsolationUnavailable(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === 'PROXY_ISOLATION_REQUIRED';
 }
 
+export function proxyIsolationHelp(error: unknown): string[] {
+  if (!isProxyIsolationUnavailable(error)) {
+    return [];
+  }
+  const reason = (error as { reason?: ProxyIsolationReason }).reason;
+  switch (reason) {
+    case 'not_root':
+      return ['For strict isolation, run: sudo onep run <command...>'];
+    case 'missing_iptables':
+      return [
+        'Install iptables/ip6tables for strict isolation:',
+        '  Debian/Ubuntu: sudo apt-get install iptables',
+        '  Fedora/RHEL: sudo dnf install iptables iptables-nft',
+        '  Arch: sudo pacman -S iptables'
+      ];
+    case 'missing_cgroup_v2':
+      return [
+        'Enable cgroup v2 at /sys/fs/cgroup for strict isolation.',
+        'cgroup v2 is a Linux host capability, not a OneProxy package dependency.',
+        'On systemd Linux, /sys/fs/cgroup should be mounted as cgroup2fs.'
+      ];
+    case 'cgroup_create_failed':
+      return ['Check that cgroup v2 is mounted at /sys/fs/cgroup and writable by root.'];
+    case 'firewall_install_failed':
+      return [
+        'Check that iptables/ip6tables and the cgroup match module are available.',
+        '  Debian/Ubuntu: sudo apt-get install iptables',
+        '  Fedora/RHEL: sudo dnf install iptables iptables-nft',
+        '  Arch: sudo pacman -S iptables'
+      ];
+    case 'non_linux':
+      return ['Strict isolation is only available on Linux.'];
+    default:
+      return [];
+  }
+}
+
 async function requireProxyIsolationSupport(): Promise<void> {
   if (process.platform !== 'linux') {
-    throw proxyIsolationUnavailable('onep run requires Linux proxy isolation.');
+    throw proxyIsolationUnavailable('non_linux', 'onep run requires Linux proxy isolation.');
   }
   if (typeof process.getuid !== 'function' || process.getuid() !== 0) {
-    throw proxyIsolationUnavailable('onep run requires root so direct network egress can be blocked.');
+    throw proxyIsolationUnavailable('not_root', 'onep run requires root so direct network egress can be blocked.');
   }
   if (!fsSync.existsSync(path.join(cgroupRoot, 'cgroup.controllers'))) {
-    throw proxyIsolationUnavailable('onep run requires cgroup v2 at /sys/fs/cgroup.');
+    throw proxyIsolationUnavailable('missing_cgroup_v2', 'onep run requires cgroup v2 at /sys/fs/cgroup.');
   }
   await Promise.all([
     execFileAsync('iptables', ['--version']),
     execFileAsync('ip6tables', ['--version'])
   ]).catch((error) => {
-    throw proxyIsolationUnavailable('onep run requires iptables and ip6tables for proxy isolation.', error);
+    throw proxyIsolationUnavailable('missing_iptables', 'onep run requires iptables and ip6tables for proxy isolation.', error);
   });
 }
 
-function proxyIsolationUnavailable(message: string, cause?: unknown): Error {
-  return Object.assign(new Error(message), { code: 'PROXY_ISOLATION_REQUIRED', exitCode: 2, cause });
+function proxyIsolationUnavailable(reason: ProxyIsolationReason, message: string, cause?: unknown): Error {
+  return Object.assign(new Error(message), { code: 'PROXY_ISOLATION_REQUIRED', exitCode: 2, reason, cause });
 }
 
 async function createRunCgroup(): Promise<{ path: string; relativePath: string }> {
@@ -229,5 +274,6 @@ function numericEnv(key: string): number | undefined {
 
 export const runIsolationInternals = {
   isProxyIsolationUnavailable,
+  proxyIsolationHelp,
   firewallRules
 };

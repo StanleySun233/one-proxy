@@ -19,6 +19,7 @@ import { parseSshCommandArgs, parseSshTarget } from '../src/ssh.ts';
 import { parseShellCommandArgs } from '../src/shell.ts';
 import { parseEnvCommandArgs, parseRunCommandArgs, proxyEnv } from '../src/session-env.ts';
 import { runIsolationInternals, runProxyOnlyBestEffortCommand } from '../src/run-isolation.ts';
+import { detectShellFamily, detectShellPath } from '../src/shell-detect.ts';
 import { detectTuiCapability, tuiUnavailableWarning } from '../src/tui/capability.ts';
 import { buildTuiStatusSnapshot, collectTuiStatusSnapshot } from '../src/tui/status.ts';
 
@@ -230,6 +231,13 @@ test('env command accepts explicit common POSIX shells', () => {
   assert.deepEqual(parseEnvCommandArgs(['--shell', 'sh']), { shell: 'sh' });
 });
 
+test('shell detection prefers the current parent shell over the login shell', () => {
+  assert.equal(detectShellPath({ env: { SHELL: '/bin/bash' }, parentShell: 'fish' }), 'fish');
+  assert.equal(detectShellFamily({ env: { SHELL: '/bin/bash' }, parentShell: 'fish' }), 'fish');
+  assert.equal(detectShellPath({ shellOverride: 'zsh', env: { ONEPROXY_SHELL: 'fish', SHELL: '/bin/bash' }, parentShell: 'bash' }), 'zsh');
+  assert.equal(detectShellPath({ env: { SHELL: '/bin/zsh' }, parentShell: 'node' }), '/bin/zsh');
+});
+
 test('proxy env includes lower-case variables and bypass hosts', () => {
   const env = proxyEnv({
     host: '127.0.0.1',
@@ -274,6 +282,20 @@ test('run isolation firewall allows only the proxy-only port before rejecting eg
 test('run isolation fallback detection only matches isolation support errors', () => {
   assert.equal(runIsolationInternals.isProxyIsolationUnavailable(Object.assign(new Error('missing root'), { code: 'PROXY_ISOLATION_REQUIRED' })), true);
   assert.equal(runIsolationInternals.isProxyIsolationUnavailable(Object.assign(new Error('cleanup failed'), { code: 'PROXY_ISOLATION_CLEANUP_FAILED' })), false);
+});
+
+test('run isolation help gives install guidance for missing cgroup and iptables', () => {
+  assert.deepEqual(runIsolationInternals.proxyIsolationHelp(Object.assign(new Error('missing iptables'), { code: 'PROXY_ISOLATION_REQUIRED', reason: 'missing_iptables' })), [
+    'Install iptables/ip6tables for strict isolation:',
+    '  Debian/Ubuntu: sudo apt-get install iptables',
+    '  Fedora/RHEL: sudo dnf install iptables iptables-nft',
+    '  Arch: sudo pacman -S iptables'
+  ]);
+  assert.deepEqual(runIsolationInternals.proxyIsolationHelp(Object.assign(new Error('missing cgroup'), { code: 'PROXY_ISOLATION_REQUIRED', reason: 'missing_cgroup_v2' })), [
+    'Enable cgroup v2 at /sys/fs/cgroup for strict isolation.',
+    'cgroup v2 is a Linux host capability, not a OneProxy package dependency.',
+    'On systemd Linux, /sys/fs/cgroup should be mounted as cgroup2fs.'
+  ]);
 });
 
 test('best-effort run passes proxy-only environment to the child', async () => {
