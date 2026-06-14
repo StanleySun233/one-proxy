@@ -3,7 +3,6 @@ import * as fsSync from 'node:fs';
 export type ShellFamily = 'posix' | 'fish' | 'powershell' | 'cmd';
 
 export type ShellDetectionInput = {
-  shellOverride?: string;
   env?: Record<string, string | undefined>;
   parentShell?: string;
   platform?: NodeJS.Platform;
@@ -12,7 +11,7 @@ export type ShellDetectionInput = {
 export function detectShellPath(input: ShellDetectionInput = {}): string {
   const env = input.env ?? process.env;
   const platform = input.platform ?? process.platform;
-  const explicit = firstNonEmpty(input.shellOverride, env.ONEPROXY_SHELL);
+  const explicit = firstNonEmpty(env.ONEPROXY_SHELL);
   if (explicit) {
     return explicit;
   }

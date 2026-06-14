@@ -225,16 +225,15 @@ test('env off prints shell restoration output', async () => {
   });
 });
 
-test('env command accepts explicit common POSIX shells', () => {
-  assert.deepEqual(parseEnvCommandArgs(['--shell', 'bash']), { shell: 'bash' });
-  assert.deepEqual(parseEnvCommandArgs(['--shell', 'zsh']), { shell: 'zsh' });
-  assert.deepEqual(parseEnvCommandArgs(['--shell', 'sh']), { shell: 'sh' });
+test('env command relies on shell auto-detection instead of shell flags', () => {
+  assert.deepEqual(parseEnvCommandArgs([]), {});
+  assert.throws(() => parseEnvCommandArgs(['--shell', 'bash']), /Unknown env option: --shell/);
 });
 
 test('shell detection prefers the current parent shell over the login shell', () => {
   assert.equal(detectShellPath({ env: { SHELL: '/bin/bash' }, parentShell: 'fish' }), 'fish');
   assert.equal(detectShellFamily({ env: { SHELL: '/bin/bash' }, parentShell: 'fish' }), 'fish');
-  assert.equal(detectShellPath({ shellOverride: 'zsh', env: { ONEPROXY_SHELL: 'fish', SHELL: '/bin/bash' }, parentShell: 'bash' }), 'zsh');
+  assert.equal(detectShellPath({ env: { ONEPROXY_SHELL: 'zsh', SHELL: '/bin/bash' }, parentShell: 'fish' }), 'zsh');
   assert.equal(detectShellPath({ env: { SHELL: '/bin/zsh' }, parentShell: 'node' }), '/bin/zsh');
 });
 
@@ -341,8 +340,7 @@ test('ssh --tui parsing strips the runtime flag before target parsing', () => {
 test('shell --tui parsing enables TUI without passing the flag to the child shell', () => {
   assert.deepEqual(parseShellCommandArgs(['--tui']), { args: [], tui: true });
   assert.deepEqual(parseShellCommandArgs([]), { args: [], tui: false });
-  assert.deepEqual(parseShellCommandArgs(['--shell', 'zsh']), { args: [], tui: false, shell: 'zsh' });
-  assert.deepEqual(parseShellCommandArgs(['--tui', '--shell', 'bash']), { args: [], tui: true, shell: 'bash' });
+  assert.throws(() => parseShellCommandArgs(['--shell', 'zsh']), /Unknown shell option: --shell/);
 });
 
 test('run --tui parsing preserves the command argv after the runtime flag', () => {

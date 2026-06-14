@@ -6,10 +6,6 @@ import { runTuiCommand } from './tui/runtime.ts';
 import { buildTuiStatusSnapshot } from './tui/status.ts';
 import { detectShellPath } from './shell-detect.ts';
 
-function defaultShell(shellOverride?: string): string {
-  return detectShellPath({ shellOverride });
-}
-
 function shellArgs(shell: string): string[] {
   const normalized = shell.toLowerCase();
   if (process.platform === 'win32' || normalized.includes('cmd.exe') || normalized.includes('powershell') || normalized.includes('pwsh')) {
@@ -18,8 +14,8 @@ function shellArgs(shell: string): string[] {
   return ['-i'];
 }
 
-export async function startActivatedShell(shellOverride?: string): Promise<number> {
-  const shell = defaultShell(shellOverride);
+export async function startActivatedShell(): Promise<number> {
+  const shell = detectShellPath();
   const session = await startDaemonSession();
   process.stdout.write(`OneProxy shell active: ${shell}\n`);
   process.stdout.write('Exit this shell to turn it off.\n');
@@ -47,44 +43,31 @@ export async function startActivatedShell(shellOverride?: string): Promise<numbe
 }
 
 export async function shellCommand(_args: string[], _context: CliContext): Promise<number> {
-  const parsed = parseShellCommandArgs(_args);
+  parseShellCommandArgs(_args);
   if (!_context.json) {
-    const tuiExitCode = await tryStartActivatedShellTui(parsed.shell);
+    const tuiExitCode = await tryStartActivatedShellTui();
     if (tuiExitCode !== null) {
       return tuiExitCode;
     }
   }
-  return startActivatedShell(parsed.shell);
+  return startActivatedShell();
 }
 
-export function parseShellCommandArgs(argv: string[]): { args: string[]; tui: boolean; shell?: string } {
+export function parseShellCommandArgs(argv: string[]): { args: string[]; tui: boolean } {
   const args: string[] = [];
   let tui = false;
-  let shell: string | undefined;
-  for (let index = 0; index < argv.length; index += 1) {
-    const value = argv[index];
+  for (const value of argv) {
     if (value === '--tui') {
       tui = true;
       continue;
     }
-    if (value === '--shell') {
-      shell = argv[index + 1];
-      index += 1;
-      if (!shell) {
-        throw Object.assign(new Error('shell --shell requires a shell name.'), { code: 'SYNTAX_ERROR', exitCode: 2 });
-      }
-      continue;
-    }
-    args.push(value);
-  }
-  if (shell) {
-    return { args, tui, shell };
+    throw Object.assign(new Error(`Unknown shell option: ${value}`), { code: 'SYNTAX_ERROR', exitCode: 2 });
   }
   return { args, tui };
 }
 
-async function tryStartActivatedShellTui(shellOverride?: string): Promise<number | null> {
-  const shell = defaultShell(shellOverride);
+async function tryStartActivatedShellTui(): Promise<number | null> {
+  const shell = detectShellPath();
   const session = await startDaemonSession();
   try {
     const result = await runTuiCommand({

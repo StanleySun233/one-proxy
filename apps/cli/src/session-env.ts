@@ -218,8 +218,8 @@ function cmdOff(): string {
   return `${lines.join('\r\n')}\r\n`;
 }
 
-function activationScript(env: Record<string, string>, shell?: string): string {
-  switch (detectShellFamily({ shellOverride: shell })) {
+function activationScript(env: Record<string, string>): string {
+  switch (detectShellFamily()) {
     case 'fish':
       return fishOn(env);
     case 'powershell':
@@ -231,8 +231,8 @@ function activationScript(env: Record<string, string>, shell?: string): string {
   }
 }
 
-function deactivationScript(shell?: string): string {
-  switch (detectShellFamily({ shellOverride: shell })) {
+function deactivationScript(): string {
+  switch (detectShellFamily()) {
     case 'fish':
       return fishOff();
     case 'powershell':
@@ -245,30 +245,20 @@ function deactivationScript(shell?: string): string {
 }
 
 export function parseEnvCommandArgs(argv: string[]) {
-  let shell: string | undefined;
-  for (let index = 0; index < argv.length; index += 1) {
-    const value = argv[index];
-    if (value === '--shell') {
-      shell = argv[index + 1];
-      index += 1;
-      if (!shell) {
-        throw Object.assign(new Error('env --shell requires a shell name.'), { code: 'SYNTAX_ERROR', exitCode: 2 });
-      }
-      continue;
-    }
+  for (const value of argv) {
     throw Object.assign(new Error(`Unknown env option: ${value}`), { code: 'SYNTAX_ERROR', exitCode: 2 });
   }
-  return { shell };
+  return {};
 }
 
 export async function envOn(args: string[] = []): Promise<void> {
-  const { shell } = parseEnvCommandArgs(args);
-  process.stdout.write(activationScript(await sessionProxyEnv(), shell));
+  parseEnvCommandArgs(args);
+  process.stdout.write(activationScript(await sessionProxyEnv()));
 }
 
 export async function envOff(args: string[] = []): Promise<void> {
-  const { shell } = parseEnvCommandArgs(args);
-  process.stdout.write(deactivationScript(shell));
+  parseEnvCommandArgs(args);
+  process.stdout.write(deactivationScript());
 }
 
 export async function runCommand(args: string[], context: CliContext): Promise<number> {
