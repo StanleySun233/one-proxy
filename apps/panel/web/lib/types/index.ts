@@ -7,6 +7,7 @@ export type {
   NodeTransport,
   NodeHealth,
   NodeHealthHistory,
+  NodeSLAMinute,
   BootstrapToken,
   UnconsumedBootstrapToken,
 } from './nodes';

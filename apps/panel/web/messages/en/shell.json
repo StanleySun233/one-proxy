@@ -23,6 +23,7 @@
   "routeBoard": "Rules",
   "healthOverview": "Health overview",
   "healthHeartbeat": "Heartbeat monitor",
+  "healthSLA": "SLA board",
   "auditConsole": "Audit console",
   "auditDashboard": "Dashboard",
   "auditNetwork": "Network",

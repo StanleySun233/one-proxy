@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"log"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
@@ -34,8 +36,16 @@ func (c *ControlPlane) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (dom
 	if input.NodeID == "" {
 		return domain.NodeHealth{}, invalidInput("missing_node_id")
 	}
+	if input.HeartbeatTs <= 0 {
+		input.HeartbeatTs = time.Now().UTC().UnixMilli()
+	}
 	item, err := c.store.UpsertNodeHeartbeat(input)
 	item.ProxyTokenCacheTTLSeconds = int(c.proxyTokenCacheTTL.Seconds())
+	if err == nil {
+		if recordErr := c.slaHeartbeats.Record(context.Background(), input.NodeID, input.HeartbeatTime(time.Now())); recordErr != nil {
+			log.Printf("sla heartbeat record failed nodeID=%s err=%v", input.NodeID, recordErr)
+		}
+	}
 	return item, err
 }
 

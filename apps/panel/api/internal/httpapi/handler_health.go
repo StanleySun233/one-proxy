@@ -47,3 +47,28 @@ func (r *Router) handleNodeHealthHistory(w http.ResponseWriter, req *http.Reques
 	}
 	writeSuccess(w, http.StatusOK, items)
 }
+
+func (r *Router) handleNodeSLA(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	windowStr := req.URL.Query().Get("window")
+	window := 24 * time.Hour
+	if windowStr != "" {
+		if parsed, err := time.ParseDuration(windowStr); err == nil {
+			window = parsed
+		}
+	}
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	items, err := r.service.NodeSLAMinutes(tenantCtx, window)
+	if err != nil {
+		writeServiceError(w, req, err, "sla_fetch_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, items)
+}

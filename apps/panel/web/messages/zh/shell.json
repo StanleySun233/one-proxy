@@ -23,6 +23,7 @@
   "routeBoard": "规则",
   "healthOverview": "健康总览",
   "healthHeartbeat": "心跳监控",
+  "healthSLA": "SLA 看板",
   "auditConsole": "审计台",
   "auditDashboard": "看板",
   "auditNetwork": "网络",

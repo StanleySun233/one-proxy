@@ -73,7 +73,8 @@ func (s *MySQLStore) ListNodeHealthHistory(nodeID string, window time.Duration) 
 }
 
 func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domain.NodeHealth, error) {
-	now := nowRFC3339()
+	receivedAt := nowRFC3339()
+	heartbeatAt := input.HeartbeatTime(time.Now()).Format(time.RFC3339)
 	status := heartbeatNodeStatus(input.ListenerStatus, input.CertStatus)
 	revisionID := input.PolicyRevisionID
 	if revisionID != "" {
@@ -96,18 +97,18 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 		   listener_status_json = VALUES(listener_status_json),
 		   cert_status_json = VALUES(cert_status_json),
 		   updated_at = VALUES(updated_at)`,
-		input.NodeID, now, revisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
+		input.NodeID, heartbeatAt, revisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), receivedAt,
 	); err != nil {
 		return domain.NodeHealth{}, err
 	}
 	if _, err := tx.Exec(
 		`INSERT INTO node_health_history (node_id, heartbeat_at, policy_revision_id, listener_status_json, cert_status_json, created_at)
 		 VALUES (?, ?, NULLIF(?, ''), ?, ?, ?)`,
-		input.NodeID, now, revisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), now,
+		input.NodeID, heartbeatAt, revisionID, encodeJSONMap(input.ListenerStatus), encodeJSONMap(input.CertStatus), receivedAt,
 	); err != nil {
 		return domain.NodeHealth{}, err
 	}
-	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", status, now, input.NodeID); err != nil {
+	if _, err := tx.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", status, receivedAt, input.NodeID); err != nil {
 		return domain.NodeHealth{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -115,7 +116,7 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 	}
 	return domain.NodeHealth{
 		NodeID:           input.NodeID,
-		HeartbeatAt:      now,
+		HeartbeatAt:      heartbeatAt,
 		PolicyRevisionID: revisionID,
 		ListenerStatus:   input.ListenerStatus,
 		CertStatus:       input.CertStatus,

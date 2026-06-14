@@ -66,6 +66,7 @@ type NodeAgentPolicy struct {
 
 type NodeHeartbeatInput struct {
 	NodeID           string            `json:"nodeId"`
+	HeartbeatTs      int64             `json:"heartbeatTs"`
 	PolicyRevisionID string            `json:"policyRevisionId"`
 	ListenerStatus   map[string]string `json:"listenerStatus"`
 	CertStatus       map[string]string `json:"certStatus"`

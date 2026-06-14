@@ -473,6 +473,22 @@ CREATE TABLE IF NOT EXISTS node_health_history (
   INDEX idx_history_time (heartbeat_at)
 );
 
+CREATE TABLE IF NOT EXISTS node_sla_minutes (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  scenario_id VARCHAR(191) NOT NULL,
+  node_id VARCHAR(191) NOT NULL,
+  window_start VARCHAR(64) NOT NULL,
+  expected_heartbeats INT NOT NULL,
+  received_heartbeats INT NOT NULL,
+  success TINYINT(1) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  UNIQUE KEY uniq_node_sla_minutes_node_window (node_id, window_start),
+  INDEX idx_node_sla_minutes_time (window_start),
+  INDEX idx_node_sla_minutes_success_time (success, window_start),
+  CONSTRAINT fk_node_sla_minutes_node_id FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS `groups` (
   id VARCHAR(191) NOT NULL PRIMARY KEY,
   name VARCHAR(191) NOT NULL,

@@ -36,7 +36,7 @@ func main() {
 	store := policystore.New(cfg.PolicyStatePath)
 	interval, err := time.ParseDuration(cfg.HeartbeatInterval)
 	if err != nil || interval <= 0 {
-		interval = 30 * time.Second
+		interval = 10 * time.Second
 	}
 	listenerStatus := map[string]string{"runtime": domain.ListenerStatusUp}
 	certStatus := map[string]string{}

@@ -65,7 +65,7 @@ func (l *Loop) tick() {
 		}
 	}
 	revision, _ := l.store.Current()
-	_, err = l.client.SendHeartbeat(revision, cloneMap(l.listenerStatus), cloneMap(l.certStatus))
+	_, err = l.client.SendHeartbeat(time.Now().UTC(), revision, cloneMap(l.listenerStatus), cloneMap(l.certStatus))
 	if err != nil {
 		log.Printf("heartbeat failed: %v", err)
 	}

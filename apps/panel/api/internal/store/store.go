@@ -112,6 +112,8 @@ type HealthStore interface {
 	ListNodeHealthHistory(nodeID string, window time.Duration) ([]domain.NodeHealth, error)
 	UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domain.NodeHealth, error)
 	RenewNodeCertificate(input domain.NodeCertRenewInput) (domain.NodeCertRenewResult, error)
+	UpsertNodeSLAMinute(input domain.NodeSLAMinuteInput) error
+	ListNodeSLAMinutes(since string) ([]domain.NodeSLAMinute, error)
 }
 
 type GroupStore interface {

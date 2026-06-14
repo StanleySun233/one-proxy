@@ -207,6 +207,7 @@ func (s *MySQLStore) DeleteNode(nodeID string) error {
 		"DELETE FROM node_access_paths WHERE target_node_id = ? OR entry_node_id = ?",
 		"DELETE FROM node_policy_assignments WHERE node_id = ?",
 		"DELETE FROM node_health_snapshots WHERE node_id = ?",
+		"DELETE FROM node_sla_minutes WHERE node_id = ?",
 		"DELETE FROM node_api_tokens WHERE node_id = ?",
 		"DELETE FROM node_trust_materials WHERE node_id = ?",
 		"UPDATE nodes SET parent_node_id = NULL WHERE parent_node_id = ?",

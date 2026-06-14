@@ -93,8 +93,9 @@ func (c *Client) ValidateNodeAuth() (NodeAuthValidation, error) {
 	return envelope.Data, nil
 }
 
-func (c *Client) SendHeartbeat(revision string, listenerStatus map[string]string, certStatus map[string]string) (domain.NodeHealth, error) {
+func (c *Client) SendHeartbeat(heartbeatAt time.Time, revision string, listenerStatus map[string]string, certStatus map[string]string) (domain.NodeHealth, error) {
 	body, err := json.Marshal(domain.NodeHeartbeatInput{
+		HeartbeatTs:      heartbeatAt.UTC().UnixMilli(),
 		PolicyRevisionID: revision,
 		ListenerStatus:   listenerStatus,
 		CertStatus:       certStatus,

@@ -9,12 +9,14 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
 	proxyservice "github.com/StanleySun233/python-proxy/apps/panel/api/internal/features/proxy/service"
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/proxytoken"
+	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/sla"
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/store"
 )
 
 type ControlPlane struct {
 	store              store.Store
 	proxyTokens        proxytoken.Store
+	slaHeartbeats      sla.HeartbeatStore
 	sessionTTL         time.Duration
 	proxyTokenCacheTTL time.Duration
 	bootstrapTokenTTL  time.Duration
@@ -29,16 +31,23 @@ type ControlPlane struct {
 
 func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
 	proxyTokens := proxytoken.Store(proxytoken.NewMemoryStore())
+	slaHeartbeats := sla.HeartbeatStore(sla.NewMemoryHeartbeatStore(2*time.Hour, slaHeartbeatInterval))
 	if cfg.RedisURL != "" {
 		if redisStore, err := proxytoken.NewRedisStore(cfg.RedisURL); err == nil {
 			proxyTokens = redisStore
 		} else {
 			log.Printf("warn: redis proxy token store unavailable: %v", err)
 		}
+		if redisHeartbeatStore, err := sla.NewRedisHeartbeatStore(cfg.RedisURL, 2*time.Hour, slaHeartbeatInterval); err == nil {
+			slaHeartbeats = redisHeartbeatStore
+		} else {
+			log.Printf("warn: redis sla heartbeat store unavailable: %v", err)
+		}
 	}
 	controlPlane := &ControlPlane{
 		store:              store,
 		proxyTokens:        proxyTokens,
+		slaHeartbeats:      slaHeartbeats,
 		sessionTTL:         parseDuration(cfg.SessionTTL, 30*24*time.Hour),
 		proxyTokenCacheTTL: parseDuration(cfg.ProxyTokenCacheTTL, 24*time.Hour),
 		bootstrapTokenTTL:  parseDuration(cfg.BootstrapTokenTTL, 15*time.Minute),
@@ -101,6 +110,9 @@ func (c *ControlPlane) RunMaintenance() error {
 		log.Printf("maintenance: failed to cleanup node health history: %v", err)
 	} else if removed > 0 {
 		log.Printf("maintenance: cleaned up %d stale health history rows", removed)
+	}
+	if err := c.RecordNodeSLAMinute(); err != nil {
+		return err
 	}
 	return nil
 }

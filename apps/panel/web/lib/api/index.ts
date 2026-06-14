@@ -15,6 +15,7 @@ export {
   getOverview,
   getNodeHealth,
   getNodeHealthHistory,
+  getNodeSLA,
 } from './nodes';
 export { getChains, createChain, updateChain, probeChain, validateChain, previewChain, getNodeLinks, createNodeLink, updateNodeLink, deleteNodeLink, getNodeAccessPaths, createNodeAccessPath, updateNodeAccessPath, deleteNodeAccessPath, getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule, getScopes, createScope, updateScope, deleteScope } from './proxy';
 export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAccounts, setGroupScopes } from './groups';

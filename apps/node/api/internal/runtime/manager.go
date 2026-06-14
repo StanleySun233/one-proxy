@@ -59,11 +59,10 @@ func New(path string, store *policystore.Store, interval time.Duration, listener
 }
 
 func (m *Manager) Run() {
-	ticker := time.NewTicker(m.interval)
-	defer ticker.Stop()
-	m.tick()
-	for range ticker.C {
-		m.tick()
+	for {
+		next := nextTick(time.Now(), m.interval)
+		time.Sleep(time.Until(next))
+		m.tick(next.UTC())
 	}
 }
 
@@ -74,7 +73,7 @@ func (m *Manager) Attach(binding Binding) error {
 	if err := m.persist(); err != nil {
 		return err
 	}
-	m.tick()
+	m.tick(time.Now().UTC())
 	return nil
 }
 
@@ -121,7 +120,7 @@ func (m *Manager) RotateJoinPassword(currentPassword string, newPassword string)
 	return m.persist()
 }
 
-func (m *Manager) tick() {
+func (m *Manager) tick(heartbeatAt time.Time) {
 	current := m.Current()
 	if current.ControlPlaneURL == "" || current.NodeID == "" || current.NodeAccessToken == "" {
 		return
@@ -142,7 +141,7 @@ func (m *Manager) tick() {
 		}
 	}
 	revision, _ := m.store.Current()
-	_, _ = client.SendHeartbeat(revision, cloneMap(m.listenerStatus), cloneMap(m.certStatus))
+	_, _ = client.SendHeartbeat(heartbeatAt, revision, cloneMap(m.listenerStatus), cloneMap(m.certStatus))
 }
 
 func (m *Manager) setCertStatus(key string, value string) {
@@ -197,4 +196,8 @@ func cloneMap(value map[string]string) map[string]string {
 		cloned[key] = item
 	}
 	return cloned
+}
+
+func nextTick(now time.Time, interval time.Duration) time.Time {
+	return now.Truncate(interval).Add(interval)
 }

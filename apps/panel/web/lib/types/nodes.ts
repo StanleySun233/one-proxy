@@ -93,6 +93,19 @@ export type NodeHealthHistory = {
   certStatus: Record<string, CertStatus>;
 };
 
+export type NodeSLAMinute = {
+  scenarioId: string;
+  scenarioName: string;
+  nodeId: string;
+  nodeName: string;
+  windowStart: string;
+  expectedHeartbeats: number;
+  receivedHeartbeats: number;
+  success: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type BootstrapToken = {
   id: string;
   token: string;

@@ -95,7 +95,8 @@ export function ConsoleShell({children}: {children: ReactNode}) {
       icon: ShieldCheck,
       items: [
         {label: t('shell.healthOverview'), href: '/health/overview'},
-        {label: t('shell.healthHeartbeat'), href: '/health/heartbeat'}
+        {label: t('shell.healthHeartbeat'), href: '/health/heartbeat'},
+        {label: t('shell.healthSLA'), href: '/health/sla'}
       ]
     },
     {

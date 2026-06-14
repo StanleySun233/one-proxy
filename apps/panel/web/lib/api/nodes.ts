@@ -6,6 +6,7 @@ import type {
   UnconsumedBootstrapToken,
   NodeHealth,
   NodeHealthHistory,
+  NodeSLAMinute,
   Overview,
 } from '@/lib/types';
 
@@ -106,4 +107,11 @@ export function getNodeHealthHistory(accessToken: string, tenantId: string | nul
   const params = new URLSearchParams({nodeId});
   if (window) params.set('window', window);
   return request<NodeHealthHistory[]>(`/nodes/health/history?${params.toString()}`, {accessToken, tenantId});
+}
+
+export function getNodeSLA(accessToken: string, tenantId: string | null, window?: string) {
+  const params = new URLSearchParams();
+  if (window) params.set('window', window);
+  const query = params.toString();
+  return request<NodeSLAMinute[]>(`/nodes/sla${query ? `?${query}` : ''}`, {accessToken, tenantId});
 }
