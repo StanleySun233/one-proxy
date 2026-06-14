@@ -1,7 +1,5 @@
-import { spawn } from 'node:child_process';
 import type { CliContext } from './main.ts';
-import { runTuiCommand } from './tui/runtime.ts';
-import { buildTuiStatusSnapshot } from './tui/status.ts';
+import { runProxyOnlyIsolatedCommand } from './run-isolation.ts';
 import {
   readConfig,
   readState,
@@ -59,6 +57,27 @@ export function proxyEnv(bindings: DaemonBindings, extraNoProxyHosts: string[] =
     ONEPROXY_ACTIVE: '1',
     ONEPROXY_HTTP_PORT: String(bindings.httpPort),
     ONEPROXY_HTTPS_PORT: String(bindings.httpsPort)
+  };
+}
+
+export function proxyOnlyEnv(bindings: DaemonBindings): Record<string, string> {
+  if (!bindings.proxyOnlyPort) {
+    throw Object.assign(new Error('Daemon did not return proxy-only binding'), { code: 'DAEMON_UNAVAILABLE' });
+  }
+  const proxy = `http://${bindings.host}:${bindings.proxyOnlyPort}`;
+  return {
+    HTTP_PROXY: proxy,
+    HTTPS_PROXY: proxy,
+    ALL_PROXY: proxy,
+    NO_PROXY: '',
+    http_proxy: proxy,
+    https_proxy: proxy,
+    all_proxy: proxy,
+    no_proxy: '',
+    ONEPROXY_ACTIVE: '1',
+    ONEPROXY_PROXY_ONLY: '1',
+    ONEPROXY_HTTP_PORT: String(bindings.proxyOnlyPort),
+    ONEPROXY_HTTPS_PORT: String(bindings.proxyOnlyPort)
   };
 }
 
@@ -265,68 +284,34 @@ export async function envOff(args: string[] = []): Promise<void> {
   process.stdout.write(deactivationScript(shell));
 }
 
-function quoteWindowsCommand(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
-function spawnWindowsCommand(executable: string, args: string[], env: NodeJS.ProcessEnv) {
-  const shell = process.env.ComSpec || 'cmd.exe';
-  const command = ['start', '""', '/wait', quoteWindowsCommand(executable), ...args.map(quoteWindowsCommand)].join(' ');
-  return spawn(shell, ['/d', '/s', '/c', command], {
-    stdio: 'inherit',
-    windowsHide: false,
-    env
-  });
-}
-
 export async function runCommand(args: string[], _context: CliContext): Promise<number> {
   const parsed = parseRunCommandArgs(args);
   const executable = parsed.args[0];
   if (!executable) {
     throw Object.assign(new Error('run requires a command.'), { code: 'COMMAND_NOT_FOUND', exitCode: 2 });
   }
-  if (!_context.json) {
-    const tuiExitCode = await tryRunCommandTui(executable, parsed.args.slice(1));
-    if (tuiExitCode !== null) {
-      return tuiExitCode;
-    }
-  }
   const lifecycle = (await import('./daemon/lifecycle.ts')) as LifecycleModule;
   const session = await lifecycle.startDaemonSession?.();
   if (!session) {
     throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
   }
-  const bindings = session.metadata.bindings;
-  const env = {
-    ...process.env,
-    ...(await sessionProxyEnv(bindings))
-  };
-  const child = process.platform === 'win32'
-    ? spawnWindowsCommand(executable, parsed.args.slice(1), env)
-    : spawn(executable, parsed.args.slice(1), {
-      stdio: 'inherit',
-      env
+  try {
+    const proxyOnlyPort = session.metadata.bindings.proxyOnlyPort;
+    if (!proxyOnlyPort) {
+      throw Object.assign(new Error('Daemon did not return proxy-only binding'), { code: 'DAEMON_UNAVAILABLE' });
+    }
+    return await runProxyOnlyIsolatedCommand({
+      executable,
+      args: parsed.args.slice(1),
+      env: {
+        ...process.env,
+        ...proxyOnlyEnv(session.metadata.bindings)
+      },
+      proxyPort: proxyOnlyPort
     });
-  return new Promise((resolve, reject) => {
-    child.once('error', (error: NodeJS.ErrnoException) => {
-      session.end().then(() => {
-        if (error.code === 'ENOENT') {
-          reject(Object.assign(new Error(`Command not found: ${executable}`), { code: 'COMMAND_NOT_FOUND' }));
-          return;
-        }
-        reject(error);
-      }, reject);
-    });
-    child.once('exit', (code, signal) => {
-      session.end().then(() => {
-        if (signal) {
-          resolve(1);
-          return;
-        }
-        resolve(code ?? 0);
-      }, reject);
-    });
-  });
+  } finally {
+    await session.end();
+  }
 }
 
 export function parseRunCommandArgs(argv: string[]) {
@@ -344,32 +329,4 @@ function stripTuiFlag(argv: string[]) {
     }
   }
   return { args, tui };
-}
-
-async function tryRunCommandTui(executable: string, args: string[]): Promise<number | null> {
-  const lifecycle = (await import('./daemon/lifecycle.ts')) as LifecycleModule;
-  const session = await lifecycle.startDaemonSession?.();
-  if (!session) {
-    throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
-  }
-  try {
-    const result = await runTuiCommand({
-      executable,
-      args,
-      env: {
-        ...process.env,
-        ...(await sessionProxyEnv(session.metadata.bindings))
-      },
-      status: await buildTuiStatusSnapshot()
-    });
-    if (!result.available) {
-      return null;
-    }
-    if (typeof result.exitCode !== 'number') {
-      throw Object.assign(new Error('TUI exited without a child exit code'), { code: 'TUI_RUNTIME_ERROR' });
-    }
-    return result.exitCode;
-  } finally {
-    await session.end();
-  }
 }

@@ -200,6 +200,78 @@ test('HTTP proxy listener reads updated local state after startup', async () => 
   });
 });
 
+test('proxy-only listener ignores direct routes and forwards through entry node', async () => {
+  await withHome(async (home) => {
+    const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
+    const root = profileRoot();
+    await mkdir(root, { recursive: true });
+    let upstreamPath = '';
+    let upstreamToken = '';
+    const upstream = http.createServer((request, response) => {
+      upstreamPath = request.url;
+      upstreamToken = request.headers['proxy-authorization'];
+      response.end('proxied-only');
+    });
+    const upstreamPort = await listen(upstream);
+    await writeFile(path.join(root, 'tokens.json'), JSON.stringify({
+      schemaVersion: 1,
+      proxyToken: 'proxy-token'
+    }));
+    const proxy = await startHttpProxyListeners({
+      config: {
+        schemaVersion: 1,
+        activeTenantId: 'tenant_1',
+        activeGroupId: 'group_1',
+        overrides: { direct: ['example.com'], proxy: [] }
+      },
+      state: {
+        schemaVersion: 1,
+        bootstrap: {
+          entryNodes: [{ id: 'entry_1', host: '127.0.0.1', port: upstreamPort, protocol: 'PROXY' }]
+        },
+        routeGroups: [{
+          id: 'group_1',
+          tenantId: 'tenant_1',
+          rules: [{ id: 'direct_1', type: 'domain', pattern: 'example.com', mode: 'direct' }]
+        }]
+      }
+    }, {
+      host: '127.0.0.1',
+      httpPort: 0,
+      httpsPort: 0,
+      ipcPort: 0,
+      proxyOnlyPort: 0
+    });
+    const proxyOnlyPort = proxy.proxyOnlyServer.address().port;
+
+    try {
+      const body = await new Promise((resolve, reject) => {
+        const request = http.get({
+          host: '127.0.0.1',
+          port: proxyOnlyPort,
+          path: 'http://example.com/path',
+          headers: { host: 'example.com' }
+        }, (response) => {
+          let data = '';
+          response.setEncoding('utf8');
+          response.on('data', (chunk) => {
+            data += chunk;
+          });
+          response.on('end', () => resolve(data));
+        });
+        request.on('error', reject);
+      });
+
+      assert.equal(body, 'proxied-only');
+      assert.equal(upstreamPath, 'http://example.com/path');
+      assert.equal(upstreamToken, 'Bearer proxy-token');
+    } finally {
+      await proxy.close();
+      await closeServer(upstream);
+    }
+  });
+});
+
 test('HTTP proxy listener retries transient static resource failures', async () => {
   const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
   let attempts = 0;

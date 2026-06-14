@@ -18,6 +18,7 @@ import { resolveRoute } from '../src/daemon/router.ts';
 import { parseSshCommandArgs, parseSshTarget } from '../src/ssh.ts';
 import { parseShellCommandArgs } from '../src/shell.ts';
 import { parseEnvCommandArgs, parseRunCommandArgs, proxyEnv } from '../src/session-env.ts';
+import { runIsolationInternals } from '../src/run-isolation.ts';
 import { detectTuiCapability, tuiUnavailableWarning } from '../src/tui/capability.ts';
 import { buildTuiStatusSnapshot, collectTuiStatusSnapshot } from '../src/tui/status.ts';
 
@@ -245,6 +246,29 @@ test('proxy env includes lower-case variables and bypass hosts', () => {
   assert.equal(env.all_proxy, env.HTTP_PROXY);
   assert.equal(env.NO_PROXY, 'localhost,127.0.0.1,::1,panel.example.com,edge.example.com');
   assert.equal(env.no_proxy, env.NO_PROXY);
+});
+
+test('run isolation firewall allows only the proxy-only port before rejecting egress', () => {
+  const rules = runIsolationInternals.firewallRules(12000, 'oneproxy-run-test');
+  assert.deepEqual(rules.map((rule) => rule.command), ['iptables', 'iptables', 'ip6tables']);
+  assert.deepEqual(rules[0].add, [
+    '-I', 'OUTPUT', '1',
+    '-p', 'tcp',
+    '-m', 'cgroup', '--path', 'oneproxy-run-test',
+    '-d', '127.0.0.1/32',
+    '--dport', '12000',
+    '-j', 'ACCEPT'
+  ]);
+  assert.deepEqual(rules[1].add, [
+    '-I', 'OUTPUT', '1',
+    '-m', 'cgroup', '--path', 'oneproxy-run-test',
+    '-j', 'REJECT'
+  ]);
+  assert.deepEqual(rules[2].add, [
+    '-I', 'OUTPUT', '1',
+    '-m', 'cgroup', '--path', 'oneproxy-run-test',
+    '-j', 'REJECT'
+  ]);
 });
 
 test('command parser handles help and unknown commands', async () => {

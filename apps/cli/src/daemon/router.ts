@@ -7,6 +7,7 @@ export type RouteResolverInput = {
   state: OneProxyState;
   target: string;
   protocol?: string;
+  proxyOnly?: boolean;
 };
 
 export type RouteResult = {
@@ -15,7 +16,7 @@ export type RouteResult = {
   port: number;
   mode: RouteMode;
   matched: {
-    source: 'local_override_direct' | 'local_override_proxy' | 'policy' | 'default_direct';
+    source: 'local_override_direct' | 'local_override_proxy' | 'policy' | 'default_direct' | 'proxy_only';
     ruleId?: string;
     ruleType?: RouteRule['type'];
     pattern?: string;
@@ -41,6 +42,10 @@ export function resolveRoute(input: RouteResolverInput): RouteResult {
   const host = target.host.toLowerCase();
   const group = activeRouteGroup(input);
   const entryNode = firstEntryNode(input.state);
+
+  if (input.proxyOnly) {
+    return routeResult(input, target, 'proxy', { source: 'proxy_only' }, group, entryNode);
+  }
 
   if (matchesOverride(host, input.config.overrides?.direct ?? [])) {
     return routeResult(input, target, 'direct', { source: 'local_override_direct' }, group, null);

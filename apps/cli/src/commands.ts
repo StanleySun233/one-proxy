@@ -25,7 +25,7 @@ type RouteResult = {
   port: number;
   mode: 'direct' | 'proxy';
   matched: {
-    source: 'local_override_direct' | 'local_override_proxy' | 'policy' | 'default_direct';
+    source: 'local_override_direct' | 'local_override_proxy' | 'policy' | 'default_direct' | 'proxy_only';
     ruleId?: string;
     ruleType?: string;
     pattern?: string;
@@ -174,6 +174,7 @@ export async function statusCommand(_args: string[], context: CliContext): Promi
     localPorts: {
       http: ports?.httpPort ?? null,
       https: ports?.httpsPort ?? null,
+      proxyOnly: ports?.proxyOnlyPort ?? null,
       ipc: ports?.ipcPort ?? null
     },
     portSelection: daemon && running ? daemon.portSelection ?? null : null,

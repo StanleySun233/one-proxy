@@ -71,6 +71,7 @@ export type DaemonBindings = {
   httpPort: number;
   httpsPort: number;
   ipcPort: number;
+  proxyOnlyPort: number;
 };
 
 export type DaemonMetadata = {
@@ -207,7 +208,8 @@ export async function resolveBindings(config?: OneProxyConfig): Promise<Resolved
       host: loopbackHost,
       httpPort: portSelection.selectedPair[0],
       httpsPort: portSelection.selectedPair[1],
-      ipcPort: await allocateLoopbackPort()
+      ipcPort: await allocateLoopbackPort(),
+      proxyOnlyPort: await allocateLoopbackPort()
     },
     portSelection
   };
