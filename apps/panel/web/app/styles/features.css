@@ -231,6 +231,150 @@
   color: var(--muted);
 }
 
+.sla-status-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sla-status-row {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-2) 82%, var(--panel) 18%);
+}
+
+.sla-status-head,
+.sla-service-meta,
+.sla-service-name-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sla-status-head {
+  justify-content: space-between;
+}
+
+.sla-service-meta {
+  flex: 1 1 auto;
+}
+
+.sla-status-dot {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.sla-status-dot.is-good {
+  background: #22c55e;
+}
+
+.sla-status-dot.is-warn {
+  background: #eab308;
+}
+
+.sla-status-dot.is-danger {
+  background: #ef4444;
+}
+
+.sla-status-dot.is-empty {
+  background: #8b8f84;
+}
+
+.sla-service-title {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sla-service-name-line {
+  gap: 6px;
+}
+
+.sla-service-name-line .name-tag {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sla-info-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.sla-info-icon:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 12%, transparent 88%);
+}
+
+.sla-availability {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.sla-hour-grid,
+.sla-hour-axis {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(6px, 1fr));
+  gap: 3px;
+}
+
+.sla-hour-cell {
+  height: 18px;
+  border-radius: 4px;
+  cursor: help;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.sla-hour-cell:hover {
+  transform: translateY(-1px);
+}
+
+.sla-hour-cell.is-good {
+  background: #22c55e;
+}
+
+.sla-hour-cell.is-warn {
+  background: #eab308;
+}
+
+.sla-hour-cell.is-danger {
+  background: #ef4444;
+}
+
+.sla-hour-cell.is-empty {
+  background: color-mix(in srgb, var(--muted) 28%, transparent 72%);
+}
+
+.sla-hour-axis {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.sla-hour-axis span {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+}
+
 @media (max-width: 1180px) {
   .topology-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -238,6 +382,25 @@
 }
 
 @media (max-width: 760px) {
+  .sla-status-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sla-availability {
+    white-space: normal;
+  }
+
+  .sla-hour-grid,
+  .sla-hour-axis {
+    gap: 2px;
+  }
+
+  .sla-hour-cell {
+    height: 16px;
+    border-radius: 3px;
+  }
+
   .topology-summary-grid {
     grid-template-columns: 1fr;
   }

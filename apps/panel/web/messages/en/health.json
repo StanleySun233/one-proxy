@@ -66,6 +66,8 @@
   "node": "Node",
   "minute": "Minute",
   "heartbeats": "Heartbeats",
+  "availability": "availability",
+  "noRecords": "No records",
   "pass": "Pass",
   "fail": "Fail",
   "allResults": "All results",

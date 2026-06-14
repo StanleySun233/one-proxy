@@ -66,6 +66,8 @@
   "node": "节点",
   "minute": "分钟",
   "heartbeats": "心跳",
+  "availability": "可用性",
+  "noRecords": "无记录",
   "pass": "通过",
   "fail": "失败",
   "allResults": "全部结果",
