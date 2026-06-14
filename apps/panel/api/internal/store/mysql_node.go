@@ -200,33 +200,99 @@ func (s *MySQLStore) DeleteNode(nodeID string) error {
 	}
 	defer tx.Rollback()
 
+	chainIDs, err := nodeChainIDs(tx, nodeID)
+	if err != nil {
+		return err
+	}
+	if err := deleteChainsForNodeDelete(tx, chainIDs); err != nil {
+		return err
+	}
+
 	statements := []string{
-		"DELETE FROM chain_hops WHERE node_id = ?",
+		"DELETE FROM node_onboarding_tasks WHERE path_id IN (SELECT id FROM node_access_paths WHERE target_node_id = ? OR entry_node_id = ? OR JSON_CONTAINS(relay_node_ids_json, JSON_QUOTE(?)))",
+		"DELETE FROM node_access_paths WHERE target_node_id = ? OR entry_node_id = ? OR JSON_CONTAINS(relay_node_ids_json, JSON_QUOTE(?))",
+		"DELETE FROM chain_probe_results WHERE blocking_node_id = ?",
+		"DELETE FROM node_transports WHERE node_id = ? OR parent_node_id = ?",
 		"DELETE FROM node_links WHERE source_node_id = ? OR target_node_id = ?",
 		"DELETE FROM node_onboarding_tasks WHERE target_node_id = ?",
-		"DELETE FROM node_access_paths WHERE target_node_id = ? OR entry_node_id = ?",
 		"DELETE FROM node_policy_assignments WHERE node_id = ?",
 		"DELETE FROM node_health_snapshots WHERE node_id = ?",
 		"DELETE FROM node_sla_minutes WHERE node_id = ?",
 		"DELETE FROM node_api_tokens WHERE node_id = ?",
 		"DELETE FROM node_trust_materials WHERE node_id = ?",
+		"DELETE FROM bootstrap_tokens WHERE target_id = ?",
+		"DELETE FROM tenant_nodes WHERE node_id = ?",
 		"UPDATE nodes SET parent_node_id = NULL WHERE parent_node_id = ?",
 	}
 	for _, statement := range statements {
-		if strings.Count(statement, "?") == 2 {
+		switch strings.Count(statement, "?") {
+		case 3:
+			if _, err := tx.Exec(statement, nodeID, nodeID, nodeID); err != nil {
+				return err
+			}
+		case 2:
 			if _, err := tx.Exec(statement, nodeID, nodeID); err != nil {
 				return err
 			}
-			continue
-		}
-		if _, err := tx.Exec(statement, nodeID); err != nil {
-			return err
+		default:
+			if _, err := tx.Exec(statement, nodeID); err != nil {
+				return err
+			}
 		}
 	}
 	if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", nodeID); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+func nodeChainIDs(tx *sql.Tx, nodeID string) ([]string, error) {
+	rows, err := tx.Query("SELECT DISTINCT chain_id FROM chain_hops WHERE node_id = ? ORDER BY chain_id", nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	chainIDs := make([]string, 0)
+	for rows.Next() {
+		var chainID string
+		if err := rows.Scan(&chainID); err != nil {
+			return nil, err
+		}
+		chainIDs = append(chainIDs, chainID)
+	}
+	return chainIDs, rows.Err()
+}
+
+func deleteChainsForNodeDelete(tx *sql.Tx, chainIDs []string) error {
+	if len(chainIDs) == 0 {
+		return nil
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(chainIDs)), ",")
+	statements := []string{
+		fmt.Sprintf("DELETE FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id IN (%s))", placeholders),
+		fmt.Sprintf("DELETE FROM route_rules WHERE chain_id IN (%s)", placeholders),
+		fmt.Sprintf("DELETE FROM node_onboarding_tasks WHERE path_id IN (SELECT id FROM node_access_paths WHERE chain_id IN (%s))", placeholders),
+		fmt.Sprintf("DELETE FROM node_access_paths WHERE chain_id IN (%s)", placeholders),
+		fmt.Sprintf("DELETE FROM chain_probe_results WHERE chain_id IN (%s)", placeholders),
+		fmt.Sprintf("DELETE FROM tenant_chains WHERE chain_id IN (%s)", placeholders),
+		fmt.Sprintf("DELETE FROM chain_hops WHERE chain_id IN (%s)", placeholders),
+		fmt.Sprintf("DELETE FROM chains WHERE id IN (%s)", placeholders),
+	}
+	args := stringArgs(chainIDs)
+	for _, statement := range statements {
+		if _, err := tx.Exec(statement, args...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func stringArgs(values []string) []any {
+	args := make([]any, len(values))
+	for index, value := range values {
+		args[index] = value
+	}
+	return args
 }
 
 func (s *MySQLStore) NodeBindingPermission(tenantCtx domain.TenantAuthContext, nodeID string) (domain.BindingPermission, bool) {
