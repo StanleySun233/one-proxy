@@ -183,7 +183,7 @@ chromium.launchPersistentContext(userDataDir, {
             }
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'set-enabled', enabled: true }));
           }).then((enableResult) => {
-            if (enableResult.error || !enableResult.state.enabled) {
+            if (enableResult.error || !enableResult.enabled) {
               throw new Error(enableResult.error || 'service_worker_enable_failed');
             }
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({
@@ -194,7 +194,7 @@ chromium.launchPersistentContext(userDataDir, {
               port: 1080
             }));
           }).then((helperResult) => {
-            if (helperResult.error || !helperResult.state.localHelper.enabled) {
+            if (helperResult.error || !helperResult.localHelper.enabled) {
               throw new Error(helperResult.error || 'service_worker_local_helper_failed');
             }
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({
