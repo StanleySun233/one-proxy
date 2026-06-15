@@ -105,9 +105,34 @@ chromium.launchPersistentContext(userDataDir, {
                     fetchedAt: '2026-06-04T00:00:00Z',
                     proxyToken: 'proxy-token',
                     proxyTokenExpiresAt: '2026-07-04T00:00:00Z',
-                    groups: []
+                    groups: [{
+                      id: 'group-1',
+                      name: 'Test group',
+                      entryNodeId: 'node-1',
+                      entryNodeName: 'Node 1',
+                      proxyHost: '127.0.0.1',
+                      proxyPort: 2988,
+                      routes: [{
+                        id: 'route-1',
+                        priority: 1,
+                        matchType: 'ip_cidr',
+                        matchValue: '172.20.116.0/24',
+                        actionType: 'chain',
+                        chainId: 'chain-1',
+                        topology: [{ id: 'node-1', name: 'Node 1', mode: 'edge' }]
+                      }],
+                      topology: [{ id: 'node-1', name: 'Node 1', mode: 'edge' }]
+                    }]
                   }
                 }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+              }
+              if (String(url).includes('/api/proxy/extension/page/status')) {
+                const parsed = new URL(String(url));
+                const strict = parsed.searchParams.get('routeId') || parsed.searchParams.get('chainId');
+                const data = strict
+                  ? { status: 'unknown', latencyMs: 0, uploadBytes: 0, downloadBytes: 0, requestCount: 0, failureCount: 0, correlated: false }
+                  : { status: 'ok', latencyMs: 42, uploadBytes: 1234, downloadBytes: 5678, requestCount: 2, failureCount: 0, correlated: true };
+                return Promise.resolve(new Response(JSON.stringify({ code: 0, message: 'ok', data }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
               }
               if (String(url).endsWith('/api/auth/refresh')) {
                 return Promise.resolve(new Response(JSON.stringify({
@@ -155,6 +180,39 @@ chromium.launchPersistentContext(userDataDir, {
             const latestBootstrap = bootstraps[bootstraps.length - 1];
             if (!latestBootstrap || latestBootstrap.accessToken !== 'access-token' || latestBootstrap.tenantId !== 'tenant-1') {
               throw new Error('service_worker_sync_missing_one_proxy_headers');
+            }
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'set-enabled', enabled: true }));
+          }).then((enableResult) => {
+            if (enableResult.error || !enableResult.state.enabled) {
+              throw new Error(enableResult.error || 'service_worker_enable_failed');
+            }
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({
+              type: 'set-local-helper',
+              enabled: true,
+              scheme: 'SOCKS5',
+              host: '127.0.0.1',
+              port: 1080
+            }));
+          }).then((helperResult) => {
+            if (helperResult.error || !helperResult.state.localHelper.enabled) {
+              throw new Error(helperResult.error || 'service_worker_local_helper_failed');
+            }
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({
+              type: 'status-bubble-page-status',
+              url: 'http://172.20.116.5/'
+            }));
+          }).then((statusResult) => {
+            if (statusResult.error) {
+              throw new Error(statusResult.error);
+            }
+            if (statusResult.status !== 'ok' || statusResult.io.uploadBytes !== 1234 || statusResult.io.downloadBytes !== 5678 || statusResult.page.requestCount !== 2) {
+              throw new Error('service_worker_status_bubble_fallback_failed');
+            }
+            return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests);
+          }).then((requests) => {
+            const pageStatusRequests = requests.filter((request) => request.url.includes('/api/proxy/extension/page/status'));
+            if (pageStatusRequests.length < 2 || !pageStatusRequests[0].url.includes('routeId=route-1') || pageStatusRequests[1].url.includes('routeId=')) {
+              throw new Error('service_worker_status_bubble_host_fallback_missing');
             }
             console.log(`chrome_extension_service_worker_ok id=${result.id} version=${result.version}`);
           });

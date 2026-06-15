@@ -951,14 +951,15 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function pageFor(tabId, url) {
+function pageFor(tabId, url, options = {}) {
+  const host = hostOf(url);
   const current = pagesByTab.get(tabId);
-  if (current && current.url === url) {
+  if (!options.reset && current && (!url || current.url === url || current.host === host || !host)) {
     return current;
   }
   const page = {
     url,
-    host: hostOf(url),
+    host,
     openedAt: nowIso(),
     requestCount: 0,
     responseCount: 0,
@@ -1026,10 +1027,12 @@ function trackStarted(details) {
   if (details.tabId < 0 || !details.url) {
     return;
   }
+  let page;
   if (details.type === 'main_frame') {
-    pagesByTab.delete(details.tabId);
+    page = pageFor(details.tabId, details.url, { reset: true });
+  } else {
+    page = pageFor(details.tabId, details.documentUrl || details.initiator || details.url);
   }
-  const page = pageFor(details.tabId, details.documentUrl || details.initiator || details.url);
   page.requestCount += 1;
   const uploadBytes = estimateUploadBytes(details.requestBody);
   page.uploadBytes += uploadBytes;
@@ -1340,7 +1343,16 @@ function requestRemoteStatus(state, route, routeInfo) {
     host: route.host,
     routeId: routeInfo.id,
     chainId: routeInfo.chainId
+  }).then((status) => {
+    if (isUncorrelatedStatus(status) && (routeInfo.id || routeInfo.chainId)) {
+      return getExtensionPageStatus(state, { host: route.host });
+    }
+    return status;
   });
+}
+
+function isUncorrelatedStatus(status) {
+  return !status || (!status.correlated && String(status.status || '') === 'unknown');
 }
 
 function emptyPathHealth() {
@@ -1350,7 +1362,7 @@ function emptyPathHealth() {
   };
 }
 
-function statusFrom(remoteStatus, metrics) {
+function statusFrom(remoteStatus, metrics, routeMode) {
   const remote = String((remoteStatus && remoteStatus.status) || '').trim();
   if (remote && remote !== 'unknown') {
     return remote;
@@ -1358,7 +1370,7 @@ function statusFrom(remoteStatus, metrics) {
   if (metrics && Number(metrics.failureCount || 0) > 0) {
     return 'error';
   }
-  if (metrics && Number(metrics.responseCount || 0) > 0 && Number(metrics.proxiedRequestCount || 0) > 0) {
+  if (metrics && Number(metrics.responseCount || 0) > 0 && (Number(metrics.proxiedRequestCount || 0) > 0 || routeMode === 'proxy')) {
     return 'ok';
   }
   return remote || 'unknown';
@@ -1433,7 +1445,7 @@ function getStatusBubblePageStatus(message, sender) {
         const linkTimings = actualLinkTimings.length > 0 ? actualLinkTimings : normalizeLinkTimings(pathHealth.linkTimings);
         const lastErrorCode = status.lastErrorCode || (metrics && metrics.lastErrorCode) || '';
         const lastErrorMessage = status.lastErrorMessage || (metrics && metrics.lastErrorMessage) || '';
-        const displayStatus = statusFrom(status, metrics);
+        const displayStatus = statusFrom(status, metrics, route.mode);
         return {
           status: displayStatus,
           color: colorFor(displayStatus, latencyMs, route.mode),
@@ -1675,13 +1687,13 @@ function registerProxyAuthHandler() {
   );
 }
 
+let startupSyncPromise = null;
+
 function broadcastState() {
   return getComputedState()
     .then((payload) => chrome.runtime.sendMessage({ type: 'state-updated', payload }))
     .catch(() => {});
 }
-
-let startupSyncPromise = null;
 
 function ensureMonitorAlarm() {
   if (chrome.alarms) {

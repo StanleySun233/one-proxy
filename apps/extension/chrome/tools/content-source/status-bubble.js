@@ -167,7 +167,8 @@
     const rail = el('div', 'opsb-topology');
     const path = payload.path || {};
     if (!Array.isArray(path.nodes) || path.nodes.length < 2) {
-      throw new Error('status_bubble_path_required');
+      rail.append(el('div', 'opsb-path-fallback', label('statusBubbleUnknown')));
+      return rail;
     }
     const nodes = path.nodes.map((node) => ({
       id: node.id,
@@ -201,6 +202,23 @@
     return rail;
   }
 
+  function renderActions() {
+    const actions = el('div', 'opsb-actions');
+    const refresh = el('button', 'opsb-button', label('statusBubbleRefresh'));
+    refresh.type = 'button';
+    refresh.addEventListener('click', function () {
+      refreshStatus(true);
+    });
+    const copy = el('button', 'opsb-button', label('statusBubbleCopy'));
+    copy.type = 'button';
+    copy.addEventListener('click', function () {
+      copyDiagnostics(copy);
+    });
+    actions.append(refresh);
+    actions.append(copy);
+    return actions;
+  }
+
   function diagnosticsPayload() {
     return JSON.stringify(state.payload || {}, null, 2);
   }
@@ -230,6 +248,7 @@
     const status = el('div', `opsb-status opsb-${payload.color || 'gray'}`, text(payload.status, 'unknown'));
     header.append(status);
     state.panel.append(header);
+    state.panel.append(renderActions());
 
     const stats = el('div', 'opsb-stats');
     stats.append(stat(label('statusBubbleUpload'), formatMb(io.uploadBytes)));
@@ -253,22 +272,11 @@
 
     const topoTitle = el('div', 'opsb-subtitle', label('statusBubbleTopology'));
     state.panel.append(topoTitle);
-    state.panel.append(renderTopology(payload));
-
-    const actions = el('div', 'opsb-actions');
-    const refresh = el('button', 'opsb-button', label('statusBubbleRefresh'));
-    refresh.type = 'button';
-    refresh.addEventListener('click', function () {
-      refreshStatus(true);
-    });
-    const copy = el('button', 'opsb-button', label('statusBubbleCopy'));
-    copy.type = 'button';
-    copy.addEventListener('click', function () {
-      copyDiagnostics(copy);
-    });
-    actions.append(refresh);
-    actions.append(copy);
-    state.panel.append(actions);
+    try {
+      state.panel.append(renderTopology(payload));
+    } catch (_error) {
+      state.panel.append(el('div', 'opsb-path-fallback', label('statusBubbleUnknown')));
+    }
   }
 
   function setOpen(opened) {
@@ -385,17 +393,6 @@
     }
   }
 
-  function refreshPayload(previous, next, force) {
-    if (!force || !previous || !next) {
-      return next;
-    }
-    return {
-      ...next,
-      page: previous.page || next.page,
-      io: previous.io || next.io
-    };
-  }
-
   function refreshStatus(force) {
     chrome.runtime.sendMessage({
       type: 'status-bubble-page-status',
@@ -405,7 +402,7 @@
       if (chrome.runtime.lastError) {
         throw new Error(chrome.runtime.lastError.message);
       }
-      applyPayload(refreshPayload(state.payload, response, Boolean(force)));
+      applyPayload(response);
     });
   }
 

@@ -8,14 +8,15 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function pageFor(tabId, url) {
+function pageFor(tabId, url, options = {}) {
+  const host = hostOf(url);
   const current = pagesByTab.get(tabId);
-  if (current && current.url === url) {
+  if (!options.reset && current && (!url || current.url === url || current.host === host || !host)) {
     return current;
   }
   const page = {
     url,
-    host: hostOf(url),
+    host,
     openedAt: nowIso(),
     requestCount: 0,
     responseCount: 0,
@@ -83,10 +84,12 @@ function trackStarted(details) {
   if (details.tabId < 0 || !details.url) {
     return;
   }
+  let page;
   if (details.type === 'main_frame') {
-    pagesByTab.delete(details.tabId);
+    page = pageFor(details.tabId, details.url, { reset: true });
+  } else {
+    page = pageFor(details.tabId, details.documentUrl || details.initiator || details.url);
   }
-  const page = pageFor(details.tabId, details.documentUrl || details.initiator || details.url);
   page.requestCount += 1;
   const uploadBytes = estimateUploadBytes(details.requestBody);
   page.uploadBytes += uploadBytes;
