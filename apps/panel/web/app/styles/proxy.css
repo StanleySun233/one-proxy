@@ -112,6 +112,94 @@
   min-width: 78px;
 }
 
+.tag-path {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tag-path-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tag-path-arrow {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.tag-path .name-tag {
+  max-width: 220px;
+}
+
+.probe-toast {
+  position: relative;
+  width: min(520px, calc(100vw - 32px));
+  display: grid;
+  gap: 12px;
+  padding: 14px 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--line) 74%);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.probe-toast.is-blocked {
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--line) 70%);
+}
+
+.probe-toast-head {
+  display: grid;
+  gap: 4px;
+}
+
+.probe-toast-head strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.probe-toast-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.probe-toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  transform-origin: left;
+  background: color-mix(in srgb, var(--primary) 70%, var(--success) 30%);
+  animation: probe-toast-progress 5s linear forwards;
+}
+
+.probe-toast.is-blocked .probe-toast-progress {
+  background: color-mix(in srgb, var(--danger) 70%, var(--accent) 30%);
+}
+
+@keyframes probe-toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .probe-toast-progress {
+    animation: none;
+  }
+}
+
 .probe-results-section {
   display: grid;
   gap: 12px;

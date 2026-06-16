@@ -85,6 +85,22 @@ function chainNodeIds(chain?: Chain) {
   return chain?.hops || [];
 }
 
+function NodeTagPath({labels}: {labels: string[]}) {
+  if (labels.length === 0) {
+    return <span className="muted-text">-</span>;
+  }
+  return (
+    <span className="tag-path">
+      {labels.map((label, index) => (
+        <span className="tag-path-step" key={`${label}-${index}`}>
+          {index > 0 ? <span className="tag-path-arrow">→</span> : null}
+          <NameTag kind="node">{label}</NameTag>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function submitPayload(form: AccessPathFormState, chains: Chain[]): NodeAccessPathPayload {
   const chain = chains.find((item) => item.id === form.chainId);
   const hops = chainNodeIds(chain);
@@ -334,7 +350,7 @@ export function AccessPathPanel({
                   return (
                     <tr key={path.id}>
                       <td><NameTag kind="node">{path.name}</NameTag></td>
-                      <td>{chainById.get(path.chainId)?.name || t('common.unknown')}</td>
+                      <td><NameTag kind="chain">{chainById.get(path.chainId)?.name || t('common.unknown')}</NameTag></td>
                       <td className="mono">{path.protocol} / {path.serviceType}</td>
                       <td className="mono">{path.targetHost}:{path.targetPort}</td>
                       <td className="mono">{path.listenHost || '*'}:{path.listenPort}</td>
@@ -376,9 +392,14 @@ export function AccessPathPanel({
       <ConsoleCrudModal
         footer={(
           <>
-            <span className="muted-text">
-              {selectedChain ? `${accessPathsT('chainPath')}: ${selectedChain.hops.map(nodeNameFor).join(' -> ')}` : accessPathsT('selectChain')}
-            </span>
+            {selectedChain ? (
+              <span className="tag-path">
+                <span className="muted-text">{accessPathsT('chainPath')}:</span>
+                <NodeTagPath labels={selectedChain.hops.map(nodeNameFor)} />
+              </span>
+            ) : (
+              <span className="muted-text">{accessPathsT('selectChain')}</span>
+            )}
             <button className="secondary-button" onClick={handleCancelEdit} type="button">
               {t('common.cancel')}
             </button>

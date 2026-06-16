@@ -1,9 +1,11 @@
 'use client';
 
-import {Copy, X} from 'lucide-react';
+import {Copy} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
 
+import {NameTag} from '@/components/common/name-tag';
+import {ConsoleCrudModal} from '@/components/console-template';
 import {CompiledChainConfig} from '@/lib/types';
 
 type CompilationPreviewModalProps = {
@@ -22,19 +24,16 @@ export function CompilationPreviewModal({config, onClose}: CompilationPreviewMod
   };
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div className="dialog-panel" onClick={(e) => e.stopPropagation()} style={{maxWidth: 640}}>
-        <div className="panel-toolbar">
-          <h3>{chainsT('compilationPreview')}</h3>
-          <button className="secondary-button" onClick={onClose} type="button">
-            <X size={16} />
-          </button>
-        </div>
-
+    <ConsoleCrudModal
+      footer={<button className="secondary-button" onClick={onClose} type="button">{t('common.close')}</button>}
+      onClose={onClose}
+      open
+      title={chainsT('compilationPreview')}
+    >
         <div className="field-stack">
           <span>{chainsT('routingPath')}</span>
           <div className="token-box">
-            <div className="mono">{config.routingPath}</div>
+            <NodeTagPath labels={config.hops.map((hop) => hop.nodeName)} />
           </div>
         </div>
 
@@ -56,12 +55,22 @@ export function CompilationPreviewModal({config, onClose}: CompilationPreviewMod
           </div>
         </div>
 
-        <div className="submit-row" style={{justifyContent: 'flex-end'}}>
-          <button className="secondary-button" onClick={onClose} type="button">
-            {t('common.close')}
-          </button>
-        </div>
-      </div>
-    </div>
+    </ConsoleCrudModal>
+  );
+}
+
+function NodeTagPath({labels}: {labels: string[]}) {
+  if (labels.length === 0) {
+    return <span className="muted-text">-</span>;
+  }
+  return (
+    <span className="tag-path">
+      {labels.map((label, index) => (
+        <span className="tag-path-step" key={`${label}-${index}`}>
+          {index > 0 ? <span className="tag-path-arrow">→</span> : null}
+          <NameTag kind="node">{label}</NameTag>
+        </span>
+      ))}
+    </span>
   );
 }

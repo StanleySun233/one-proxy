@@ -15,7 +15,7 @@ import {useAuth} from '@/components/auth-provider';
 import {NameTag} from '@/components/common/name-tag';
 import {createScope, deleteScope, getScopes, updateScope} from '@/lib/api';
 import {Scope} from '@/lib/types';
-import {formatControlPlaneError} from '@/lib/presentation';
+import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
 type ScopeFormState = {
   name: string;
@@ -187,7 +187,7 @@ export default function ScopesPage() {
                     <tr key={scope.id}>
                       <td><NameTag kind="scope">{scope.name}</NameTag></td>
                       <td>{scope.description || <span className="muted-text">-</span>}</td>
-                      <td className="mono">{scope.updatedAt}</td>
+                      <td className="mono">{formatISODateTime(scope.updatedAt, scope.updatedAt)}</td>
                       {canWrite ? (
                         <td>
                           <div className="chain-list-actions">

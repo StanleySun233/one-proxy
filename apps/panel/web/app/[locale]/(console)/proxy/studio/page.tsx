@@ -20,14 +20,75 @@ import {formatControlPlaneError} from '@/lib/presentation';
 import {ChainEditor} from './_components/chain-editor';
 import {CompilationPreviewModal} from './_components/compilation-preview-modal';
 
+const knownProbeReasons = [
+  'missing_entry_transport',
+  'missing_parent_transport',
+  'unknown_or_disabled_node',
+  'probe_dispatch_failed',
+  'chain_transport_ready',
+  'chain_blocked',
+  'chain_probe_failed',
+  'relay_unreachable',
+  'target_unreachable',
+  'target_unhealthy',
+  'invalid_target'
+];
+
+const silentProbeReasons = new Set(['chain_reachable', 'target_reachable']);
+
 function probeReasonLabel(reason: string, chainsT: ReturnType<typeof useTranslations<'proxyChains'>>) {
   if (!reason) {
     return '';
   }
-  if (['missing_entry_transport', 'missing_parent_transport', 'unknown_or_disabled_node', 'probe_dispatch_failed', 'chain_transport_ready', 'chain_blocked'].includes(reason)) {
+  if (silentProbeReasons.has(reason)) {
+    return '';
+  }
+  if (knownProbeReasons.includes(reason)) {
     return chainsT(`probeReasons.${reason}`);
   }
   return reason;
+}
+
+function NodeTagPath({labels}: {labels: string[]}) {
+  if (labels.length === 0) {
+    return <span className="muted-text">-</span>;
+  }
+  return (
+    <span className="tag-path">
+      {labels.map((label, index) => (
+        <span className="tag-path-step" key={`${label}-${index}`}>
+          {index > 0 ? <span className="tag-path-arrow">→</span> : null}
+          <NameTag kind="node">{label}</NameTag>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function ProbeResultToast({
+  title,
+  reason,
+  hops,
+  blockingNodeLabel,
+  blocked
+}: {
+  title: string;
+  reason: string;
+  hops: ChainProbeResult['resolvedHops'];
+  blockingNodeLabel: string;
+  blocked: boolean;
+}) {
+  return (
+    <div className={`probe-toast${blocked ? ' is-blocked' : ''}`}>
+      <div className="probe-toast-head">
+        <strong>{title}</strong>
+        {reason ? <span>{reason}</span> : null}
+      </div>
+      {hops.length > 0 ? <NodeTagPath labels={hops.map((hop) => `${hop.nodeName}:${hop.transportType}`)} /> : null}
+      {blockingNodeLabel ? <span className="muted-text">{blockingNodeLabel}</span> : null}
+      <span className="probe-toast-progress" />
+    </div>
+  );
 }
 
 export default function ChainsPage() {
@@ -46,7 +107,6 @@ export default function ChainsPage() {
   const [chainName, setChainName] = useState('');
   const [destinationScope, setDestinationScope] = useState('');
   const [hops, setHops] = useState<string[]>([]);
-  const [probeResults, setProbeResults] = useState<Record<string, ChainProbeResult>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<CompiledChainConfig | null>(null);
   const [deletingChain, setDeletingChain] = useState<Chain | null>(null);
@@ -107,8 +167,18 @@ export default function ChainsPage() {
   const probeChainMutation = useMutation({
     mutationFn: (chainID: string) => probeChain(accessToken, activeTenantId, chainID),
     onSuccess: (result) => {
-      toast.success(result.status === 'connected' ? chainsT('probeReady') : chainsT('probeBlocked'));
-      setProbeResults((current) => ({...current, [result.chainId]: result}));
+      const blocked = result.status !== 'connected';
+      const reason = blocked ? probeReasonLabel(result.blockingReason || result.message, chainsT) : '';
+      const blockingNodeLabel = result.blockingNodeId ? `${chainsT('blockingNode')}: ${nodeLabelFor(result.blockingNodeId)}` : '';
+      toast.custom(() => (
+        <ProbeResultToast
+          blocked={blocked}
+          blockingNodeLabel={blockingNodeLabel}
+          hops={result.resolvedHops}
+          reason={reason}
+          title={blocked ? chainsT('transportBlocked') : chainsT('transportReady')}
+        />
+      ), {duration: 5000, unstyled: true});
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -295,7 +365,7 @@ export default function ChainsPage() {
                         <td>
                           <NameTag kind="chain">{chain.name}</NameTag>
                         </td>
-                        <td className="mono">{chain.hops.map(nodeLabelFor).join(' -> ')}</td>
+                        <td><NodeTagPath labels={chain.hops.map(nodeLabelFor)} /></td>
                         <td><NameTag kind="scope">{scopeLabelFor(chain.destinationScope)}</NameTag></td>
                         <td>
                           <span className={`badge ${chain.enabled ? 'is-good' : 'is-warn'}`}>{chain.enabled ? t('common.enabled') : t('common.disabled')}</span>
@@ -343,23 +413,6 @@ export default function ChainsPage() {
             </div>
           )}
         </ConsoleList>
-
-        {Object.keys(probeResults).length > 0 && (
-          <ConsoleList count={Object.keys(probeResults).length} title={chainsT('probeResults')}>
-            <div className="stack-list">
-              {Object.entries(probeResults).map(([chainId, result]) => (
-                <div className="stack-item" key={chainId}>
-                  <strong>{result.status === 'connected' ? chainsT('transportReady') : chainsT('transportBlocked')}</strong>
-                  <span className="field-hint">{probeReasonLabel(result.blockingReason || result.message, chainsT)}</span>
-                  {result.resolvedHops.length > 0 && (
-                    <span className="mono">{result.resolvedHops.map((hop) => `${hop.nodeName}:${hop.transportType}`).join(' → ')}</span>
-                  )}
-                  {result.blockingNodeId && <span className="muted-text">{chainsT('blockingNode')}: {nodeLabelFor(result.blockingNodeId)}</span>}
-                </div>
-              ))}
-            </div>
-          </ConsoleList>
-        )}
 
         <ConsoleCrudModal
           onClose={handleCloseEditor}

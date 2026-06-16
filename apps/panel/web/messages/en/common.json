@@ -5,6 +5,22 @@
   "details": "Details",
   "edit": "Edit",
   "grant": "Grant",
+  "grantModal": {
+    "title": "Resource grants",
+    "loadFailed": "Failed to load resource grants",
+    "tenant": "Tenant",
+    "permission": "Permission",
+    "created": "Created",
+    "noAvailableTenant": "No available tenant",
+    "selectTenant": "Select tenant",
+    "addGrant": "Add grant",
+    "saveSuccess": "Resource grant saved",
+    "removeSuccess": "Resource grant removed",
+    "permissions": {
+      "use": "Use",
+      "manage": "Manage"
+    }
+  },
   "create": "Create",
   "close": "Close",
   "approve": "Approve",

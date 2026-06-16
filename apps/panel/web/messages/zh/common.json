@@ -5,6 +5,22 @@
   "details": "详情",
   "edit": "编辑",
   "grant": "授权",
+  "grantModal": {
+    "title": "资源授权",
+    "loadFailed": "资源授权加载失败",
+    "tenant": "租户",
+    "permission": "权限",
+    "created": "创建时间",
+    "noAvailableTenant": "没有可授权租户",
+    "selectTenant": "选择租户",
+    "addGrant": "添加授权",
+    "saveSuccess": "资源授权已保存",
+    "removeSuccess": "资源授权已移除",
+    "permissions": {
+      "use": "使用",
+      "manage": "管理"
+    }
+  },
   "create": "创建",
   "close": "关闭",
   "approve": "审批通过",

@@ -22,10 +22,7 @@ type ResourceGrantModalProps = {
   onChanged?: () => void;
 };
 
-const permissionOptions: {value: ResourceBindingPermission; label: string}[] = [
-  {value: 'use', label: 'Use'},
-  {value: 'manage', label: 'Manage'}
-];
+const permissionOptions: ResourceBindingPermission[] = ['use', 'manage'];
 
 function isOnlyManageBinding(binding: ResourceBinding, bindings: ResourceBinding[]) {
   return binding.permission === 'manage' && bindings.filter((item) => item.permission === 'manage').length === 1;
@@ -75,11 +72,12 @@ export function ResourceGrantModal({open, resourceType, resourceId, resourceName
     queryClient.invalidateQueries({queryKey: bindingsQueryKey});
     onChanged?.();
   };
+  const permissionLabel = (value: ResourceBindingPermission) => t(`common.grantModal.permissions.${value}`);
   const upsertMutation = useMutation({
     mutationFn: (payload: {targetTenantId: string; permission: ResourceBindingPermission}) =>
       upsertResourceBinding(accessToken, activeTenantId, resourceType, resourceId, payload.targetTenantId, {permission: payload.permission}),
     onSuccess: () => {
-      toast.success('Resource grant saved');
+      toast.success(t('common.grantModal.saveSuccess'));
       afterChanged();
       setTenantId('');
       setPermission('use');
@@ -89,7 +87,7 @@ export function ResourceGrantModal({open, resourceType, resourceId, resourceName
   const deleteMutation = useMutation({
     mutationFn: (targetTenantId: string) => deleteResourceBinding(accessToken, activeTenantId, resourceType, resourceId, targetTenantId),
     onSuccess: () => {
-      toast.success('Resource grant removed');
+      toast.success(t('common.grantModal.removeSuccess'));
       afterChanged();
     },
     onError: (error) => toast.error(formatControlPlaneError(error))
@@ -104,26 +102,26 @@ export function ResourceGrantModal({open, resourceType, resourceId, resourceName
       onClose={onClose}
       open={open}
       subtitle={resourceName || resourceId}
-      title="Resource grants"
+      title={t('common.grantModal.title')}
     >
       {loading ? (
         <AsyncState detail={t('common.loading')} title={t('common.loadingTitle')} />
       ) : error ? (
-        <AsyncState actionLabel={t('common.retry')} detail={formatControlPlaneError(error)} onAction={() => { void bindingsQuery.refetch(); void tenantsQuery.refetch(); }} title="Failed to load resource grants" />
+        <AsyncState actionLabel={t('common.retry')} detail={formatControlPlaneError(error)} onAction={() => { void bindingsQuery.refetch(); void tenantsQuery.refetch(); }} title={t('common.grantModal.loadFailed')} />
       ) : (
         <div className="sub-grid">
           <div className="forms-grid">
             <label className="field-stack">
-              <span>Tenant</span>
+              <span>{t('common.grantModal.tenant')}</span>
               <select className="field-select" onChange={(event) => setTenantId(event.target.value)} value={tenantId}>
-                <option value="">{availableTenants.length === 0 ? 'No available tenant' : 'Select tenant'}</option>
+                <option value="">{availableTenants.length === 0 ? t('common.grantModal.noAvailableTenant') : t('common.grantModal.selectTenant')}</option>
                 {availableTenants.map((tenant: Tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
               </select>
             </label>
             <label className="field-stack">
-              <span>Permission</span>
+              <span>{t('common.grantModal.permission')}</span>
               <select className="field-select" onChange={(event) => setPermission(event.target.value as ResourceBindingPermission)} value={permission}>
-                {permissionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                {permissionOptions.map((option) => <option key={option} value={option}>{permissionLabel(option)}</option>)}
               </select>
             </label>
             <div className="field-stack" style={{alignSelf: 'end'}}>
@@ -134,7 +132,7 @@ export function ResourceGrantModal({open, resourceType, resourceId, resourceName
                 type="button"
               >
                 <Plus size={14} />
-                Add grant
+                {t('common.grantModal.addGrant')}
               </button>
             </div>
           </div>
@@ -143,9 +141,9 @@ export function ResourceGrantModal({open, resourceType, resourceId, resourceName
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Tenant</th>
-                  <th>Permission</th>
-                  <th>Created</th>
+                  <th>{t('common.grantModal.tenant')}</th>
+                  <th>{t('common.grantModal.permission')}</th>
+                  <th>{t('common.grantModal.created')}</th>
                   <th>{t('common.actions')}</th>
                 </tr>
               </thead>
@@ -164,7 +162,7 @@ export function ResourceGrantModal({open, resourceType, resourceId, resourceName
                           value={binding.permission}
                         >
                           {permissionOptions.map((option) => (
-                            <option disabled={onlyManage && option.value === 'use'} key={option.value} value={option.value}>{option.label}</option>
+                            <option disabled={onlyManage && option === 'use'} key={option} value={option}>{permissionLabel(option)}</option>
                           ))}
                         </select>
                       </td>

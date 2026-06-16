@@ -248,10 +248,13 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
   background: var(--backdrop);
   backdrop-filter: blur(6px);
+  overflow: auto;
 }
 
 .dialog-panel {
@@ -260,10 +263,12 @@
   border-radius: 20px;
   padding: 24px;
   max-width: 520px;
-  width: calc(100% - 48px);
+  width: min(520px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
   box-shadow: var(--shadow-lg);
   display: grid;
   gap: 18px;
+  overflow: auto;
 }
 
 .dialog-panel h3 {

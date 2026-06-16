@@ -37,7 +37,12 @@
     "unknown_or_disabled_node": "节点不存在或已停用",
     "probe_dispatch_failed": "入口节点探测请求失败",
     "chain_transport_ready": "链路传输可用",
-    "chain_blocked": "链路被阻塞"
+    "chain_blocked": "链路被阻塞",
+    "chain_probe_failed": "链路探测请求失败",
+    "relay_unreachable": "中继不可达",
+    "target_unreachable": "目标不可达",
+    "target_unhealthy": "目标不健康",
+    "invalid_target": "目标无效"
   },
   "createSuccess": "链路已创建",
   "updateSuccess": "链路已更新",

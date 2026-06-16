@@ -37,7 +37,12 @@
     "unknown_or_disabled_node": "Node is missing or disabled",
     "probe_dispatch_failed": "Entry node probe request failed",
     "chain_transport_ready": "Chain transport is ready",
-    "chain_blocked": "Chain is blocked"
+    "chain_blocked": "Chain is blocked",
+    "chain_probe_failed": "Chain probe request failed",
+    "relay_unreachable": "Relay is unreachable",
+    "target_unreachable": "Target is unreachable",
+    "target_unhealthy": "Target is unhealthy",
+    "invalid_target": "Invalid target"
   },
   "createSuccess": "Chain created",
   "updateSuccess": "Chain updated",
