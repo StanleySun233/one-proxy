@@ -21,3 +21,20 @@ func TestLoadUsesParentURLAsNodeBootstrapEndpoint(t *testing.T) {
 		t.Fatalf("ControlPlaneURL = %q", cfg.ControlPlaneURL)
 	}
 }
+
+func TestLoadUsesNodeOperationalDefaults(t *testing.T) {
+	cfg := Load()
+
+	if cfg.NodeLogRetention != "72h" {
+		t.Fatalf("NodeLogRetention = %q", cfg.NodeLogRetention)
+	}
+	if cfg.NodeResponseCacheTTL != "1h" {
+		t.Fatalf("NodeResponseCacheTTL = %q", cfg.NodeResponseCacheTTL)
+	}
+	if cfg.NodeResponseCacheMemory != "512mb" {
+		t.Fatalf("NodeResponseCacheMemory = %q", cfg.NodeResponseCacheMemory)
+	}
+	if cfg.NodeResponseCacheDisk != "2gb" {
+		t.Fatalf("NodeResponseCacheDisk = %q", cfg.NodeResponseCacheDisk)
+	}
+}

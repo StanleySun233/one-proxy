@@ -7,6 +7,7 @@ import (
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/policystore"
+	"github.com/StanleySun233/python-proxy/apps/node/api/internal/responsecache"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/tunnel"
 )
 
@@ -19,6 +20,7 @@ type Server struct {
 	auth            AuthConfig
 	authorizer      *TokenAuthorizer
 	metricsReporter ProxySessionReporter
+	responseCache   *responsecache.Cache
 }
 
 type AuthConfig struct {
@@ -38,6 +40,10 @@ func NewServer(store *policystore.Store, nodeIDGetter func() string, tunnelRegis
 
 func (s *Server) SetDirectStreamOpener(opener directPeerStreamOpener) {
 	s.directStream = opener
+}
+
+func (s *Server) SetResponseCache(cache *responsecache.Cache) {
+	s.responseCache = cache
 }
 
 func NewServerWithReverseTarget(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry, reverseTargetURL string) (*Server, error) {

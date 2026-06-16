@@ -328,6 +328,15 @@
   "statusBubbleNotCorrelated": {
     "message": "未关联"
   },
+  "statusBubbleCache": {
+    "message": "缓存"
+  },
+  "statusBubbleCacheStoredAt": {
+    "message": "缓存时间"
+  },
+  "statusBubbleCacheResponses": {
+    "message": "缓存响应"
+  },
   "statusBubbleLastError": {
     "message": "最后错误"
   },

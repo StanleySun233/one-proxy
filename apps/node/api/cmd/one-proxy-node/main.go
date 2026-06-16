@@ -21,8 +21,10 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/localconsole"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/network"
+	"github.com/StanleySun233/python-proxy/apps/node/api/internal/nodelog"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/policystore"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/proxy"
+	"github.com/StanleySun233/python-proxy/apps/node/api/internal/responsecache"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/runtime"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/tcpaccess"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/tunnel"
@@ -33,6 +35,12 @@ import (
 func main() {
 	startedAt := time.Now()
 	cfg := agentconfig.Load()
+	if err := nodelog.Configure(nodelog.Config{
+		Dir:       cfg.NodeLogDir,
+		Retention: parseDurationOrDefault(cfg.NodeLogRetention, 72*time.Hour),
+	}); err != nil {
+		log.Printf("node log file disabled err=%v", err)
+	}
 	store := policystore.New(cfg.PolicyStatePath)
 	interval, err := time.ParseDuration(cfg.HeartbeatInterval)
 	if err != nil || interval <= 0 {
@@ -120,6 +128,18 @@ func main() {
 	}, proxyAuthorizer)
 	if err != nil {
 		log.Fatalf("init proxy server failed: %v", err)
+	}
+	cache, err := responsecache.New(responsecache.Config{
+		Dir:            cfg.NodeResponseCacheDir,
+		TTL:            parseDurationOrDefault(cfg.NodeResponseCacheTTL, time.Hour),
+		MemoryMaxBytes: parseBytesOrDefault(cfg.NodeResponseCacheMemory, 512*1024*1024),
+		DiskMaxBytes:   parseBytesOrDefault(cfg.NodeResponseCacheDisk, 2*1024*1024*1024),
+	})
+	if err != nil {
+		log.Printf("proxy response cache disabled err=%v", err)
+	} else {
+		proxyHandler.SetResponseCache(cache)
+		log.Printf("proxy response cache enabled dir=%s ttl=%s memoryMax=%s diskMax=%s", cfg.NodeResponseCacheDir, cfg.NodeResponseCacheTTL, cfg.NodeResponseCacheMemory, cfg.NodeResponseCacheDisk)
 	}
 	if manager.Bound() {
 		current := manager.Current()
@@ -312,6 +332,37 @@ func parseDurationOrDefault(value string, fallback time.Duration) time.Duration 
 		return fallback
 	}
 	return duration
+}
+
+func parseBytesOrDefault(value string, fallback int64) int64 {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return fallback
+	}
+	multiplier := int64(1)
+	for _, suffix := range []struct {
+		text  string
+		scale int64
+	}{
+		{"gib", 1024 * 1024 * 1024},
+		{"gb", 1024 * 1024 * 1024},
+		{"mib", 1024 * 1024},
+		{"mb", 1024 * 1024},
+		{"kib", 1024},
+		{"kb", 1024},
+		{"b", 1},
+	} {
+		if strings.HasSuffix(value, suffix.text) {
+			value = strings.TrimSpace(strings.TrimSuffix(value, suffix.text))
+			multiplier = suffix.scale
+			break
+		}
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return int64(parsed * float64(multiplier))
 }
 
 type statusWriter struct {

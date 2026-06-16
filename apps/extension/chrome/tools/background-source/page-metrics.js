@@ -28,6 +28,10 @@ function pageFor(tabId, url, options = {}) {
     latencyMs: 0,
     latencyTotalMs: 0,
     latencyCount: 0,
+    cacheStatus: '',
+    cacheStoredAt: '',
+    cacheAgeSeconds: 0,
+    cacheResponseCount: 0,
     lastErrorCode: '',
     lastErrorMessage: ''
   };
@@ -60,9 +64,25 @@ function estimateUploadBytes(requestBody) {
 }
 
 function contentLength(headers) {
-  const header = (headers || []).find((item) => String(item.name || '').toLowerCase() === 'content-length');
-  const value = header ? Number(header.value) : 0;
+  const header = headerValue(headers, 'content-length');
+  const value = header ? Number(header) : 0;
   return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function headerValue(headers, name) {
+  const header = (headers || []).find((item) => String(item.name || '').toLowerCase() === name);
+  return header ? String(header.value || '') : '';
+}
+
+function trackCacheHeaders(page, headers) {
+  const cacheStatus = headerValue(headers, 'x-one-proxy-cache');
+  if (!cacheStatus) {
+    return;
+  }
+  page.cacheStatus = cacheStatus;
+  page.cacheStoredAt = headerValue(headers, 'x-one-proxy-cache-stored-at');
+  page.cacheAgeSeconds = Number(headerValue(headers, 'x-one-proxy-cache-age-seconds') || 0) || 0;
+  page.cacheResponseCount += 1;
 }
 
 function recordLatency(page, tracked) {
@@ -118,6 +138,7 @@ function trackHeaders(details) {
     return;
   }
   recordLatency(page, tracked);
+  trackCacheHeaders(page, details.responseHeaders);
   page.downloadBytes += contentLength(details.responseHeaders);
 }
 

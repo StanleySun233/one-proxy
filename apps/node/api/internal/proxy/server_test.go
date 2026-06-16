@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/policystore"
+	"github.com/StanleySun233/python-proxy/apps/node/api/internal/responsecache"
 	"github.com/gorilla/websocket"
 )
 
@@ -38,7 +40,16 @@ type scriptedStreamOpener struct {
 	attempts int
 }
 
+type cacheFallbackStreamOpener struct {
+	attempts int
+	fail     bool
+}
+
 func (s *scriptedStreamOpener) HasDirectPeer(string) bool {
+	return true
+}
+
+func (s *cacheFallbackStreamOpener) HasDirectPeer(string) bool {
 	return true
 }
 
@@ -58,6 +69,24 @@ func (s *scriptedStreamOpener) OpenDirectStream(_ context.Context, _ domain.Node
 			return
 		}
 		_, _ = server.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nloaded"))
+	}()
+	return client, nil
+}
+
+func (s *cacheFallbackStreamOpener) OpenDirectStream(_ context.Context, _ domain.Node, _ []string, _ string, _ int) (net.Conn, error) {
+	s.attempts += 1
+	if s.fail {
+		return nil, errors.New("stream_down")
+	}
+	client, server := net.Pipe()
+	go func() {
+		defer server.Close()
+		req, err := http.ReadRequest(bufio.NewReader(server))
+		if err != nil {
+			return
+		}
+		_, _ = io.ReadAll(req.Body)
+		_, _ = server.Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 6\r\n\r\nloaded"))
 	}()
 	return client, nil
 }
@@ -221,6 +250,143 @@ func TestForwardDirectRetriesContentLengthMismatch(t *testing.T) {
 	}
 }
 
+func TestForwardDirectServesCacheOnlyAfterForwardError(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("cached"))
+	}))
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.SetResponseCache(cache)
+
+	req := httptest.NewRequest(http.MethodGet, origin.URL+"/api/data", nil)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK || resp.Body.String() != "cached" {
+		t.Fatalf("first response status=%d body=%q", resp.Code, resp.Body.String())
+	}
+	if resp.Header().Get(responseCacheHeader) != "" {
+		t.Fatalf("first response cache header = %q", resp.Header().Get(responseCacheHeader))
+	}
+	origin.Close()
+
+	req = httptest.NewRequest(http.MethodGet, origin.URL+"/api/data", nil)
+	resp = httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("cached status = %d body=%q", resp.Code, resp.Body.String())
+	}
+	if resp.Body.String() != "cached" {
+		t.Fatalf("cached body = %q", resp.Body.String())
+	}
+	if resp.Header().Get(responseCacheHeader) != "stale" {
+		t.Fatalf("cache header = %q", resp.Header().Get(responseCacheHeader))
+	}
+}
+
+func TestForwardDirectDoesNotServeCacheForPostError(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("saved"))
+	}))
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.SetResponseCache(cache)
+
+	req := httptest.NewRequest(http.MethodPost, origin.URL+"/api/save", strings.NewReader("upload"))
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("first status = %d body=%q", resp.Code, resp.Body.String())
+	}
+	origin.Close()
+
+	req = httptest.NewRequest(http.MethodPost, origin.URL+"/api/save", strings.NewReader("upload"))
+	resp = httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusBadGateway {
+		t.Fatalf("post should not use cache, status=%d body=%q", resp.Code, resp.Body.String())
+	}
+}
+
+func TestForwardDirectDoesNotServeCacheForUpstreamBadGatewayResponse(t *testing.T) {
+	fail := false
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if fail {
+			http.Error(w, "upstream_bad_gateway", http.StatusBadGateway)
+			return
+		}
+		_, _ = w.Write([]byte("cached"))
+	}))
+	defer origin.Close()
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.SetResponseCache(cache)
+
+	req := httptest.NewRequest(http.MethodGet, origin.URL+"/api/data", nil)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("first status = %d body=%q", resp.Code, resp.Body.String())
+	}
+	fail = true
+	req = httptest.NewRequest(http.MethodGet, origin.URL+"/api/data", nil)
+	resp = httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusBadGateway {
+		t.Fatalf("upstream status should pass through, got=%d body=%q", resp.Code, resp.Body.String())
+	}
+	if resp.Header().Get(responseCacheHeader) != "" {
+		t.Fatalf("cache header = %q", resp.Header().Get(responseCacheHeader))
+	}
+}
+
+func TestCachedForwardResponseAnnotatesHTML(t *testing.T) {
+	storedAt := time.Date(2026, 6, 16, 10, 30, 0, 0, time.UTC)
+	resp := cachedForwardResponse(responsecache.Entry{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"text/html; charset=utf-8"},
+		},
+		Body:     []byte("<html><body><main>cached</main></body></html>"),
+		StoredAt: storedAt,
+	})
+
+	body := string(resp.body)
+	if resp.header.Get(responseCacheHeader) != "stale" {
+		t.Fatalf("cache header = %q", resp.header.Get(responseCacheHeader))
+	}
+	if resp.header.Get(responseCacheStoredAtHeader) != storedAt.Format(time.RFC3339) {
+		t.Fatalf("cache stored-at header = %q", resp.header.Get(responseCacheStoredAtHeader))
+	}
+	if resp.header.Get("Content-Length") != fmt.Sprintf("%d", len(resp.body)) {
+		t.Fatalf("content-length = %q body=%d", resp.header.Get("Content-Length"), len(resp.body))
+	}
+	if !strings.Contains(body, `id="one-proxy-cache-banner"`) || !strings.Contains(body, storedAt.Format(time.RFC3339)) {
+		t.Fatalf("cached html banner missing: %q", body)
+	}
+}
+
 func TestForwardChainViaStreamRetriesContentLengthMismatch(t *testing.T) {
 	store := policystore.New("")
 	payload, err := json.Marshal(policystore.Snapshot{
@@ -256,6 +422,52 @@ func TestForwardChainViaStreamRetriesContentLengthMismatch(t *testing.T) {
 	}
 	if opener.attempts != 2 {
 		t.Fatalf("attempts = %d", opener.attempts)
+	}
+}
+
+func TestForwardChainViaStreamServesCacheAfterStreamOpenError(t *testing.T) {
+	store := policystore.New("")
+	payload, err := json.Marshal(policystore.Snapshot{
+		Nodes: []domain.Node{
+			{ID: "node-2", Name: "next-hop", Enabled: true, Status: "healthy"},
+		},
+		Chains: []domain.Chain{
+			{ID: "chain-1", Name: "chain", Enabled: true, Hops: []string{"node-1", "node-2"}},
+		},
+		RouteRules: []domain.RouteRule{
+			{ID: "default", MatchType: domain.MatchTypeDefault, ActionType: domain.ActionTypeChain, ChainID: "chain-1", Enabled: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update("test", string(payload)); err != nil {
+		t.Fatal(err)
+	}
+	opener := &cacheFallbackStreamOpener{}
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	server.SetDirectStreamOpener(opener)
+	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.SetResponseCache(cache)
+
+	req := httptest.NewRequest(http.MethodGet, "http://172.20.116.91:12335/api/scenario/id/track", nil)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK || resp.Body.String() != "loaded" {
+		t.Fatalf("first response status=%d body=%q", resp.Code, resp.Body.String())
+	}
+	opener.fail = true
+	req = httptest.NewRequest(http.MethodGet, "http://172.20.116.91:12335/api/scenario/id/track", nil)
+	resp = httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK || resp.Body.String() != "loaded" {
+		t.Fatalf("cached response status=%d body=%q", resp.Code, resp.Body.String())
+	}
+	if resp.Header().Get(responseCacheHeader) != "stale" {
+		t.Fatalf("cache header = %q", resp.Header().Get(responseCacheHeader))
 	}
 }
 

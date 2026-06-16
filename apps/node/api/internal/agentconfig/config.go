@@ -22,6 +22,12 @@ type Config struct {
 	NodeDirectListenAddr      string
 	NodeDirectSTUNServers     string
 	NodeDirectRefreshInterval string
+	NodeLogDir                string
+	NodeLogRetention          string
+	NodeResponseCacheDir      string
+	NodeResponseCacheTTL      string
+	NodeResponseCacheMemory   string
+	NodeResponseCacheDisk     string
 	ListenAddr                string
 	HTTPSListenAddr           string
 	TCPAccessListenAddr       string
@@ -59,6 +65,12 @@ func Load() Config {
 		NodeDirectListenAddr:      envOrDefault("NODE_DIRECT_LISTEN_ADDR", ""),
 		NodeDirectSTUNServers:     envOrDefault("NODE_DIRECT_STUN_SERVERS", "stun.cloudflare.com:3478"),
 		NodeDirectRefreshInterval: envOrDefault("NODE_DIRECT_REFRESH_INTERVAL", "30s"),
+		NodeLogDir:                envOrDefault("NODE_LOG_DIR", "runtime/logs"),
+		NodeLogRetention:          envOrDefault("NODE_LOG_RETENTION", "72h"),
+		NodeResponseCacheDir:      envOrDefault("NODE_RESPONSE_CACHE_DIR", "runtime/cache/responses"),
+		NodeResponseCacheTTL:      envOrDefault("NODE_RESPONSE_CACHE_TTL", "1h"),
+		NodeResponseCacheMemory:   envOrDefault("NODE_RESPONSE_CACHE_MEMORY", "512mb"),
+		NodeResponseCacheDisk:     envOrDefault("NODE_RESPONSE_CACHE_DISK", "2gb"),
 		ListenAddr:                envOrDefault("NODE_LISTEN_ADDR", ":2988"),
 		HTTPSListenAddr:           envOrDefault("NODE_HTTPS_LISTEN_ADDR", ":2989"),
 		TCPAccessListenAddr:       envOrDefault("NODE_TCP_ACCESS_LISTEN_ADDR", ""),

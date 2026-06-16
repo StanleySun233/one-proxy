@@ -192,6 +192,7 @@ func networkAuditQueryFromRequest(w http.ResponseWriter, req *http.Request) (dom
 		ScopeID:        values.Get("scopeId"),
 		ChainID:        values.Get("chainId"),
 		DenyReason:     values.Get("denyReason"),
+		ErrorCode:      values.Get("errorCode"),
 		PolicyRevision: values.Get("policyRevision"),
 		MatchedRuleID:  values.Get("matchedRuleId"),
 		DecisionSource: values.Get("decisionSource"),

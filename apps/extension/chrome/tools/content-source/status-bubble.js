@@ -243,6 +243,7 @@
     const payload = state.payload || {};
     const page = payload.page || {};
     const io = payload.io || {};
+    const cache = payload.cache || {};
     const header = el('div', 'opsb-panel-head');
     header.append(el('div', 'opsb-title', label('statusBubbleTitle')));
     const status = el('div', `opsb-status opsb-${payload.color || 'gray'}`, text(payload.status, 'unknown'));
@@ -267,6 +268,11 @@
     section.append(row(label('statusBubbleOpenedAt'), formatDateTime(page.openedAt)));
     section.append(row(label('statusBubbleRequestMixShort'), `${page.proxiedRequestCount || 0} / ${page.directRequestCount || 0} / ${page.failureCount || 0}`));
     section.append(row(label('statusBubbleCorrelation'), io.correlated ? label('statusBubbleCorrelated') : label('statusBubbleNotCorrelated')));
+    if (cache.status) {
+      section.append(row(label('statusBubbleCache'), cache.status));
+      section.append(row(label('statusBubbleCacheStoredAt'), formatDateTime(cache.storedAt)));
+      section.append(row(label('statusBubbleCacheResponses'), String(cache.responseCount || 0)));
+    }
     section.append(row(label('statusBubbleLastError'), payload.lastError && (payload.lastError.code || payload.lastError.message) ? `${payload.lastError.code || ''} ${payload.lastError.message || ''}` : '-'));
     state.panel.append(section);
 

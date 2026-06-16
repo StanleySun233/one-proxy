@@ -114,6 +114,24 @@ function targetGroups(summary: Pick<NetworkAuditSummary, 'topTargets'> | null | 
   }));
 }
 
+function scenarioGroups(summary: Pick<NetworkAuditSummary, 'scenarioTraffic'> | null | undefined): AuditGroup[] {
+  return (summary?.scenarioTraffic || []).map((item) => ({
+    id: item.scenarioId,
+    name: item.scenarioName || item.scenarioId || '-',
+    count: item.count,
+    bytesIn: item.bytesIn,
+    bytesOut: item.bytesOut
+  }));
+}
+
+function errorCodeGroups(summary: Pick<NetworkAuditSummary, 'errorCodeCount'> | null | undefined): AuditGroup[] {
+  return Object.entries(summary?.errorCodeCount || {}).map(([code, count]) => ({
+    id: code,
+    name: code,
+    count
+  }));
+}
+
 function useAuditRange() {
   const {session} = useAuth();
   const [from, setFrom] = useState(defaultFrom);
@@ -166,6 +184,8 @@ export function AuditDashboardPage() {
   const userTraffic = userGroups(dashboard);
   const nodeTraffic = nodeGroups(dashboard);
   const targetTraffic = targetGroups(dashboard);
+  const scenarioTraffic = scenarioGroups(dashboard);
+  const errorCodes = errorCodeGroups(dashboard);
   const decisionCounts = decisionCountsFromMap(dashboard?.decisionCount);
   const totalSessions = dashboard?.total || sumGroups(tenantTraffic, 'count');
   const totalBytes = (dashboard?.bytesIn || sumGroups(tenantTraffic, 'bytesIn')) + (dashboard?.bytesOut || sumGroups(tenantTraffic, 'bytesOut'));
@@ -208,6 +228,8 @@ export function AuditDashboardPage() {
           <AuditGroupPanel groups={userTraffic} title={auditT('userTraffic')} />
           <AuditGroupPanel groups={nodeTraffic} hrefForGroup={(item) => networkAuditHref({from, to, nodeId: item.id})} title={auditT('nodeTraffic')} />
           <AuditGroupPanel groups={targetTraffic} hrefForGroup={(item) => networkAuditHref({from, to, targetHost: item.id})} title={auditT('topTargets')} />
+          <AuditGroupPanel groups={scenarioTraffic} title={auditT('scenarioTraffic')} />
+          <AuditGroupPanel groups={errorCodes} title={auditT('errorCodes')} />
         </section>
       </ConsolePage>
     </AuthGate>
@@ -287,6 +309,7 @@ function AuditNetworkPageContent() {
   const routeId = searchParams.get('routeId') || '';
   const chainId = searchParams.get('chainId') || '';
   const denyReason = searchParams.get('denyReason') || '';
+  const errorCode = searchParams.get('errorCode') || '';
   const matchedRuleId = searchParams.get('matchedRuleId') || '';
   const policyRevision = searchParams.get('policyRevision') || '';
   const decisionSource = searchParams.get('decisionSource') || '';
@@ -324,7 +347,7 @@ function AuditNetworkPageContent() {
   };
 
   const networkQuery = useQuery({
-    queryKey: ['audit-network', accessToken, activeTenantId, rangeQuery.from, rangeQuery.to, actor, node, target, decision, routeId, chainId, denyReason, matchedRuleId, policyRevision, decisionSource],
+    queryKey: ['audit-network', accessToken, activeTenantId, rangeQuery.from, rangeQuery.to, actor, node, target, decision, routeId, chainId, denyReason, errorCode, matchedRuleId, policyRevision, decisionSource],
     queryFn: () => getAuditNetworkSessions(accessToken, activeTenantId, {
       ...rangeQuery,
       actorId: actor.trim(),
@@ -334,6 +357,7 @@ function AuditNetworkPageContent() {
       routeId: routeId.trim(),
       chainId: chainId.trim(),
       denyReason: denyReason.trim(),
+      errorCode: errorCode.trim(),
       matchedRuleId: matchedRuleId.trim(),
       policyRevision: policyRevision.trim(),
       decisionSource,
@@ -353,6 +377,7 @@ function AuditNetworkPageContent() {
           decision={decision}
           decisionSource={decisionSource}
           denyReason={denyReason}
+          errorCode={errorCode}
           from={from}
           isError={networkQuery.isError}
           isPending={networkQuery.isPending}
@@ -392,11 +417,12 @@ function AuditGroupPanel({groups, hrefForGroup, title}: {groups: AuditGroup[]; h
             <strong>{common('empty')}</strong>
           </div>
         ) : groups.slice(0, 5).map((item) => {
+          const totalBytes = (item.bytesIn || 0) + (item.bytesOut || 0);
           const content = (
             <>
               <strong>{groupName(item)}</strong>
               <span className="muted-text">
-                {groupCount(item)} · {bytesLabel((item.bytesIn || 0) + (item.bytesOut || 0))}
+                {totalBytes > 0 ? `${groupCount(item)} · ${bytesLabel(totalBytes)}` : groupCount(item)}
               </span>
             </>
           );
@@ -506,6 +532,7 @@ function NetworkAuditList(props: {
   decision: string;
   decisionSource: string;
   denyReason: string;
+  errorCode: string;
   from: string;
   isError: boolean;
   isPending: boolean;
@@ -528,6 +555,8 @@ function NetworkAuditList(props: {
   const deniedCount = props.summary?.decisionCount?.deny || 0;
   const totalTraffic = (props.summary?.bytesIn || 0) + (props.summary?.bytesOut || 0);
   const denyReasons = Object.entries(props.summary?.denyReasonCount || {}).filter(([reason]) => reason);
+  const errorCodes = Object.entries(props.summary?.errorCodeCount || {}).filter(([code]) => code);
+  const scenarioTraffic = props.summary?.scenarioTraffic || [];
   const topTargets = props.summary?.topTargets || [];
 
   return (
@@ -589,6 +618,9 @@ function NetworkAuditList(props: {
         <ConsoleFilterItem label={auditT('denyReason')} match={t('common.equals')}>
           <input className="field-input" onChange={(event) => props.onFilterChange('denyReason', event.target.value)} placeholder={auditT('denyReason')} value={props.denyReason} />
         </ConsoleFilterItem>
+        <ConsoleFilterItem label={auditT('errorCode')} match={t('common.equals')}>
+          <input className="field-input" onChange={(event) => props.onFilterChange('errorCode', event.target.value)} placeholder={auditT('errorCode')} value={props.errorCode} />
+        </ConsoleFilterItem>
         <ConsoleFilterItem label={auditT('matchedRule')} match={t('common.equals')}>
           <input className="field-input" onChange={(event) => props.onFilterChange('matchedRuleId', event.target.value)} placeholder={auditT('matchedRule')} value={props.matchedRuleId} />
         </ConsoleFilterItem>
@@ -610,6 +642,26 @@ function NetworkAuditList(props: {
             <button className="ghost-button" key={reason} onClick={() => props.onFilterChange('denyReason', reason)} type="button">
               {reason} · {count}
             </button>
+          ))}
+        </div>
+      ) : null}
+
+      {errorCodes.length > 0 ? (
+        <div className="audit-preset-bar">
+          {errorCodes.slice(0, 8).map(([code, count]) => (
+            <button className="ghost-button" key={code} onClick={() => props.onFilterChange('errorCode', code)} type="button">
+              {code} · {count}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {scenarioTraffic.length > 0 ? (
+        <div className="audit-preset-bar">
+          {scenarioTraffic.slice(0, 6).map((scenario) => (
+            <span className="badge" key={scenario.scenarioId}>
+              {scenario.scenarioName || scenario.scenarioId} · {bytesLabel((scenario.bytesIn || 0) + (scenario.bytesOut || 0))}
+            </span>
           ))}
         </div>
       ) : null}
@@ -641,6 +693,7 @@ function NetworkAuditList(props: {
                   <th>{auditT('target')}</th>
                   <th>{auditT('matchedRule')}</th>
                   <th>{auditT('decision')}</th>
+                  <th>{auditT('cache')}</th>
                   <th>{auditT('traffic')}</th>
                   <th>{auditT('duration')}</th>
                 </tr>
@@ -653,6 +706,7 @@ function NetworkAuditList(props: {
                     <td>{session.targetHost}:{session.targetPort}</td>
                     <td>{session.matchedRuleId || session.routeId || '-'}</td>
                     <td><span className={session.decision === 'allow' ? 'badge is-good' : 'badge is-warn'}>{session.decision}</span></td>
+                    <td>{session.cacheStatus ? <span className="badge is-warn">{session.cacheStatus}</span> : '-'}</td>
                     <td>{bytesLabel((session.bytesIn || 0) + (session.bytesOut || 0))}</td>
                     <td>{session.durationMs || 0} ms</td>
                   </tr>
@@ -719,6 +773,8 @@ function NetworkSessionDetail({session, onClose}: {session: NetworkSession | nul
             [auditT('decision'), session.decision],
             [auditT('denyReason'), session.denyReason || '-'],
             [auditT('errorCode'), session.errorCode || '-'],
+            [auditT('cache'), session.cacheStatus || '-'],
+            [auditT('cacheStoredAt'), session.cacheStoredAt ? formatISODateTime(session.cacheStoredAt, session.cacheStoredAt) : '-'],
             [auditT('duration'), `${session.durationMs || 0} ms`],
             [auditT('bytesIn'), bytesLabel(session.bytesIn)],
             [auditT('bytesOut'), bytesLabel(session.bytesOut)]

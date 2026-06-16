@@ -86,39 +86,41 @@ type BusinessAuditEventsResult struct {
 }
 
 type NetworkAuditSession struct {
-	ID                 string    `json:"id"`
-	TenantID           string    `json:"tenantId"`
-	StartedAt          time.Time `json:"startedAt"`
-	EndedAt            time.Time `json:"endedAt"`
-	ActorType          string    `json:"actorType"`
-	ActorID            string    `json:"actorId"`
-	TokenID            string    `json:"tokenId"`
-	SourceIP           string    `json:"sourceIp"`
-	EntryNodeID        string    `json:"entryNodeId"`
-	ExitNodeID         string    `json:"exitNodeId"`
-	TargetHost         string    `json:"targetHost"`
-	TargetPort         int       `json:"targetPort"`
-	Scheme             string    `json:"scheme"`
-	Method             string    `json:"method"`
-	RouteID            string    `json:"routeId"`
-	ScopeID            string    `json:"scopeId"`
-	ChainID            string    `json:"chainId"`
-	GovernanceMode     string    `json:"governanceMode"`
-	PolicyRevision     string    `json:"policyRevision"`
-	MatchedRuleID      string    `json:"matchedRuleId"`
-	MatchedRuleType    string    `json:"matchedRuleType"`
-	MatchedRulePattern string    `json:"matchedRulePattern"`
-	MatchedAction      string    `json:"matchedAction"`
-	DecisionSource     string    `json:"decisionSource"`
-	Decision           string    `json:"decision"`
-	DenyReason         string    `json:"denyReason"`
-	BytesIn            int64     `json:"bytesIn"`
-	BytesOut           int64     `json:"bytesOut"`
-	DurationMs         int64     `json:"durationMs"`
-	StatusCode         int       `json:"statusCode"`
-	ErrorCode          string    `json:"errorCode"`
-	ReceivedAt         time.Time `json:"receivedAt"`
-	MetadataJSON       string    `json:"metadataJson"`
+	ID                 string     `json:"id"`
+	TenantID           string     `json:"tenantId"`
+	StartedAt          time.Time  `json:"startedAt"`
+	EndedAt            time.Time  `json:"endedAt"`
+	ActorType          string     `json:"actorType"`
+	ActorID            string     `json:"actorId"`
+	TokenID            string     `json:"tokenId"`
+	SourceIP           string     `json:"sourceIp"`
+	EntryNodeID        string     `json:"entryNodeId"`
+	ExitNodeID         string     `json:"exitNodeId"`
+	TargetHost         string     `json:"targetHost"`
+	TargetPort         int        `json:"targetPort"`
+	Scheme             string     `json:"scheme"`
+	Method             string     `json:"method"`
+	RouteID            string     `json:"routeId"`
+	ScopeID            string     `json:"scopeId"`
+	ChainID            string     `json:"chainId"`
+	GovernanceMode     string     `json:"governanceMode"`
+	PolicyRevision     string     `json:"policyRevision"`
+	MatchedRuleID      string     `json:"matchedRuleId"`
+	MatchedRuleType    string     `json:"matchedRuleType"`
+	MatchedRulePattern string     `json:"matchedRulePattern"`
+	MatchedAction      string     `json:"matchedAction"`
+	DecisionSource     string     `json:"decisionSource"`
+	Decision           string     `json:"decision"`
+	DenyReason         string     `json:"denyReason"`
+	BytesIn            int64      `json:"bytesIn"`
+	BytesOut           int64      `json:"bytesOut"`
+	DurationMs         int64      `json:"durationMs"`
+	StatusCode         int        `json:"statusCode"`
+	ErrorCode          string     `json:"errorCode"`
+	CacheStatus        string     `json:"cacheStatus,omitempty"`
+	CacheStoredAt      *time.Time `json:"cacheStoredAt,omitempty"`
+	ReceivedAt         time.Time  `json:"receivedAt"`
+	MetadataJSON       string     `json:"metadataJson"`
 }
 
 type CreateNetworkAuditSessionInput struct {
@@ -153,6 +155,8 @@ type CreateNetworkAuditSessionInput struct {
 	DurationMs         int64
 	StatusCode         int
 	ErrorCode          string
+	CacheStatus        string
+	CacheStoredAt      time.Time
 	ReceivedAt         time.Time
 	MetadataJSON       string
 }
@@ -167,6 +171,7 @@ type NetworkAuditQuery struct {
 	ScopeID        string
 	ChainID        string
 	DenyReason     string
+	ErrorCode      string
 	PolicyRevision string
 	MatchedRuleID  string
 	DecisionSource string
@@ -177,17 +182,29 @@ type NetworkAuditQuery struct {
 }
 
 type NetworkAuditSummary struct {
-	Total           int64                `json:"total"`
-	BytesIn         int64                `json:"bytesIn"`
-	BytesOut        int64                `json:"bytesOut"`
-	DurationAvgMs   int64                `json:"durationAvgMs"`
-	DecisionCount   map[string]int64     `json:"decisionCount"`
-	DenyReasonCount map[string]int64     `json:"denyReasonCount"`
-	TopTargets      []AuditTargetTraffic `json:"topTargets"`
-	UserTraffic     []AuditActorTraffic  `json:"userTraffic"`
-	NodeTraffic     []AuditNodeTraffic   `json:"nodeTraffic"`
-	TenantTraffic   []AuditTenantTraffic `json:"tenantTraffic"`
-	RecentBusiness  []BusinessAuditEvent `json:"recentBusinessEvents"`
+	Total           int64                  `json:"total"`
+	BytesIn         int64                  `json:"bytesIn"`
+	BytesOut        int64                  `json:"bytesOut"`
+	DurationAvgMs   int64                  `json:"durationAvgMs"`
+	DecisionCount   map[string]int64       `json:"decisionCount"`
+	DenyReasonCount map[string]int64       `json:"denyReasonCount"`
+	ErrorCodeCount  map[string]int64       `json:"errorCodeCount"`
+	TopTargets      []AuditTargetTraffic   `json:"topTargets"`
+	ScenarioTraffic []AuditScenarioTraffic `json:"scenarioTraffic"`
+	UserTraffic     []AuditActorTraffic    `json:"userTraffic"`
+	NodeTraffic     []AuditNodeTraffic     `json:"nodeTraffic"`
+	TenantTraffic   []AuditTenantTraffic   `json:"tenantTraffic"`
+	RecentBusiness  []BusinessAuditEvent   `json:"recentBusinessEvents"`
+}
+
+type AuditScenarioTraffic struct {
+	ScenarioID   string           `json:"scenarioId"`
+	ScenarioName string           `json:"scenarioName"`
+	BytesIn      int64            `json:"bytesIn"`
+	BytesOut     int64            `json:"bytesOut"`
+	Count        int64            `json:"count"`
+	FailureCount int64            `json:"failureCount"`
+	ErrorCodes   map[string]int64 `json:"errorCodes"`
 }
 
 type NetworkAuditSessionsResult struct {

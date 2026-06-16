@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -124,6 +125,7 @@ func (s *MySQLStore) CreateNetworkAuditSession(input domain.CreateNetworkAuditSe
 	if input.MetadataJSON == "" {
 		input.MetadataJSON = "{}"
 	}
+	input.MetadataJSON = networkAuditMetadataJSON(input.MetadataJSON, input.CacheStatus, input.CacheStoredAt)
 	item := domain.NetworkAuditSession{
 		ID:                 id,
 		TenantID:           input.TenantID,
@@ -156,6 +158,8 @@ func (s *MySQLStore) CreateNetworkAuditSession(input domain.CreateNetworkAuditSe
 		DurationMs:         input.DurationMs,
 		StatusCode:         input.StatusCode,
 		ErrorCode:          input.ErrorCode,
+		CacheStatus:        input.CacheStatus,
+		CacheStoredAt:      auditTimePtr(input.CacheStoredAt),
 		ReceivedAt:         input.ReceivedAt.UTC(),
 		MetadataJSON:       input.MetadataJSON,
 	}
@@ -279,6 +283,7 @@ func networkAuditWhere(query domain.NetworkAuditQuery) (string, []any) {
 	addStringFilter(&clauses, &args, "scope_id", query.ScopeID)
 	addStringFilter(&clauses, &args, "chain_id", query.ChainID)
 	addStringFilter(&clauses, &args, "deny_reason", query.DenyReason)
+	addStringFilter(&clauses, &args, "error_code", query.ErrorCode)
 	addStringFilter(&clauses, &args, "policy_revision", query.PolicyRevision)
 	addStringFilter(&clauses, &args, "matched_rule_id", query.MatchedRuleID)
 	addStringFilter(&clauses, &args, "decision_source", query.DecisionSource)
@@ -372,7 +377,9 @@ func (s *MySQLStore) networkAuditSummary(where string, args []any) (domain.Netwo
 	summary := domain.NetworkAuditSummary{
 		DecisionCount:   map[string]int64{},
 		DenyReasonCount: map[string]int64{},
+		ErrorCodeCount:  map[string]int64{},
 		TopTargets:      []domain.AuditTargetTraffic{},
+		ScenarioTraffic: []domain.AuditScenarioTraffic{},
 		UserTraffic:     []domain.AuditActorTraffic{},
 		NodeTraffic:     []domain.AuditNodeTraffic{},
 		TenantTraffic:   []domain.AuditTenantTraffic{},
@@ -395,6 +402,12 @@ func (s *MySQLStore) networkAuditSummary(where string, args []any) (domain.Netwo
 		return summary, err
 	}
 	summary.DenyReasonCount = denyReasons
+	errorCodes, err := s.countBy(where, args, "network_audit_sessions", "error_code", 50)
+	if err != nil {
+		return summary, err
+	}
+	delete(errorCodes, "")
+	summary.ErrorCodeCount = errorCodes
 	if err := s.queryTrafficRows(&summary, where, args); err != nil {
 		return summary, err
 	}
@@ -443,6 +456,39 @@ func (s *MySQLStore) queryTrafficRows(summary *domain.NetworkAuditSummary, where
 			continue
 		}
 		summary.TopTargets = append(summary.TopTargets, item)
+	}
+
+	scenarios, err := s.db.Query(
+		`SELECT
+		   COALESCE(NULLIF(route_id, ''), NULLIF(chain_id, ''), target_host) AS scenario_id,
+		   COALESCE(NULLIF(matched_rule_pattern, ''), NULLIF(matched_rule_id, ''), NULLIF(chain_id, ''), target_host) AS scenario_name,
+		   COALESCE(SUM(bytes_in), 0),
+		   COALESCE(SUM(bytes_out), 0),
+		   COUNT(*),
+		   COALESCE(SUM(CASE WHEN decision = 'deny' OR error_code <> '' THEN 1 ELSE 0 END), 0)
+		 FROM network_audit_sessions`+where+`
+		 GROUP BY scenario_id, scenario_name
+		 ORDER BY COALESCE(SUM(bytes_in), 0) + COALESCE(SUM(bytes_out), 0) DESC
+		 LIMIT 20`, args...,
+	)
+	if err != nil {
+		return err
+	}
+	defer scenarios.Close()
+	for scenarios.Next() {
+		var item domain.AuditScenarioTraffic
+		if err := scenarios.Scan(&item.ScenarioID, &item.ScenarioName, &item.BytesIn, &item.BytesOut, &item.Count, &item.FailureCount); err != nil {
+			continue
+		}
+		item.ErrorCodes = map[string]int64{}
+		summary.ScenarioTraffic = append(summary.ScenarioTraffic, item)
+	}
+	for i := range summary.ScenarioTraffic {
+		codes, err := s.errorCodesForScenario(where, args, summary.ScenarioTraffic[i].ScenarioID)
+		if err != nil {
+			continue
+		}
+		summary.ScenarioTraffic[i].ErrorCodes = codes
 	}
 
 	actors, err := s.db.Query(
@@ -529,7 +575,60 @@ func scanNetworkAuditSession(row networkAuditScanner) (domain.NetworkAuditSessio
 	item.StartedAt = parseAuditTime(startedAt)
 	item.EndedAt = parseAuditTime(endedAt)
 	item.ReceivedAt = parseAuditTime(receivedAt)
+	item.CacheStatus, item.CacheStoredAt = networkAuditCacheMetadata(item.MetadataJSON)
 	return item, err
+}
+
+func (s *MySQLStore) errorCodesForScenario(where string, args []any, scenarioID string) (map[string]int64, error) {
+	if scenarioID == "" {
+		return map[string]int64{}, nil
+	}
+	scenarioWhere := where
+	scenarioArgs := append([]any(nil), args...)
+	condition := "COALESCE(NULLIF(route_id, ''), NULLIF(chain_id, ''), target_host) = ? AND error_code <> ''"
+	if scenarioWhere == "" {
+		scenarioWhere = " WHERE " + condition
+	} else {
+		scenarioWhere += " AND " + condition
+	}
+	scenarioArgs = append(scenarioArgs, scenarioID)
+	return s.countBy(scenarioWhere, scenarioArgs, "network_audit_sessions", "error_code", 20)
+}
+
+func networkAuditMetadataJSON(raw string, cacheStatus string, cacheStoredAt time.Time) string {
+	metadata := map[string]any{}
+	if raw != "" {
+		_ = json.Unmarshal([]byte(raw), &metadata)
+	}
+	if cacheStatus != "" {
+		metadata["cacheStatus"] = cacheStatus
+	}
+	if !cacheStoredAt.IsZero() {
+		metadata["cacheStoredAt"] = cacheStoredAt.UTC().Format(time.RFC3339)
+	}
+	body, err := json.Marshal(metadata)
+	if err != nil || len(body) == 0 {
+		return "{}"
+	}
+	return string(body)
+}
+
+func networkAuditCacheMetadata(raw string) (string, *time.Time) {
+	metadata := map[string]any{}
+	if raw == "" || json.Unmarshal([]byte(raw), &metadata) != nil {
+		return "", nil
+	}
+	cacheStatus, _ := metadata["cacheStatus"].(string)
+	cacheStoredAtRaw, _ := metadata["cacheStoredAt"].(string)
+	return cacheStatus, auditTimePtr(parseAuditTime(cacheStoredAtRaw))
+}
+
+func auditTimePtr(value time.Time) *time.Time {
+	if value.IsZero() {
+		return nil
+	}
+	utc := value.UTC()
+	return &utc
 }
 
 func auditLimit(limit int) int {

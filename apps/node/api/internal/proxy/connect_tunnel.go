@@ -101,7 +101,7 @@ func (s *Server) tunnelViaStream(w http.ResponseWriter, req *http.Request, hop c
 	targetHost, targetPort := targetAddress(req)
 	tracker.markForward()
 	streamStarted := time.Now().UTC()
-	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.tunnelRegistry, hop, targetHost, targetPort)
+	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.fallbackStreamOpener(), hop, targetHost, targetPort)
 	tracker.addLinkTiming(s.nodeIDGetter(), hop.node.ID, streamStarted)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)

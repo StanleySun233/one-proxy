@@ -45,8 +45,12 @@ func NewServer(manager *runtime.Manager, registry *Registry) http.Handler {
 			return
 		}
 		defer conn.Close()
+		connectedAt := time.Now()
 		session := registry.Add(auth.NodeID, conn)
-		defer registry.Remove(auth.NodeID, session)
+		defer func() {
+			registry.Remove(auth.NodeID, session)
+			log.Printf("node tunnel child_disconnected childNodeID=%s parentNodeID=%s duration=%s", auth.NodeID, current.NodeID, time.Since(connectedAt))
+		}()
 		_ = conn.SetReadDeadline(time.Now().Add(45 * time.Second))
 		conn.SetPongHandler(func(string) error {
 			return conn.SetReadDeadline(time.Now().Add(45 * time.Second))

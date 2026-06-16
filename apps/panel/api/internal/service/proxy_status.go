@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"net/http"
 	"sort"
 	"strings"
@@ -108,12 +109,38 @@ func (c *ControlPlane) IngestProxySessions(nodeID string, input domain.ProxySess
 			BytesOut:           item.DownloadBytes,
 			DurationMs:         item.LatencyMs,
 			ErrorCode:          item.ErrorCode,
+			StatusCode:         item.StatusCode,
+			CacheStatus:        item.CacheStatus,
+			CacheStoredAt:      timeValue(item.CacheStoredAt),
 			ReceivedAt:         item.ReceivedAt,
+			MetadataJSON:       proxySessionMetadataJSON(item),
 		}); err != nil {
 			return domain.ProxySessionIngestResult{}, err
 		}
 	}
 	return domain.ProxySessionIngestResult{Status: "ok"}, nil
+}
+
+func proxySessionMetadataJSON(item domain.ProxySessionMetric) string {
+	metadata := map[string]any{}
+	if item.CacheStatus != "" {
+		metadata["cacheStatus"] = item.CacheStatus
+	}
+	if item.CacheStoredAt != nil && !item.CacheStoredAt.IsZero() {
+		metadata["cacheStoredAt"] = item.CacheStoredAt.UTC().Format(time.RFC3339)
+	}
+	body, err := json.Marshal(metadata)
+	if err != nil || len(body) == 0 {
+		return "{}"
+	}
+	return string(body)
+}
+
+func timeValue(value *time.Time) time.Time {
+	if value == nil {
+		return time.Time{}
+	}
+	return value.UTC()
 }
 
 func (c *ControlPlane) ExtensionPageStatus(tenantCtx domain.TenantAuthContext, query domain.ProxyPageStatusQuery) domain.ProxyPageStatus {
@@ -221,6 +248,10 @@ func (s *proxyStatusStore) pageStatus(tenantID string, query domain.ProxyPageSta
 			result.FailureCount++
 			result.LastErrorCode = item.ErrorCode
 			result.LastErrorMessage = item.ErrorMessage
+		}
+		if item.CacheStatus != "" {
+			result.CacheStatus = item.CacheStatus
+			result.CacheStoredAt = item.CacheStoredAt
 		}
 		if sessionSeenAt(item).After(sessionSeenAt(last)) {
 			last = item

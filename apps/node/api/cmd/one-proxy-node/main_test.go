@@ -142,3 +142,15 @@ func TestNodeRouteSplitHandlerProxiesAbsoluteConsoleURL(t *testing.T) {
 		t.Fatalf("status = %d", resp.Code)
 	}
 }
+
+func TestParseBytesOrDefault(t *testing.T) {
+	if parseBytesOrDefault("512mb", 1) != 512*1024*1024 {
+		t.Fatalf("512mb parsed incorrectly")
+	}
+	if parseBytesOrDefault("2gb", 1) != 2*1024*1024*1024 {
+		t.Fatalf("2gb parsed incorrectly")
+	}
+	if parseBytesOrDefault("", 99) != 99 {
+		t.Fatalf("fallback not used")
+	}
+}

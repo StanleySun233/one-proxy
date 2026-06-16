@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"errors"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -84,7 +85,13 @@ func (r *Registry) OpenStream(nextNodeID string, remaining []string, targetHost 
 	session, ok := r.sessions[nextNodeID]
 	r.mu.RUnlock()
 	if !ok {
+		log.Printf("node tunnel stream_open_failed nextNodeID=%s target=%s:%d err=child_tunnel_not_found", nextNodeID, targetHost, targetPort)
 		return nil, errors.New("child_tunnel_not_found")
 	}
-	return session.openStream(remaining, targetHost, targetPort)
+	started := time.Now()
+	conn, err := session.openStream(remaining, targetHost, targetPort)
+	if err != nil {
+		log.Printf("node tunnel stream_open_failed nextNodeID=%s remaining=%v target=%s:%d duration=%s err=%v", nextNodeID, remaining, targetHost, targetPort, time.Since(started), err)
+	}
+	return conn, err
 }

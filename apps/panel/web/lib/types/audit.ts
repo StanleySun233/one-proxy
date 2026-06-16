@@ -24,6 +24,7 @@ export type NetworkAuditQuery = {
   scopeId?: string;
   chainId?: string;
   denyReason?: string;
+  errorCode?: string;
   policyRevision?: string;
   matchedRuleId?: string;
   decisionSource?: string;
@@ -86,6 +87,8 @@ export type NetworkSession = {
   durationMs: number;
   statusCode?: number;
   errorCode?: string;
+  cacheStatus?: string;
+  cacheStoredAt?: string;
   metadataJson?: unknown;
 };
 
@@ -128,11 +131,21 @@ export type NetworkAuditSummary = {
   durationAvgMs: number;
   decisionCount: Record<string, number>;
   denyReasonCount: Record<string, number>;
+  errorCodeCount: Record<string, number>;
   topTargets: {
     targetHost: string;
     bytesIn: number;
     bytesOut: number;
     count: number;
+  }[];
+  scenarioTraffic: {
+    scenarioId: string;
+    scenarioName: string;
+    bytesIn: number;
+    bytesOut: number;
+    count: number;
+    failureCount: number;
+    errorCodes: Record<string, number>;
   }[];
   userTraffic: {
     actorId: string;
@@ -172,7 +185,9 @@ export type AuditDashboard = {
   durationAvgMs: number;
   decisionCount: Record<string, number>;
   denyReasonCount: Record<string, number>;
+  errorCodeCount: Record<string, number>;
   topTargets: NetworkAuditSummary['topTargets'];
+  scenarioTraffic: NetworkAuditSummary['scenarioTraffic'];
   userTraffic: NetworkAuditSummary['userTraffic'];
   nodeTraffic: NetworkAuditSummary['nodeTraffic'];
   tenantTraffic: NetworkAuditSummary['tenantTraffic'];

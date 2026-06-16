@@ -328,6 +328,15 @@
   "statusBubbleNotCorrelated": {
     "message": "Not correlated"
   },
+  "statusBubbleCache": {
+    "message": "Cache"
+  },
+  "statusBubbleCacheStoredAt": {
+    "message": "Cache stored"
+  },
+  "statusBubbleCacheResponses": {
+    "message": "Cache responses"
+  },
   "statusBubbleLastError": {
     "message": "Last error"
   },

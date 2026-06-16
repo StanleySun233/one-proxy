@@ -48,7 +48,7 @@ func (s *Server) upgradeViaProxy(w http.ResponseWriter, req *http.Request, nextH
 
 func (s *Server) upgradeViaStream(w http.ResponseWriter, req *http.Request, hop chainHop, tracker *proxySessionTracker) {
 	targetHost, targetPort := targetAddress(req)
-	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.tunnelRegistry, hop, targetHost, targetPort)
+	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.fallbackStreamOpener(), hop, targetHost, targetPort)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)
 		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
@@ -91,6 +91,7 @@ func completeUpgrade(w http.ResponseWriter, req *http.Request, backendConn net.C
 		return
 	}
 	tracker.markResponseReceive()
+	tracker.markStatusCode(resp.StatusCode)
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		defer resp.Body.Close()
 		defer backendConn.Close()

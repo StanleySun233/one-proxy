@@ -138,6 +138,23 @@ func (t *proxySessionTracker) markResponseReceive() {
 	t.metric.ResponseReceiveTSMs = time.Now().UTC().UnixMilli()
 }
 
+func (t *proxySessionTracker) markStatusCode(statusCode int) {
+	if t == nil || statusCode <= 0 {
+		return
+	}
+	t.metric.StatusCode = statusCode
+}
+
+func (t *proxySessionTracker) markCache(status string, storedAt time.Time) {
+	if t == nil || status == "" {
+		return
+	}
+	t.metric.CacheStatus = status
+	if !storedAt.IsZero() {
+		t.metric.CacheStoredAt = storedAt.UTC().Format(time.RFC3339)
+	}
+}
+
 func (t *proxySessionTracker) addLinkTiming(fromNodeID string, toNodeID string, started time.Time) {
 	if t == nil || fromNodeID == "" || toNodeID == "" {
 		return
@@ -177,6 +194,9 @@ func (t *proxySessionTracker) finish(uploadBytes int64, downloadBytes int64, sta
 			SampleTSMs:           t.metric.ResponseForwardTSMs,
 			Count:                1,
 		}}
+		if t.metric.StatusCode <= 0 {
+			t.metric.StatusCode = statusCodeForProxyError(errorCode)
+		}
 		t.metric.Status = status
 		t.metric.ErrorCode = errorCode
 		t.metric.ErrorMessage = errorMessage
@@ -184,6 +204,25 @@ func (t *proxySessionTracker) finish(uploadBytes int64, downloadBytes int64, sta
 			_ = t.reporter.ReportProxySessions(context.Background(), domain.ProxySessionMetricsInput{Sessions: []domain.ProxySessionMetric{metric}})
 		}(t.metric)
 	})
+}
+
+func statusCodeForProxyError(errorCode string) int {
+	switch errorCode {
+	case "":
+		return http.StatusOK
+	case proxyErrorRouteNotFound:
+		return http.StatusForbidden
+	case proxyErrorProxyAuthRequired:
+		return http.StatusProxyAuthRequired
+	case proxyErrorReverseAuthRequired:
+		return http.StatusUnauthorized
+	case proxyErrorUnsupportedRouteAction:
+		return http.StatusBadRequest
+	case proxyErrorHijackNotSupported:
+		return http.StatusInternalServerError
+	default:
+		return http.StatusBadGateway
+	}
 }
 
 func (r countingReadCloser) Read(p []byte) (int, error) {

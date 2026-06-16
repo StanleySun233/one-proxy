@@ -20,6 +20,9 @@ const STATUS_BUBBLE_LABELS = [
   'statusBubbleCorrelation',
   'statusBubbleCorrelated',
   'statusBubbleNotCorrelated',
+  'statusBubbleCache',
+  'statusBubbleCacheStoredAt',
+  'statusBubbleCacheResponses',
   'statusBubbleLastError',
   'statusBubbleTopology',
   'statusBubbleUserMachine',
@@ -201,7 +204,11 @@ function mergePageSnapshot(route, metrics, remoteStatus) {
     requestCount: Number((remoteStatus && remoteStatus.requestCount) || (metrics && metrics.requestCount) || 0),
     proxiedRequestCount: Number((metrics && metrics.proxiedRequestCount) || 0),
     directRequestCount: Number((metrics && metrics.directRequestCount) || 0),
-    failureCount: Number((remoteStatus && remoteStatus.failureCount) || (metrics && metrics.failureCount) || 0)
+    failureCount: Number((remoteStatus && remoteStatus.failureCount) || (metrics && metrics.failureCount) || 0),
+    cacheStatus: String((remoteStatus && remoteStatus.cacheStatus) || (metrics && metrics.cacheStatus) || ''),
+    cacheStoredAt: String((remoteStatus && remoteStatus.cacheStoredAt) || (metrics && metrics.cacheStoredAt) || ''),
+    cacheAgeSeconds: Number((metrics && metrics.cacheAgeSeconds) || 0),
+    cacheResponseCount: Number((metrics && metrics.cacheResponseCount) || 0)
   };
 }
 
@@ -341,9 +348,15 @@ export function getStatusBubblePageStatus(message, sender) {
         const lastErrorCode = status.lastErrorCode || (metrics && metrics.lastErrorCode) || '';
         const lastErrorMessage = status.lastErrorMessage || (metrics && metrics.lastErrorMessage) || '';
         const displayStatus = statusFrom(status, metrics, route.mode);
+        const cache = {
+          status: page.cacheStatus || '',
+          storedAt: page.cacheStoredAt || '',
+          ageSeconds: page.cacheAgeSeconds || 0,
+          responseCount: page.cacheResponseCount || 0
+        };
         return {
           status: displayStatus,
-          color: colorFor(displayStatus, latencyMs, route.mode),
+          color: cache.status ? 'yellow' : colorFor(displayStatus, latencyMs, route.mode),
           display: shouldDisplay(state, route),
           account: state.session.account || '',
           tenant: tenantFrom(state),
@@ -355,6 +368,7 @@ export function getStatusBubblePageStatus(message, sender) {
             downloadBytes,
             correlated: Boolean(status.correlated || (metrics && metrics.responseCount > 0))
           },
+          cache,
           latencyMs,
           path: pathPayload(state, route, status, page.host),
           labels: labels(),

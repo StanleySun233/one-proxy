@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -27,11 +28,17 @@ func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request, tracke
 	tracker.markForward()
 	resp, err := s.roundTripReverseWithRetry(transport, req, body)
 	if err != nil {
+		if s.writeCachedResponseOnError(w, req, body, proxyErrorReverseForwardFailed, tracker) {
+			return
+		}
+		log.Printf("proxy forward failed mode=reverse method=%s target=%s uploadBytes=%d err=%v", req.Method, requestLogTarget(req), uploadBytes, err)
 		tracker.finish(uploadBytes, 0, domain.ProxySessionStatusError, proxyErrorReverseForwardFailed, proxyErrorReverseForwardFailed)
 		writeProxyError(w, req, proxyErrorReverseForwardFailed, http.StatusBadGateway)
 		return
 	}
 	tracker.markResponseReceive()
+	tracker.markStatusCode(resp.statusCode)
+	s.storeResponseCache(req, body, resp)
 	downloadBytes := writeForwardResponse(w, resp)
 	tracker.finish(uploadBytes, downloadBytes, domain.ProxySessionStatusOK, "", "")
 }
@@ -46,15 +53,18 @@ func (s *Server) roundTripReverseWithRetry(transport *http.Transport, req *http.
 		outbound := s.newReverseRequest(req, body)
 		resp, err := transport.RoundTrip(outbound)
 		if err != nil {
+			log.Printf("proxy forward attempt failed mode=reverse attempt=%d method=%s target=%s err=%v", attempt+1, req.Method, requestLogTarget(req), err)
 			lastErr = err
 			continue
 		}
 		if attempt+1 < attempts && retryableForwardStatus(resp.StatusCode) {
+			log.Printf("proxy forward retryable status mode=reverse attempt=%d method=%s target=%s status=%d", attempt+1, req.Method, requestLogTarget(req), resp.StatusCode)
 			_ = resp.Body.Close()
 			continue
 		}
 		forwarded, err := readForwardResponse(resp, outbound.Method)
 		if err != nil {
+			log.Printf("proxy forward response read failed mode=reverse attempt=%d method=%s target=%s status=%d err=%v", attempt+1, req.Method, requestLogTarget(req), resp.StatusCode, err)
 			_ = resp.Body.Close()
 			lastErr = err
 			continue

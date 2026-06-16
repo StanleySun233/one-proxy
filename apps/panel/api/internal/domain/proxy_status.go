@@ -31,6 +31,7 @@ type ProxySessionMetric struct {
 	UploadBytes         int64             `json:"uploadBytes"`
 	DownloadBytes       int64             `json:"downloadBytes"`
 	LatencyMs           int64             `json:"latencyMs"`
+	StatusCode          int               `json:"statusCode,omitempty"`
 	ReceiveTSMs         int64             `json:"receiveTsMs,omitempty"`
 	ForwardTSMs         int64             `json:"forwardTsMs,omitempty"`
 	ResponseReceiveTSMs int64             `json:"responseReceiveTsMs,omitempty"`
@@ -42,6 +43,8 @@ type ProxySessionMetric struct {
 	Status              string            `json:"status"`
 	ErrorCode           string            `json:"errorCode"`
 	ErrorMessage        string            `json:"errorMessage"`
+	CacheStatus         string            `json:"cacheStatus,omitempty"`
+	CacheStoredAt       *time.Time        `json:"cacheStoredAt,omitempty"`
 	ReceivedAt          time.Time         `json:"receivedAt"`
 }
 
@@ -84,6 +87,8 @@ type ProxyPageStatus struct {
 	FailureCount     int               `json:"failureCount"`
 	LastErrorCode    string            `json:"lastErrorCode"`
 	LastErrorMessage string            `json:"lastErrorMessage"`
+	CacheStatus      string            `json:"cacheStatus,omitempty"`
+	CacheStoredAt    *time.Time        `json:"cacheStoredAt,omitempty"`
 	LastSeenAt       time.Time         `json:"lastSeenAt"`
 	NodeTimings      []ProxyNodeTiming `json:"nodeTimings"`
 	LinkTimings      []ProxyLinkTiming `json:"linkTimings"`
