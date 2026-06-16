@@ -214,6 +214,21 @@ func (s *Service) DeleteChain(tenantCtx domain.TenantAuthContext, chainID string
 	return s.store.DeleteChain(chainID)
 }
 
+func (s *Service) ChainDeleteImpact(tenantCtx domain.TenantAuthContext, chainID string) (proxy.ChainDeleteImpact, error) {
+	if chainID == "" {
+		return proxy.ChainDeleteImpact{}, invalidInput("missing_chain_id")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.ChainBindingPermission(tenantCtx, chainID)
+	}); err != nil {
+		return proxy.ChainDeleteImpact{}, err
+	}
+	if !tenantCtx.SuperAdmin && s.store.CountChainBindings(chainID) > 1 {
+		return proxy.ChainDeleteImpact{}, newError(http.StatusConflict, "shared_resource_delete_forbidden")
+	}
+	return s.store.GetChainDeleteImpact(chainID)
+}
+
 func (s *Service) ValidateChain(tenantCtx domain.TenantAuthContext, input proxy.ValidateChainInput) (proxy.ChainValidationResult, error) {
 	result := proxy.ChainValidationResult{
 		Valid:           true,

@@ -10,6 +10,7 @@ import {AuthGate} from '@/components/auth-gate';
 import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {createTenant, deleteTenant, deleteTenantMember, fetchEnums, getAccounts, getTenantMembers, getTenants, updateTenant, upsertTenantMember} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 import type {Tenant, TenantMembershipAccount} from '@/lib/types';
@@ -27,6 +28,7 @@ export default function TenantsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [memberTenant, setMemberTenant] = useState<Tenant | null>(null);
+  const [deletingTenant, setDeletingTenant] = useState<Tenant | null>(null);
   const [formState, setFormState] = useState<TenantFormState>({name: '', initialAdminAccountId: ''});
 
   const {session, tenantMemberships} = useAuth();
@@ -87,6 +89,7 @@ export default function TenantsPage() {
     onSuccess: () => {
       toast.success(accountsT('tenantDeleteSuccess'));
       queryClient.invalidateQueries({queryKey: ['tenants']});
+      setDeletingTenant(null);
     },
     onError: (error) => toast.error(formatControlPlaneError(error))
   });
@@ -122,6 +125,10 @@ export default function TenantsPage() {
     }
     createMutation.mutate({name, initialAdminAccountId: formState.initialAdminAccountId});
   };
+  const tenantDeleteSections: DeleteImpactSection[] = deletingTenant ? [
+    {id: 'tenant', label: accountsT('tenantDeleteImpactTenant'), items: [{id: deletingTenant.id, name: deletingTenant.name}]},
+    {id: 'memberships', label: accountsT('tenantDeleteImpactMembers'), count: membersByTenantId.get(deletingTenant.id)?.length || 0}
+  ] : [];
 
   return (
     <AuthGate>
@@ -173,11 +180,7 @@ export default function TenantsPage() {
                                 <button
                                   className="danger-button"
                                   disabled={deleteMutation.isPending}
-                                  onClick={() => {
-                                    if (window.confirm(accountsT('tenantDeleteConfirm', {name: tenant.name}))) {
-                                      deleteMutation.mutate(tenant.id);
-                                    }
-                                  }}
+                                  onClick={() => setDeletingTenant(tenant)}
                                   type="button"
                                 >
                                   {t('common.delete')}
@@ -236,6 +239,20 @@ export default function TenantsPage() {
             tenant={memberTenant}
           />
         ) : null}
+
+        <DeleteConfirmationModal
+          onClose={() => setDeletingTenant(null)}
+          onConfirm={() => {
+            if (deletingTenant) {
+              deleteMutation.mutate(deletingTenant.id);
+            }
+          }}
+          open={Boolean(deletingTenant)}
+          pending={deleteMutation.isPending}
+          sections={tenantDeleteSections}
+          targetName={deletingTenant?.name || ''}
+          title={accountsT('tenantDeleteTitle')}
+        />
       </ConsolePage>
     </AuthGate>
   );
@@ -260,6 +277,7 @@ function TenantMembersModal({
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const [accountId, setAccountId] = useState('');
   const [role, setRole] = useState('user');
+  const [deletingMember, setDeletingMember] = useState<TenantMembershipAccount | null>(null);
   const tenantRoleOptions = enums?.tenant_role ? Object.entries(enums.tenant_role).map(([value, item]) => ({value, label: item.name})) : [
     {value: 'tenant_admin', label: 'Tenant Admin'},
     {value: 'user', label: 'User'}
@@ -282,9 +300,13 @@ function TenantMembersModal({
     onSuccess: () => {
       toast.success(accountsT('tenantMemberDeleted'));
       queryClient.invalidateQueries({queryKey: ['tenant-members', tenant.id]});
+      setDeletingMember(null);
     },
     onError: (error) => toast.error(formatControlPlaneError(error))
   });
+  const memberDeleteSections: DeleteImpactSection[] = deletingMember ? [
+    {id: 'membership', label: accountsT('tenantMemberDeleteImpact'), items: [{id: deletingMember.accountId, name: deletingMember.account, detail: deletingMember.role}]}
+  ] : [];
 
   return (
     <ConsoleCrudModal onClose={onClose} open={true} title={accountsT('tenantMembersTitle', {name: tenant.name})}>
@@ -329,7 +351,7 @@ function TenantMembersModal({
                     </select>
                   </td>
                   <td>
-                    <button className="danger-button" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(member.accountId)} type="button">
+                    <button className="danger-button" disabled={deleteMutation.isPending} onClick={() => setDeletingMember(member)} type="button">
                       {t('common.delete')}
                     </button>
                   </td>
@@ -344,6 +366,19 @@ function TenantMembersModal({
           </table>
         </div>
       </div>
+      <DeleteConfirmationModal
+        onClose={() => setDeletingMember(null)}
+        onConfirm={() => {
+          if (deletingMember) {
+            deleteMutation.mutate(deletingMember.accountId);
+          }
+        }}
+        open={Boolean(deletingMember)}
+        pending={deleteMutation.isPending}
+        sections={memberDeleteSections}
+        targetName={deletingMember?.account || ''}
+        title={accountsT('tenantMemberDeleteTitle')}
+      />
     </ConsoleCrudModal>
   );
 }

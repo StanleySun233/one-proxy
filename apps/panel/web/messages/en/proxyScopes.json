@@ -16,6 +16,8 @@
   "empty": "Create scopes before creating nodes, chains, and routes.",
   "updatedAt": "Updated at",
   "deleteConfirm": "Delete this scope?",
+  "deleteConfirmTitle": "Delete scope",
+  "deleteImpactScope": "Scope record",
   "createSuccess": "Scope created",
   "updateSuccess": "Scope updated",
   "deleteSuccess": "Scope deleted"

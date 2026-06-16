@@ -8,6 +8,7 @@ import {useTranslations} from 'next-intl';
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {fetchEnums} from '@/lib/api';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
@@ -28,6 +29,7 @@ export function NodeTopologyPageContent() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingLinkID, setEditingLinkID] = useState<string | null>(null);
   const [grantLinkID, setGrantLinkID] = useState<string | null>(null);
+  const [deletingLinkID, setDeletingLinkID] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState('');
   const [targetFilter, setTargetFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -36,6 +38,7 @@ export function NodeTopologyPageContent() {
   const [addressFilter, setAddressFilter] = useState('');
   const editingLink = links.find((link) => link.id === editingLinkID) || null;
   const grantLink = links.find((link) => link.id === grantLinkID) || null;
+  const deletingLink = links.find((link) => link.id === deletingLinkID) || null;
   const transportTypeKeys = Object.keys(enums?.transport_type || {});
   const LINK_TYPE_RELAY = Object.keys(enums?.link_type || {}).find(k => k === 'relay') || 'relay';
   const TRUST_STATE_TRUSTED = Object.keys(enums?.trust_state || {}).find(k => k === 'trusted') || 'trusted';
@@ -70,6 +73,22 @@ export function NodeTopologyPageContent() {
     setCreateOpen(false);
     setEditingLinkID(null);
   };
+  const linkDeleteSections: DeleteImpactSection[] = deletingLink ? [
+    {
+      id: 'nodeLink',
+      label: nodesT('deleteImpactNodeLinks'),
+      items: [{
+        id: deletingLink.id,
+        name: `${describeNodeName(deletingLink.sourceNodeId, nodesByID)} -> ${describeNodeName(deletingLink.targetNodeId, nodesByID)}`,
+        detail: `${deletingLink.linkType} / ${deletingLink.trustState}`
+      }]
+    },
+    {
+      id: 'tenantBindings',
+      label: nodesT('deleteImpactTenantBindings'),
+      count: deletingLink.permission ? 1 : 0
+    }
+  ] : [];
 
   return (
     <AuthGate>
@@ -166,11 +185,7 @@ export function NodeTopologyPageContent() {
                               <button
                                 className="danger-button"
                                 disabled={nodeConsole.deleteNodeLink.isPending || !canManage}
-                                onClick={() => {
-                                  if (window.confirm(nodesT('deleteLinkConfirm'))) {
-                                    nodeConsole.deleteNodeLink.mutate(link.id);
-                                  }
-                                }}
+                                onClick={() => setDeletingLinkID(link.id)}
                                 type="button"
                               >
                                 {t('common.delete')}
@@ -270,6 +285,22 @@ export function NodeTopologyPageContent() {
             resourceType="node_link"
           />
         ) : null}
+
+        <DeleteConfirmationModal
+          onClose={() => setDeletingLinkID(null)}
+          onConfirm={() => {
+            if (deletingLink) {
+              nodeConsole.deleteNodeLink.mutate(deletingLink.id, {
+                onSuccess: () => setDeletingLinkID(null)
+              });
+            }
+          }}
+          open={Boolean(deletingLink)}
+          pending={nodeConsole.deleteNodeLink.isPending}
+          sections={linkDeleteSections}
+          targetName={deletingLink ? `${describeNodeName(deletingLink.sourceNodeId, nodesByID)} -> ${describeNodeName(deletingLink.targetNodeId, nodesByID)}` : ''}
+          title={nodesT('deleteLinkTitle')}
+        />
       </ConsolePage>
     </AuthGate>
   );

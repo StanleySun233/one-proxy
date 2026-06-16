@@ -19,6 +19,8 @@
   "updateSuccess": "Account updated",
   "deleteSuccess": "Account deleted",
   "deleteConfirm": "Delete account {name}?",
+  "deleteAccountTitle": "Delete account",
+  "deleteImpactAccount": "Account record",
   "tenantListTitle": "Tenants",
   "tenantCreate": "Create tenant",
   "tenantEdit": "Edit tenant",
@@ -29,6 +31,9 @@
   "tenantUpdateSuccess": "Tenant updated",
   "tenantDeleteSuccess": "Tenant deleted",
   "tenantDeleteConfirm": "Delete tenant {name}?",
+  "tenantDeleteTitle": "Delete tenant",
+  "tenantDeleteImpactTenant": "Tenant record",
+  "tenantDeleteImpactMembers": "Tenant memberships",
   "tenantNameRequired": "Tenant name is required",
   "tenantInitialAdmin": "Initial admin",
   "tenantSelectInitialAdmin": "Select initial admin",
@@ -40,5 +45,7 @@
   "tenantSelectAccount": "Select account",
   "tenantAddMember": "Add member",
   "tenantMemberSaved": "Member saved",
-  "tenantMemberDeleted": "Member removed"
+  "tenantMemberDeleted": "Member removed",
+  "tenantMemberDeleteTitle": "Remove tenant member",
+  "tenantMemberDeleteImpact": "Tenant membership"
 }

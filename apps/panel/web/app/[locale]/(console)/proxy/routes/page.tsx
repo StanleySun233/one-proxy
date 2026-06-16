@@ -9,6 +9,7 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 import {AuthGate} from '@/components/auth-gate';
 import {AsyncState} from '@/components/async-state';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {useAuth} from '@/components/auth-provider';
 import {createRouteRule, deleteRouteRule, fetchEnums, getChains, getPolicyRevisions, getRouteRules, getScopes, publishPolicy, updateRouteRule} from '@/lib/api';
@@ -47,6 +48,7 @@ export default function RoutesPage() {
   const [regexTesterOpen, setRegexTesterOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState('');
   const [grantRule, setGrantRule] = useState<RouteRule | null>(null);
+  const [deletingRule, setDeletingRule] = useState<RouteRule | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [matchFilter, setMatchFilter] = useState('');
   const [chainFilter, setChainFilter] = useState('');
@@ -117,6 +119,7 @@ export default function RoutesPage() {
         setEditingRuleId('');
         form.reset(defaultRouteRuleFormValues());
       }
+      setDeletingRule(null);
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -195,10 +198,8 @@ export default function RoutesPage() {
   }, [chains, createRuleMutation, editingRuleId, updateRuleMutation]);
 
   const deleteRoute = useCallback((ruleId: string) => {
-    if (window.confirm(routesT('deleteConfirm'))) {
-      deleteRuleMutation.mutate(ruleId);
-    }
-  }, [deleteRuleMutation, routesT]);
+    setDeletingRule(routeRules.find((rule) => rule.id === ruleId) || null);
+  }, [routeRules]);
 
   useEffect(() => {
     if (actionType !== 'chain') {
@@ -210,6 +211,22 @@ export default function RoutesPage() {
     }
   }, [actionType, form, selectedChain?.destinationScope]);
   const modalOpen = createOpen || Boolean(editingRule);
+  const routeDeleteSections: DeleteImpactSection[] = deletingRule ? [
+    {
+      id: 'routeRule',
+      label: routesT('deleteImpactRouteRule'),
+      items: [{
+        id: deletingRule.id,
+        name: deletingRule.matchValue || String(deletingRule.priority),
+        detail: `${deletingRule.matchType} / ${deletingRule.actionType}`
+      }]
+    },
+    {
+      id: 'tenantBindings',
+      label: routesT('deleteImpactTenantBindings'),
+      count: deletingRule.permission ? 1 : 0
+    }
+  ] : [];
 
   return (
     <AuthGate>
@@ -357,6 +374,20 @@ export default function RoutesPage() {
             resourceType="route_rule"
           />
         ) : null}
+
+        <DeleteConfirmationModal
+          onClose={() => setDeletingRule(null)}
+          onConfirm={() => {
+            if (deletingRule) {
+              deleteRuleMutation.mutate(deletingRule.id);
+            }
+          }}
+          open={Boolean(deletingRule)}
+          pending={deleteRuleMutation.isPending}
+          sections={routeDeleteSections}
+          targetName={deletingRule?.matchValue || ''}
+          title={routesT('deleteConfirmTitle')}
+        />
       </ConsolePage>
     </AuthGate>
   );

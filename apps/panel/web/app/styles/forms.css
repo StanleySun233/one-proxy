@@ -407,6 +407,117 @@
   gap: 8px;
 }
 
+.delete-confirmation {
+  display: grid;
+  gap: 14px;
+}
+
+.delete-confirmation-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 36%, var(--line) 64%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--panel-2) 88%);
+  color: var(--text);
+}
+
+.delete-confirmation-warning svg {
+  color: var(--danger);
+  flex: 0 0 auto;
+}
+
+.delete-impact-summary,
+.delete-impact-detail-list {
+  display: grid;
+  gap: 8px;
+}
+
+.delete-impact-row {
+  width: 100%;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+}
+
+.delete-impact-row.is-clickable {
+  cursor: pointer;
+}
+
+.delete-impact-row.is-clickable:hover {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--line) 66%);
+  background: color-mix(in srgb, var(--primary) 8%, var(--panel-2) 92%);
+}
+
+.delete-impact-row strong {
+  color: var(--text);
+}
+
+.delete-impact-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--danger);
+}
+
+.delete-impact-dot.is-update {
+  background: var(--accent);
+}
+
+.delete-impact-link {
+  color: color-mix(in srgb, var(--primary) 76%, var(--text) 24%);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.delete-impact-empty {
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+.delete-impact-detail-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+
+.delete-impact-detail-item svg {
+  color: var(--primary);
+  margin-top: 2px;
+}
+
+.delete-impact-detail-item div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.delete-impact-detail-item strong,
+.delete-impact-detail-item span,
+.delete-impact-detail-item p {
+  overflow-wrap: anywhere;
+}
+
+.delete-impact-detail-item p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .stack-head,
 .inline-cluster,
 .panel-toolbar {

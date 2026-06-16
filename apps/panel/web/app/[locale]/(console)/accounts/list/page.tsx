@@ -11,6 +11,7 @@ import {AuthGate} from '@/components/auth-gate';
 import {NameTag} from '@/components/common/name-tag';
 import {useAuth} from '@/components/auth-provider';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {createAccount, deleteAccount, fetchEnums, getAccounts} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 
@@ -35,6 +36,7 @@ export default function AccountListPage() {
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState<{id: string; account: string; role: string; status: string} | null>(null);
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const accountRoleKeys = Object.keys(enums?.account_role || {});
   const DEFAULT_ROLE = accountRoleKeys.find(k => k === 'user') || 'user';
@@ -58,6 +60,7 @@ export default function AccountListPage() {
     onSuccess: () => {
       toast.success(accountsT('deleteSuccess'));
       queryClient.invalidateQueries({queryKey: ['accounts']});
+      setDeletingAccount(null);
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -84,6 +87,9 @@ export default function AccountListPage() {
   ), [accounts, nameFilter, roleFilter, statusFilter]);
   const roleOptions = Array.from(new Set(accounts.map((account) => account.role))).sort();
   const statusOptions = Array.from(new Set(accounts.map((account) => account.status))).sort();
+  const accountDeleteSections: DeleteImpactSection[] = deletingAccount ? [
+    {id: 'account', label: accountsT('deleteImpactAccount'), items: [{id: deletingAccount.id, name: deletingAccount.account, detail: deletingAccount.role}]}
+  ] : [];
 
   return (
     <AuthGate>
@@ -150,11 +156,7 @@ export default function AccountListPage() {
                               <button
                                 className="danger-button"
                                 disabled={deleteAccountMutation.isPending}
-                                onClick={() => {
-                                  if (window.confirm(accountsT('deleteConfirm', {name: account.account}))) {
-                                    deleteAccountMutation.mutate(account.id);
-                                  }
-                                }}
+                                onClick={() => setDeletingAccount(account)}
                                 type="button"
                               >
                                 {t('common.delete')}
@@ -239,6 +241,20 @@ export default function AccountListPage() {
             open={!!editAccount}
           />
         ) : null}
+
+        <DeleteConfirmationModal
+          onClose={() => setDeletingAccount(null)}
+          onConfirm={() => {
+            if (deletingAccount) {
+              deleteAccountMutation.mutate(deletingAccount.id);
+            }
+          }}
+          open={Boolean(deletingAccount)}
+          pending={deleteAccountMutation.isPending}
+          sections={accountDeleteSections}
+          targetName={deletingAccount?.account || ''}
+          title={accountsT('deleteAccountTitle')}
+        />
       </ConsolePage>
     </AuthGate>
   );

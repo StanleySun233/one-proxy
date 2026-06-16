@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/panel/api/internal/features/proxy/domain"
 )
 
 func (s *Service) AccessPaths(tenantCtx domain.TenantAuthContext) []domain.NodeAccessPath {
@@ -59,6 +60,21 @@ func (s *Service) DeleteAccessPath(tenantCtx domain.TenantAuthContext, pathID st
 		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return s.store.DeleteNodeAccessPath(pathID)
+}
+
+func (s *Service) AccessPathDeleteImpact(tenantCtx domain.TenantAuthContext, pathID string) (proxy.NodeAccessPathDeleteImpact, error) {
+	if pathID == "" {
+		return proxy.NodeAccessPathDeleteImpact{}, invalidInput("missing_path_id")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.NodeAccessPathBindingPermission(tenantCtx, pathID)
+	}); err != nil {
+		return proxy.NodeAccessPathDeleteImpact{}, err
+	}
+	if !tenantCtx.SuperAdmin && s.store.CountNodeAccessPathBindings(pathID) > 1 {
+		return proxy.NodeAccessPathDeleteImpact{}, newError(http.StatusConflict, "shared_resource_delete_forbidden")
+	}
+	return s.store.GetNodeAccessPathDeleteImpact(pathID)
 }
 
 func normalizeCreateAccessPathInput(input domain.CreateNodeAccessPathInput) domain.CreateNodeAccessPathInput {

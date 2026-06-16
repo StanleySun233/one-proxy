@@ -66,6 +66,7 @@ type NodeStore interface {
 	CreateNodeAccessPath(input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error)
 	CreateNodeAccessPathForTenant(tenantCtx domain.TenantAuthContext, input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error)
 	UpdateNodeAccessPath(pathID string, input domain.UpdateNodeAccessPathInput) (domain.NodeAccessPath, error)
+	GetNodeAccessPathDeleteImpact(pathID string) (proxy.NodeAccessPathDeleteImpact, error)
 	DeleteNodeAccessPath(pathID string) error
 	NodeAccessPathBindingPermission(tenantCtx domain.TenantAuthContext, pathID string) (domain.BindingPermission, bool)
 	CountNodeAccessPathBindings(pathID string) int
@@ -90,6 +91,7 @@ type ChainStore interface {
 	CreateChain(input proxy.CreateChainInput) (proxy.Chain, error)
 	CreateChainForTenant(tenantCtx domain.TenantAuthContext, input proxy.CreateChainInput) (proxy.Chain, error)
 	UpdateChain(chainID string, input proxy.UpdateChainInput) (proxy.Chain, error)
+	GetChainDeleteImpact(chainID string) (proxy.ChainDeleteImpact, error)
 	DeleteChain(chainID string) error
 	ChainBindingPermission(tenantCtx domain.TenantAuthContext, chainID string) (domain.BindingPermission, bool)
 	CountChainBindings(chainID string) int

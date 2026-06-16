@@ -37,5 +37,9 @@
   "updateSuccess": "网络入口已更新",
   "deleteSuccess": "网络入口已删除",
   "deleteConfirm": "删除此网络入口？",
+  "deleteConfirmTitle": "删除网络入口",
+  "deleteImpactAccessPath": "网络入口",
+  "deleteImpactOnboardingTasks": "接入任务",
+  "deleteImpactTenantBindings": "租户绑定",
   "noNode": "无节点"
 }

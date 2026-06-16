@@ -3,6 +3,7 @@ package proxyhttpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/httpctx"
@@ -41,6 +42,10 @@ func (r *Router) handleAccessPaths(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleAccessPathByID(w http.ResponseWriter, req *http.Request) {
+	if strings.HasSuffix(req.URL.Path, "/delete-impact") {
+		r.handleAccessPathDeleteImpact(w, req)
+		return
+	}
 	pathID := resourceID(req.URL.Path, "/api/proxy/paths/")
 	if pathID == "" {
 		writeError(w, http.StatusBadRequest, "missing_path_id")
@@ -84,4 +89,28 @@ func (r *Router) handleAccessPathByID(w http.ResponseWriter, req *http.Request) 
 	default:
 		writeMethodNotAllowed(w, "PATCH, DELETE")
 	}
+}
+
+func (r *Router) handleAccessPathDeleteImpact(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	pathID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/proxy/paths/"), "/delete-impact")
+	pathID = strings.TrimSuffix(pathID, "/")
+	if pathID == "" {
+		writeError(w, http.StatusBadRequest, "missing_path_id")
+		return
+	}
+	tenantCtx, ok := httpctx.TenantAuth(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	result, err := r.service.AccessPathDeleteImpact(tenantCtx, pathID)
+	if err != nil {
+		writeServiceError(w, req, err, "delete_impact_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, result)
 }

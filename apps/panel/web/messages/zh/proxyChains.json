@@ -41,6 +41,15 @@
   },
   "createSuccess": "链路已创建",
   "updateSuccess": "链路已更新",
+  "deleteSuccess": "链路已删除",
+  "deleteConfirmTitle": "删除链路",
+  "deleteImpactChain": "链路记录",
+  "deleteImpactChainHops": "链路跳点",
+  "deleteImpactRouteRules": "使用此链路的路由规则",
+  "deleteImpactAccessPaths": "使用此链路的网络入口",
+  "deleteImpactOnboardingTasks": "关联网络入口的接入任务",
+  "deleteImpactChainProbeResults": "链路探测结果",
+  "deleteImpactTenantBindings": "租户绑定",
   "copiedConfig": "已复制到剪贴板",
   "copyConfigFailed": "复制失败"
 }

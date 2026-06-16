@@ -1,6 +1,6 @@
 import { request } from './client';
-import type { Chain, ChainProbeResult, ChainValidationResult, ChainPreviewResult, RouteRule, RouteRuleValidationResult, Scope } from '@/lib/types/proxy';
-import type { NodeAccessPath, NodeAccessPathPayload, NodeLink } from '@/lib/types/nodes';
+import type { Chain, ChainDeleteImpact, ChainProbeResult, ChainValidationResult, ChainPreviewResult, RouteRule, RouteRuleValidationResult, Scope } from '@/lib/types/proxy';
+import type { NodeAccessPath, NodeAccessPathDeleteImpact, NodeAccessPathPayload, NodeLink } from '@/lib/types/nodes';
 
 export function getChains(accessToken: string, tenantId: string | null) {
   return request<Chain[]>('/proxy', {accessToken, tenantId});
@@ -21,6 +21,21 @@ export function updateChain(accessToken: string, tenantId: string | null, chainI
     accessToken,
     tenantId,
     body: payload
+  });
+}
+
+export function getChainDeleteImpact(accessToken: string, tenantId: string | null, chainID: string) {
+  return request<ChainDeleteImpact>(`/proxy/${chainID}/delete-impact`, {
+    accessToken,
+    tenantId
+  });
+}
+
+export function deleteChain(accessToken: string, tenantId: string | null, chainID: string) {
+  return request<{status: string}>(`/proxy/${chainID}`, {
+    method: 'DELETE',
+    accessToken,
+    tenantId
   });
 }
 
@@ -80,6 +95,10 @@ export function updateNodeAccessPath(accessToken: string, tenantId: string | nul
 
 export function deleteNodeAccessPath(accessToken: string, tenantId: string | null, pathID: string) {
   return request<{status: string}>(`/proxy/paths/${pathID}`, {method: 'DELETE', accessToken, tenantId});
+}
+
+export function getNodeAccessPathDeleteImpact(accessToken: string, tenantId: string | null, pathID: string) {
+  return request<NodeAccessPathDeleteImpact>(`/proxy/paths/${pathID}/delete-impact`, {accessToken, tenantId});
 }
 
 export function getRouteRules(accessToken: string, tenantId: string | null) {

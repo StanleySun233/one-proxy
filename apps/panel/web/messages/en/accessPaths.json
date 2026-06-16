@@ -37,5 +37,9 @@
   "updateSuccess": "Network entry updated",
   "deleteSuccess": "Network entry deleted",
   "deleteConfirm": "Delete this network entry?",
+  "deleteConfirmTitle": "Delete network entry",
+  "deleteImpactAccessPath": "Network entry",
+  "deleteImpactOnboardingTasks": "Onboarding tasks",
+  "deleteImpactTenantBindings": "Tenant bindings",
   "noNode": "No node"
 }

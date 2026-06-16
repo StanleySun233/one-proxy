@@ -8,11 +8,12 @@ import {toast} from 'sonner';
 
 import {AsyncState} from '@/components/async-state';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList} from '@/components/console-template';
+import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {NameTag} from '@/components/common/name-tag';
 import {ResourceGrantModal} from '@/components/resource-grant-modal';
-import {createNodeAccessPath, deleteNodeAccessPath, fetchEnums, getNodeAccessPaths, updateNodeAccessPath} from '@/lib/api';
+import {createNodeAccessPath, deleteNodeAccessPath, fetchEnums, getNodeAccessPaths, getNodeAccessPathDeleteImpact, updateNodeAccessPath} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
-import type {Chain, FieldEnumEntry, Node, NodeAccessPath, NodeAccessPathPayload} from '@/lib/types';
+import type {Chain, FieldEnumEntry, Node, NodeAccessPath, NodeAccessPathDeleteImpact, NodeAccessPathPayload} from '@/lib/types';
 
 type AccessPathFormState = {
   chainId: string;
@@ -131,6 +132,8 @@ export function AccessPathPanel({
   const queryClient = useQueryClient();
   const [editingPath, setEditingPath] = useState<NodeAccessPath | null>(null);
   const [grantPath, setGrantPath] = useState<NodeAccessPath | null>(null);
+  const [deletingPath, setDeletingPath] = useState<NodeAccessPath | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<NodeAccessPathDeleteImpact | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [nameFilter, setNameFilter] = useState('');
   const [chainFilter, setChainFilter] = useState('');
@@ -181,8 +184,19 @@ export function AccessPathPanel({
     onSuccess: () => {
       toast.success(accessPathsT('deleteSuccess'));
       queryClient.invalidateQueries({queryKey: ['proxy-access-paths']});
+      setDeletingPath(null);
+      setDeleteImpact(null);
     },
     onError: (error) => toast.error(formatControlPlaneError(error))
+  });
+
+  const deleteImpactMutation = useMutation({
+    mutationFn: (pathID: string) => getNodeAccessPathDeleteImpact(accessToken, activeTenantId, pathID),
+    onSuccess: (result) => setDeleteImpact(result),
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+      setDeletingPath(null);
+    }
   });
 
   const setField = <K extends keyof AccessPathFormState>(field: K, value: AccessPathFormState[K]) => {
@@ -205,6 +219,12 @@ export function AccessPathPanel({
     setEditingPath(null);
     setFormState(emptyForm);
     setCreateOpen(true);
+  };
+
+  const openDeletePath = (path: NodeAccessPath) => {
+    setDeletingPath(path);
+    setDeleteImpact(null);
+    deleteImpactMutation.mutate(path.id);
   };
 
   useEffect(() => {
@@ -244,6 +264,13 @@ export function AccessPathPanel({
     );
   }, [chainFilter, listenFilter, nameFilter, paths, protocolFilter, statusFilter, targetFilter]);
   const modalOpen = createOpen || Boolean(editingPath);
+  const pathDeleteSections: DeleteImpactSection[] = deleteImpact ? [
+    {id: 'accessPath', label: accessPathsT('deleteImpactAccessPath'), items: deleteImpact.delete.accessPath},
+    {id: 'onboardingTasks', label: accessPathsT('deleteImpactOnboardingTasks'), items: deleteImpact.delete.onboardingTasks},
+    {id: 'tenantBindings', label: accessPathsT('deleteImpactTenantBindings'), items: deleteImpact.delete.tenantBindings}
+  ] : deletingPath ? [
+    {id: 'accessPath', label: accessPathsT('deleteImpactAccessPath'), count: 1}
+  ] : [];
 
   return (
     <>
@@ -327,12 +354,8 @@ export function AccessPathPanel({
                             </button>
                             <button
                               className="danger-button"
-                              disabled={deleteMutation.isPending || !canManage}
-                              onClick={() => {
-                                if (window.confirm(accessPathsT('deleteConfirm'))) {
-                                  deleteMutation.mutate(path.id);
-                                }
-                              }}
+                              disabled={deleteMutation.isPending || deleteImpactMutation.isPending || !canManage}
+                              onClick={() => openDeletePath(path)}
                               type="button"
                             >
                               <Trash2 size={14} />
@@ -443,6 +466,23 @@ export function AccessPathPanel({
           resourceType="access_path"
         />
       ) : null}
+
+      <DeleteConfirmationModal
+        onClose={() => {
+          setDeletingPath(null);
+          setDeleteImpact(null);
+        }}
+        onConfirm={() => {
+          if (deletingPath) {
+            deleteMutation.mutate(deletingPath.id);
+          }
+        }}
+        open={Boolean(deletingPath)}
+        pending={deleteMutation.isPending || deleteImpactMutation.isPending}
+        sections={pathDeleteSections}
+        targetName={deletingPath?.name || ''}
+        title={accessPathsT('deleteConfirmTitle')}
+      />
     </>
   );
 }

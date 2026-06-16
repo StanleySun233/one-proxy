@@ -18,7 +18,7 @@ export {
   getNodeHealthHistory,
   getNodeSLA,
 } from './nodes';
-export { getChains, createChain, updateChain, probeChain, validateChain, previewChain, getNodeLinks, createNodeLink, updateNodeLink, deleteNodeLink, getNodeAccessPaths, createNodeAccessPath, updateNodeAccessPath, deleteNodeAccessPath, getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule, getScopes, createScope, updateScope, deleteScope } from './proxy';
+export { getChains, createChain, updateChain, getChainDeleteImpact, deleteChain, probeChain, validateChain, previewChain, getNodeLinks, createNodeLink, updateNodeLink, deleteNodeLink, getNodeAccessPaths, createNodeAccessPath, updateNodeAccessPath, getNodeAccessPathDeleteImpact, deleteNodeAccessPath, getRouteRules, createRouteRule, updateRouteRule, deleteRouteRule, validateRouteRule, getScopes, createScope, updateScope, deleteScope } from './proxy';
 export { listGroups, createGroup, getGroup, updateGroup, deleteGroup, setGroupAccounts, setGroupScopes } from './groups';
 export { getAccounts, createAccount, updateAccount, deleteAccount } from './accounts';
 export { getTenants, createTenant, updateTenant, deleteTenant, getTenantMembers, upsertTenantMember, deleteTenantMember } from './tenants';

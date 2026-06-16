@@ -9,6 +9,7 @@ import {toast} from 'sonner';
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {useAuth} from '@/components/auth-provider';
 import {NameTag} from '@/components/common/name-tag';
@@ -37,6 +38,7 @@ export default function ScopesPage() {
   const globalSuperAdmin = session?.account.role === 'super_admin';
   const [editingScope, setEditingScope] = useState<Scope | null>(null);
   const [grantScope, setGrantScope] = useState<Scope | null>(null);
+  const [deletingScope, setDeletingScope] = useState<Scope | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [nameFilter, setNameFilter] = useState('');
   const [descriptionFilter, setDescriptionFilter] = useState('');
@@ -79,6 +81,7 @@ export default function ScopesPage() {
     onSuccess: () => {
       toast.success(scopesT('deleteSuccess'));
       queryClient.invalidateQueries({queryKey: ['proxy-scopes']});
+      setDeletingScope(null);
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -131,6 +134,9 @@ export default function ScopesPage() {
   }, [descriptionFilter, nameFilter, scopes]);
   const saving = createScopeMutation.isPending || updateScopeMutation.isPending;
   const modalOpen = createOpen || Boolean(editingScope);
+  const scopeDeleteSections: DeleteImpactSection[] = deletingScope ? [
+    {id: 'scope', label: scopesT('deleteImpactScope'), items: [{id: deletingScope.id, name: deletingScope.name, detail: deletingScope.description}]}
+  ] : [];
 
   return (
     <AuthGate>
@@ -198,11 +204,7 @@ export default function ScopesPage() {
                             <button
                               className="danger-button"
                               disabled={deleteScopeMutation.isPending || (!globalSuperAdmin && scope.permission !== 'manage')}
-                              onClick={() => {
-                                if (window.confirm(scopesT('deleteConfirm'))) {
-                                  deleteScopeMutation.mutate(scope.id);
-                                }
-                              }}
+                              onClick={() => setDeletingScope(scope)}
                               type="button"
                             >
                               <Trash2 size={14} />
@@ -268,6 +270,20 @@ export default function ScopesPage() {
             resourceType="scope"
           />
         ) : null}
+
+        <DeleteConfirmationModal
+          onClose={() => setDeletingScope(null)}
+          onConfirm={() => {
+            if (deletingScope) {
+              deleteScopeMutation.mutate(deletingScope.id);
+            }
+          }}
+          open={Boolean(deletingScope)}
+          pending={deleteScopeMutation.isPending}
+          sections={scopeDeleteSections}
+          targetName={deletingScope?.name || ''}
+          title={scopesT('deleteConfirmTitle')}
+        />
       </ConsolePage>
     </AuthGate>
   );

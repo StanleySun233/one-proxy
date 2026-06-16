@@ -15,6 +15,7 @@ import type {
   TrustState
 } from './common';
 import type {ResourcePermissionMetadata} from './grants';
+import type {DeleteImpactItem} from './proxy';
 
 export type Node = ResourcePermissionMetadata & {
   id: string;
@@ -84,6 +85,15 @@ export type NodeAccessPath = ResourcePermissionMetadata & {
   authMode: AccessAuthMode;
   options: Record<string, string>;
   enabled: boolean;
+};
+
+export type NodeAccessPathDeleteImpact = {
+  pathId: string;
+  delete: {
+    accessPath: DeleteImpactItem[];
+    onboardingTasks: DeleteImpactItem[];
+    tenantBindings: DeleteImpactItem[];
+  };
 };
 
 export type NodeAccessPathPayload = Omit<NodeAccessPath, 'id' | 'enabled'> & {

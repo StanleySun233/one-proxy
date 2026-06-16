@@ -1,6 +1,7 @@
 export type { Account, LoginResult } from './auth';
 export type {
   Node,
+  NodeAccessPathDeleteImpact,
   NodeAccessPath,
   NodeAccessPathPayload,
   NodeDeleteImpact,
@@ -14,6 +15,7 @@ export type {
 } from './nodes';
 export type {
   Chain,
+  ChainDeleteImpact,
   ChainProbeHop,
   ChainProbeResult,
   ChainValidationResult,

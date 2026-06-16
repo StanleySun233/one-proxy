@@ -19,6 +19,8 @@
   "updateSuccess": "账号已更新",
   "deleteSuccess": "账号已删除",
   "deleteConfirm": "确定删除账号 {name}？",
+  "deleteAccountTitle": "删除账号",
+  "deleteImpactAccount": "账号记录",
   "tenantListTitle": "租户",
   "tenantCreate": "创建租户",
   "tenantEdit": "编辑租户",
@@ -29,6 +31,9 @@
   "tenantUpdateSuccess": "租户已更新",
   "tenantDeleteSuccess": "租户已删除",
   "tenantDeleteConfirm": "确定删除租户 {name}？",
+  "tenantDeleteTitle": "删除租户",
+  "tenantDeleteImpactTenant": "租户记录",
+  "tenantDeleteImpactMembers": "租户成员关系",
   "tenantNameRequired": "请输入租户名称",
   "tenantInitialAdmin": "初始管理员",
   "tenantSelectInitialAdmin": "选择初始管理员",
@@ -40,5 +45,7 @@
   "tenantSelectAccount": "选择账号",
   "tenantAddMember": "添加成员",
   "tenantMemberSaved": "成员已保存",
-  "tenantMemberDeleted": "成员已移除"
+  "tenantMemberDeleted": "成员已移除",
+  "tenantMemberDeleteTitle": "移除租户成员",
+  "tenantMemberDeleteImpact": "租户成员关系"
 }

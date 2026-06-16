@@ -6,6 +6,7 @@ import {useTranslations} from 'next-intl';
 
 import {AuthGate} from '@/components/auth-gate';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {fetchEnums} from '@/lib/api';
 import type {NodeDeleteImpact} from '@/lib/types';
@@ -54,6 +55,8 @@ export function NodeRegistryPageContent() {
   const [modeFilter, setModeFilter] = useState('all');
   const [editingNodeID, setEditingNodeID] = useState('');
   const [grantNodeID, setGrantNodeID] = useState('');
+  const [deletingNode, setDeletingNode] = useState<RegistryNodeRow | null>(null);
+  const [nodeDeleteImpact, setNodeDeleteImpact] = useState<NodeDeleteImpact | null>(null);
   const {data: enums} = useQuery({queryKey: ['enums'], queryFn: () => fetchEnums()});
   const nodeModeKeys = Object.keys(enums?.node_mode || {});
   const nodeStatusKeys = Object.keys(enums?.node_status || {});
@@ -125,38 +128,30 @@ export function NodeRegistryPageContent() {
     }
   }, [editingNodeID, nodes]);
 
-  const deleteNode = async (node: RegistryNodeRow) => {
+  const openDeleteNode = async (node: RegistryNodeRow) => {
     let impact: NodeDeleteImpact;
     try {
       impact = await nodeConsole.nodeDeleteImpact.mutateAsync(node.id);
     } catch {
       return;
     }
-    const deletedLines = deleteImpactRows
-      .map(([key, labelKey]) => ({count: impact.delete[key], label: nodesT(labelKey)}))
-      .filter((item) => item.count > 0)
-      .map((item) => `- ${item.label}: ${item.count}`);
-    const updatedLines = updateImpactRows
-      .map(([key, labelKey]) => ({count: impact.update[key], label: nodesT(labelKey)}))
-      .filter((item) => item.count > 0)
-      .map((item) => `- ${item.label}: ${item.count}`);
-    const confirmLines = [nodesT('deleteNodeConfirm', {name: node.name})];
-    if (deletedLines.length > 0) {
-      confirmLines.push('', nodesT('deleteImpactDeleted'), ...deletedLines);
-    } else {
-      confirmLines.push('', nodesT('deleteImpactEmpty'));
-    }
-    if (updatedLines.length > 0) {
-      confirmLines.push('', nodesT('deleteImpactUpdated'), ...updatedLines);
-    }
-    confirmLines.push('', nodesT('deleteImpactContinue'));
-    if (!window.confirm(confirmLines.join('\n'))) {
+    setDeletingNode(node);
+    setNodeDeleteImpact(impact);
+  };
+
+  const confirmDeleteNode = () => {
+    if (!deletingNode) {
       return;
     }
-    if (editingNodeID === node.id) {
+    if (editingNodeID === deletingNode.id) {
       setEditingNodeID('');
     }
-    nodeConsole.deleteNode.mutate(node.id);
+    nodeConsole.deleteNode.mutate(deletingNode.id, {
+      onSuccess: () => {
+        setDeletingNode(null);
+        setNodeDeleteImpact(null);
+      }
+    });
   };
 
   const saveNode = () => {
@@ -182,6 +177,22 @@ export function NodeRegistryPageContent() {
       }
     );
   };
+  const nodeDeleteSections: DeleteImpactSection[] = nodeDeleteImpact ? [
+    ...deleteImpactRows.map(([key, labelKey]) => ({
+      id: key,
+      label: nodesT(labelKey),
+      count: nodeDeleteImpact.delete[key],
+      items: key === 'node' && deletingNode ? [{id: deletingNode.id, name: deletingNode.name, detail: deletingNode.mode}] : undefined
+    })),
+    ...updateImpactRows.map(([key, labelKey]) => ({
+      id: key,
+      label: nodesT(labelKey),
+      tone: 'update' as const,
+      count: nodeDeleteImpact.update[key]
+    }))
+  ] : deletingNode ? [
+    {id: 'node', label: nodesT('deleteImpactNode'), count: 1, items: [{id: deletingNode.id, name: deletingNode.name, detail: deletingNode.mode}]}
+  ] : [];
 
   return (
     <AuthGate>
@@ -242,7 +253,7 @@ export function NodeRegistryPageContent() {
             nodesError={nodeConsole.nodesQuery.error}
             nodesPending={nodeConsole.nodesQuery.isPending}
             nodesT={nodesT}
-            onDelete={deleteNode}
+            onDelete={openDeleteNode}
             onGrant={(nodeID) => setGrantNodeID(nodeID)}
             onRetryHealth={() => void nodeConsole.healthQuery.refetch()}
             onRetryNodes={() => void nodeConsole.nodesQuery.refetch()}
@@ -285,6 +296,19 @@ export function NodeRegistryPageContent() {
             resourceType="node"
           />
         ) : null}
+
+        <DeleteConfirmationModal
+          onClose={() => {
+            setDeletingNode(null);
+            setNodeDeleteImpact(null);
+          }}
+          onConfirm={confirmDeleteNode}
+          open={Boolean(deletingNode)}
+          pending={nodeConsole.deleteNode.isPending || nodeConsole.nodeDeleteImpact.isPending}
+          sections={nodeDeleteSections}
+          targetName={deletingNode?.name || ''}
+          title={nodesT('deleteNodeTitle')}
+        />
       </ConsolePage>
     </AuthGate>
   );

@@ -4,16 +4,17 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useTranslations} from 'next-intl';
 import {toast} from 'sonner';
 import {useMemo, useState} from 'react';
-import {Edit, Share2} from 'lucide-react';
+import {Edit, Share2, Trash2} from 'lucide-react';
 
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {NameTag} from '@/components/common/name-tag';
 import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {useAuth} from '@/components/auth-provider';
-import {createChain, getChains, getNodes, getScopes, previewChain, probeChain, updateChain} from '@/lib/api';
-import {Chain, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/types';
+import {createChain, deleteChain, getChainDeleteImpact, getChains, getNodes, getScopes, previewChain, probeChain, updateChain} from '@/lib/api';
+import {Chain, ChainDeleteImpact, ChainPreviewResult, ChainProbeResult, CompiledChainConfig} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 import {ChainEditor} from './_components/chain-editor';
@@ -48,6 +49,8 @@ export default function ChainsPage() {
   const [probeResults, setProbeResults] = useState<Record<string, ChainProbeResult>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewConfig, setPreviewConfig] = useState<CompiledChainConfig | null>(null);
+  const [deletingChain, setDeletingChain] = useState<Chain | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<ChainDeleteImpact | null>(null);
   const [nameFilter, setNameFilter] = useState('');
   const [destinationScopeFilter, setDestinationScopeFilter] = useState('');
   const [hopsFilter, setHopsFilter] = useState('');
@@ -123,6 +126,30 @@ export default function ChainsPage() {
     }
   });
 
+  const deleteImpactMutation = useMutation({
+    mutationFn: (chainID: string) => getChainDeleteImpact(accessToken, activeTenantId, chainID),
+    onSuccess: (result) => setDeleteImpact(result),
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+      setDeletingChain(null);
+    }
+  });
+
+  const deleteChainMutation = useMutation({
+    mutationFn: (chainID: string) => deleteChain(accessToken, activeTenantId, chainID),
+    onSuccess: () => {
+      toast.success(chainsT('deleteSuccess'));
+      queryClient.invalidateQueries({queryKey: ['proxy-chains']});
+      queryClient.invalidateQueries({queryKey: ['route-rules']});
+      queryClient.invalidateQueries({queryKey: ['proxy-access-paths']});
+      setDeletingChain(null);
+      setDeleteImpact(null);
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
   const handleOpenEditor = (chain?: Chain) => {
     if (chain) {
       setEditingChain(chain);
@@ -172,6 +199,12 @@ export default function ChainsPage() {
     });
   };
 
+  const openDeleteChain = (chain: Chain) => {
+    setDeletingChain(chain);
+    setDeleteImpact(null);
+    deleteImpactMutation.mutate(chain.id);
+  };
+
   const chains = chainsQuery.data || [];
   const nodes = nodesQuery.data || [];
   const scopes = scopesQuery.data || [];
@@ -187,6 +220,17 @@ export default function ChainsPage() {
       (!statusFilter || (statusFilter === 'enabled' ? chain.enabled : !chain.enabled))
     );
   }, [chains, destinationScopeFilter, hopsFilter, nameFilter, nodeNameById, scopeNameById, statusFilter]);
+  const chainDeleteSections: DeleteImpactSection[] = deleteImpact ? [
+    {id: 'chain', label: chainsT('deleteImpactChain'), items: deleteImpact.delete.chain},
+    {id: 'chainHops', label: chainsT('deleteImpactChainHops'), items: deleteImpact.delete.chainHops},
+    {id: 'routeRules', label: chainsT('deleteImpactRouteRules'), items: deleteImpact.delete.routeRules},
+    {id: 'accessPaths', label: chainsT('deleteImpactAccessPaths'), items: deleteImpact.delete.accessPaths},
+    {id: 'onboardingTasks', label: chainsT('deleteImpactOnboardingTasks'), items: deleteImpact.delete.onboardingTasks},
+    {id: 'chainProbeResults', label: chainsT('deleteImpactChainProbeResults'), items: deleteImpact.delete.chainProbeResults},
+    {id: 'tenantBindings', label: chainsT('deleteImpactTenantBindings'), items: deleteImpact.delete.tenantBindings}
+  ] : deletingChain ? [
+    {id: 'chain', label: chainsT('deleteImpactChain'), count: 1}
+  ] : [];
 
   return (
     <AuthGate>
@@ -278,6 +322,17 @@ export default function ChainsPage() {
                             >
                               {chainsT('probe')}
                             </button>
+                            {canWrite ? (
+                              <button
+                                className="danger-button"
+                                disabled={!canManage || deleteChainMutation.isPending || deleteImpactMutation.isPending}
+                                onClick={() => openDeleteChain(chain)}
+                                type="button"
+                              >
+                                <Trash2 size={14} />
+                                {t('common.delete')}
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -345,6 +400,23 @@ export default function ChainsPage() {
             resourceType="chain"
           />
         ) : null}
+
+        <DeleteConfirmationModal
+          onClose={() => {
+            setDeletingChain(null);
+            setDeleteImpact(null);
+          }}
+          onConfirm={() => {
+            if (deletingChain) {
+              deleteChainMutation.mutate(deletingChain.id);
+            }
+          }}
+          open={Boolean(deletingChain)}
+          pending={deleteChainMutation.isPending || deleteImpactMutation.isPending}
+          sections={chainDeleteSections}
+          targetName={deletingChain?.name || ''}
+          title={chainsT('deleteConfirmTitle')}
+        />
       </ConsolePage>
     </AuthGate>
   );

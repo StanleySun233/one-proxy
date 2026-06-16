@@ -6,6 +6,7 @@ import {useTranslations} from 'next-intl';
 import {AsyncState} from '@/components/async-state';
 import {AuthGate} from '@/components/auth-gate';
 import {ConsoleFilterBar, ConsoleFilterItem, ConsoleList, ConsolePage} from '@/components/console-template';
+import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {NameTag} from '@/components/common/name-tag';
 import {Node, UnconsumedBootstrapToken} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
@@ -21,6 +22,9 @@ export function NodeApprovalsPageContent() {
   const [typeFilter, setTypeFilter] = useState('');
   const [targetFilter, setTargetFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [deletingPendingNode, setDeletingPendingNode] = useState<Node | null>(null);
+  const [rejectingNode, setRejectingNode] = useState<Node | null>(null);
+  const [deletingToken, setDeletingToken] = useState<UnconsumedBootstrapToken | null>(null);
   const pendingNodes = nodeConsole.pendingNodesQuery.data || [];
   const unconsumedTokens = nodeConsole.unconsumedTokensQuery.data || [];
   const scopes = nodeConsole.scopesQuery.data || [];
@@ -48,6 +52,15 @@ export function NodeApprovalsPageContent() {
         (!statusFilter.trim() || t('common.unused').toLowerCase().includes(statusFilter.trim().toLowerCase()));
     });
   }, [allItems, nameFilter, nodesT, scopeNameById, statusFilter, t, targetFilter, typeFilter]);
+  const pendingNodeDeleteSections: DeleteImpactSection[] = deletingPendingNode ? [
+    {id: 'pendingNode', label: nodesT('deleteImpactPendingNode'), items: [{id: deletingPendingNode.id, name: deletingPendingNode.name || t('common.unknown'), detail: deletingPendingNode.mode}]}
+  ] : [];
+  const rejectSections: DeleteImpactSection[] = rejectingNode ? [
+    {id: 'rejectedEnrollment', label: nodesT('rejectImpactEnrollment'), tone: 'update', items: [{id: rejectingNode.id, name: rejectingNode.name || t('common.unknown'), detail: rejectingNode.mode}]}
+  ] : [];
+  const tokenDeleteSections: DeleteImpactSection[] = deletingToken ? [
+    {id: 'bootstrapToken', label: nodesT('deleteImpactBootstrapToken'), items: [{id: deletingToken.id, name: deletingToken.nodeName || t('common.unknown'), detail: deletingToken.nodeMode}]}
+  ] : [];
 
   return (
     <AuthGate>
@@ -121,12 +134,7 @@ export function NodeApprovalsPageContent() {
                               <button
                                 className="danger-button"
                                 disabled={nodeConsole.deleteNode.isPending}
-                                onClick={() => {
-                                  if (!window.confirm(nodesT('deletePendingConfirm', {name: node.name || t('common.unknown')}))) {
-                                    return;
-                                  }
-                                  nodeConsole.deleteNode.mutate(node.id);
-                                }}
+                                onClick={() => setDeletingPendingNode(node)}
                                 type="button"
                               >
                                 {t('common.delete')}
@@ -134,12 +142,7 @@ export function NodeApprovalsPageContent() {
                               <button
                                 className="danger-button"
                                 disabled={nodeConsole.rejectNode.isPending}
-                                onClick={() => {
-                                  if (!window.confirm(nodesT('rejectEnrollmentConfirm', {name: node.name || t('common.unknown')}))) {
-                                    return;
-                                  }
-                                  nodeConsole.rejectNode.mutate({nodeId: node.id});
-                                }}
+                                onClick={() => setRejectingNode(node)}
                                 type="button"
                               >
                                 {t('common.reject')}
@@ -168,12 +171,7 @@ export function NodeApprovalsPageContent() {
                           <button
                             className="danger-button"
                             disabled={nodeConsole.deleteBootstrapToken.isPending}
-                            onClick={() => {
-                              if (!window.confirm(nodesT('deleteBootstrapTokenConfirm', {name: token.nodeName || t('common.unknown')}))) {
-                                return;
-                              }
-                              nodeConsole.deleteBootstrapToken.mutate(token.id);
-                            }}
+                            onClick={() => setDeletingToken(token)}
                             type="button"
                           >
                             {t('common.delete')}
@@ -187,6 +185,54 @@ export function NodeApprovalsPageContent() {
             </div>
           )}
         </ConsoleList>
+        <DeleteConfirmationModal
+          onClose={() => setDeletingPendingNode(null)}
+          onConfirm={() => {
+            if (deletingPendingNode) {
+              nodeConsole.deleteNode.mutate(deletingPendingNode.id, {
+                onSuccess: () => setDeletingPendingNode(null)
+              });
+            }
+          }}
+          open={Boolean(deletingPendingNode)}
+          pending={nodeConsole.deleteNode.isPending}
+          sections={pendingNodeDeleteSections}
+          targetName={deletingPendingNode?.name || t('common.unknown')}
+          title={nodesT('deletePendingTitle')}
+        />
+        <DeleteConfirmationModal
+          confirmIcon={null}
+          confirmLabel={t('common.reject')}
+          onClose={() => setRejectingNode(null)}
+          onConfirm={() => {
+            if (rejectingNode) {
+              nodeConsole.rejectNode.mutate({nodeId: rejectingNode.id}, {
+                onSuccess: () => setRejectingNode(null)
+              });
+            }
+          }}
+          open={Boolean(rejectingNode)}
+          pending={nodeConsole.rejectNode.isPending}
+          pendingLabel={t('common.submitting')}
+          sections={rejectSections}
+          targetName={rejectingNode?.name || t('common.unknown')}
+          title={nodesT('rejectEnrollmentTitle')}
+        />
+        <DeleteConfirmationModal
+          onClose={() => setDeletingToken(null)}
+          onConfirm={() => {
+            if (deletingToken) {
+              nodeConsole.deleteBootstrapToken.mutate(deletingToken.id, {
+                onSuccess: () => setDeletingToken(null)
+              });
+            }
+          }}
+          open={Boolean(deletingToken)}
+          pending={nodeConsole.deleteBootstrapToken.isPending}
+          sections={tokenDeleteSections}
+          targetName={deletingToken?.nodeName || t('common.unknown')}
+          title={nodesT('deleteBootstrapTokenTitle')}
+        />
       </ConsolePage>
     </AuthGate>
   );

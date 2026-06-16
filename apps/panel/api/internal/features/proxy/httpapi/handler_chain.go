@@ -47,6 +47,10 @@ func (r *Router) handleChains(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
+	if strings.HasSuffix(req.URL.Path, "/delete-impact") {
+		r.handleChainDeleteImpact(w, req)
+		return
+	}
 	if strings.HasSuffix(req.URL.Path, "/probe") {
 		r.handleChainProbe(w, req)
 		return
@@ -101,6 +105,30 @@ func (r *Router) handleChainByID(w http.ResponseWriter, req *http.Request) {
 	default:
 		writeMethodNotAllowed(w, "GET, PATCH, DELETE")
 	}
+}
+
+func (r *Router) handleChainDeleteImpact(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	chainID := strings.TrimSuffix(resourceID(req.URL.Path, "/api/proxy/"), "/delete-impact")
+	chainID = strings.TrimSuffix(chainID, "/")
+	if chainID == "" {
+		writeError(w, http.StatusBadRequest, "missing_chain_id")
+		return
+	}
+	tenantCtx, ok := httpctx.TenantAuth(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	result, err := r.service.ChainDeleteImpact(tenantCtx, chainID)
+	if err != nil {
+		writeServiceError(w, req, err, "delete_impact_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, result)
 }
 
 func (r *Router) handleChainProbe(w http.ResponseWriter, req *http.Request) {

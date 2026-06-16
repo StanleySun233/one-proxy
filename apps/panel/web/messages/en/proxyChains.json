@@ -41,6 +41,15 @@
   },
   "createSuccess": "Chain created",
   "updateSuccess": "Chain updated",
+  "deleteSuccess": "Chain deleted",
+  "deleteConfirmTitle": "Delete chain",
+  "deleteImpactChain": "Chain record",
+  "deleteImpactChainHops": "Chain hops",
+  "deleteImpactRouteRules": "Route rules using this chain",
+  "deleteImpactAccessPaths": "Network entries using this chain",
+  "deleteImpactOnboardingTasks": "Onboarding tasks attached to those entries",
+  "deleteImpactChainProbeResults": "Chain probe results",
+  "deleteImpactTenantBindings": "Tenant bindings",
   "copiedConfig": "Copied to clipboard",
   "copyConfigFailed": "Failed to copy"
 }

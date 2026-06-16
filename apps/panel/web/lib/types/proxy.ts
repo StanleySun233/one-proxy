@@ -9,6 +9,25 @@ export type Chain = ResourcePermissionMetadata & {
   hops: string[];
 };
 
+export type DeleteImpactItem = {
+  id: string;
+  name: string;
+  detail?: string;
+};
+
+export type ChainDeleteImpact = {
+  chainId: string;
+  delete: {
+    chain: DeleteImpactItem[];
+    chainHops: DeleteImpactItem[];
+    routeRules: DeleteImpactItem[];
+    accessPaths: DeleteImpactItem[];
+    onboardingTasks: DeleteImpactItem[];
+    chainProbeResults: DeleteImpactItem[];
+    tenantBindings: DeleteImpactItem[];
+  };
+};
+
 export type ChainProbeHop = {
   nodeId: string;
   nodeName: string;

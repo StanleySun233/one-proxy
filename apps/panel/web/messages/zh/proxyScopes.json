@@ -16,6 +16,8 @@
   "empty": "先创建范围，再创建节点、链路和规则。",
   "updatedAt": "更新时间",
   "deleteConfirm": "确定删除此范围？",
+  "deleteConfirmTitle": "删除范围",
+  "deleteImpactScope": "范围记录",
   "createSuccess": "范围已创建",
   "updateSuccess": "范围已更新",
   "deleteSuccess": "范围已删除"
