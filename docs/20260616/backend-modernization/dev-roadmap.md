@@ -83,3 +83,7 @@ Each task represents one atomic, file-scoped unit of work. No two engineers may 
 - Panel health returned `status=ok`.
 - Goose executed `00001_initial.sql` and migrated the empty test database to version 1.
 - API scenario covered login, tenant creation, scope creation, node bootstrap/enroll/approve, chain creation, preview, route creation, access path creation, delete impact, and chain deletion relationship cleanup.
+- Camelbot production `one-proxy-panel` was redeployed from the same built image as `ghcr.io/stanleysun233/oneproxy-panel:latest`; health returned `status=ok`.
+- Production MySQL now has `goose_db_version` rows `0/1` and `1/1`, with 39 tables under `one_proxy`.
+- The previous production image was retained locally on camelbot as `oneproxy-panel:pre-backend-modernization-20260616044222`.
+- Remote build directory was removed, temporary build image tags were removed, and Docker builder/image prune was executed without pruning volumes.

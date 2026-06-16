@@ -12,6 +12,7 @@
   - Evidence: GORM runtime schema bootstrap files were removed, and static search found no `gorm`, `ALTER TABLE`, or `CREATE TABLE IF NOT EXISTS` runtime schema mutation paths under `apps/panel/api`.
   - Evidence: chain and node access path delete preview and delete execution share DeletePlan definitions, with focused unit tests and a remote API scenario covering relationship cleanup.
   - Evidence: `docs/20260616/backend-modernization/backend-data-access-guidelines.md` documents Bun query builder, raw SQL, migration, and DeletePlan usage.
+  - Evidence: camelbot production panel was redeployed from the verified image, production health returned `status=ok`, production goose version is 1, and Docker build cache/image cleanup was executed after deployment.
   - Result: passed.
   - Commit:
 
