@@ -5,12 +5,13 @@ import {Share2} from 'lucide-react';
 
 import {AsyncState} from '@/components/async-state';
 import {NameTag} from '@/components/common/name-tag';
-import {Chain, RouteRule, Scope} from '@/lib/types';
+import {Chain, RouteRule, RouteRuleGroup, Scope} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
 
 type RouteRuleTableProps = {
   routeRules: RouteRule[];
   chains: Chain[];
+  groups: RouteRuleGroup[];
   scopes: Scope[];
   routeRulesQuery: UseQueryResult<RouteRule[], Error>;
   deletePending: boolean;
@@ -22,8 +23,9 @@ type RouteRuleTableProps = {
   onDelete?: (ruleId: string) => void;
 };
 
-export function RouteRuleTable({routeRules, chains, scopes, routeRulesQuery, deletePending, globalSuperAdmin, t, routesT, onGrant, onEdit, onDelete}: RouteRuleTableProps) {
+export function RouteRuleTable({routeRules, chains, groups, scopes, routeRulesQuery, deletePending, globalSuperAdmin, t, routesT, onGrant, onEdit, onDelete}: RouteRuleTableProps) {
   const scopeById = new Map(scopes.map((scope) => [scope.id, scope]));
+  const groupById = new Map(groups.map((group) => [group.id, group]));
 
   return (
     <>
@@ -44,6 +46,7 @@ export function RouteRuleTable({routeRules, chains, scopes, routeRulesQuery, del
             <thead>
               <tr>
                 <th>{routesT('priority')}</th>
+                <th>{routesT('routeGroup')}</th>
                 <th>{routesT('match')}</th>
                 <th>{routesT('action')}</th>
                 <th>{routesT('chain')}</th>
@@ -56,11 +59,13 @@ export function RouteRuleTable({routeRules, chains, scopes, routeRulesQuery, del
               {routeRules.map((rule) => {
                 const chain = chains.find((c) => c.id === rule.chainId);
                 const chainName = chain?.name || '';
+                const groupName = groupById.get(rule.groupId)?.name || '';
                 const scopeName = rule.destinationScope ? scopeById.get(rule.destinationScope)?.name || t('common.unknown') : '';
                 const canManage = globalSuperAdmin || rule.permission === 'manage';
                 return (
                   <tr key={rule.id}>
                     <td>{rule.priority}</td>
+                    <td>{groupName ? <NameTag kind="group">{groupName}</NameTag> : '-'}</td>
                     <td>
                       <strong>{rule.matchType}</strong>
                       <div className="muted-text mono">{rule.matchValue}</div>

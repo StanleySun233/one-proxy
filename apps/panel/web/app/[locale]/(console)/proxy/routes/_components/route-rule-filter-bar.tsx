@@ -1,7 +1,7 @@
 'use client';
 
 import {ConsoleFilterBar, ConsoleFilterItem} from '@/components/console-template';
-import {Chain, Scope} from '@/lib/types';
+import {Chain, RouteRuleGroup, Scope} from '@/lib/types';
 
 type SelectOption = {
   value: string;
@@ -11,8 +11,10 @@ type SelectOption = {
 type RouteRuleFilterBarProps = {
   actionTypeOptions: SelectOption[];
   chains: Chain[];
+  groups: RouteRuleGroup[];
   scopes: Scope[];
   matchFilter: string;
+  groupFilter: string;
   actionFilter: string;
   chainFilter: string;
   scopeFilter: string;
@@ -20,6 +22,7 @@ type RouteRuleFilterBarProps = {
   t: (key: string) => string;
   routesT: (key: string) => string;
   onMatchFilterChange: (value: string) => void;
+  onGroupFilterChange: (value: string) => void;
   onActionFilterChange: (value: string) => void;
   onChainFilterChange: (value: string) => void;
   onScopeFilterChange: (value: string) => void;
@@ -29,8 +32,10 @@ type RouteRuleFilterBarProps = {
 export function RouteRuleFilterBar({
   actionTypeOptions,
   chains,
+  groups,
   scopes,
   matchFilter,
+  groupFilter,
   actionFilter,
   chainFilter,
   scopeFilter,
@@ -38,6 +43,7 @@ export function RouteRuleFilterBar({
   t,
   routesT,
   onMatchFilterChange,
+  onGroupFilterChange,
   onActionFilterChange,
   onChainFilterChange,
   onScopeFilterChange,
@@ -47,6 +53,12 @@ export function RouteRuleFilterBar({
     <ConsoleFilterBar title={t('common.filter')}>
       <ConsoleFilterItem label={routesT('match')} match={t('common.contains')}>
         <input className="field-input" onChange={(event) => onMatchFilterChange(event.target.value)} placeholder={routesT('match')} value={matchFilter} />
+      </ConsoleFilterItem>
+      <ConsoleFilterItem label={routesT('routeGroup')} match={t('common.equals')}>
+        <select className="field-select" onChange={(event) => onGroupFilterChange(event.target.value)} value={groupFilter}>
+          <option value="">{t('common.all')}</option>
+          {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+        </select>
       </ConsoleFilterItem>
       <ConsoleFilterItem label={routesT('actionType')} match={t('common.equals')}>
         <select className="field-select" onChange={(event) => onActionFilterChange(event.target.value)} value={actionFilter}>

@@ -73,7 +73,9 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         {label: t('shell.scopeBoard'), href: '/proxy/scopes'},
         {label: t('shell.nodeTopology'), href: '/proxy/topology'},
         {label: t('shell.chainStudio'), href: '/proxy/studio'},
-        {label: t('shell.routeBoard'), href: '/proxy/routes'},
+        {label: t('shell.routeGroups'), href: '/proxy/routes/groups'},
+        {label: t('shell.routeRules'), href: '/proxy/routes/rules'},
+        {label: t('shell.routePublish'), href: '/proxy/routes/publish'},
         {label: t('shell.accessPaths'), href: '/proxy/network'}
       ]
     },
