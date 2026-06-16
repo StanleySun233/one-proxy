@@ -1,6 +1,7 @@
 'use client';
 
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {X} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 
@@ -12,9 +13,14 @@ type RegexTesterModalProps = {
 export function RegexTesterModal({initialPattern, onClose}: RegexTesterModalProps) {
   const t = useTranslations();
   const routesT = useTranslations('proxyRoutes');
+  const [mounted, setMounted] = useState(false);
   const [pattern, setPattern] = useState(initialPattern);
   const [testString, setTestString] = useState('');
   const [result, setResult] = useState<{valid: boolean; matches: boolean; groups: string[]; error: string} | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleTest = () => {
     let regex: RegExp;
@@ -38,7 +44,11 @@ export function RegexTesterModal({initialPattern, onClose}: RegexTesterModalProp
     }
   };
 
-  return (
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(
     <div className="dialog-backdrop" onClick={onClose}>
       <div className="dialog-panel" onClick={(e) => e.stopPropagation()}>
         <div className="panel-toolbar">
@@ -108,6 +118,7 @@ export function RegexTesterModal({initialPattern, onClose}: RegexTesterModalProp
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

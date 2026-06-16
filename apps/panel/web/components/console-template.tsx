@@ -1,4 +1,7 @@
-import {ReactNode} from 'react';
+'use client';
+
+import {ReactNode, useEffect, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {X} from 'lucide-react';
 
 type ConsolePageProps = {
@@ -78,10 +81,16 @@ type ConsoleCrudModalProps = {
 };
 
 export function ConsoleCrudModal({open, title, subtitle, onClose, children, footer}: ConsoleCrudModalProps) {
-  if (!open) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!open || !mounted) {
     return null;
   }
-  return (
+  return createPortal(
     <div className="console-modal-backdrop" role="presentation">
       <section aria-modal="true" className="console-modal" role="dialog">
         <div className="console-modal-head">
@@ -96,6 +105,7 @@ export function ConsoleCrudModal({open, title, subtitle, onClose, children, foot
         <div className="console-modal-body">{children}</div>
         {footer ? <div className="console-modal-footer">{footer}</div> : null}
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
