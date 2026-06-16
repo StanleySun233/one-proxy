@@ -78,9 +78,13 @@ Set `NODE_REVERSE_TARGET_URL=http://172.20.116.91:2333` when a node should act a
 
 ## GHCR
 
-Pushes to `main` trigger the split image workflows and publish:
+Pushes of `v*` git tags trigger the image release workflows and publish both the git tag and `latest` image tags:
 
 - `ghcr.io/stanleysun233/oneproxy-panel-base:latest`
+- `ghcr.io/stanleysun233/oneproxy-panel-base:<git-tag>`
 - `ghcr.io/stanleysun233/oneproxy-panel:latest`
+- `ghcr.io/stanleysun233/oneproxy-panel:<git-tag>`
 - `ghcr.io/stanleysun233/oneproxy-node-base:latest`
+- `ghcr.io/stanleysun233/oneproxy-node-base:<git-tag>`
 - `ghcr.io/stanleysun233/oneproxy-node:latest`
+- `ghcr.io/stanleysun233/oneproxy-node:<git-tag>`

@@ -2,32 +2,15 @@ name: one-proxy-panel-image
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'apps/panel/api/**'
-      - 'apps/panel/web/**'
-      - 'docker/one-proxy-panel.Dockerfile'
-      - 'docker/one-proxy-panel-start.sh'
-      - '.github/workflows/one-proxy-panel-image.yml'
-      - '!apps/panel/api/go.mod'
-      - '!apps/panel/api/go.sum'
-      - '!apps/panel/web/package.json'
-      - '!apps/panel/web/package-lock.json'
+    tags: ['v*']
   pull_request:
     paths:
       - 'apps/panel/api/**'
       - 'apps/panel/web/**'
+      - 'docker/one-proxy-panel-base.Dockerfile'
       - 'docker/one-proxy-panel.Dockerfile'
       - 'docker/one-proxy-panel-start.sh'
       - '.github/workflows/one-proxy-panel-image.yml'
-      - '!apps/panel/api/go.mod'
-      - '!apps/panel/api/go.sum'
-      - '!apps/panel/web/package.json'
-      - '!apps/panel/web/package-lock.json'
-  workflow_run:
-    workflows: ['one-proxy-panel-base-image']
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -36,52 +19,50 @@ permissions:
 
 jobs:
   build:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect panel base changes
-        id: base
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_run" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "skip_final=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            git fetch origin "${{ github.base_ref }}" --depth=1
-            RANGE="origin/${{ github.base_ref }}...HEAD"
-          elif [[ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
-            RANGE="${{ github.event.before }}...${{ github.sha }}"
-          else
-            RANGE="HEAD~1...HEAD"
-          fi
-          changed="$(git diff --name-only "$RANGE" || true)"
-          if printf '%s\n' "$changed" | grep -Eq '^(docker/one-proxy-panel-base\.Dockerfile|apps/panel/web/package\.json|apps/panel/web/package-lock\.json|apps/panel/api/go\.(mod|sum))$'; then
-            echo "skip_final=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip_final=false" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Lowercase owner
-        if: steps.base.outputs.skip_final != 'true'
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
+      - name: Image metadata
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "IMAGE_VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          else
+            echo "IMAGE_VERSION=ci-${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+          fi
+
       - name: Login to GHCR
-        if: steps.base.outputs.skip_final != 'true' && github.event_name != 'pull_request'
+        if: github.event_name == 'push' && github.ref_type == 'tag'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Pull panel base image
-        if: steps.base.outputs.skip_final != 'true'
-        run: docker pull ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
+      - name: Build panel base image
+        run: docker build -f docker/one-proxy-panel-base.Dockerfile -t oneproxy-panel-base:${{ github.sha }} .
+
+      - name: Tag panel base release image
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        run: |
+          docker tag oneproxy-panel-base:${{ github.sha }} ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:${{ env.IMAGE_VERSION }}
+          docker tag oneproxy-panel-base:${{ github.sha }} ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
 
       - name: Build control-plane image
-        if: steps.base.outputs.skip_final != 'true'
-        run: docker build -f docker/one-proxy-panel.Dockerfile --build-arg PANEL_BASE_IMAGE=ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:latest .
+        run: |
+          docker build -f docker/one-proxy-panel.Dockerfile \
+            --build-arg PANEL_BASE_IMAGE=oneproxy-panel-base:${{ github.sha }} \
+            -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:${{ env.IMAGE_VERSION }} \
+            -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:latest .
+
+      - name: Push panel base image
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        run: |
+          docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:${{ env.IMAGE_VERSION }}
+          docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
 
       - name: Push control-plane image
-        if: steps.base.outputs.skip_final != 'true' && github.event_name != 'pull_request'
-        run: docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:latest
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        run: |
+          docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:${{ env.IMAGE_VERSION }}
+          docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:latest

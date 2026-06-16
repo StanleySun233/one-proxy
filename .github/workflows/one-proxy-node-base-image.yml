@@ -1,13 +1,6 @@
 name: one-proxy-node-base-image
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/node/api/go.mod'
-      - 'apps/node/api/go.sum'
-      - 'docker/one-proxy-node-base.Dockerfile'
-      - '.github/workflows/one-proxy-node-base-image.yml'
   pull_request:
     paths:
       - 'apps/node/api/go.mod'
@@ -18,7 +11,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build:
@@ -26,16 +18,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Lowercase owner
-        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
-
-      - name: Login to GHCR
-        if: github.event_name != 'pull_request'
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
       - name: Build proxy-node base image
-        run: docker build -f docker/one-proxy-node-base.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest .
-
-      - name: Push proxy-node base image
-        if: github.event_name != 'pull_request'
-        run: docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-node-base:latest
+        run: docker build -f docker/one-proxy-node-base.Dockerfile -t oneproxy-node-base:ci .

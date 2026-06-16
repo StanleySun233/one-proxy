@@ -1,15 +1,6 @@
 name: one-proxy-panel-base-image
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/panel/api/go.mod'
-      - 'apps/panel/api/go.sum'
-      - 'apps/panel/web/package.json'
-      - 'apps/panel/web/package-lock.json'
-      - 'docker/one-proxy-panel-base.Dockerfile'
-      - '.github/workflows/one-proxy-panel-base-image.yml'
   pull_request:
     paths:
       - 'apps/panel/api/go.mod'
@@ -22,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build:
@@ -30,16 +20,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Lowercase owner
-        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
-
-      - name: Login to GHCR
-        if: github.event_name != 'pull_request'
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
       - name: Build panel base image
-        run: docker build -f docker/one-proxy-panel-base.Dockerfile -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest .
-
-      - name: Push panel base image
-        if: github.event_name != 'pull_request'
-        run: docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
+        run: docker build -f docker/one-proxy-panel-base.Dockerfile -t oneproxy-panel-base:ci .
