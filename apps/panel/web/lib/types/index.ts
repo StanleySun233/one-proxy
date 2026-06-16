@@ -22,6 +22,8 @@ export type {
   CompiledChainHop,
   CompiledChainConfig,
   ChainPreviewResult,
+  RouteRuleGroup,
+  RouteRuleGroupDeleteImpact,
   RouteRule,
   MatchValueValidation,
   ChainValidation,

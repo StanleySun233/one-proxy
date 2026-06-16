@@ -19,6 +19,22 @@ func (s *Service) RouteRules(tenantCtx domain.TenantAuthContext) []proxy.RouteRu
 	return s.store.ListRouteRulesForTenant(tenantCtx)
 }
 
+func (s *Service) RouteRuleGroups(tenantCtx domain.TenantAuthContext) []proxy.RouteRuleGroup {
+	return s.store.ListRouteRuleGroupsForTenant(tenantCtx)
+}
+
+func (s *Service) GetRouteRuleGroup(tenantCtx domain.TenantAuthContext, groupID string) (proxy.RouteRuleGroup, error) {
+	if groupID == "" {
+		return proxy.RouteRuleGroup{}, invalidInput("missing_route_rule_group_id")
+	}
+	for _, group := range s.RouteRuleGroups(tenantCtx) {
+		if group.ID == groupID {
+			return group, nil
+		}
+	}
+	return proxy.RouteRuleGroup{}, invalidInput("route_rule_group_not_found")
+}
+
 func (s *Service) RouteRulesWithDetails(tenantCtx domain.TenantAuthContext) []proxy.RouteRuleWithDetails {
 	rules := s.store.ListRouteRulesForTenant(tenantCtx)
 	chains := s.ChainsWithDetails(tenantCtx)
@@ -31,6 +47,7 @@ func (s *Service) RouteRulesWithDetails(tenantCtx domain.TenantAuthContext) []pr
 	for _, rule := range rules {
 		item := proxy.RouteRuleWithDetails{
 			ID:               rule.ID,
+			GroupID:          rule.GroupID,
 			CreateID:         rule.CreateID,
 			OwnerID:          rule.OwnerID,
 			Priority:         rule.Priority,
@@ -50,6 +67,62 @@ func (s *Service) RouteRulesWithDetails(tenantCtx domain.TenantAuthContext) []pr
 		result = append(result, item)
 	}
 	return result
+}
+
+func (s *Service) CreateRouteRuleGroup(tenantCtx domain.TenantAuthContext, input proxy.CreateRouteRuleGroupInput) (proxy.RouteRuleGroup, error) {
+	if err := requireActiveTenant(tenantCtx); err != nil {
+		return proxy.RouteRuleGroup{}, err
+	}
+	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
+		return proxy.RouteRuleGroup{}, newError(http.StatusForbidden, "tenant_role_forbidden")
+	}
+	if strings.TrimSpace(input.Name) == "" {
+		return proxy.RouteRuleGroup{}, invalidInput("missing_route_rule_group_name")
+	}
+	input.Name = strings.TrimSpace(input.Name)
+	input.Description = strings.TrimSpace(input.Description)
+	return s.store.CreateRouteRuleGroupForTenant(tenantCtx, input)
+}
+
+func (s *Service) UpdateRouteRuleGroup(tenantCtx domain.TenantAuthContext, groupID string, input proxy.UpdateRouteRuleGroupInput) (proxy.RouteRuleGroup, error) {
+	if groupID == "" {
+		return proxy.RouteRuleGroup{}, invalidInput("missing_route_rule_group_id")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.RouteRuleGroupBindingPermission(tenantCtx, groupID)
+	}); err != nil {
+		return proxy.RouteRuleGroup{}, err
+	}
+	if strings.TrimSpace(input.Name) == "" {
+		return proxy.RouteRuleGroup{}, invalidInput("missing_route_rule_group_name")
+	}
+	input.Name = strings.TrimSpace(input.Name)
+	input.Description = strings.TrimSpace(input.Description)
+	return s.store.UpdateRouteRuleGroup(groupID, input)
+}
+
+func (s *Service) RouteRuleGroupDeleteImpact(tenantCtx domain.TenantAuthContext, groupID string) (proxy.RouteRuleGroupDeleteImpact, error) {
+	if groupID == "" {
+		return proxy.RouteRuleGroupDeleteImpact{}, invalidInput("missing_route_rule_group_id")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.RouteRuleGroupBindingPermission(tenantCtx, groupID)
+	}); err != nil {
+		return proxy.RouteRuleGroupDeleteImpact{}, err
+	}
+	return s.store.GetRouteRuleGroupDeleteImpact(groupID)
+}
+
+func (s *Service) DeleteRouteRuleGroup(tenantCtx domain.TenantAuthContext, groupID string) error {
+	if groupID == "" {
+		return invalidInput("missing_route_rule_group_id")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.RouteRuleGroupBindingPermission(tenantCtx, groupID)
+	}); err != nil {
+		return err
+	}
+	return s.store.DeleteRouteRuleGroup(groupID)
 }
 
 func (s *Service) GetRouteRule(tenantCtx domain.TenantAuthContext, ruleID string) (proxy.RouteRuleWithDetails, error) {
@@ -94,8 +167,13 @@ func (s *Service) CreateRouteRule(tenantCtx domain.TenantAuthContext, input prox
 	if err := requireActiveTenant(tenantCtx); err != nil {
 		return proxy.RouteRule{}, err
 	}
-	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
-		return proxy.RouteRule{}, newError(http.StatusForbidden, "tenant_role_forbidden")
+	if input.GroupID == "" {
+		return proxy.RouteRule{}, invalidInput("missing_route_rule_group_id")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.RouteRuleGroupBindingPermission(tenantCtx, input.GroupID)
+	}); err != nil {
+		return proxy.RouteRule{}, err
 	}
 	if err := s.validateRouteRule(tenantCtx, input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return proxy.RouteRule{}, err
@@ -112,6 +190,14 @@ func (s *Service) UpdateRouteRule(tenantCtx domain.TenantAuthContext, ruleID str
 	}); err != nil {
 		return proxy.RouteRule{}, err
 	}
+	if input.GroupID == "" {
+		return proxy.RouteRule{}, invalidInput("missing_route_rule_group_id")
+	}
+	if err := s.requireTenantResourceManage(tenantCtx, func() (domain.BindingPermission, bool) {
+		return s.store.RouteRuleGroupBindingPermission(tenantCtx, input.GroupID)
+	}); err != nil {
+		return proxy.RouteRule{}, err
+	}
 	if err := s.validateRouteRule(tenantCtx, input.ActionType, input.ChainID, input.DestinationScope, input.MatchType, input.MatchValue); err != nil {
 		return proxy.RouteRule{}, err
 	}
@@ -123,9 +209,6 @@ func (s *Service) DeleteRouteRule(tenantCtx domain.TenantAuthContext, ruleID str
 		return s.store.RouteRuleBindingPermission(tenantCtx, ruleID)
 	}); err != nil {
 		return err
-	}
-	if !tenantCtx.SuperAdmin && s.store.CountRouteRuleBindings(ruleID) > 1 {
-		return newError(http.StatusConflict, "shared_resource_delete_forbidden")
 	}
 	return s.store.DeleteRouteRule(ruleID)
 }
@@ -219,6 +302,9 @@ func (s *Service) ValidateRouteRule(tenantCtx domain.TenantAuthContext, input pr
 	rules := s.store.ListRouteRulesForTenant(tenantCtx)
 	for _, rule := range rules {
 		if input.RuleID != "" && rule.ID == input.RuleID {
+			continue
+		}
+		if input.GroupID != "" && rule.GroupID != input.GroupID {
 			continue
 		}
 		if rule.Priority == input.Priority {

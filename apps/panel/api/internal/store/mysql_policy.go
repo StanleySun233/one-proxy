@@ -15,7 +15,7 @@ func tenantPolicyContext(tenantCtx domain.TenantAuthContext) domain.TenantAuthCo
 
 func (s *MySQLStore) tenantPolicyInputs(tenantCtx domain.TenantAuthContext) ([]domain.Node, []domain.NodeLink, []proxy.Chain, []proxy.RouteRule) {
 	scoped := tenantPolicyContext(tenantCtx)
-	return s.policyNodesForTenant(scoped), s.ListNodeLinksForTenant(scoped), s.ListChainsForTenant(scoped), s.ListRouteRulesForTenant(scoped)
+	return s.policyNodesForTenant(scoped), s.ListNodeLinksForTenant(scoped), s.ListChainsForTenant(scoped), s.ListPolicyRouteRulesForTenant(scoped)
 }
 
 func (s *MySQLStore) policyNodesForTenant(tenantCtx domain.TenantAuthContext) []domain.Node {

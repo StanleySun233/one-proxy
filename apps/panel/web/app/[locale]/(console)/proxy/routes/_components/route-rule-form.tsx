@@ -2,7 +2,7 @@
 
 import {UseFormReturn} from 'react-hook-form';
 
-import {Chain, RouteRuleValidationResult, Scope} from '@/lib/types';
+import {Chain, RouteRuleGroup, RouteRuleValidationResult, Scope} from '@/lib/types';
 
 import {RouteRuleFormValues} from '../_lib/form';
 import {ValidationPanel} from './validation-panel';
@@ -14,6 +14,7 @@ type SelectOption = {
 
 type RouteRuleFormProps = {
   form: UseFormReturn<RouteRuleFormValues>;
+  groups: RouteRuleGroup[];
   chains: Chain[];
   scopes: Scope[];
   matchTypeOptions: SelectOption[];
@@ -37,6 +38,7 @@ type RouteRuleFormProps = {
 
 export function RouteRuleForm({
   form,
+  groups,
   chains,
   scopes,
   matchTypeOptions,
@@ -75,6 +77,20 @@ export function RouteRuleForm({
           form.handleSubmit(onSubmit)(e);
         }}
       >
+        <div className="field-stack">
+          <span>{routesT('routeGroup')}</span>
+          <select
+            aria-invalid={form.formState.errors.groupId ? 'true' : 'false'}
+            className="field-select"
+            {...form.register('groupId', {required: routesT('routeGroupRequired')})}
+          >
+            <option value="">{routesT('routeGroupPlaceholder')}</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>{group.name}</option>
+            ))}
+          </select>
+          {form.formState.errors.groupId ? <p className="error-text">{form.formState.errors.groupId.message}</p> : null}
+        </div>
         <div className="field-stack">
           <span>{routesT('priority')}</span>
           <input

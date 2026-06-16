@@ -100,14 +100,22 @@ type ChainStore interface {
 }
 
 type RouteStore interface {
+	ListRouteRuleGroups() []proxy.RouteRuleGroup
+	ListRouteRuleGroupsForTenant(tenantCtx domain.TenantAuthContext) []proxy.RouteRuleGroup
+	CreateRouteRuleGroupForTenant(tenantCtx domain.TenantAuthContext, input proxy.CreateRouteRuleGroupInput) (proxy.RouteRuleGroup, error)
+	UpdateRouteRuleGroup(groupID string, input proxy.UpdateRouteRuleGroupInput) (proxy.RouteRuleGroup, error)
+	GetRouteRuleGroupDeleteImpact(groupID string) (proxy.RouteRuleGroupDeleteImpact, error)
+	DeleteRouteRuleGroup(groupID string) error
+	RouteRuleGroupBindingPermission(tenantCtx domain.TenantAuthContext, groupID string) (domain.BindingPermission, bool)
+	CountRouteRuleGroupBindings(groupID string) int
 	ListRouteRules() []proxy.RouteRule
 	ListRouteRulesForTenant(tenantCtx domain.TenantAuthContext) []proxy.RouteRule
+	ListPolicyRouteRulesForTenant(tenantCtx domain.TenantAuthContext) []proxy.RouteRule
 	CreateRouteRule(input proxy.CreateRouteRuleInput) (proxy.RouteRule, error)
 	CreateRouteRuleForTenant(tenantCtx domain.TenantAuthContext, input proxy.CreateRouteRuleInput) (proxy.RouteRule, error)
 	UpdateRouteRule(ruleID string, input proxy.UpdateRouteRuleInput) (proxy.RouteRule, error)
 	DeleteRouteRule(ruleID string) error
 	RouteRuleBindingPermission(tenantCtx domain.TenantAuthContext, ruleID string) (domain.BindingPermission, bool)
-	CountRouteRuleBindings(ruleID string) int
 }
 
 type HealthStore interface {

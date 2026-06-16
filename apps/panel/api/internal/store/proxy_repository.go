@@ -222,20 +222,68 @@ func (r proxyRepository) listRouteRules(ctx context.Context) ([]proxy.RouteRule,
 	return items, nil
 }
 
-func (r proxyRepository) listRouteRulesForTenant(ctx context.Context, tenantCtx domain.TenantAuthContext) ([]proxy.RouteRule, error) {
+func (r proxyRepository) listRouteRuleGroups(ctx context.Context) ([]proxy.RouteRuleGroup, error) {
+	var rows []struct {
+		RouteRuleGroupModel
+		RuleCount int `bun:"rule_count"`
+	}
+	if err := r.db.NewSelect().
+		TableExpr("route_rule_groups AS rrg").
+		ColumnExpr("rrg.id, rrg.name, rrg.description, rrg.enabled, rrg.create_id, rrg.owner_id, rrg.created_at, rrg.updated_at").
+		ColumnExpr("(SELECT COUNT(*) FROM route_rules rr WHERE rr.group_id = rrg.id) AS rule_count").
+		OrderExpr("rrg.name").
+		Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	items := make([]proxy.RouteRuleGroup, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, routeRuleGroupModel(row.RouteRuleGroupModel, "", row.RuleCount))
+	}
+	return items, nil
+}
+
+func (r proxyRepository) listRouteRuleGroupsForTenant(ctx context.Context, tenantCtx domain.TenantAuthContext) ([]proxy.RouteRuleGroup, error) {
+	var rows []struct {
+		RouteRuleGroupModel
+		Permission string `bun:"permission"`
+		RuleCount  int    `bun:"rule_count"`
+	}
+	if err := r.db.NewSelect().
+		TableExpr("route_rule_groups AS rrg").
+		ColumnExpr("rrg.id, rrg.name, rrg.description, rrg.enabled, rrg.create_id, rrg.owner_id, rrg.created_at, rrg.updated_at").
+		ColumnExpr("trg.permission").
+		ColumnExpr("(SELECT COUNT(*) FROM route_rules rr WHERE rr.group_id = rrg.id) AS rule_count").
+		Join("JOIN tenant_route_rule_groups AS trg ON trg.route_rule_group_id = rrg.id").
+		Where("trg.tenant_id = ?", tenantCtx.ActiveTenant.TenantID).
+		Where("trg.permission IN (?, ?)", domain.BindingPermissionUse, domain.BindingPermissionManage).
+		OrderExpr("rrg.name").
+		Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	items := make([]proxy.RouteRuleGroup, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, routeRuleGroupModel(row.RouteRuleGroupModel, row.Permission, row.RuleCount))
+	}
+	return items, nil
+}
+
+func (r proxyRepository) listRouteRulesForTenant(ctx context.Context, tenantCtx domain.TenantAuthContext, enabledGroupsOnly bool) ([]proxy.RouteRule, error) {
 	var rows []struct {
 		RouteRuleModel
 		Permission string `bun:"permission"`
 	}
-	if err := r.db.NewSelect().
+	query := r.db.NewSelect().
 		TableExpr("route_rules AS rr").
-		ColumnExpr("rr.id, rr.create_id, rr.owner_id, rr.priority, rr.match_type, rr.match_value, rr.action_type, rr.chain_id, rr.destination_scope, rr.enabled").
-		ColumnExpr("trr.permission").
-		Join("JOIN tenant_route_rules AS trr ON trr.route_rule_id = rr.id").
-		Where("trr.tenant_id = ?", tenantCtx.ActiveTenant.TenantID).
-		Where("trr.permission IN (?, ?)", domain.BindingPermissionUse, domain.BindingPermissionManage).
-		OrderExpr("rr.priority ASC").
-		Scan(ctx, &rows); err != nil {
+		ColumnExpr("rr.id, rr.group_id, rr.create_id, rr.owner_id, rr.priority, rr.match_type, rr.match_value, rr.action_type, rr.chain_id, rr.destination_scope, rr.enabled, rr.created_at, rr.updated_at").
+		ColumnExpr("trg.permission").
+		Join("JOIN route_rule_groups AS rrg ON rrg.id = rr.group_id").
+		Join("JOIN tenant_route_rule_groups AS trg ON trg.route_rule_group_id = rr.group_id").
+		Where("trg.tenant_id = ?", tenantCtx.ActiveTenant.TenantID).
+		Where("trg.permission IN (?, ?)", domain.BindingPermissionUse, domain.BindingPermissionManage)
+	if enabledGroupsOnly {
+		query = query.Where("rrg.enabled = ?", true)
+	}
+	if err := query.OrderExpr("rr.priority ASC").Scan(ctx, &rows); err != nil {
 		return nil, err
 	}
 	items := make([]proxy.RouteRule, 0, len(rows))
@@ -245,15 +293,15 @@ func (r proxyRepository) listRouteRulesForTenant(ctx context.Context, tenantCtx 
 	return items, nil
 }
 
-func (r proxyRepository) createRouteRule(ctx context.Context, item proxy.RouteRule, tenantID string) error {
+func (r proxyRepository) createRouteRuleGroup(ctx context.Context, item proxy.RouteRuleGroup, tenantID string) error {
 	now := nowRFC3339()
-	model := RouteRuleModel{ID: item.ID, Priority: item.Priority, MatchType: item.MatchType, MatchValue: item.MatchValue, ActionType: item.ActionType, ChainID: item.ChainID, DestinationScope: item.DestinationScope, Enabled: item.Enabled, CreateID: item.CreateID, OwnerID: item.OwnerID, CreatedAt: now, UpdatedAt: now}
+	model := RouteRuleGroupModel{ID: item.ID, Name: item.Name, Description: item.Description, Enabled: item.Enabled, CreateID: item.CreateID, OwnerID: item.OwnerID, CreatedAt: now, UpdatedAt: now}
 	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(&model).Exec(ctx); err != nil {
 			return err
 		}
 		if tenantID != "" {
-			binding := TenantRouteRuleModel{TenantID: tenantID, RouteRuleID: item.ID, Permission: string(domain.BindingPermissionManage), CreateID: item.CreateID, CreatedAt: now}
+			binding := TenantRouteRuleGroupModel{TenantID: tenantID, RouteRuleGroupID: item.ID, Permission: string(domain.BindingPermissionManage), CreateID: item.CreateID, CreatedAt: now}
 			if _, err := tx.NewInsert().Model(&binding).Exec(ctx); err != nil {
 				return err
 			}
@@ -262,9 +310,51 @@ func (r proxyRepository) createRouteRule(ctx context.Context, item proxy.RouteRu
 	})
 }
 
+func (r proxyRepository) updateRouteRuleGroup(ctx context.Context, groupID string, input proxy.UpdateRouteRuleGroupInput) (proxy.RouteRuleGroup, error) {
+	now := nowRFC3339()
+	if _, err := r.db.NewUpdate().Model((*RouteRuleGroupModel)(nil)).
+		Set("name = ?", input.Name).
+		Set("description = ?", input.Description).
+		Set("enabled = ?", input.Enabled).
+		Set("updated_at = ?", now).
+		Where("id = ?", groupID).
+		Exec(ctx); err != nil {
+		return proxy.RouteRuleGroup{}, err
+	}
+	return r.getRouteRuleGroup(ctx, groupID)
+}
+
+func (r proxyRepository) getRouteRuleGroup(ctx context.Context, groupID string) (proxy.RouteRuleGroup, error) {
+	var row struct {
+		RouteRuleGroupModel
+		RuleCount int `bun:"rule_count"`
+	}
+	if err := r.db.NewSelect().
+		TableExpr("route_rule_groups AS rrg").
+		ColumnExpr("rrg.id, rrg.name, rrg.description, rrg.enabled, rrg.create_id, rrg.owner_id, rrg.created_at, rrg.updated_at").
+		ColumnExpr("(SELECT COUNT(*) FROM route_rules rr WHERE rr.group_id = rrg.id) AS rule_count").
+		Where("rrg.id = ?", groupID).
+		Scan(ctx, &row); err != nil {
+		return proxy.RouteRuleGroup{}, err
+	}
+	return routeRuleGroupModel(row.RouteRuleGroupModel, "", row.RuleCount), nil
+}
+
+func routeRuleGroupModel(model RouteRuleGroupModel, permission string, ruleCount int) proxy.RouteRuleGroup {
+	return proxy.RouteRuleGroup{ID: model.ID, Name: model.Name, Description: model.Description, Enabled: model.Enabled, CreateID: model.CreateID, OwnerID: model.OwnerID, CreatedAt: model.CreatedAt, UpdatedAt: model.UpdatedAt, Permission: permission, RuleCount: ruleCount}
+}
+
+func (r proxyRepository) createRouteRule(ctx context.Context, item proxy.RouteRule) error {
+	now := nowRFC3339()
+	model := RouteRuleModel{ID: item.ID, GroupID: item.GroupID, Priority: item.Priority, MatchType: item.MatchType, MatchValue: item.MatchValue, ActionType: item.ActionType, ChainID: item.ChainID, DestinationScope: item.DestinationScope, Enabled: item.Enabled, CreateID: item.CreateID, OwnerID: item.OwnerID, CreatedAt: now, UpdatedAt: now}
+	_, err := r.db.NewInsert().Model(&model).Exec(ctx)
+	return err
+}
+
 func (r proxyRepository) updateRouteRule(ctx context.Context, ruleID string, input proxy.UpdateRouteRuleInput) (proxy.RouteRule, error) {
 	now := nowRFC3339()
 	if _, err := r.db.NewUpdate().Model((*RouteRuleModel)(nil)).
+		Set("group_id = ?", input.GroupID).
 		Set("priority = ?", input.Priority).
 		Set("match_type = ?", input.MatchType).
 		Set("match_value = ?", input.MatchValue).
@@ -289,22 +379,12 @@ func (r proxyRepository) getRouteRule(ctx context.Context, ruleID string) (proxy
 }
 
 func routeRuleModel(model RouteRuleModel, permission string) proxy.RouteRule {
-	return proxy.RouteRule{ID: model.ID, CreateID: model.CreateID, OwnerID: model.OwnerID, Priority: model.Priority, MatchType: model.MatchType, MatchValue: model.MatchValue, ActionType: model.ActionType, ChainID: model.ChainID, DestinationScope: model.DestinationScope, Enabled: model.Enabled, Permission: permission}
+	return proxy.RouteRule{ID: model.ID, GroupID: model.GroupID, CreateID: model.CreateID, OwnerID: model.OwnerID, Priority: model.Priority, MatchType: model.MatchType, MatchValue: model.MatchValue, ActionType: model.ActionType, ChainID: model.ChainID, DestinationScope: model.DestinationScope, Enabled: model.Enabled, Permission: permission}
 }
 
 func (r proxyRepository) deleteRouteRule(ctx context.Context, ruleID string) error {
-	tx, err := r.raw.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, "DELETE FROM tenant_route_rules WHERE route_rule_id = ?", ruleID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, "DELETE FROM route_rules WHERE id = ?", ruleID); err != nil {
-		return err
-	}
-	return tx.Commit()
+	_, err := r.raw.ExecContext(ctx, "DELETE FROM route_rules WHERE id = ?", ruleID)
+	return err
 }
 
 func (r proxyRepository) listNodeAccessPaths(ctx context.Context) ([]domain.NodeAccessPath, error) {

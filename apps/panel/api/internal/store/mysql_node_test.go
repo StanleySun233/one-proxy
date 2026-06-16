@@ -185,7 +185,6 @@ func TestDeleteNodeDeletesRelationshipsBeforeNode(t *testing.T) {
 	want := []nodeDeleteCall{
 		{Query: "BEGIN"},
 		{Query: "SELECT DISTINCT chain_id FROM chain_hops WHERE node_id = ? ORDER BY chain_id", Args: nodeArg},
-		{Query: "DELETE FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id IN (?,?))", Args: chainArgs},
 		{Query: "DELETE FROM route_rules WHERE chain_id IN (?,?)", Args: chainArgs},
 		{Query: "DELETE FROM node_onboarding_tasks WHERE path_id IN (SELECT id FROM node_access_paths WHERE chain_id IN (?,?))", Args: chainArgs},
 		{Query: "DELETE FROM node_access_paths WHERE chain_id IN (?,?)", Args: chainArgs},
@@ -236,9 +235,8 @@ func TestGetNodeDeleteImpactCountsRelationships(t *testing.T) {
 			"SELECT COUNT(*) FROM tenant_nodes WHERE node_id = ?":                                                                                                                                                                                                    1,
 			"SELECT COUNT(*) FROM tenant_node_links WHERE node_link_id IN (SELECT id FROM node_links WHERE source_node_id = ? OR target_node_id = ?)":                                                                                                                2,
 			"SELECT COUNT(*) FROM tenant_access_paths WHERE access_path_id IN (SELECT id FROM node_access_paths WHERE chain_id IN (?,?) OR target_node_id = ? OR entry_node_id = ? OR JSON_CONTAINS(relay_node_ids_json, JSON_QUOTE(?)))": 3,
-			"SELECT COUNT(*) FROM tenant_chains WHERE chain_id IN (?,?)":                                                          4,
-			"SELECT COUNT(*) FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id IN (?,?))": 5,
-			"SELECT COUNT(*) FROM nodes WHERE parent_node_id = ?":                                                                 16,
+			"SELECT COUNT(*) FROM tenant_chains WHERE chain_id IN (?,?)": 4,
+			"SELECT COUNT(*) FROM nodes WHERE parent_node_id = ?":        16,
 		},
 	}
 	db := openNodeDeleteTestDB(t, record)
@@ -268,7 +266,7 @@ func TestGetNodeDeleteImpactCountsRelationships(t *testing.T) {
 			APITokens:         12,
 			TrustMaterials:    13,
 			BootstrapTokens:   14,
-			TenantBindings:    15,
+			TenantBindings:    10,
 		},
 		Update: domain.NodeDeleteImpactUpdate{
 			ChildNodesDetached: 16,

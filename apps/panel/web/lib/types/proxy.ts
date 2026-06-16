@@ -15,6 +15,27 @@ export type DeleteImpactItem = {
   detail?: string;
 };
 
+export type RouteRuleGroup = ResourcePermissionMetadata & {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  createId: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+  ruleCount: number;
+};
+
+export type RouteRuleGroupDeleteImpact = {
+  groupId: string;
+  delete: {
+    group: DeleteImpactItem[];
+    routeRules: DeleteImpactItem[];
+    tenantBindings: DeleteImpactItem[];
+  };
+};
+
 export type ChainDeleteImpact = {
   chainId: string;
   delete: {
@@ -76,6 +97,7 @@ export type ChainPreviewResult = {
 
 export type RouteRule = ResourcePermissionMetadata & {
   id: string;
+  groupId: string;
   priority: number;
   matchType: MatchType;
   matchValue: string;

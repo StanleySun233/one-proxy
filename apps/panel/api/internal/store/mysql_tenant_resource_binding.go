@@ -22,8 +22,8 @@ func tenantResourceTableFor(resourceType domain.ResourceType) (tenantResourceTab
 		return tenantResourceTable{table: "tenant_scopes", idColumn: "scope_id"}, true
 	case domain.ResourceTypeChain:
 		return tenantResourceTable{table: "tenant_chains", idColumn: "chain_id"}, true
-	case domain.ResourceTypeRouteRule:
-		return tenantResourceTable{table: "tenant_route_rules", idColumn: "route_rule_id"}, true
+	case domain.ResourceTypeRouteRuleGroup:
+		return tenantResourceTable{table: "tenant_route_rule_groups", idColumn: "route_rule_group_id"}, true
 	case domain.ResourceTypeAccessPath:
 		return tenantResourceTable{table: "tenant_access_paths", idColumn: "access_path_id"}, true
 	default:

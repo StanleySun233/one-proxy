@@ -81,7 +81,7 @@ func (c *ControlPlane) wouldRemoveLastManageBinding(resourceType domain.Resource
 
 func validResourceType(resourceType domain.ResourceType) bool {
 	switch resourceType {
-	case domain.ResourceTypeNode, domain.ResourceTypeNodeLink, domain.ResourceTypeScope, domain.ResourceTypeChain, domain.ResourceTypeRouteRule, domain.ResourceTypeAccessPath:
+	case domain.ResourceTypeNode, domain.ResourceTypeNodeLink, domain.ResourceTypeScope, domain.ResourceTypeChain, domain.ResourceTypeRouteRuleGroup, domain.ResourceTypeAccessPath:
 		return true
 	default:
 		return false

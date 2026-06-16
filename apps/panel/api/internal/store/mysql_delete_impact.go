@@ -54,16 +54,13 @@ func (r proxyRepository) buildNodeAccessPathDeletePlan(ctx context.Context, path
 	return r.buildDeletePlan(ctx, "node_access_path", pathID, nodeAccessPathDeleteStepSpecs(pathID), includeImpact)
 }
 
+func (r proxyRepository) buildRouteRuleGroupDeletePlan(ctx context.Context, groupID string, includeImpact bool) (deleteplan.DeletePlan, error) {
+	return r.buildDeletePlan(ctx, "route_rule_group", groupID, routeRuleGroupDeleteStepSpecs(groupID), includeImpact)
+}
+
 func chainDeleteStepSpecs(chainID string) []proxyDeleteStepSpec {
 	args := []any{chainID}
 	return []proxyDeleteStepSpec{
-		deleteStep("tenant-route-rules", "tenant_route_rules", "route_rule_id IN (SELECT id FROM route_rules WHERE chain_id = ?)", args,
-			impact("route_rule_tenant_binding", `SELECT CONCAT('route:', trr.tenant_id, ':', trr.route_rule_id), t.name, CONCAT('route ', rr.match_value, ' - ', trr.permission)
-			 FROM tenant_route_rules trr
-			 JOIN tenants t ON t.id = trr.tenant_id
-			 JOIN route_rules rr ON rr.id = trr.route_rule_id
-			 WHERE rr.chain_id = ?`, args),
-		),
 		deleteStep("route-rules", "route_rules", "chain_id = ?", args,
 			impact("route_rule", `SELECT id, CONCAT(match_type, ' ', match_value), CONCAT('priority ', priority, ' - ', action_type)
 			 FROM route_rules
@@ -110,6 +107,30 @@ func chainDeleteStepSpecs(chainID string) []proxyDeleteStepSpec {
 		),
 		deleteStep("chain", "chains", "id = ?", args,
 			impact("chain", "SELECT id, name, '' FROM chains WHERE id = ?", args),
+		),
+	}
+}
+
+func routeRuleGroupDeleteStepSpecs(groupID string) []proxyDeleteStepSpec {
+	args := []any{groupID}
+	return []proxyDeleteStepSpec{
+		deleteStep("route-rules", "route_rules", "group_id = ?", args,
+			impact("route_rule", `SELECT id, CONCAT(match_type, ' ', match_value), CONCAT('priority ', priority, ' - ', action_type)
+			 FROM route_rules
+			 WHERE group_id = ?
+			 ORDER BY priority, id`, args),
+		),
+		deleteStep("tenant-route-rule-groups", "tenant_route_rule_groups", "route_rule_group_id = ?", args,
+			impact("route_rule_group_tenant_binding", `SELECT CONCAT('route-group:', trg.tenant_id, ':', trg.route_rule_group_id), t.name, CONCAT('route group ', rrg.name, ' - ', trg.permission)
+			 FROM tenant_route_rule_groups trg
+			 JOIN tenants t ON t.id = trg.tenant_id
+			 JOIN route_rule_groups rrg ON rrg.id = trg.route_rule_group_id
+			 WHERE trg.route_rule_group_id = ?`, args),
+		),
+		deleteStep("route-rule-group", "route_rule_groups", "id = ?", args,
+			impact("route_rule_group", `SELECT id, name, description
+			 FROM route_rule_groups
+			 WHERE id = ?`, args),
 		),
 	}
 }
@@ -205,7 +226,6 @@ func proxyImpactItem(item deleteplan.DeleteImpactItem) proxy.DeleteImpactItem {
 func chainDeleteImpactFromPlan(plan deleteplan.DeletePlan) proxy.ChainDeleteImpact {
 	impact := proxy.ChainDeleteImpact{ChainID: plan.ResourceID}
 	var chainBindings []proxy.DeleteImpactItem
-	var routeBindings []proxy.DeleteImpactItem
 	var pathBindings []proxy.DeleteImpactItem
 	for _, item := range planImpactItems(plan) {
 		switch item.ResourceType {
@@ -223,14 +243,11 @@ func chainDeleteImpactFromPlan(plan deleteplan.DeletePlan) proxy.ChainDeleteImpa
 			impact.Delete.ChainProbeResults = append(impact.Delete.ChainProbeResults, proxyImpactItem(item))
 		case "chain_tenant_binding":
 			chainBindings = append(chainBindings, proxyImpactItem(item))
-		case "route_rule_tenant_binding":
-			routeBindings = append(routeBindings, proxyImpactItem(item))
 		case "access_path_tenant_binding":
 			pathBindings = append(pathBindings, proxyImpactItem(item))
 		}
 	}
 	impact.Delete.TenantBindings = append(impact.Delete.TenantBindings, chainBindings...)
-	impact.Delete.TenantBindings = append(impact.Delete.TenantBindings, routeBindings...)
 	impact.Delete.TenantBindings = append(impact.Delete.TenantBindings, pathBindings...)
 	return impact
 }
@@ -244,6 +261,21 @@ func nodeAccessPathDeleteImpactFromPlan(plan deleteplan.DeletePlan) proxy.NodeAc
 		case "node_onboarding_task":
 			impact.Delete.OnboardingTasks = append(impact.Delete.OnboardingTasks, proxyImpactItem(item))
 		case "access_path_tenant_binding":
+			impact.Delete.TenantBindings = append(impact.Delete.TenantBindings, proxyImpactItem(item))
+		}
+	}
+	return impact
+}
+
+func routeRuleGroupDeleteImpactFromPlan(plan deleteplan.DeletePlan) proxy.RouteRuleGroupDeleteImpact {
+	impact := proxy.RouteRuleGroupDeleteImpact{GroupID: plan.ResourceID}
+	for _, item := range planImpactItems(plan) {
+		switch item.ResourceType {
+		case "route_rule_group":
+			impact.Delete.Group = append(impact.Delete.Group, proxyImpactItem(item))
+		case "route_rule":
+			impact.Delete.RouteRules = append(impact.Delete.RouteRules, proxyImpactItem(item))
+		case "route_rule_group_tenant_binding":
 			impact.Delete.TenantBindings = append(impact.Delete.TenantBindings, proxyImpactItem(item))
 		}
 	}

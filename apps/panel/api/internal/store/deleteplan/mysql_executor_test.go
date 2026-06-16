@@ -125,10 +125,10 @@ func TestMySQLExecutorExecutesStepsInOrder(t *testing.T) {
 		ResourceID:   "chain-1",
 		Steps: []DeletePlanStep{
 			{
-				Name:      "route-bindings",
-				Table:     "tenant_route_rules",
+				Name:      "route-group-bindings",
+				Table:     "tenant_route_rule_groups",
 				Operation: OperationDelete,
-				WhereSQL:  "route_rule_id IN (SELECT id FROM route_rules WHERE chain_id = ?)",
+				WhereSQL:  "route_rule_group_id = ?",
 				Args:      []any{"chain-1"},
 			},
 			{
@@ -148,7 +148,7 @@ func TestMySQLExecutorExecutesStepsInOrder(t *testing.T) {
 	args := []driver.Value{"chain-1"}
 	want := []executorCall{
 		{Query: "BEGIN"},
-		{Query: "DELETE FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id = ?)", Args: args},
+		{Query: "DELETE FROM tenant_route_rule_groups WHERE route_rule_group_id = ?", Args: args},
 		{Query: "DELETE FROM chains WHERE id = ?", Args: args},
 		{Query: "COMMIT"},
 	}

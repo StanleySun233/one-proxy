@@ -338,7 +338,6 @@ func deleteChainsForNodeDelete(tx *sql.Tx, chainIDs []string) error {
 	}
 	placeholders := questionPlaceholders(len(chainIDs))
 	statements := []string{
-		fmt.Sprintf("DELETE FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id IN (%s))", placeholders),
 		fmt.Sprintf("DELETE FROM route_rules WHERE chain_id IN (%s)", placeholders),
 		fmt.Sprintf("DELETE FROM node_onboarding_tasks WHERE path_id IN (SELECT id FROM node_access_paths WHERE chain_id IN (%s))", placeholders),
 		fmt.Sprintf("DELETE FROM node_access_paths WHERE chain_id IN (%s)", placeholders),
@@ -400,11 +399,7 @@ func (s *MySQLStore) countNodeDeleteTenantBindings(nodeID string, chainIDs []str
 	if len(chainIDs) == 0 {
 		return total, nil
 	}
-	count, err = s.countNodeDeleteRows(fmt.Sprintf("SELECT COUNT(*) FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id IN (%s))", questionPlaceholders(len(chainIDs))), stringArgs(chainIDs)...)
-	if err != nil {
-		return 0, err
-	}
-	return total + count, nil
+	return total, nil
 }
 
 func nodeDeleteAccessPathCondition(nodeID string, chainIDs []string) (string, []any) {

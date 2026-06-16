@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { Chain, ChainDeleteImpact, ChainProbeResult, ChainValidationResult, ChainPreviewResult, RouteRule, RouteRuleValidationResult, Scope } from '@/lib/types/proxy';
+import type { Chain, ChainDeleteImpact, ChainProbeResult, ChainValidationResult, ChainPreviewResult, RouteRule, RouteRuleGroup, RouteRuleGroupDeleteImpact, RouteRuleValidationResult, Scope } from '@/lib/types/proxy';
 import type { NodeAccessPath, NodeAccessPathDeleteImpact, NodeAccessPathPayload, NodeLink } from '@/lib/types/nodes';
 
 export function getChains(accessToken: string, tenantId: string | null) {
@@ -105,10 +105,31 @@ export function getRouteRules(accessToken: string, tenantId: string | null) {
   return request<RouteRule[]>('/proxy/routes', {accessToken, tenantId});
 }
 
+export function getRouteRuleGroups(accessToken: string, tenantId: string | null) {
+  return request<RouteRuleGroup[]>('/proxy/route-groups', {accessToken, tenantId});
+}
+
+export function createRouteRuleGroup(accessToken: string, tenantId: string | null, payload: {name: string; description: string}) {
+  return request<RouteRuleGroup>('/proxy/route-groups', {method: 'POST', accessToken, tenantId, body: payload});
+}
+
+export function updateRouteRuleGroup(accessToken: string, tenantId: string | null, groupId: string, payload: {name: string; description: string; enabled: boolean}) {
+  return request<RouteRuleGroup>(`/proxy/route-groups/${groupId}`, {method: 'PATCH', accessToken, tenantId, body: payload});
+}
+
+export function getRouteRuleGroupDeleteImpact(accessToken: string, tenantId: string | null, groupId: string) {
+  return request<RouteRuleGroupDeleteImpact>(`/proxy/route-groups/${groupId}/delete-impact`, {accessToken, tenantId});
+}
+
+export function deleteRouteRuleGroup(accessToken: string, tenantId: string | null, groupId: string) {
+  return request<{status: string}>(`/proxy/route-groups/${groupId}`, {method: 'DELETE', accessToken, tenantId});
+}
+
 export function createRouteRule(
   accessToken: string,
   tenantId: string | null,
   payload: {
+    groupId: string;
     priority: number;
     matchType: string;
     matchValue: string;
@@ -130,6 +151,7 @@ export function updateRouteRule(
   tenantId: string | null,
   ruleId: string,
   payload: {
+    groupId: string;
     priority: number;
     matchType: string;
     matchValue: string;
@@ -157,6 +179,7 @@ export function deleteRouteRule(accessToken: string, tenantId: string | null, ru
 
 export function validateRouteRule(accessToken: string, tenantId: string | null, payload: {
   ruleId?: string;
+  groupId?: string;
   priority: number;
   matchType: string;
   matchValue: string;

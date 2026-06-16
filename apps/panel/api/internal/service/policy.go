@@ -49,7 +49,7 @@ func (c *ControlPlane) ExtensionBootstrapForTenant(account domain.Account, tenan
 	scopedTenantCtx.SuperAdmin = false
 	nodes := c.store.ListNodesForTenant(scopedTenantCtx)
 	chains := c.store.ListChainsForTenant(scopedTenantCtx)
-	rules := c.store.ListRouteRulesForTenant(scopedTenantCtx)
+	rules := c.store.ListPolicyRouteRulesForTenant(scopedTenantCtx)
 	if bootstrapStore, ok := c.store.(interface {
 		ExtensionBootstrapResourcesForTenant(domain.TenantAuthContext) ([]domain.Node, []proxy.Chain, []proxy.RouteRule)
 	}); ok {

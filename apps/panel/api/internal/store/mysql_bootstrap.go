@@ -13,7 +13,7 @@ import (
 func (s *MySQLStore) ExtensionBootstrapResourcesForTenant(tenantCtx domain.TenantAuthContext) ([]domain.Node, []proxy.Chain, []proxy.RouteRule) {
 	scopedTenantCtx := tenantCtx
 	scopedTenantCtx.SuperAdmin = false
-	return s.ListNodesForTenant(scopedTenantCtx), s.ListChainsForTenant(scopedTenantCtx), s.ListRouteRulesForTenant(scopedTenantCtx)
+	return s.ListNodesForTenant(scopedTenantCtx), s.ListChainsForTenant(scopedTenantCtx), s.ListPolicyRouteRulesForTenant(scopedTenantCtx)
 }
 
 func (s *MySQLStore) bootstrapAdmin(ctx context.Context) error {

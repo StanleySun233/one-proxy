@@ -1,6 +1,7 @@
 import {Chain, RouteRule} from '@/lib/types';
 
 export type RouteRuleFormValues = {
+  groupId: string;
   priority: string;
   matchType: string;
   matchValue: string;
@@ -12,6 +13,7 @@ export type RouteRuleFormValues = {
 
 export type RouteRuleValidationPayload = {
   ruleId?: string;
+  groupId: string;
   priority: number;
   matchType: string;
   matchValue: string;
@@ -26,6 +28,7 @@ export type RouteRuleSubmitPayload = Omit<RouteRuleValidationPayload, 'ruleId'> 
 
 export function defaultRouteRuleFormValues(): RouteRuleFormValues {
   return {
+    groupId: '',
     priority: '100',
     matchType: 'domain',
     matchValue: '',
@@ -38,6 +41,7 @@ export function defaultRouteRuleFormValues(): RouteRuleFormValues {
 
 export function routeRuleFormValues(rule: RouteRule): RouteRuleFormValues {
   return {
+    groupId: rule.groupId,
     priority: String(rule.priority),
     matchType: rule.matchType,
     matchValue: rule.matchValue,
@@ -51,6 +55,7 @@ export function routeRuleFormValues(rule: RouteRule): RouteRuleFormValues {
 export function routeRuleValidationPayload(values: RouteRuleFormValues, ruleId?: string): RouteRuleValidationPayload {
   return {
     ruleId,
+    groupId: values.groupId.trim(),
     priority: Number(values.priority) || 0,
     matchType: values.matchType,
     matchValue: values.matchValue.trim(),
@@ -67,6 +72,7 @@ export function routeRuleSubmitPayload(values: RouteRuleFormValues, chains: Chai
 
   return {
     priority: Number(values.priority),
+    groupId: values.groupId.trim(),
     matchType: values.matchType.trim(),
     matchValue: values.matchValue.trim(),
     actionType: values.actionType,

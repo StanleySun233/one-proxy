@@ -18,12 +18,12 @@ const (
 type ResourceType string
 
 const (
-	ResourceTypeNode       ResourceType = "node"
-	ResourceTypeNodeLink   ResourceType = "node_link"
-	ResourceTypeScope      ResourceType = "scope"
-	ResourceTypeChain      ResourceType = "chain"
-	ResourceTypeRouteRule  ResourceType = "route_rule"
-	ResourceTypeAccessPath ResourceType = "access_path"
+	ResourceTypeNode           ResourceType = "node"
+	ResourceTypeNodeLink       ResourceType = "node_link"
+	ResourceTypeScope          ResourceType = "scope"
+	ResourceTypeChain          ResourceType = "chain"
+	ResourceTypeRouteRuleGroup ResourceType = "route_rule_group"
+	ResourceTypeAccessPath     ResourceType = "access_path"
 )
 
 type Tenant struct {

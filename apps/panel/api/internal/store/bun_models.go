@@ -27,6 +27,7 @@ type RouteRuleModel struct {
 	bun.BaseModel `bun:"table:route_rules"`
 
 	ID               string `bun:"id,pk"`
+	GroupID          string `bun:"group_id"`
 	Priority         int    `bun:"priority"`
 	MatchType        string `bun:"match_type"`
 	MatchValue       string `bun:"match_value"`
@@ -38,6 +39,19 @@ type RouteRuleModel struct {
 	OwnerID          string `bun:"owner_id"`
 	CreatedAt        string `bun:"created_at"`
 	UpdatedAt        string `bun:"updated_at"`
+}
+
+type RouteRuleGroupModel struct {
+	bun.BaseModel `bun:"table:route_rule_groups"`
+
+	ID          string `bun:"id,pk"`
+	Name        string `bun:"name"`
+	Description string `bun:"description"`
+	Enabled     bool   `bun:"enabled"`
+	CreateID    string `bun:"create_id"`
+	OwnerID     string `bun:"owner_id"`
+	CreatedAt   string `bun:"created_at"`
+	UpdatedAt   string `bun:"updated_at"`
 }
 
 type NodeAccessPathModel struct {
@@ -108,14 +122,14 @@ type TenantChainModel struct {
 	CreatedAt  string `bun:"created_at"`
 }
 
-type TenantRouteRuleModel struct {
-	bun.BaseModel `bun:"table:tenant_route_rules"`
+type TenantRouteRuleGroupModel struct {
+	bun.BaseModel `bun:"table:tenant_route_rule_groups"`
 
-	TenantID    string `bun:"tenant_id,pk"`
-	RouteRuleID string `bun:"route_rule_id,pk"`
-	Permission  string `bun:"permission"`
-	CreateID    string `bun:"create_id"`
-	CreatedAt   string `bun:"created_at"`
+	TenantID         string `bun:"tenant_id,pk"`
+	RouteRuleGroupID string `bun:"route_rule_group_id,pk"`
+	Permission       string `bun:"permission"`
+	CreateID         string `bun:"create_id"`
+	CreatedAt        string `bun:"created_at"`
 }
 
 type TenantAccessPathModel struct {

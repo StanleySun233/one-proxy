@@ -1,7 +1,32 @@
 package proxy
 
+type RouteRuleGroup struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Enabled     bool   `json:"enabled"`
+	CreateID    string `json:"createId"`
+	OwnerID     string `json:"ownerId"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+	Permission  string `json:"permission,omitempty"`
+	RuleCount   int    `json:"ruleCount"`
+}
+
+type CreateRouteRuleGroupInput struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type UpdateRouteRuleGroupInput struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Enabled     bool   `json:"enabled"`
+}
+
 type RouteRule struct {
 	ID               string `json:"id"`
+	GroupID          string `json:"groupId"`
 	CreateID         string `json:"createId"`
 	OwnerID          string `json:"ownerId"`
 	Priority         int    `json:"priority"`
@@ -16,6 +41,7 @@ type RouteRule struct {
 
 type RouteRuleWithDetails struct {
 	ID               string            `json:"id"`
+	GroupID          string            `json:"groupId"`
 	CreateID         string            `json:"createId"`
 	OwnerID          string            `json:"ownerId"`
 	Priority         int               `json:"priority"`
@@ -30,6 +56,7 @@ type RouteRuleWithDetails struct {
 }
 
 type CreateRouteRuleInput struct {
+	GroupID          string `json:"groupId"`
 	Priority         int    `json:"priority"`
 	MatchType        string `json:"matchType"`
 	MatchValue       string `json:"matchValue"`
@@ -39,6 +66,7 @@ type CreateRouteRuleInput struct {
 }
 
 type UpdateRouteRuleInput struct {
+	GroupID          string `json:"groupId"`
 	Priority         int    `json:"priority"`
 	MatchType        string `json:"matchType"`
 	MatchValue       string `json:"matchValue"`
@@ -58,6 +86,7 @@ type MatchType struct {
 
 type ValidateRouteRuleInput struct {
 	RuleID           string `json:"ruleId"`
+	GroupID          string `json:"groupId"`
 	Priority         int    `json:"priority"`
 	MatchType        string `json:"matchType"`
 	MatchValue       string `json:"matchValue"`

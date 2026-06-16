@@ -1,4 +1,4 @@
-export type ResourceBindingType = 'node' | 'node_link' | 'scope' | 'chain' | 'route_rule' | 'access_path';
+export type ResourceBindingType = 'node' | 'node_link' | 'scope' | 'chain' | 'route_rule_group' | 'access_path';
 
 export type ResourceBindingPermission = 'use' | 'manage';
 

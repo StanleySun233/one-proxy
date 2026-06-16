@@ -469,6 +469,57 @@ paths:
       responses:
         "200":
           description: Envelope node link deleted response
+  /api/proxy/route-groups:
+    get:
+      security:
+        - controlPlaneAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: Envelope route rule group list response
+    post:
+      security:
+        - controlPlaneAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "201":
+          description: Envelope route rule group created response
+  /api/proxy/route-groups/{groupId}:
+    get:
+      security:
+        - controlPlaneAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: Envelope route rule group response
+    patch:
+      security:
+        - controlPlaneAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: Envelope route rule group updated response
+    delete:
+      security:
+        - controlPlaneAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: Envelope route rule group deleted response
+  /api/proxy/route-groups/{groupId}/delete-impact:
+    get:
+      security:
+        - controlPlaneAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: Envelope route rule group delete impact response
   /api/proxy/routes:
     get:
       security:

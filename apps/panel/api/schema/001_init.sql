@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS node_links (
 CREATE TABLE IF NOT EXISTS scopes (
   id VARCHAR(191) PRIMARY KEY,
   name VARCHAR(191) NOT NULL,
-  description TEXT,
+  description TEXT NOT NULL,
   create_id VARCHAR(191) NOT NULL,
   owner_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
@@ -120,8 +120,22 @@ CREATE TABLE IF NOT EXISTS chain_hops (
   CONSTRAINT fk_chain_hops_node_id FOREIGN KEY (node_id) REFERENCES nodes(id)
 );
 
+CREATE TABLE IF NOT EXISTS route_rule_groups (
+  id VARCHAR(191) PRIMARY KEY,
+  name VARCHAR(191) NOT NULL,
+  description TEXT,
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  create_id VARCHAR(191) NOT NULL,
+  owner_id VARCHAR(191) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_route_rule_groups_create_id FOREIGN KEY (create_id) REFERENCES accounts(id),
+  CONSTRAINT fk_route_rule_groups_owner_id FOREIGN KEY (owner_id) REFERENCES accounts(id)
+);
+
 CREATE TABLE IF NOT EXISTS route_rules (
   id VARCHAR(191) PRIMARY KEY,
+  group_id VARCHAR(191) NOT NULL,
   priority INT NOT NULL,
   match_type VARCHAR(64) NOT NULL,
   match_value VARCHAR(255) NOT NULL,
@@ -133,6 +147,7 @@ CREATE TABLE IF NOT EXISTS route_rules (
   owner_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
   updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_route_rules_group_id FOREIGN KEY (group_id) REFERENCES route_rule_groups(id),
   CONSTRAINT fk_route_rules_chain_id FOREIGN KEY (chain_id) REFERENCES chains(id),
   CONSTRAINT fk_route_rules_create_id FOREIGN KEY (create_id) REFERENCES accounts(id),
   CONSTRAINT fk_route_rules_owner_id FOREIGN KEY (owner_id) REFERENCES accounts(id)
@@ -290,16 +305,16 @@ CREATE TABLE IF NOT EXISTS tenant_chains (
   CONSTRAINT fk_tenant_chains_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
 );
 
-CREATE TABLE IF NOT EXISTS tenant_route_rules (
+CREATE TABLE IF NOT EXISTS tenant_route_rule_groups (
   tenant_id VARCHAR(191) NOT NULL,
-  route_rule_id VARCHAR(191) NOT NULL,
+  route_rule_group_id VARCHAR(191) NOT NULL,
   permission VARCHAR(64) NOT NULL,
   create_id VARCHAR(191) NOT NULL,
   created_at VARCHAR(64) NOT NULL,
-  PRIMARY KEY (tenant_id, route_rule_id),
-  CONSTRAINT fk_tenant_route_rules_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-  CONSTRAINT fk_tenant_route_rules_route_rule_id FOREIGN KEY (route_rule_id) REFERENCES route_rules(id) ON DELETE CASCADE,
-  CONSTRAINT fk_tenant_route_rules_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
+  PRIMARY KEY (tenant_id, route_rule_group_id),
+  CONSTRAINT fk_tenant_route_rule_groups_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_route_rule_groups_group_id FOREIGN KEY (route_rule_group_id) REFERENCES route_rule_groups(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tenant_route_rule_groups_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
 );
 
 CREATE TABLE IF NOT EXISTS tenant_scopes (

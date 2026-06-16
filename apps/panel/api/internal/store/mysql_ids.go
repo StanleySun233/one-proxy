@@ -13,6 +13,7 @@ func (s *MySQLStore) nextID(name string) (string, error) {
 		"node_link":        "node_links",
 		"chain":            "chains",
 		"route_rule":       "route_rules",
+		"route_rule_group": "route_rule_groups",
 		"policy_revision":  "policy_revisions",
 		"bootstrap_token":  "bootstrap_tokens",
 		"certificate":      "certificates",

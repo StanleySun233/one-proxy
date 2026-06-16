@@ -104,7 +104,7 @@ func openRouteRuleDeleteTestDB(t *testing.T, record *routeRuleDeleteRecord) *sql
 	return db
 }
 
-func TestDeleteRouteRuleDeletesTenantBindingsBeforeRouteRule(t *testing.T) {
+func TestDeleteRouteRuleDeletesRouteRule(t *testing.T) {
 	record := &routeRuleDeleteRecord{}
 	db := openRouteRuleDeleteTestDB(t, record)
 	defer db.Close()
@@ -115,10 +115,7 @@ func TestDeleteRouteRuleDeletesTenantBindingsBeforeRouteRule(t *testing.T) {
 	}
 
 	want := []routeRuleDeleteCall{
-		{Query: "BEGIN"},
-		{Query: "DELETE FROM tenant_route_rules WHERE route_rule_id = ?", Args: []driver.Value{"route-rule-1"}},
 		{Query: "DELETE FROM route_rules WHERE id = ?", Args: []driver.Value{"route-rule-1"}},
-		{Query: "COMMIT"},
 	}
 	if got := record.snapshot(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("calls = %#v, want %#v", got, want)

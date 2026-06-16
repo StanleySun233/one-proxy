@@ -45,6 +45,8 @@ func (r *Router) routes() {
 	r.mux.HandleFunc("/api/proxy/links", r.guard(r.handleNodeLinks))
 	r.mux.HandleFunc("/api/proxy/links/", r.guard(r.handleNodeLinkByID))
 	r.mux.HandleFunc("/api/proxy/extension/page/status", r.guard(r.handleExtensionPageStatus))
+	r.mux.HandleFunc("/api/proxy/route-groups", r.guard(r.handleRouteRuleGroups))
+	r.mux.HandleFunc("/api/proxy/route-groups/", r.guard(r.handleRouteRuleGroupByID))
 	r.mux.HandleFunc("/api/proxy", r.guard(r.handleChains))
 	r.mux.HandleFunc("/api/proxy/validate", r.guard(r.handleChainValidate))
 	r.mux.HandleFunc("/api/proxy/preview", r.guard(r.handleChainPreview))
