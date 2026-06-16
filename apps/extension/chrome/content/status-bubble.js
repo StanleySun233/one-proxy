@@ -48,6 +48,60 @@
     return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
   }
 
+  function collectPageMetrics() {
+    const entries = [
+      ...performance.getEntriesByType('navigation'),
+      ...performance.getEntriesByType('resource')
+    ].filter(function (entry) {
+      return String(entry.name || '').startsWith('http');
+    });
+    const totals = entries.reduce(function (result, entry) {
+      const transferSize = Number(entry.transferSize || entry.encodedBodySize || entry.decodedBodySize || 0);
+      const duration = Number(entry.duration || 0);
+      result.downloadBytes += Number.isFinite(transferSize) && transferSize > 0 ? transferSize : 0;
+      result.latencyTotalMs += Number.isFinite(duration) && duration > 0 ? duration : 0;
+      if (duration > 0) {
+        result.latencyCount += 1;
+      }
+      const statusCode = Number(entry.responseStatus || 0);
+      if (statusCode > 0) {
+        result.statusCode = statusCode;
+      }
+      if (statusCode >= 400) {
+        const errorCode = `http_${statusCode}`;
+        result.failureCount += 1;
+        result.httpErrorCount += 1;
+        result.lastErrorCode = errorCode;
+        result.lastErrorMessage = errorCode;
+        result.errorCodeCount[errorCode] = Number(result.errorCodeCount[errorCode] || 0) + 1;
+      }
+      return result;
+    }, {
+      downloadBytes: 0,
+      latencyTotalMs: 0,
+      latencyCount: 0,
+      statusCode: 0,
+      failureCount: 0,
+      httpErrorCount: 0,
+      lastErrorCode: '',
+      lastErrorMessage: '',
+      errorCodeCount: {}
+    });
+    return {
+      openedAt: new Date(performance.timeOrigin || Date.now()).toISOString(),
+      requestCount: entries.length,
+      responseCount: entries.length,
+      downloadBytes: Math.round(totals.downloadBytes),
+      latencyMs: totals.latencyCount > 0 ? Math.round(totals.latencyTotalMs / totals.latencyCount) : 0,
+      statusCode: totals.statusCode,
+      failureCount: totals.failureCount,
+      httpErrorCount: totals.httpErrorCount,
+      lastErrorCode: totals.lastErrorCode,
+      lastErrorMessage: totals.lastErrorMessage,
+      errorCodeCount: totals.errorCodeCount
+    };
+  }
+
   function text(value, fallback) {
     const clean = String(value || '').trim();
     return clean || fallback || '-';
@@ -418,7 +472,8 @@
     chrome.runtime.sendMessage({
       type: 'status-bubble-page-status',
       url: window.location.href,
-      refresh: Boolean(force)
+      refresh: Boolean(force),
+      pageMetrics: collectPageMetrics()
     }, function (response) {
       if (chrome.runtime.lastError) {
         throw new Error(chrome.runtime.lastError.message);

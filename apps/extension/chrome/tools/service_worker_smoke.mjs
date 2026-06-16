@@ -129,10 +129,20 @@ chromium.launchPersistentContext(userDataDir, {
               if (String(url).includes('/api/proxy/extension/page/status')) {
                 const parsed = new URL(String(url));
                 const strict = parsed.searchParams.get('routeId') || parsed.searchParams.get('chainId');
-                const data = strict
-                  ? { status: 'unknown', latencyMs: 0, uploadBytes: 0, downloadBytes: 0, requestCount: 0, failureCount: 0, correlated: false }
-                  : { status: 'ok', latencyMs: 42, uploadBytes: 1234, downloadBytes: 5678, requestCount: 2, failureCount: 0, correlated: true };
+                const host = parsed.searchParams.get('host') || '';
+                let data = { status: 'ok', latencyMs: 42, uploadBytes: 1234, downloadBytes: 5678, requestCount: 2, failureCount: 0, correlated: true };
+                if (strict || host === '172.20.116.6') {
+                  data = { status: 'unknown', latencyMs: 0, uploadBytes: 0, downloadBytes: 0, requestCount: 0, failureCount: 0, correlated: false };
+                }
                 return Promise.resolve(new Response(JSON.stringify({ code: 0, message: 'ok', data }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+              }
+              if (String(url).endsWith('/healthz')) {
+                return Promise.resolve(new Response(JSON.stringify({ status: 'ok' }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+              }
+              if (String(url).includes('/api/control/relay/probe')) {
+                return Promise.resolve(new Response(JSON.stringify({
+                  pathTimings: [{ fromNodeId: 'node-1', toNodeId: 'target', roundTripMs: 23, sampleTsMs: Date.now(), count: 1 }]
+                }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
               }
               if (String(url).endsWith('/api/auth/refresh')) {
                 return Promise.resolve(new Response(JSON.stringify({
@@ -208,11 +218,43 @@ chromium.launchPersistentContext(userDataDir, {
             if (statusResult.status !== 'ok' || statusResult.io.uploadBytes !== 1234 || statusResult.io.downloadBytes !== 5678 || statusResult.page.requestCount !== 2) {
               throw new Error('service_worker_status_bubble_fallback_failed');
             }
+            if (!statusResult.path || !Array.isArray(statusResult.path.nodes) || statusResult.path.nodes.length < 2) {
+              throw new Error('service_worker_status_bubble_path_missing');
+            }
             return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests);
           }).then((requests) => {
             const pageStatusRequests = requests.filter((request) => request.url.includes('/api/proxy/extension/page/status'));
             if (pageStatusRequests.length < 2 || !pageStatusRequests[0].url.includes('routeId=route-1') || pageStatusRequests[1].url.includes('routeId=')) {
               throw new Error('service_worker_status_bubble_host_fallback_missing');
+            }
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'set-local-helper', enabled: false }));
+          }).then((helperResult) => {
+            if (helperResult.error || helperResult.localHelper.enabled) {
+              throw new Error(helperResult.error || 'service_worker_local_helper_disable_failed');
+            }
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({
+              type: 'status-bubble-page-status',
+              url: 'http://172.20.116.6/',
+              pageMetrics: {
+                openedAt: '2026-06-16T16:00:00Z',
+                requestCount: 3,
+                responseCount: 3,
+                downloadBytes: 4096,
+                latencyMs: 88,
+                statusCode: 502,
+                failureCount: 1,
+                httpErrorCount: 1,
+                lastErrorCode: 'next_hop_connect_failed',
+                lastErrorMessage: 'next_hop_connect_failed',
+                errorCodeCount: { next_hop_connect_failed: 1 }
+              }
+            }));
+          }).then((statusResult) => {
+            if (statusResult.error) {
+              throw new Error(statusResult.error);
+            }
+            if (statusResult.status !== 'error' || statusResult.page.requestCount !== 3 || statusResult.page.proxiedRequestCount !== 3 || statusResult.page.statusCode !== 502 || statusResult.lastError.code !== 'next_hop_connect_failed') {
+              throw new Error('service_worker_status_bubble_page_metrics_fallback_failed');
             }
             console.log(`chrome_extension_service_worker_ok id=${result.id} version=${result.version}`);
           });

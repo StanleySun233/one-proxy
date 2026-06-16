@@ -79,8 +79,19 @@ function measureEntryLatency(group) {
     });
 }
 
+function routeTopology(group, route) {
+  const topology = Array.isArray(route.topology) && route.topology.length > 0 ? route.topology : (group && Array.isArray(group.topology) ? group.topology : []);
+  if (topology.length > 0) {
+    return topology;
+  }
+  if (group && (group.entryNodeId || group.entryNodeName)) {
+    return [{ id: group.entryNodeId || group.entryNodeName, name: group.entryNodeName || group.entryNodeId, mode: 'edge' }];
+  }
+  return [];
+}
+
 function pathHealthKey(group, route) {
-  const topologyIds = (route.topology || []).map((node) => node.id).filter(Boolean).join('>');
+  const topologyIds = routeTopology(group, route).map((node) => node.id).filter(Boolean).join('>');
   return [
     group.id || '',
     group.proxyHost || '',
@@ -92,8 +103,8 @@ function pathHealthKey(group, route) {
   ].join('|');
 }
 
-function entryNodeId(route) {
-  const first = route.topology && route.topology[0];
+function entryNodeId(group, route) {
+  const first = routeTopology(group, route)[0];
   if (!first || !first.id) {
     throw new Error('status_bubble_entry_node_required');
   }
@@ -107,7 +118,7 @@ function oneProxyTokenHeaders(state) {
 
 function requestNodePathHealth(state, group, route) {
   const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
-  const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
+  const remainingHopNodeIds = routeTopology(group, route).map((node) => node.id).filter(Boolean).slice(1);
   return fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...oneProxyTokenHeaders(state) },
@@ -151,7 +162,7 @@ function measurePathHealth(state, group, route) {
       linkTimings: [
         {
           fromNodeId: 'user',
-          toNodeId: entryNodeId(route),
+          toNodeId: entryNodeId(group, route),
           roundTripMs: entryLatencyMs,
           sampleTsMs: Date.now(),
           count: 1
@@ -201,12 +212,15 @@ function routePayload(route) {
 }
 
 function mergePageSnapshot(route, metrics, remoteStatus) {
+  const requestCount = Number((remoteStatus && remoteStatus.requestCount) || (metrics && metrics.requestCount) || 0);
+  const proxiedRequestCount = Number((metrics && metrics.proxiedRequestCount) || 0) || (route.mode === 'proxy' ? requestCount : 0);
+  const directRequestCount = Number((metrics && metrics.directRequestCount) || 0) || (route.mode === 'proxy' ? 0 : requestCount);
   return {
     host: route.host || '',
     openedAt: (metrics && metrics.openedAt) || new Date().toISOString(),
-    requestCount: Number((remoteStatus && remoteStatus.requestCount) || (metrics && metrics.requestCount) || 0),
-    proxiedRequestCount: Number((metrics && metrics.proxiedRequestCount) || 0),
-    directRequestCount: Number((metrics && metrics.directRequestCount) || 0),
+    requestCount,
+    proxiedRequestCount,
+    directRequestCount,
     failureCount: Number((remoteStatus && remoteStatus.failureCount) || (metrics && metrics.failureCount) || 0),
     statusCode: Number((remoteStatus && remoteStatus.statusCode) || (metrics && metrics.statusCode) || 0),
     httpErrorCount: Number((metrics && metrics.httpErrorCount) || 0),
@@ -218,8 +232,8 @@ function mergePageSnapshot(route, metrics, remoteStatus) {
   };
 }
 
-function pathPayload(state, route, status, pageHost) {
-  const topology = Array.isArray(route.topology) ? route.topology : [];
+function pathPayload(state, group, route, status, pageHost) {
+  const topology = routeTopology(group, route);
   const transport = state.localHelper && state.localHelper.enabled ? 'direct_quic' : (status && status.path && status.path.transport ? String(status.path.transport) : 'relay');
   const nodes = [
     { id: 'user', name: 'User machine', kind: 'user', transport: 'client' },
@@ -270,7 +284,55 @@ function emptyPathHealth() {
   };
 }
 
-function statusFrom(remoteStatus, metrics, routeMode) {
+function normalizePageMetrics(metrics) {
+  if (!metrics || typeof metrics !== 'object') {
+    return null;
+  }
+  return {
+    openedAt: String(metrics.openedAt || ''),
+    requestCount: Number(metrics.requestCount || 0),
+    responseCount: Number(metrics.responseCount || 0),
+    proxiedRequestCount: Number(metrics.proxiedRequestCount || 0),
+    directRequestCount: Number(metrics.directRequestCount || 0),
+    failureCount: Number(metrics.failureCount || 0),
+    uploadBytes: Number(metrics.uploadBytes || 0),
+    downloadBytes: Number(metrics.downloadBytes || 0),
+    latencyMs: Number(metrics.latencyMs || 0),
+    statusCode: Number(metrics.statusCode || 0),
+    httpErrorCount: Number(metrics.httpErrorCount || 0),
+    errorCodeCount: metrics.errorCodeCount && typeof metrics.errorCodeCount === 'object' ? metrics.errorCodeCount : {},
+    cacheStatus: String(metrics.cacheStatus || ''),
+    cacheStoredAt: String(metrics.cacheStoredAt || ''),
+    cacheAgeSeconds: Number(metrics.cacheAgeSeconds || 0),
+    cacheResponseCount: Number(metrics.cacheResponseCount || 0),
+    lastErrorCode: String(metrics.lastErrorCode || ''),
+    lastErrorMessage: String(metrics.lastErrorMessage || '')
+  };
+}
+
+function mergeLocalMetrics(primary, fallback) {
+  if (primary && Number(primary.requestCount || 0) > 0) {
+    return primary;
+  }
+  if (!primary) {
+    return fallback;
+  }
+  if (!fallback) {
+    return primary;
+  }
+  return {
+    ...primary,
+    ...fallback,
+    openedAt: primary.openedAt || fallback.openedAt
+  };
+}
+
+function pathLatencyMs(pathHealth) {
+  const first = pathHealth && Array.isArray(pathHealth.linkTimings) ? pathHealth.linkTimings[0] : null;
+  return first ? Number(first.roundTripMs || first.rttMs || 0) : 0;
+}
+
+function statusFrom(remoteStatus, metrics, routeMode, pathHealth) {
   const remote = String((remoteStatus && remoteStatus.status) || '').trim();
   if (remote && remote !== 'unknown') {
     return remote;
@@ -281,16 +343,22 @@ function statusFrom(remoteStatus, metrics, routeMode) {
   if (metrics && Number(metrics.responseCount || 0) > 0 && (Number(metrics.proxiedRequestCount || 0) > 0 || routeMode === 'proxy')) {
     return 'ok';
   }
+  if (routeMode === 'proxy' && pathLatencyMs(pathHealth) > 0) {
+    return 'ok';
+  }
   return remote || 'unknown';
 }
 
-function effectiveLatencyMs(remoteStatus, metrics) {
+function effectiveLatencyMs(remoteStatus, metrics, pathHealth) {
   const remoteLatencyMs = Number((remoteStatus && remoteStatus.latencyMs) || 0);
   if (remoteLatencyMs > 0) {
     return remoteLatencyMs;
   }
   const localLatencyMs = Number((metrics && metrics.latencyMs) || 0);
-  return localLatencyMs > 0 ? localLatencyMs : 0;
+  if (localLatencyMs > 0) {
+    return localLatencyMs;
+  }
+  return pathLatencyMs(pathHealth);
 }
 
 function normalizeNodeTimings(items) {
@@ -329,7 +397,7 @@ export function getStatusBubblePageStatus(message, sender) {
       const group = activeGroupFrom(state);
       const route = routePreviewForUrl(state, url);
       const routeInfo = routePayload(route);
-      const metrics = tabMetricsSnapshot(sender, url);
+      const metrics = mergeLocalMetrics(tabMetricsSnapshot(sender, url), normalizePageMetrics(message.pageMetrics));
       if (!shouldDisplay(state, route)) {
         return {
           display: false
@@ -347,13 +415,13 @@ export function getStatusBubblePageStatus(message, sender) {
         const page = mergePageSnapshot(route, metrics, status);
         const uploadBytes = Number(status.uploadBytes || (metrics && metrics.uploadBytes) || 0);
         const downloadBytes = Number(status.downloadBytes || (metrics && metrics.downloadBytes) || 0);
-        const latencyMs = effectiveLatencyMs(status, metrics);
+        const latencyMs = effectiveLatencyMs(status, metrics, pathHealth);
         const actualNodeTimings = normalizeNodeTimings(status.nodeTimings);
         const actualLinkTimings = normalizeLinkTimings(status.linkTimings);
         const linkTimings = actualLinkTimings.length > 0 ? actualLinkTimings : normalizeLinkTimings(pathHealth.linkTimings);
         const lastErrorCode = status.lastErrorCode || (metrics && metrics.lastErrorCode) || '';
         const lastErrorMessage = status.lastErrorMessage || (metrics && metrics.lastErrorMessage) || '';
-        const displayStatus = statusFrom(status, metrics, route.mode);
+        const displayStatus = statusFrom(status, metrics, route.mode, pathHealth);
         const cache = {
           status: page.cacheStatus || '',
           storedAt: page.cacheStoredAt || '',
@@ -376,7 +444,7 @@ export function getStatusBubblePageStatus(message, sender) {
           },
           cache,
           latencyMs,
-          path: pathPayload(state, route, status, page.host),
+          path: pathPayload(state, group, route, status, page.host),
           labels: labels(),
           nodeTimings: actualNodeTimings,
           linkTimings,
