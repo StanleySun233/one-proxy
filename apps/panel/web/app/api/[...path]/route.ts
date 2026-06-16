@@ -30,7 +30,15 @@ async function proxy(request: NextRequest, params: {path: string[]}) {
     init.body = await request.text();
   }
 
-  const response = await fetch(url, init);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(30000)
+    });
+  } catch {
+    return NextResponse.json({code: 503, message: 'control_plane_unavailable'}, {status: 503});
+  }
   const body = await response.text();
 
   return new NextResponse(body, {

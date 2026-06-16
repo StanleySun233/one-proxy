@@ -1,8 +1,10 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	mysqldriver "github.com/go-sql-driver/mysql"
 )
@@ -22,8 +24,18 @@ func ensureDatabaseExists(dsn string) error {
 		return err
 	}
 	defer rootDB.Close()
-	if err := rootDB.Ping(); err != nil {
-		return err
+	var pingErr error
+	for attempt := 0; attempt < 30; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		pingErr = rootDB.PingContext(ctx)
+		cancel()
+		if pingErr == nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	if pingErr != nil {
+		return pingErr
 	}
 	quotedName := "`" + strings.ReplaceAll(databaseName, "`", "``") + "`"
 	_, err = rootDB.Exec(

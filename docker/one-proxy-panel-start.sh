@@ -31,12 +31,40 @@ export TZ
 
 /app/bin/one-proxy-panel &
 backend_pid="$!"
+frontend_pid=""
 
 cleanup() {
-  kill "$backend_pid" 2>/dev/null || true
+  [ -n "$backend_pid" ] && kill "$backend_pid" 2>/dev/null || true
+  [ -n "$frontend_pid" ] && kill "$frontend_pid" 2>/dev/null || true
+}
+
+capture_wait() {
+  set +e
+  wait "$1"
+  wait_status="$?"
+  set -e
 }
 
 trap cleanup INT TERM EXIT
 
 cd /app
-exec node server.js
+node server.js &
+frontend_pid="$!"
+
+while :; do
+  if ! kill -0 "$backend_pid" 2>/dev/null; then
+    capture_wait "$backend_pid"
+    status="$wait_status"
+    kill "$frontend_pid" 2>/dev/null || true
+    capture_wait "$frontend_pid"
+    exit "$status"
+  fi
+  if ! kill -0 "$frontend_pid" 2>/dev/null; then
+    capture_wait "$frontend_pid"
+    status="$wait_status"
+    kill "$backend_pid" 2>/dev/null || true
+    capture_wait "$backend_pid"
+    exit "$status"
+  fi
+  sleep 1
+done
