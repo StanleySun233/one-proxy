@@ -92,6 +92,9 @@ func (c *nodeDeleteConn) QueryContext(_ context.Context, query string, args []dr
 			return &nodeDeleteRows{columns: result.columns, values: result.values}, nil
 		}
 	}
+	if !strings.HasPrefix(normalizedQuery(query), "SELECT DISTINCT chain_id") {
+		return &nodeDeleteRows{columns: []string{"id", "name", "detail"}}, nil
+	}
 	values := make([][]driver.Value, 0, len(c.record.chainIDs))
 	for _, chainID := range c.record.chainIDs {
 		values = append(values, []driver.Value{chainID})
