@@ -32,4 +32,3 @@
 | Date | Blocker | Status |
 |------|---------|--------|
 | 2026-06-16 | Migration bootstrap acceptance cannot be fully passed locally because no MySQL-compatible empty test database or documented DSN was available without starting services. Code evidence confirms goose is wired into store initialization, but no real bootstrap execution was performed. | Open |
-| 2026-06-16 | `mysql_bootstrap.go` still contains `ensureBootstrapTokenMetadataColumns` with runtime `ALTER TABLE` statements. No call site was found locally, but the function should be removed or migrated if it is still intended to own schema changes. | Open |
