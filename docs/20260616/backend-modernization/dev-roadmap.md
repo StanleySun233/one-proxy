@@ -1,7 +1,7 @@
 # Dev Roadmap: Backend Modernization
 
 **Date:** 20260616
-**Status:** in-progress
+**Status:** completed
 **Product document:** docs/20260616/backend-modernization/product-requirements.md
 
 ## Summary
@@ -53,13 +53,13 @@ Each task represents one atomic, file-scoped unit of work. No two engineers may 
 ### Testing
 
 - [x] backend-modernization-test: run `go test ./...` in `apps/panel/api` (depends: all backend tasks).
-- [ ] backend-modernization-test: run migration bootstrap test against an empty MySQL-compatible database or documented local test database (depends: migrations.go).
+- [x] backend-modernization-test: run migration bootstrap test against an empty MySQL-compatible database or documented local test database (depends: migrations.go).
 - [x] backend-modernization-test: verify chain delete preview and chain delete execution use the same DeletePlan step set (depends: proxy_repository.go).
 - [x] backend-modernization-test: verify node access path delete preview and delete execution use the same DeletePlan step set (depends: proxy_repository.go).
 
 ### Product Verification
 
-- [ ] product-manager: verify implementation against `docs/20260616/backend-modernization/product-requirements.md` after testing passes.
+- [x] product-manager: verify implementation against `docs/20260616/backend-modernization/product-requirements.md` after testing passes.
 
 ## Architecture Decisions
 
@@ -74,4 +74,12 @@ Each task represents one atomic, file-scoped unit of work. No two engineers may 
 
 | Date | Task | Engineer | Blocker Description | Resolution |
 |------|------|----------|---------------------|------------|
-| 2026-06-16 | migration bootstrap test against empty MySQL-compatible database | backend-modernization-test | No local MySQL-compatible test database or documented DSN was available without starting services; local evidence is limited to `runMigrations` calling goose and `00001_initial.sql` existing. Acceptance remains not fully passed until an empty database bootstrap is executed. | Open |
+| 2026-06-16 | migration bootstrap test against empty MySQL-compatible database | backend-modernization-test | No local MySQL-compatible test database or documented DSN was available without starting services; local evidence was limited to `runMigrations` calling goose and `00001_initial.sql` existing. | Resolved by camelbot empty MySQL container test |
+
+## Remote Verification
+
+- Commit `b56d18d` was built on camelbot as `oneproxy-panel:backend-modernization`.
+- Empty MySQL plus Redis test containers started with deterministic `one-proxy-*-test` names and were deleted after testing.
+- Panel health returned `status=ok`.
+- Goose executed `00001_initial.sql` and migrated the empty test database to version 1.
+- API scenario covered login, tenant creation, scope creation, node bootstrap/enroll/approve, chain creation, preview, route creation, access path creation, delete impact, and chain deletion relationship cleanup.

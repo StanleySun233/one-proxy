@@ -5,7 +5,14 @@
 
 ## Tasks
 
-- [ ] Verify implementation against `docs/20260616/backend-modernization/product-requirements.md` after testing passes.
+- [x] Verify implementation against `docs/20260616/backend-modernization/product-requirements.md` after testing passes.
+  - Evidence: `apps/panel/api` passes `go test ./...`.
+  - Evidence: `apps/panel/web` passes `npm run build`.
+  - Evidence: Bun and goose are wired into the panel API store foundation, with goose migration `00001_initial.sql` executed against an empty camelbot MySQL test database.
+  - Evidence: GORM runtime schema bootstrap files were removed, and static search found no `gorm`, `ALTER TABLE`, or `CREATE TABLE IF NOT EXISTS` runtime schema mutation paths under `apps/panel/api`.
+  - Evidence: chain and node access path delete preview and delete execution share DeletePlan definitions, with focused unit tests and a remote API scenario covering relationship cleanup.
+  - Evidence: `docs/20260616/backend-modernization/backend-data-access-guidelines.md` documents Bun query builder, raw SQL, migration, and DeletePlan usage.
+  - Result: passed.
   - Commit:
 
 ## Blockers
