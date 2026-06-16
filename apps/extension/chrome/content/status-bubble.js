@@ -139,6 +139,18 @@
     }
   }
 
+  function errorCodesText(values) {
+    const entries = Object.entries(values || {}).filter(function (entry) {
+      return entry[0];
+    });
+    if (entries.length === 0) {
+      return '-';
+    }
+    return entries.slice(0, 4).map(function (entry) {
+      return `${entry[0]} ${entry[1]}`;
+    }).join(' · ');
+  }
+
   function pathConnector(payload, previous, node, className) {
     const connector = el('div', className || 'opsb-path-link');
     const transport = node.transport || previous.transport || '';
@@ -268,6 +280,9 @@
     section.append(row(label('statusBubbleOpenedAt'), formatDateTime(page.openedAt)));
     section.append(row(label('statusBubbleRequestMixShort'), `${page.proxiedRequestCount || 0} / ${page.directRequestCount || 0} / ${page.failureCount || 0}`));
     section.append(row(label('statusBubbleCorrelation'), io.correlated ? label('statusBubbleCorrelated') : label('statusBubbleNotCorrelated')));
+    section.append(row(label('statusBubbleStatusCode'), page.statusCode ? String(page.statusCode) : '-'));
+    section.append(row(label('statusBubbleHttpErrors'), String(page.httpErrorCount || 0)));
+    section.append(row(label('statusBubbleErrorCodes'), errorCodesText(page.errorCodeCount)));
     if (cache.status) {
       section.append(row(label('statusBubbleCache'), cache.status));
       section.append(row(label('statusBubbleCacheStoredAt'), formatDateTime(cache.storedAt)));

@@ -337,6 +337,15 @@
   "statusBubbleCacheResponses": {
     "message": "缓存响应"
   },
+  "statusBubbleStatusCode": {
+    "message": "HTTP 状态"
+  },
+  "statusBubbleHttpErrors": {
+    "message": "HTTP 错误"
+  },
+  "statusBubbleErrorCodes": {
+    "message": "错误码"
+  },
   "statusBubbleLastError": {
     "message": "最后错误"
   },

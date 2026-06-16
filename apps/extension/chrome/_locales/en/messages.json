@@ -337,6 +337,15 @@
   "statusBubbleCacheResponses": {
     "message": "Cache responses"
   },
+  "statusBubbleStatusCode": {
+    "message": "HTTP status"
+  },
+  "statusBubbleHttpErrors": {
+    "message": "HTTP errors"
+  },
+  "statusBubbleErrorCodes": {
+    "message": "Error codes"
+  },
   "statusBubbleLastError": {
     "message": "Last error"
   },

@@ -28,6 +28,9 @@ function pageFor(tabId, url, options = {}) {
     latencyMs: 0,
     latencyTotalMs: 0,
     latencyCount: 0,
+    statusCode: 0,
+    httpErrorCount: 0,
+    errorCodeCount: {},
     cacheStatus: '',
     cacheStoredAt: '',
     cacheAgeSeconds: 0,
@@ -85,6 +88,23 @@ function trackCacheHeaders(page, headers) {
   page.cacheResponseCount += 1;
 }
 
+function trackStatusHeaders(page, details) {
+  const statusCode = Number(details.statusCode || 0);
+  if (statusCode <= 0) {
+    return;
+  }
+  page.statusCode = statusCode;
+  if (statusCode < 400) {
+    return;
+  }
+  const errorCode = headerValue(details.responseHeaders, 'x-one-proxy-error') || `http_${statusCode}`;
+  page.failureCount += 1;
+  page.httpErrorCount += 1;
+  page.lastErrorCode = errorCode;
+  page.lastErrorMessage = errorCode;
+  page.errorCodeCount[errorCode] = Number(page.errorCodeCount[errorCode] || 0) + 1;
+}
+
 function recordLatency(page, tracked) {
   if (!page || !tracked || tracked.responseSeen) {
     return;
@@ -138,6 +158,7 @@ function trackHeaders(details) {
     return;
   }
   recordLatency(page, tracked);
+  trackStatusHeaders(page, details);
   trackCacheHeaders(page, details.responseHeaders);
   page.downloadBytes += contentLength(details.responseHeaders);
 }
@@ -159,6 +180,7 @@ function trackFailed(details) {
       page.failureCount += 1;
       page.lastErrorCode = details.error || 'request_failed';
       page.lastErrorMessage = details.error || 'request_failed';
+      page.errorCodeCount[page.lastErrorCode] = Number(page.errorCodeCount[page.lastErrorCode] || 0) + 1;
     }
   }
   requestsById.delete(details.requestId);
