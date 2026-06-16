@@ -57,12 +57,18 @@ func (s *MySQLStore) scanRouteRules(rows *sql.Rows, err error) []proxy.RouteRule
 }
 
 func (s *MySQLStore) CreateRouteRule(input proxy.CreateRouteRuleInput) (proxy.RouteRule, error) {
+	ownerID, err := s.defaultOwnerAccountID()
+	if err != nil {
+		return proxy.RouteRule{}, err
+	}
 	ruleID, err := s.nextID("route_rule")
 	if err != nil {
 		return proxy.RouteRule{}, err
 	}
 	item := proxy.RouteRule{
 		ID:               ruleID,
+		CreateID:         ownerID,
+		OwnerID:          ownerID,
 		Priority:         input.Priority,
 		MatchType:        input.MatchType,
 		MatchValue:       input.MatchValue,
@@ -73,9 +79,9 @@ func (s *MySQLStore) CreateRouteRule(input proxy.CreateRouteRuleInput) (proxy.Ro
 	}
 	now := nowRFC3339()
 	_, err = s.db.Exec(
-		`INSERT INTO route_rules (id, priority, match_type, match_value, action_type, chain_id, destination_scope, enabled, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?)`,
-		item.ID, item.Priority, item.MatchType, item.MatchValue, item.ActionType, item.ChainID, item.DestinationScope, 1, now, now,
+		`INSERT INTO route_rules (id, create_id, owner_id, priority, match_type, match_value, action_type, chain_id, destination_scope, enabled, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?)`,
+		item.ID, item.CreateID, item.OwnerID, item.Priority, item.MatchType, item.MatchValue, item.ActionType, item.ChainID, item.DestinationScope, 1, now, now,
 	)
 	return item, err
 }

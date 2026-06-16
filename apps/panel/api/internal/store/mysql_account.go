@@ -175,8 +175,144 @@ func (s *MySQLStore) DeleteAccount(accountID string) error {
 	if account.Account == "admin" {
 		return fmt.Errorf("cannot_delete_admin")
 	}
-	_, err := s.db.Exec("DELETE FROM accounts WHERE id = ?", accountID)
-	return err
+	replacementID, err := s.replacementAccountID(accountID)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("cannot_delete_last_account")
+	}
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	reassignmentStatements := []string{
+		"UPDATE tenant_memberships SET create_id = ? WHERE create_id = ?",
+		"UPDATE nodes SET create_id = ? WHERE create_id = ?",
+		"UPDATE nodes SET owner_id = ? WHERE owner_id = ?",
+		"UPDATE node_links SET create_id = ? WHERE create_id = ?",
+		"UPDATE node_links SET owner_id = ? WHERE owner_id = ?",
+		"UPDATE scopes SET create_id = ? WHERE create_id = ?",
+		"UPDATE scopes SET owner_id = ? WHERE owner_id = ?",
+		"UPDATE chains SET create_id = ? WHERE create_id = ?",
+		"UPDATE chains SET owner_id = ? WHERE owner_id = ?",
+		"UPDATE route_rules SET create_id = ? WHERE create_id = ?",
+		"UPDATE route_rules SET owner_id = ? WHERE owner_id = ?",
+		"UPDATE policy_revisions SET created_by_account_id = ? WHERE created_by_account_id = ?",
+		"UPDATE tenant_nodes SET create_id = ? WHERE create_id = ?",
+		"UPDATE tenant_node_links SET create_id = ? WHERE create_id = ?",
+		"UPDATE tenant_chains SET create_id = ? WHERE create_id = ?",
+		"UPDATE tenant_route_rules SET create_id = ? WHERE create_id = ?",
+		"UPDATE tenant_scopes SET create_id = ? WHERE create_id = ?",
+		"UPDATE tenant_access_paths SET create_id = ? WHERE create_id = ?",
+		"UPDATE node_onboarding_tasks SET requested_by_account_id = ? WHERE requested_by_account_id = ?",
+	}
+	if _, err := tx.Exec("DELETE FROM sessions WHERE account_id = ?", accountID); err != nil {
+		return err
+	}
+	for _, statement := range reassignmentStatements {
+		if _, err := tx.Exec(statement, replacementID, accountID); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec("DELETE FROM accounts WHERE id = ?", accountID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+type accountLookupQuery struct {
+	query string
+	args  []any
+}
+
+func (s *MySQLStore) replacementAccountID(accountID string) (string, error) {
+	queries := []accountLookupQuery{
+		{
+			query: `SELECT a.id
+			 FROM accounts a
+			 JOIN roles r ON r.id = a.role_id
+			 WHERE a.id <> ? AND a.status = ? AND r.name = ?
+			 ORDER BY a.id
+			 LIMIT 1`,
+			args: []any{accountID, domain.AccountStatusActive, domain.AccountRoleSuperAdmin},
+		},
+		{
+			query: `SELECT id
+			 FROM accounts
+			 WHERE id <> ? AND status = ?
+			 ORDER BY id
+			 LIMIT 1`,
+			args: []any{accountID, domain.AccountStatusActive},
+		},
+		{
+			query: `SELECT id
+			 FROM accounts
+			 WHERE id <> ?
+			 ORDER BY id
+			 LIMIT 1`,
+			args: []any{accountID},
+		},
+	}
+	for _, query := range queries {
+		var replacementID string
+		err := s.db.QueryRow(query.query, query.args...).Scan(&replacementID)
+		if err == nil && replacementID != "" {
+			return replacementID, nil
+		}
+		if err != nil && err != sql.ErrNoRows {
+			return "", err
+		}
+	}
+	return "", sql.ErrNoRows
+}
+
+func (s *MySQLStore) defaultOwnerAccountID() (string, error) {
+	queries := []accountLookupQuery{
+		{
+			query: `SELECT id
+			 FROM accounts
+			 WHERE account = ? AND status = ?
+			 ORDER BY id
+			 LIMIT 1`,
+			args: []any{"admin", domain.AccountStatusActive},
+		},
+		{
+			query: `SELECT a.id
+			 FROM accounts a
+			 JOIN roles r ON r.id = a.role_id
+			 WHERE a.status = ? AND r.name = ?
+			 ORDER BY a.id
+			 LIMIT 1`,
+			args: []any{domain.AccountStatusActive, domain.AccountRoleSuperAdmin},
+		},
+		{
+			query: `SELECT id
+			 FROM accounts
+			 WHERE status = ?
+			 ORDER BY id
+			 LIMIT 1`,
+			args: []any{domain.AccountStatusActive},
+		},
+		{
+			query: `SELECT id
+			 FROM accounts
+			 ORDER BY id
+			 LIMIT 1`,
+		},
+	}
+	for _, query := range queries {
+		var accountID string
+		err := s.db.QueryRow(query.query, query.args...).Scan(&accountID)
+		if err == nil && accountID != "" {
+			return accountID, nil
+		}
+		if err != nil && err != sql.ErrNoRows {
+			return "", err
+		}
+	}
+	return "", sql.ErrNoRows
 }
 
 func (s *MySQLStore) Authenticate(account string, password string) (domain.LoginResult, bool) {

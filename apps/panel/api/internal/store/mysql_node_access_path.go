@@ -73,12 +73,18 @@ func (s *MySQLStore) scanNodeAccessPaths(rows *sql.Rows, err error) []domain.Nod
 }
 
 func (s *MySQLStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput) (domain.NodeAccessPath, error) {
+	ownerID, err := s.defaultOwnerAccountID()
+	if err != nil {
+		return domain.NodeAccessPath{}, err
+	}
 	pathID, err := s.nextID("node_access_path")
 	if err != nil {
 		return domain.NodeAccessPath{}, err
 	}
 	item := domain.NodeAccessPath{
 		ID:             pathID,
+		CreateID:       ownerID,
+		OwnerID:        ownerID,
 		ChainID:        input.ChainID,
 		Name:           input.Name,
 		Mode:           input.Mode,
@@ -101,10 +107,10 @@ func (s *MySQLStore) CreateNodeAccessPath(input domain.CreateNodeAccessPathInput
 	now := nowRFC3339()
 	_, err = s.db.Exec(
 		`INSERT INTO node_access_paths
-		 (id, chain_id, name, mode, protocol, service_type, target_node_id, entry_node_id, relay_node_ids_json, listen_host, listen_port,
+		 (id, create_id, owner_id, chain_id, name, mode, protocol, service_type, target_node_id, entry_node_id, relay_node_ids_json, listen_host, listen_port,
 		  target_protocol, target_host, target_port, target_sni, tls_mode, auth_mode, options_json, enabled, created_at, updated_at)
-		 VALUES (?, NULLIF(?, ''), ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.ChainID, item.Name, item.Mode, item.Protocol, item.ServiceType, item.TargetNodeID, item.EntryNodeID, encodeJSONStringSlice(item.RelayNodeIDs),
+		 VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.CreateID, item.OwnerID, item.ChainID, item.Name, item.Mode, item.Protocol, item.ServiceType, item.TargetNodeID, item.EntryNodeID, encodeJSONStringSlice(item.RelayNodeIDs),
 		item.ListenHost, item.ListenPort, item.TargetProtocol, item.TargetHost, item.TargetPort, item.TargetSNI, item.TLSMode, item.AuthMode,
 		encodeJSONMap(item.Options), 1, now, now,
 	)
@@ -188,8 +194,22 @@ func (s *MySQLStore) UpdateNodeAccessPath(pathID string, input domain.UpdateNode
 }
 
 func (s *MySQLStore) DeleteNodeAccessPath(pathID string) error {
-	_, err := s.db.Exec("DELETE FROM node_access_paths WHERE id = ?", pathID)
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	statements := []string{
+		"DELETE FROM node_onboarding_tasks WHERE path_id = ?",
+		"DELETE FROM tenant_access_paths WHERE access_path_id = ?",
+		"DELETE FROM node_access_paths WHERE id = ?",
+	}
+	for _, statement := range statements {
+		if _, err := tx.Exec(statement, pathID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *MySQLStore) NodeAccessPathBindingPermission(tenantCtx domain.TenantAuthContext, pathID string) (domain.BindingPermission, bool) {

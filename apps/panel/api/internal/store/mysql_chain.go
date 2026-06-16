@@ -123,11 +123,15 @@ func (s *MySQLStore) SaveChainProbeResult(input proxy.SaveChainProbeResultInput)
 }
 
 func (s *MySQLStore) CreateChain(input proxy.CreateChainInput) (proxy.Chain, error) {
+	ownerID, err := s.defaultOwnerAccountID()
+	if err != nil {
+		return proxy.Chain{}, err
+	}
 	chainID, err := s.nextID("chain")
 	if err != nil {
 		return proxy.Chain{}, err
 	}
-	item := proxy.Chain{ID: chainID, Name: input.Name, DestinationScope: input.DestinationScope, Enabled: true, Hops: input.Hops}
+	item := proxy.Chain{ID: chainID, CreateID: ownerID, OwnerID: ownerID, Name: input.Name, DestinationScope: input.DestinationScope, Enabled: true, Hops: input.Hops}
 	now := nowRFC3339()
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -135,8 +139,8 @@ func (s *MySQLStore) CreateChain(input proxy.CreateChainInput) (proxy.Chain, err
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(
-		`INSERT INTO chains (id, name, destination_scope, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		item.ID, item.Name, item.DestinationScope, 1, now, now,
+		`INSERT INTO chains (id, create_id, owner_id, name, destination_scope, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.CreateID, item.OwnerID, item.Name, item.DestinationScope, 1, now, now,
 	); err != nil {
 		return proxy.Chain{}, err
 	}
@@ -223,14 +227,20 @@ func (s *MySQLStore) DeleteChain(chainID string) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec("DELETE FROM chain_hops WHERE chain_id = ?", chainID); err != nil {
-		return err
+	statements := []string{
+		"DELETE FROM tenant_route_rules WHERE route_rule_id IN (SELECT id FROM route_rules WHERE chain_id = ?)",
+		"DELETE FROM route_rules WHERE chain_id = ?",
+		"DELETE FROM node_onboarding_tasks WHERE path_id IN (SELECT id FROM node_access_paths WHERE chain_id = ?)",
+		"DELETE FROM node_access_paths WHERE chain_id = ?",
+		"DELETE FROM chain_probe_results WHERE chain_id = ?",
+		"DELETE FROM tenant_chains WHERE chain_id = ?",
+		"DELETE FROM chain_hops WHERE chain_id = ?",
+		"DELETE FROM chains WHERE id = ?",
 	}
-	if _, err := tx.Exec("DELETE FROM node_access_paths WHERE chain_id = ?", chainID); err != nil {
-		return err
-	}
-	if _, err := tx.Exec("DELETE FROM chains WHERE id = ?", chainID); err != nil {
-		return err
+	for _, statement := range statements {
+		if _, err := tx.Exec(statement, chainID); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }

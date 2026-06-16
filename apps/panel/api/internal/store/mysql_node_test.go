@@ -24,6 +24,12 @@ type nodeDeleteRecord struct {
 	calls    []nodeDeleteCall
 	chainIDs []string
 	counts   map[string]int
+	results  map[string]nodeDeleteQueryResult
+}
+
+type nodeDeleteQueryResult struct {
+	columns []string
+	values  [][]driver.Value
 }
 
 func (r *nodeDeleteRecord) add(query string, args []driver.Value) {
@@ -81,6 +87,11 @@ func (c *nodeDeleteConn) QueryContext(_ context.Context, query string, args []dr
 	if strings.HasPrefix(strings.TrimSpace(query), "SELECT COUNT") {
 		return &nodeDeleteRows{columns: []string{"count"}, values: [][]driver.Value{{c.record.counts[query]}}}, nil
 	}
+	if c.record.results != nil {
+		if result, ok := c.record.results[normalizedQuery(query)]; ok {
+			return &nodeDeleteRows{columns: result.columns, values: result.values}, nil
+		}
+	}
 	values := make([][]driver.Value, 0, len(c.record.chainIDs))
 	for _, chainID := range c.record.chainIDs {
 		values = append(values, []driver.Value{chainID})
@@ -131,6 +142,10 @@ func namedValues(args []driver.NamedValue) []driver.Value {
 		values = append(values, arg.Value)
 	}
 	return values
+}
+
+func normalizedQuery(query string) string {
+	return strings.Join(strings.Fields(query), " ")
 }
 
 func openNodeDeleteTestDB(t *testing.T, record *nodeDeleteRecord) *sql.DB {

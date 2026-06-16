@@ -53,12 +53,18 @@ func (s *MySQLStore) scanNodeLinks(rows *sql.Rows, err error) []domain.NodeLink 
 }
 
 func (s *MySQLStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.NodeLink, error) {
+	ownerID, err := s.defaultOwnerAccountID()
+	if err != nil {
+		return domain.NodeLink{}, err
+	}
 	linkID, err := s.nextID("node_link")
 	if err != nil {
 		return domain.NodeLink{}, err
 	}
 	item := domain.NodeLink{
 		ID:           linkID,
+		CreateID:     ownerID,
+		OwnerID:      ownerID,
 		SourceNodeID: input.SourceNodeID,
 		TargetNodeID: input.TargetNodeID,
 		LinkType:     input.LinkType,
@@ -66,9 +72,9 @@ func (s *MySQLStore) CreateNodeLink(input domain.CreateNodeLinkInput) (domain.No
 	}
 	now := nowRFC3339()
 	_, err = s.db.Exec(
-		`INSERT INTO node_links (id, source_node_id, target_node_id, link_type, trust_state, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.SourceNodeID, item.TargetNodeID, item.LinkType, item.TrustState, now, now,
+		`INSERT INTO node_links (id, create_id, owner_id, source_node_id, target_node_id, link_type, trust_state, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.CreateID, item.OwnerID, item.SourceNodeID, item.TargetNodeID, item.LinkType, item.TrustState, now, now,
 	)
 	return item, err
 }

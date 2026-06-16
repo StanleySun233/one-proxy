@@ -124,7 +124,22 @@ func (s *MySQLStore) UpdateTenant(tenantID string, name string) (domain.Tenant, 
 }
 
 func (s *MySQLStore) DeleteTenant(tenantID string) error {
-	result, err := s.db.Exec("DELETE FROM tenants WHERE id = ?", tenantID)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	statements := []string{
+		"UPDATE node_health_snapshots SET policy_revision_id = NULL WHERE policy_revision_id IN (SELECT id FROM policy_revisions WHERE tenant_id = ?)",
+		"DELETE FROM node_policy_assignments WHERE tenant_id = ?",
+		"DELETE FROM policy_revisions WHERE tenant_id = ?",
+	}
+	for _, statement := range statements {
+		if _, err := tx.Exec(statement, tenantID); err != nil {
+			return err
+		}
+	}
+	result, err := tx.Exec("DELETE FROM tenants WHERE id = ?", tenantID)
 	if err != nil {
 		return err
 	}
@@ -135,7 +150,7 @@ func (s *MySQLStore) DeleteTenant(tenantID string) error {
 	if affected == 0 {
 		return sql.ErrNoRows
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (s *MySQLStore) ListTenantMemberships(accountID string) []domain.TenantMembership {

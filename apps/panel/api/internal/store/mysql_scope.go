@@ -56,9 +56,12 @@ func (s *MySQLStore) scanScopes(rows *sql.Rows, err error) []proxy.Scope {
 }
 
 func (s *MySQLStore) CreateScope(input proxy.CreateScopeInput) (proxy.Scope, error) {
+	ownerID, err := s.defaultOwnerAccountID()
+	if err != nil {
+		return proxy.Scope{}, err
+	}
 	scopeID := strings.TrimSpace(input.ID)
 	if scopeID == "" {
-		var err error
 		scopeID, err = s.nextID("scope")
 		if err != nil {
 			return proxy.Scope{}, err
@@ -67,15 +70,17 @@ func (s *MySQLStore) CreateScope(input proxy.CreateScopeInput) (proxy.Scope, err
 	now := nowRFC3339()
 	item := proxy.Scope{
 		ID:          scopeID,
+		CreateID:    ownerID,
+		OwnerID:     ownerID,
 		Name:        strings.TrimSpace(input.Name),
 		Description: strings.TrimSpace(input.Description),
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	_, err := s.db.Exec(
-		`INSERT INTO scopes (id, name, description, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		item.ID, item.Name, item.Description, item.CreatedAt, item.UpdatedAt,
+	_, err = s.db.Exec(
+		`INSERT INTO scopes (id, create_id, owner_id, name, description, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		item.ID, item.CreateID, item.OwnerID, item.Name, item.Description, item.CreatedAt, item.UpdatedAt,
 	)
 	return item, err
 }

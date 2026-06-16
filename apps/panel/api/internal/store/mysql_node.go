@@ -109,14 +109,18 @@ func (s *MySQLStore) scanNodes(rows *sql.Rows, err error) []domain.Node {
 }
 
 func (s *MySQLStore) CreateNode(input domain.CreateNodeInput) (domain.Node, error) {
+	ownerID, err := s.defaultOwnerAccountID()
+	if err != nil {
+		return domain.Node{}, err
+	}
 	nodeID, err := s.nextNodeID()
 	if err != nil {
 		return domain.Node{}, err
 	}
 	item := domain.Node{
 		ID:           nodeID,
-		CreateID:     "1",
-		OwnerID:      "1",
+		CreateID:     ownerID,
+		OwnerID:      ownerID,
 		Name:         input.Name,
 		Mode:         input.Mode,
 		ScopeKey:     input.ScopeKey,
