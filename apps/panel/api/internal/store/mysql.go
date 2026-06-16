@@ -3,16 +3,15 @@ package store
 import (
 	"context"
 	"database/sql"
-	"os"
 	"time"
 
-	gormmysql "gorm.io/driver/mysql"
-	"gorm.io/gorm"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/mysqldialect"
 )
 
 type MySQLStore struct {
-	gormDB                 *gorm.DB
 	db                     *sql.DB
+	bunDB                  *bun.DB
 	bootstrapAdminPassword string
 }
 
@@ -20,11 +19,7 @@ func NewMySQLStore(dsn string) (*MySQLStore, error) {
 	if err := ensureDatabaseExists(dsn); err != nil {
 		return nil, err
 	}
-	gormDB, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
-	if err != nil {
-		return nil, err
-	}
-	db, err := gormDB.DB()
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -33,8 +28,8 @@ func NewMySQLStore(dsn string) (*MySQLStore, error) {
 	db.SetConnMaxLifetime(30 * time.Minute)
 
 	store := &MySQLStore{
-		gormDB: gormDB,
-		db:     db,
+		db:    db,
+		bunDB: bun.NewDB(db, mysqldialect.New()),
 	}
 	if err := store.init(context.Background()); err != nil {
 		_ = db.Close()
@@ -48,38 +43,13 @@ func (s *MySQLStore) BootstrapAdminPassword() string {
 }
 
 func (s *MySQLStore) init(ctx context.Context) error {
-	schemaFiles, err := resolveSchemaFiles()
-	if err != nil {
+	if err := s.runMigrations(ctx); err != nil {
 		return err
 	}
-	for _, schemaPath := range schemaFiles {
-		schemaBytes, err := os.ReadFile(schemaPath)
-		if err != nil {
-			return err
-		}
-		statements := splitSQLStatements(string(schemaBytes))
-		for _, statement := range statements {
-			if _, err := s.db.ExecContext(ctx, statement); err != nil {
-				return err
-			}
-		}
-	}
-	if err := s.gormDB.WithContext(ctx).Exec("SELECT 1").Error; err != nil {
+	if err := s.db.PingContext(ctx); err != nil {
 		return err
 	}
 	if err := s.bootstrapAdmin(ctx); err != nil {
-		return err
-	}
-	if err := s.ensureBootstrapTokenMetadataColumns(ctx); err != nil {
-		return err
-	}
-	if err := s.ensureNodeAccessPathProtocolColumns(ctx); err != nil {
-		return err
-	}
-	if err := s.ensureNetworkAuditGovernanceColumns(ctx); err != nil {
-		return err
-	}
-	if err := s.ensureAccountRoleModel(ctx); err != nil {
 		return err
 	}
 	if err := s.bootstrapConfig(ctx); err != nil {
