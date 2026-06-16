@@ -131,7 +131,7 @@ chromium.launchPersistentContext(userDataDir, {
                 const strict = parsed.searchParams.get('routeId') || parsed.searchParams.get('chainId');
                 const host = parsed.searchParams.get('host') || '';
                 let data = { status: 'ok', latencyMs: 42, uploadBytes: 1234, downloadBytes: 5678, requestCount: 2, failureCount: 0, correlated: true };
-                if (strict || host === '172.20.116.6') {
+                if (strict || host === '172.20.116.6' || host === '172.20.116.7') {
                   data = { status: 'unknown', latencyMs: 0, uploadBytes: 0, downloadBytes: 0, requestCount: 0, failureCount: 0, correlated: false };
                 }
                 return Promise.resolve(new Response(JSON.stringify({ code: 0, message: 'ok', data }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
@@ -255,6 +255,28 @@ chromium.launchPersistentContext(userDataDir, {
             }
             if (statusResult.status !== 'error' || statusResult.page.requestCount !== 3 || statusResult.page.proxiedRequestCount !== 3 || statusResult.page.statusCode !== 502 || statusResult.lastError.code !== 'next_hop_connect_failed') {
               throw new Error('service_worker_status_bubble_page_metrics_fallback_failed');
+            }
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({
+              type: 'status-bubble-page-status',
+              url: 'http://172.20.116.7/',
+              pageMetrics: {
+                openedAt: '2026-06-16T16:00:00Z',
+                requestCount: 0,
+                responseCount: 0,
+                downloadBytes: 0,
+                latencyMs: 114,
+                statusCode: 0,
+                failureCount: 0,
+                httpErrorCount: 0,
+                errorCodeCount: {}
+              }
+            }));
+          }).then((statusResult) => {
+            if (statusResult.error) {
+              throw new Error(statusResult.error);
+            }
+            if (statusResult.status !== 'ok' || statusResult.color !== 'green' || statusResult.latencyMs !== 114) {
+              throw new Error('service_worker_status_bubble_ping_color_failed');
             }
             console.log(`chrome_extension_service_worker_ok id=${result.id} version=${result.version}`);
           });

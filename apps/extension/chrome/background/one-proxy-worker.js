@@ -1497,6 +1497,13 @@ function statusFrom(remoteStatus, metrics, routeMode, pathHealth) {
   return remote || 'unknown';
 }
 
+function statusWithLatency(status, latencyMs, routeMode) {
+  if (status !== 'unknown' || routeMode !== 'proxy') {
+    return status;
+  }
+  return Number(latencyMs || 0) > 0 ? 'ok' : status;
+}
+
 function effectiveLatencyMs(remoteStatus, metrics, pathHealth) {
   const remoteLatencyMs = Number((remoteStatus && remoteStatus.latencyMs) || 0);
   if (remoteLatencyMs > 0) {
@@ -1569,7 +1576,7 @@ function getStatusBubblePageStatus(message, sender) {
         const linkTimings = actualLinkTimings.length > 0 ? actualLinkTimings : normalizeLinkTimings(pathHealth.linkTimings);
         const lastErrorCode = status.lastErrorCode || (metrics && metrics.lastErrorCode) || '';
         const lastErrorMessage = status.lastErrorMessage || (metrics && metrics.lastErrorMessage) || '';
-        const displayStatus = statusFrom(status, metrics, route.mode, pathHealth);
+        const displayStatus = statusWithLatency(statusFrom(status, metrics, route.mode, pathHealth), latencyMs, route.mode);
         const cache = {
           status: page.cacheStatus || '',
           storedAt: page.cacheStoredAt || '',
