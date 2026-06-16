@@ -1,7 +1,7 @@
 # Dev Roadmap: Backend Modernization
 
 **Date:** 20260616
-**Status:** planned
+**Status:** in-progress
 **Product document:** docs/20260616/backend-modernization/product-requirements.md
 
 ## Summary
