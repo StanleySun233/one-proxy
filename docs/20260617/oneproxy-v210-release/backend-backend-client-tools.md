@@ -27,6 +27,12 @@
   - Commit: 721b9bc
 - [x] Regenerate tracked CLI dist artifacts in `apps/cli/dist/**` for v2.1.0 source changes
   - Commit: 9845752
+- [x] Update `onep init` to consume only latest access-path bootstrap state in `apps/cli/src/init.ts`
+  - Commit: b3ac4cf
+- [x] Replace visible `group list|use` CLI surface with `access-path list|use` in `apps/cli/src/main.ts` and `apps/cli/src/control-plane.ts`
+  - Commit: b3ac4cf
+- [x] Regenerate tracked CLI dist artifacts after init and command-surface changes in `apps/cli/dist/**`
+  - Commit: b3ac4cf
 
 ## Blockers
 
