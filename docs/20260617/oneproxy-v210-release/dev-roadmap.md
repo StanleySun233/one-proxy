@@ -52,6 +52,8 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 - [ ] backend-client-tools: remove password CLI flag and align default ports in `apps/extension/cli/cmd/oneproxy/main.go` (depends: api-contract.md)
 - [ ] backend-client-tools: verify direct QUIC node identity in `apps/extension/cli/internal/proxycommand/direct.go` (depends: api-contract.md)
 - [ ] backend-client-tools: align VS Code SSH generation to access-path identity in `apps/extension/vscode/src/extension.ts` (depends: api-contract.md)
+- [ ] backend-client-tools: send daemon IPC secret from route and probe commands in `apps/cli/src/commands.ts` (depends: lifecycle.ts)
+- [ ] backend-node-security: update node proxy tests for v2.1.0 fail-closed behavior in `apps/node/api/internal/proxy/server_test.go` and `apps/node/api/internal/proxy/reverse_test.go` (depends: auth.go)
 
 ### Frontend Tasks
 
@@ -70,6 +72,7 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 - [ ] frontend-extension-routing: minimize Chrome extension permissions in `apps/extension/chrome/manifest.json` (depends: messages.js)
 - [ ] frontend-extension-routing: update popup route/group display for latest access-path state in `apps/extension/chrome/popup/runtime.js` (depends: state.js)
 - [ ] frontend-extension-routing: update options route/group display for latest access-path state in `apps/extension/chrome/options/runtime.js` (depends: state.js)
+- [ ] frontend-extension-routing: authorize multiple access-path proxy challenges in `apps/extension/chrome/tools/background-source/proxy-auth.js` (depends: pac.js)
 
 ### Release, Test, and Deployment Tasks
 
