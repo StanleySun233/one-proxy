@@ -284,13 +284,9 @@ wait_for_pending_node() {
   done
 }
 
-create_access_path_state() {
+create_route_state() {
   chain_response="$(api_request POST /proxy "$access_token" "$tenant_id" "{\"name\":\"v2.1.0 local chain\",\"destinationScope\":\"${scope_id}\",\"hops\":[\"${node_id}\"]}")"
   chain_id="$(printf '%s' "$chain_response" | json_get data.id)"
-
-  path_body="{\"chainId\":\"${chain_id}\",\"name\":\"v2.1.0 local forward path\",\"mode\":\"forward\",\"protocol\":\"http\",\"serviceType\":\"http_forward_proxy\",\"targetNodeId\":\"${node_id}\",\"entryNodeId\":\"${node_id}\",\"relayNodeIds\":[],\"listenHost\":\"127.0.0.1\",\"listenPort\":${node_http_host_port},\"targetProtocol\":\"http\",\"targetHost\":\"example.test\",\"targetPort\":80,\"targetSni\":\"\",\"tlsMode\":\"\",\"authMode\":\"proxy_token\",\"options\":{}}"
-  path_response="$(api_request POST /proxy/paths "$access_token" "$tenant_id" "$path_body")"
-  access_path_id="$(printf '%s' "$path_response" | json_get data.id)"
 
   group_response="$(api_request POST /proxy/route-groups "$access_token" "$tenant_id" "{\"name\":\"v2.1.0 local routes\",\"description\":\"isolated release scenario\"}")"
   route_group_id="$(printf '%s' "$group_response" | json_get data.id)"
@@ -299,8 +295,17 @@ create_access_path_state() {
   route_response="$(api_request POST /proxy/routes "$access_token" "$tenant_id" "$route_body")"
   route_id="$(printf '%s' "$route_response" | json_get data.id)"
   echo "chain_created=${chain_id}"
-  echo "access_path_created=${access_path_id}"
   echo "route_created=${route_id}"
+}
+
+publish_policy() {
+  publish_response="$(api_request POST /policies/publish "$access_token" "$tenant_id" "{}")"
+  policy_revision="$(printf '%s' "$publish_response" | json_get data.version)"
+  if [ -z "$policy_revision" ]; then
+    echo "policy_publish=failed response=${publish_response}" >&2
+    return 1
+  fi
+  echo "policy_published=${policy_revision}"
 }
 
 validate_latest_bootstrap() {
@@ -312,11 +317,36 @@ assert "groups" not in payload, payload.keys()
 assert payload.get("nodes"), payload
 assert payload.get("accessPaths"), payload
 assert payload.get("routes"), payload
+assert payload["routes"][0].get("accessPathId"), payload["routes"][0]
 print("bootstrap_schema=v2.1.0 access_paths=%d routes=%d" % (len(payload["accessPaths"]), len(payload["routes"])))
 '
   proxy_token="$(printf '%s' "$bootstrap_response" | json_get data.proxyToken)"
   bootstrap_access_path_id="$(printf '%s' "$bootstrap_response" | json_get data.accessPaths.0.id)"
   bootstrap_route_id="$(printf '%s' "$bootstrap_response" | json_get data.routes.0.id)"
+  bootstrap_route_access_path_id="$(printf '%s' "$bootstrap_response" | json_get data.routes.0.accessPathId)"
+  if [ "$bootstrap_access_path_id" != "$bootstrap_route_access_path_id" ]; then
+    echo "bootstrap_access_path_mismatch path=${bootstrap_access_path_id} route=${bootstrap_route_access_path_id}" >&2
+    return 1
+  fi
+  echo "bootstrap_route_access_path=ok"
+}
+
+validate_node_policy() {
+  policy_response="$(node_api_request GET /node/agent/policy "$node_access_token")"
+  printf '%s' "$policy_response" | python3 -c 'import json,sys
+envelope=json.load(sys.stdin)
+data=envelope["data"]
+payload=json.loads(data["payloadJson"])
+snapshots=payload.get("snapshots") or []
+assert snapshots, payload
+route_rules=snapshots[0]["payload"].get("routeRules") or []
+assert route_rules, snapshots[0]
+assert route_rules[0].get("accessPathId"), route_rules[0]
+print("node_policy_revision=%s access_path_id=%s routes=%d" % (data.get("policyRevisionId"), route_rules[0].get("accessPathId"), len(route_rules)))
+'
+}
+
+validate_proxy_token() {
   token_hash="$(sha256_hex "$proxy_token")"
   validate_body="{\"tokenHash\":\"${token_hash}\",\"accessPathId\":\"${bootstrap_access_path_id}\",\"targetHost\":\"example.test\",\"targetPort\":80,\"protocol\":\"http\",\"routeId\":\"${bootstrap_route_id}\"}"
   node_api_request POST /node/agent/proxy/token/validate "$node_access_token" "$validate_body" >/dev/null
@@ -383,8 +413,11 @@ case "$mode" in
     node_access_token="$(printf '%s' "$approve_response" | json_get data.accessToken)"
     echo "node_approved=${node_id}"
     wait_for_node_bound
-    create_access_path_state
+    create_route_state
+    publish_policy
     validate_latest_bootstrap
+    validate_node_policy
+    validate_proxy_token
     run_db_evidence
     ;;
   clean)

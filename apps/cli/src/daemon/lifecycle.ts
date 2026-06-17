@@ -12,6 +12,16 @@ export type LocalOverrides = {
   proxy: string[];
 };
 
+export type TopologyHop = {
+  nodeId: string;
+  nodeName: string;
+  mode: string;
+  scopeKey: string;
+  publicHost?: string;
+  publicPort?: number;
+  transport: string;
+};
+
 export type OneProxyConfig = {
   schemaVersion: number;
   controlPlaneUrl?: string;
@@ -29,6 +39,7 @@ export type AccessPathSnapshot = {
   listenHost: string;
   listenPort: number;
   enabled?: boolean;
+  topology: TopologyHop[];
 };
 
 export type RouteSnapshot = {
@@ -37,9 +48,11 @@ export type RouteSnapshot = {
   matchType: 'domain' | 'domain_suffix' | 'ip' | 'ip_cidr' | 'protocol' | 'default';
   matchValue: string;
   actionType: 'chain' | 'direct' | 'deny';
-  chainId?: string;
-  accessPathId?: string;
-  enabled?: boolean;
+  chainId: string;
+  accessPathId: string;
+  destinationScope: string;
+  enabled: boolean;
+  topology: TopologyHop[];
 };
 
 export type OneProxyState = {

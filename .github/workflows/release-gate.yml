@@ -1,0 +1,111 @@
+name: release-gate
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+
+      - name: Panel API tests
+        working-directory: apps/panel/api
+        run: go test ./...
+
+      - name: Node API tests
+        working-directory: apps/node/api
+        run: go test ./...
+
+      - name: Extension CLI tests
+        working-directory: apps/extension/cli
+        run: go test ./...
+
+      - name: Panel web build
+        working-directory: apps/panel/web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Node console web checks
+        working-directory: apps/node/web
+        run: |
+          npm ci
+          npm run check
+          npm run build
+
+      - name: CLI checks and tests
+        working-directory: apps/cli
+        run: |
+          npm ci
+          npm run check
+          node --test test/*.mjs
+
+      - name: VS Code extension typecheck
+        working-directory: apps/extension/vscode
+        run: |
+          npm ci
+          npx tsc --noEmit
+
+      - name: Chrome extension static checks
+        run: |
+          node apps/extension/chrome/tools/build_background_bundle.mjs
+          node apps/extension/chrome/tools/validate_extension.mjs
+          node --test apps/extension/chrome/tools/domain_suffix_test.mjs
+
+      - name: Chrome extension service worker smoke
+        run: |
+          npm install --no-save playwright@1.60.0
+          npx playwright install --with-deps chromium
+          xvfb-run --auto-servernum node apps/extension/chrome/tools/service_worker_smoke.mjs
+
+  docker-scenario:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run isolated docker scenario
+        env:
+          ONEPROXY_IMAGE_TAG: ci-${{ github.sha }}
+          ONEPROXY_V210_PROJECT: oneproxy-release-gate-${{ github.run_id }}
+          ONEPROXY_V210_PANEL_PORT: 12886
+          ONEPROXY_V210_NODE_HTTP_PORT: 12988
+          ONEPROXY_V210_NODE_HTTPS_PORT: 12989
+          ONEPROXY_V210_NODE_TCP_PORT: 12990
+          ONEPROXY_V210_NODE_UDP_PORT: 12991
+          ONEPROXY_V210_NODE_DIRECT_PORT: 12992
+          ONEPROXY_V210_MYSQL_PORT: 13306
+          ONEPROXY_V210_REDIS_PORT: 16379
+        run: |
+          scripts/test-v210-docker-scenario.sh build
+          scripts/test-v210-docker-scenario.sh run
+
+      - name: Clean isolated docker scenario
+        if: always()
+        env:
+          ONEPROXY_IMAGE_TAG: ci-${{ github.sha }}
+          ONEPROXY_V210_PROJECT: oneproxy-release-gate-${{ github.run_id }}
+          ONEPROXY_V210_PANEL_PORT: 12886
+          ONEPROXY_V210_NODE_HTTP_PORT: 12988
+          ONEPROXY_V210_NODE_HTTPS_PORT: 12989
+          ONEPROXY_V210_NODE_TCP_PORT: 12990
+          ONEPROXY_V210_NODE_UDP_PORT: 12991
+          ONEPROXY_V210_NODE_DIRECT_PORT: 12992
+          ONEPROXY_V210_MYSQL_PORT: 13306
+          ONEPROXY_V210_REDIS_PORT: 16379
+        run: scripts/test-v210-docker-scenario.sh clean
