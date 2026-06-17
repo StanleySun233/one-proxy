@@ -34,6 +34,7 @@ type RouteRule struct {
 	MatchValue       string `json:"matchValue"`
 	ActionType       string `json:"actionType"`
 	ChainID          string `json:"chainId,omitempty"`
+	AccessPathID     string `json:"accessPathId,omitempty"`
 	DestinationScope string `json:"destinationScope,omitempty"`
 	Enabled          bool   `json:"enabled"`
 	Permission       string `json:"permission,omitempty"`

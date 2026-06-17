@@ -20,8 +20,8 @@ type testTokenValidator struct {
 	valid       bool
 }
 
-func (v *testTokenValidator) ValidateProxyToken(_ context.Context, tokenHash string) (proxy.TokenValidation, error) {
-	v.validations = append(v.validations, tokenHash)
+func (v *testTokenValidator) ValidateProxyToken(_ context.Context, request proxy.TokenValidationRequest) (proxy.TokenValidation, error) {
+	v.validations = append(v.validations, request.TokenHash)
 	return proxy.TokenValidation{Valid: v.valid, ExpiresAt: time.Now().UTC().Add(time.Hour)}, nil
 }
 

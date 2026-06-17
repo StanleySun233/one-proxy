@@ -25,7 +25,7 @@ import (
 )
 
 type recordingTokenValidator struct {
-	validations     []string
+	validations     []TokenValidationRequest
 	valid           bool
 	expiresAt       time.Time
 	allowLocalProxy bool
@@ -91,8 +91,8 @@ func (s *cacheFallbackStreamOpener) OpenDirectStream(_ context.Context, _ domain
 	return client, nil
 }
 
-func (v *recordingTokenValidator) ValidateProxyToken(_ context.Context, tokenHash string) (TokenValidation, error) {
-	v.validations = append(v.validations, tokenHash)
+func (v *recordingTokenValidator) ValidateProxyToken(_ context.Context, request TokenValidationRequest) (TokenValidation, error) {
+	v.validations = append(v.validations, request)
 	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt, AllowLocalProxy: v.allowLocalProxy, TenantID: v.tenantID}, nil
 }
 
@@ -711,7 +711,7 @@ func TestForwardProxyAcceptsBearerAndChromeBasicToken(t *testing.T) {
 		t.Fatalf("bearer authorized status = %d", resp.Code)
 	}
 	expectedHash := sha256Hex("proxy-token")
-	if len(validator.validations) != 1 || validator.validations[0] != expectedHash {
+	if len(validator.validations) != 1 || validator.validations[0].TokenHash != expectedHash {
 		t.Fatalf("validation hashes = %v, want %s", validator.validations, expectedHash)
 	}
 
@@ -723,8 +723,52 @@ func TestForwardProxyAcceptsBearerAndChromeBasicToken(t *testing.T) {
 		t.Fatalf("chrome basic authorized status = %d", resp.Code)
 	}
 	expectedHash = sha256Hex("chrome-token")
-	if len(validator.validations) != 2 || validator.validations[1] != expectedHash {
+	if len(validator.validations) != 2 || validator.validations[1].TokenHash != expectedHash {
 		t.Fatalf("validation hashes = %v, want second %s", validator.validations, expectedHash)
+	}
+}
+
+func TestForwardProxyTokenValidationIncludesRouteContext(t *testing.T) {
+	store := policystore.New("")
+	payload, err := json.Marshal(policystore.Snapshot{
+		Nodes: []domain.Node{
+			{ID: "edge", Enabled: true},
+			{ID: "target", Enabled: true},
+		},
+		Chains: []domain.Chain{
+			{ID: "chain-1", Enabled: true, Hops: []string{"edge", "target"}},
+		},
+		RouteRules: []domain.RouteRule{
+			{ID: "route-1", MatchType: domain.MatchTypeDefault, ActionType: domain.ActionTypeChain, ChainID: "chain-1", AccessPathID: "path-1", Enabled: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update("test", string(payload)); err != nil {
+		t.Fatal(err)
+	}
+	validator := &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour)}
+	server, err := NewServerWithOptions(store, func() string { return "edge" }, nil, "", AuthConfig{
+		Validator: validator,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.invalid:2333/lab", nil)
+	req.Header.Set("Proxy-Authorization", "Bearer proxy-token")
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if len(validator.validations) != 1 {
+		t.Fatalf("validation count = %d", len(validator.validations))
+	}
+	got := validator.validations[0]
+	if got.TokenHash != sha256Hex("proxy-token") || got.AccessPathID != "path-1" || got.RouteID != "route-1" {
+		t.Fatalf("validation identity = %+v", got)
+	}
+	if got.TargetHost != "example.invalid" || got.TargetPort != 2333 || got.Protocol != "http" {
+		t.Fatalf("validation target = %+v", got)
 	}
 }
 

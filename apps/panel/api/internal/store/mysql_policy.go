@@ -15,7 +15,10 @@ func tenantPolicyContext(tenantCtx domain.TenantAuthContext) domain.TenantAuthCo
 
 func (s *MySQLStore) tenantPolicyInputs(tenantCtx domain.TenantAuthContext) ([]domain.Node, []domain.NodeLink, []proxy.Chain, []proxy.RouteRule) {
 	scoped := tenantPolicyContext(tenantCtx)
-	return s.policyNodesForTenant(scoped), s.ListNodeLinksForTenant(scoped), s.ListChainsForTenant(scoped), s.ListPolicyRouteRulesForTenant(scoped)
+	chains := s.ListChainsForTenant(scoped)
+	paths := s.ListNodeAccessPathsForTenant(scoped)
+	rules := policyRouteRulesWithAccessPaths(s.ListPolicyRouteRulesForTenant(scoped), paths)
+	return s.policyNodesForTenant(scoped), s.ListNodeLinksForTenant(scoped), chains, rules
 }
 
 func (s *MySQLStore) ensureDefaultAccessPathsForTenant(tenantCtx domain.TenantAuthContext) error {
@@ -88,6 +91,25 @@ func relayNodeIDs(hops []string) []string {
 		return nil
 	}
 	return append([]string(nil), hops[1:len(hops)-1]...)
+}
+
+func policyRouteRulesWithAccessPaths(rules []proxy.RouteRule, paths []domain.NodeAccessPath) []proxy.RouteRule {
+	pathsByChainID := make(map[string]string, len(paths))
+	for _, path := range paths {
+		if path.Enabled && path.ChainID != "" {
+			if _, ok := pathsByChainID[path.ChainID]; !ok {
+				pathsByChainID[path.ChainID] = path.ID
+			}
+		}
+	}
+	result := make([]proxy.RouteRule, 0, len(rules))
+	for _, rule := range rules {
+		if rule.ActionType == domain.ActionTypeChain {
+			rule.AccessPathID = pathsByChainID[rule.ChainID]
+		}
+		result = append(result, rule)
+	}
+	return result
 }
 
 func (s *MySQLStore) policyNodesForTenant(tenantCtx domain.TenantAuthContext) []domain.Node {

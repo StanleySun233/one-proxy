@@ -1,8 +1,10 @@
 package proxy
 
 import (
+	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
@@ -90,12 +92,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		s.forwardReverse(w, req, tracker)
 		return
 	}
-	validation, ok := s.authorizeForwardRequest(w, req)
+	revision, snapshot := s.store.Current()
+	match := Match(snapshot, req)
+	validation, ok := s.authorizeForwardRequest(w, req, tokenValidationRequestFrom(req, match))
 	if !ok {
 		return
 	}
-	revision, snapshot := s.store.Current()
-	match := Match(snapshot, req)
 	if !match.Found {
 		if !validation.AllowLocalProxy {
 			tracker := s.newProxySession(req, domain.RouteRule{
@@ -143,6 +145,42 @@ func routeTenantID(snapshot policystore.Snapshot, rule domain.RouteRule, fallbac
 		}
 	}
 	return fallbackTenantID
+}
+
+func tokenValidationRequestFrom(req *http.Request, match RouteMatch) TokenValidationRequest {
+	host, port := requestTargetHostPort(req)
+	request := TokenValidationRequest{
+		TargetHost: host,
+		TargetPort: port,
+		Protocol:   requestProtocol(req),
+	}
+	if match.Found {
+		request.RouteID = match.Rule.ID
+		request.AccessPathID = match.Rule.AccessPathID
+	}
+	return request
+}
+
+func requestTargetHostPort(req *http.Request) (string, int) {
+	host := targetHostForAudit(req)
+	port := 0
+	if req.URL != nil && req.URL.Port() != "" {
+		port, _ = strconv.Atoi(req.URL.Port())
+	}
+	if port == 0 && req.Host != "" {
+		if _, rawPort, err := net.SplitHostPort(req.Host); err == nil {
+			port, _ = strconv.Atoi(rawPort)
+		}
+	}
+	if port == 0 {
+		switch requestProtocol(req) {
+		case "https", "wss":
+			port = 443
+		default:
+			port = 80
+		}
+	}
+	return host, port
 }
 
 func targetHostForAudit(req *http.Request) string {

@@ -89,7 +89,7 @@ func TestReverseTargetRequiresOneProxyTokenHeader(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("authorized status = %d body=%q", resp.Code, resp.Body.String())
 	}
-	if len(validator.validations) != 1 || validator.validations[0] != sha256Hex("reverse-token") {
+	if len(validator.validations) != 1 || validator.validations[0].TokenHash != sha256Hex("reverse-token") {
 		t.Fatalf("validation hashes = %v", validator.validations)
 	}
 }
@@ -139,7 +139,7 @@ func TestReverseQueryTokenSetsCookieAndStripsCredentials(t *testing.T) {
 	if len(cookies) != 1 || cookies[0].Name != reverseCookieName {
 		t.Fatalf("cookies = %v", cookies)
 	}
-	if len(validator.validations) != 1 || validator.validations[0] != sha256Hex("query-token") {
+	if len(validator.validations) != 1 || validator.validations[0].TokenHash != sha256Hex("query-token") {
 		t.Fatalf("validation hashes = %v", validator.validations)
 	}
 }

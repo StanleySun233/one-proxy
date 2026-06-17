@@ -306,7 +306,7 @@ type managerProxyTokenValidator struct {
 	manager *runtime.Manager
 }
 
-func (v managerProxyTokenValidator) ValidateProxyToken(ctx context.Context, tokenHash string) (proxy.TokenValidation, error) {
+func (v managerProxyTokenValidator) ValidateProxyToken(ctx context.Context, request proxy.TokenValidationRequest) (proxy.TokenValidation, error) {
 	if v.manager == nil {
 		return proxy.TokenValidation{}, errors.New("node_control_plane_unbound")
 	}
@@ -314,20 +314,31 @@ func (v managerProxyTokenValidator) ValidateProxyToken(ctx context.Context, toke
 	if !bindingComplete(current) {
 		return proxy.TokenValidation{}, errors.New("node_control_plane_unbound")
 	}
-	result, err := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken).ValidateProxyToken(ctx, tokenHash)
+	result, err := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken).ValidateProxyToken(ctx, controlplane.ProxyTokenValidationRequest{
+		TokenHash:    request.TokenHash,
+		AccessPathID: request.AccessPathID,
+		TargetHost:   request.TargetHost,
+		TargetPort:   request.TargetPort,
+		Protocol:     request.Protocol,
+		RouteID:      request.RouteID,
+	})
 	if err != nil {
 		return proxy.TokenValidation{}, err
 	}
+	tenantID := result.TenantID
+	if tenantID == "" {
+		tenantID = stringValue(result.ActiveTenantID)
+	}
 	expiresAt, err := time.Parse(time.RFC3339, result.ExpiresAt)
 	if err != nil {
-		return proxy.TokenValidation{Valid: result.Valid, AllowLocalProxy: result.AllowLocalProxy, TenantID: stringValue(result.ActiveTenantID)}, nil
+		return proxy.TokenValidation{Valid: result.Valid, AllowLocalProxy: result.AllowLocalProxy, TenantID: tenantID}, nil
 	}
 	return proxy.TokenValidation{
 		Valid:           result.Valid,
 		ExpiresAt:       expiresAt,
 		CacheTTL:        time.Duration(result.CacheTTLSeconds) * time.Second,
 		AllowLocalProxy: result.AllowLocalProxy,
-		TenantID:        stringValue(result.ActiveTenantID),
+		TenantID:        tenantID,
 	}, nil
 }
 

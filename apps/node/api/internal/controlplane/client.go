@@ -26,10 +26,20 @@ type responseEnvelope[T any] struct {
 
 type ProxyTokenValidation struct {
 	Valid           bool    `json:"valid"`
+	TenantID        string  `json:"tenantId"`
 	ExpiresAt       string  `json:"expiresAt"`
 	CacheTTLSeconds int     `json:"cacheTtlSeconds"`
 	AllowLocalProxy bool    `json:"allowLocalProxy"`
 	ActiveTenantID  *string `json:"activeTenantId"`
+}
+
+type ProxyTokenValidationRequest struct {
+	TokenHash    string `json:"tokenHash"`
+	AccessPathID string `json:"accessPathId"`
+	TargetHost   string `json:"targetHost"`
+	TargetPort   int    `json:"targetPort"`
+	Protocol     string `json:"protocol"`
+	RouteID      string `json:"routeId,omitempty"`
 }
 
 type NodeAuthValidation struct {
@@ -154,8 +164,8 @@ func (c *Client) UpsertTransport(input domain.UpsertNodeTransportInput) (domain.
 	return envelope.Data, nil
 }
 
-func (c *Client) ValidateProxyToken(ctx context.Context, tokenHash string) (ProxyTokenValidation, error) {
-	body, err := json.Marshal(map[string]string{"tokenHash": tokenHash})
+func (c *Client) ValidateProxyToken(ctx context.Context, input ProxyTokenValidationRequest) (ProxyTokenValidation, error) {
+	body, err := json.Marshal(input)
 	if err != nil {
 		return ProxyTokenValidation{}, err
 	}

@@ -72,3 +72,23 @@ func TestDefaultAccessPathInputRejectsMissingHopNode(t *testing.T) {
 		t.Fatalf("defaultAccessPathInput ok = true")
 	}
 }
+
+func TestPolicyRouteRulesWithAccessPathsAssignsChainPath(t *testing.T) {
+	rules := []proxy.RouteRule{
+		{ID: "route-1", ActionType: domain.ActionTypeChain, ChainID: "chain-1", Enabled: true},
+		{ID: "route-2", ActionType: domain.ActionTypeDirect, DestinationScope: "scope-a", Enabled: true},
+	}
+	paths := []domain.NodeAccessPath{
+		{ID: "path-disabled", ChainID: "chain-1", Enabled: false},
+		{ID: "path-1", ChainID: "chain-1", Enabled: true},
+	}
+
+	got := policyRouteRulesWithAccessPaths(rules, paths)
+
+	if got[0].AccessPathID != "path-1" {
+		t.Fatalf("chain route accessPathId = %q", got[0].AccessPathID)
+	}
+	if got[1].AccessPathID != "" {
+		t.Fatalf("direct route accessPathId = %q", got[1].AccessPathID)
+	}
+}
