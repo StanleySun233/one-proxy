@@ -10,7 +10,7 @@
 - [x] Add direct QUIC node-to-node peer identity to candidate reports and link plans
   - Commit: 5e57334
 - [x] Replace the panel extension bootstrap response with the latest v2.1.0 access-path snapshot contract
-  - Commit: 50c3ff2
+  - Commit: 2ff5bfe
 
 ## Blockers
 
