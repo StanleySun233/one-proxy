@@ -110,7 +110,15 @@ deploy_local_node() {
     -p 2991:2991/udp \
     -p 2992:2992/udp \
     "$image" >/dev/null
-  curl -fsS http://127.0.0.1:2988/healthz >/dev/null
+  tries=0
+  until curl -fsS http://127.0.0.1:2988/healthz >/dev/null 2>&1; do
+    tries=$((tries + 1))
+    if [ "$tries" -ge 45 ]; then
+      echo "local node health failed" >&2
+      exit 1
+    fi
+    sleep 2
+  done
   completed=1
   rm -f "$env_file"
   trap - ERR HUP INT TERM
