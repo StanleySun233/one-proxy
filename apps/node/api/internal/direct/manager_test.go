@@ -49,10 +49,12 @@ func TestManagerRefreshReportsCandidatesAndAppliesPlan(t *testing.T) {
 	client := &fakeSignalingClient{
 		plan: domain.DirectLinkPlan{
 			NodeID: "node-a",
-			Links:  []domain.DirectLinkItem{{LinkID: "link-1", PeerNodeID: "node-b"}},
+			Links:  []domain.DirectLinkItem{{LinkID: "link-1", PeerNodeID: "node-b", PeerIdentity: testDirectIdentity(t, "node-b")}},
 		},
 	}
-	manager := NewManager(UDPConnPacketIO{Conn: conn}, CandidateGatherer{STUNServers: []string{server.LocalAddr().String()}}, client, nil)
+	registry := NewRegistry()
+	registry.directIdentity = testDirectIdentity(t, "node-a")
+	manager := NewManager(UDPConnPacketIO{Conn: conn}, CandidateGatherer{STUNServers: []string{server.LocalAddr().String()}}, client, registry)
 	manager.now = func() time.Time { return time.Unix(1, 0) }
 	if err := manager.RefreshOnce(context.Background()); err != nil {
 		t.Fatal(err)
@@ -60,8 +62,26 @@ func TestManagerRefreshReportsCandidatesAndAppliesPlan(t *testing.T) {
 	if client.reported.NATType != domain.NATTypeEndpointIndependent || client.reported.UDPListenPort == 0 {
 		t.Fatalf("unexpected candidate report: %#v", client.reported)
 	}
+	if client.reported.DirectIdentity.NodeID != "node-a" || client.reported.DirectIdentity.TrustMaterial == "" {
+		t.Fatalf("missing direct identity report: %#v", client.reported.DirectIdentity)
+	}
 	state, ok := manager.Registry().Get("node-b")
 	if !ok || state.Status != domain.DirectStatusProbing {
+		t.Fatalf("unexpected peer state: %#v ok=%v", state, ok)
+	}
+	if state.PeerIdentity.NodeID != "node-b" {
+		t.Fatalf("missing peer identity: %#v", state.PeerIdentity)
+	}
+}
+
+func TestManagerRejectsPlanWithoutPeerIdentity(t *testing.T) {
+	manager := NewManager(nil, CandidateGatherer{}, nil, NewRegistry())
+	manager.applyPlan(context.Background(), domain.DirectLinkPlan{
+		NodeID: "node-a",
+		Links:  []domain.DirectLinkItem{{LinkID: "link-1", PeerNodeID: "node-b"}},
+	})
+	state, ok := manager.Registry().Get("node-b")
+	if !ok || state.Status != domain.DirectStatusFailed || state.FallbackReason != "direct_identity_required" {
 		t.Fatalf("unexpected peer state: %#v ok=%v", state, ok)
 	}
 }
@@ -79,4 +99,13 @@ func TestRegistryOpenStreamRequiresConnectedPeer(t *testing.T) {
 	if err := registry.OpenStream("node-b"); err == nil {
 		t.Fatal("expected quic not ready error")
 	}
+}
+
+func testDirectIdentity(t *testing.T, nodeID string) domain.DirectNodeIdentity {
+	t.Helper()
+	_, identity, err := serverTLSConfig(nodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return identity
 }

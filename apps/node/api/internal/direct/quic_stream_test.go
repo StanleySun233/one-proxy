@@ -22,7 +22,7 @@ func TestRegistryOpenDirectStreamRequiresPeerIdentity(t *testing.T) {
 
 	left := NewRegistry()
 	leftTransport := &quic.Transport{Conn: leftConn}
-	if err := left.AttachQUICTransport(leftTransport); err != nil {
+	if err := left.AttachQUICTransport(leftTransport, "node-a"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -43,18 +43,34 @@ func TestRegistryOpenDirectStreamRequiresPeerIdentity(t *testing.T) {
 	}
 }
 
-func TestClientTLSConfigUsesPeerPublicHost(t *testing.T) {
-	config, err := clientTLSConfig(domain.Node{ID: "node-b", PublicHost: "peer.example.com"})
+func TestClientTLSConfigUsesPeerIdentity(t *testing.T) {
+	_, identity, err := serverTLSConfig("node-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := clientTLSConfig(identity)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if config.InsecureSkipVerify {
 		t.Fatal("insecure TLS verification is enabled")
 	}
-	if config.ServerName != "peer.example.com" {
+	if config.ServerName != identity.ServerName {
 		t.Fatalf("server name = %q", config.ServerName)
 	}
-	if config.RootCAs != nil {
-		t.Fatal("expected system root CAs")
+	if config.RootCAs == nil {
+		t.Fatal("expected peer-scoped root CAs")
+	}
+}
+
+func TestClientTLSConfigRejectsFingerprintMismatch(t *testing.T) {
+	_, identity, err := serverTLSConfig("node-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity.CertificateFingerprintSHA256 = "00"
+	_, err = clientTLSConfig(identity)
+	if err == nil || err.Error() != "invalid_direct_node_identity" {
+		t.Fatalf("err = %v", err)
 	}
 }

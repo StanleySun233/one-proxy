@@ -18,12 +18,16 @@ func (s *MySQLStore) UpsertDirectCandidates(nodeID string, input domain.DirectCa
 	}
 	for _, candidate := range input.Candidates {
 		details := map[string]string{
-			"candidateType": candidate.Type,
-			"protocol":      candidate.Protocol,
-			"natType":       input.NATType,
-			"observedAt":    input.ObservedAt,
-			"udpListenPort": strconv.Itoa(input.UDPListenPort),
-			"priority":      strconv.Itoa(candidate.Priority),
+			"candidateType":                   candidate.Type,
+			"protocol":                        candidate.Protocol,
+			"natType":                         input.NATType,
+			"observedAt":                      input.ObservedAt,
+			"udpListenPort":                   strconv.Itoa(input.UDPListenPort),
+			"priority":                        strconv.Itoa(candidate.Priority),
+			"directIdentityNodeId":            input.DirectIdentity.NodeID,
+			"directIdentityServerName":        input.DirectIdentity.ServerName,
+			"directIdentityFingerprintSha256": input.DirectIdentity.CertificateFingerprintSHA256,
+			"directIdentityTrustMaterial":     input.DirectIdentity.TrustMaterial,
 		}
 		if candidate.StunServer != "" {
 			details["stunServer"] = candidate.StunServer
@@ -87,9 +91,32 @@ func (s *MySQLStore) DirectLinkPlans(nodeID string, ttl time.Duration) (domain.D
 			PunchToken:         token,
 			ExpiresAt:          expiresAt,
 			PeerCandidates:     s.directCandidates(peerNodeID),
+			PeerIdentity:       s.directIdentity(peerNodeID),
 		})
 	}
 	return result, nil
+}
+
+func (s *MySQLStore) directIdentity(nodeID string) domain.DirectNodeIdentity {
+	row := s.db.QueryRow(
+		`SELECT details_json
+		 FROM node_transports
+		 WHERE node_id = ? AND transport_type = ? AND status IN (?, ?)
+		 ORDER BY last_heartbeat_at DESC, id DESC
+		 LIMIT 1`,
+		nodeID, "direct_udp_candidate", domain.TransportStatusAvailable, domain.TransportStatusConnected,
+	)
+	var detailsJSON string
+	if err := row.Scan(&detailsJSON); err != nil {
+		return domain.DirectNodeIdentity{}
+	}
+	details := decodeJSONMap(detailsJSON)
+	return domain.DirectNodeIdentity{
+		NodeID:                       details["directIdentityNodeId"],
+		ServerName:                   details["directIdentityServerName"],
+		CertificateFingerprintSHA256: details["directIdentityFingerprintSha256"],
+		TrustMaterial:                details["directIdentityTrustMaterial"],
+	}
 }
 
 func (s *MySQLStore) UpsertDirectStatus(nodeID string, input domain.DirectStatusInput) (domain.DirectStatusResult, error) {

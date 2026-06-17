@@ -15,6 +15,7 @@ type PeerState struct {
 	PeerNodeID        string
 	Status            string
 	SelectedCandidate domain.DirectCandidate
+	PeerIdentity      domain.DirectNodeIdentity
 	RTT               time.Duration
 	LastProbeAt       time.Time
 	FallbackReason    string
@@ -42,6 +43,7 @@ type Registry struct {
 	peers           map[string]PeerState
 	transport       *quic.Transport
 	listener        *quic.Listener
+	directIdentity  domain.DirectNodeIdentity
 	clientValidator ClientSessionValidator
 }
 
@@ -72,6 +74,13 @@ func (r *Registry) SetClientSessionValidator(validator ClientSessionValidator) {
 	r.mu.Lock()
 	r.clientValidator = validator
 	r.mu.Unlock()
+}
+
+func (r *Registry) DirectIdentity() domain.DirectNodeIdentity {
+	r.mu.RLock()
+	identity := r.directIdentity
+	r.mu.RUnlock()
+	return identity
 }
 
 func (r *Registry) HasDirectPeer(peerNodeID string) bool {

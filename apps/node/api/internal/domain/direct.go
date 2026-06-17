@@ -27,11 +27,19 @@ type DirectCandidate struct {
 	Priority   int    `json:"priority,omitempty"`
 }
 
+type DirectNodeIdentity struct {
+	NodeID                       string `json:"nodeId"`
+	ServerName                   string `json:"serverName"`
+	CertificateFingerprintSHA256 string `json:"certificateFingerprintSha256"`
+	TrustMaterial                string `json:"trustMaterial"`
+}
+
 type ReportDirectCandidatesInput struct {
-	UDPListenPort int               `json:"udpListenPort"`
-	NATType       string            `json:"natType"`
-	Candidates    []DirectCandidate `json:"candidates"`
-	ObservedAt    string            `json:"observedAt"`
+	UDPListenPort  int                `json:"udpListenPort"`
+	NATType        string             `json:"natType"`
+	Candidates     []DirectCandidate  `json:"candidates"`
+	ObservedAt     string             `json:"observedAt"`
+	DirectIdentity DirectNodeIdentity `json:"directIdentity"`
 }
 
 type ReportDirectCandidatesResult struct {
@@ -46,14 +54,15 @@ type DirectLinkPlan struct {
 }
 
 type DirectLinkItem struct {
-	LinkID             string            `json:"linkId"`
-	PeerNodeID         string            `json:"peerNodeId"`
-	Role               string            `json:"role"`
-	PreferredTransport string            `json:"preferredTransport"`
-	FallbackTransport  string            `json:"fallbackTransport"`
-	PunchToken         string            `json:"punchToken"`
-	ExpiresAt          string            `json:"expiresAt"`
-	PeerCandidates     []DirectCandidate `json:"peerCandidates"`
+	LinkID             string             `json:"linkId"`
+	PeerNodeID         string             `json:"peerNodeId"`
+	Role               string             `json:"role"`
+	PreferredTransport string             `json:"preferredTransport"`
+	FallbackTransport  string             `json:"fallbackTransport"`
+	PunchToken         string             `json:"punchToken"`
+	ExpiresAt          string             `json:"expiresAt"`
+	PeerCandidates     []DirectCandidate  `json:"peerCandidates"`
+	PeerIdentity       DirectNodeIdentity `json:"peerIdentity"`
 }
 
 type ReportDirectStatusInput struct {

@@ -5,14 +5,18 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"io"
 	"math/big"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
@@ -58,14 +62,19 @@ func (c quicStreamConn) Close() error {
 	return err
 }
 
-func (r *Registry) AttachQUICTransport(transport *quic.Transport) error {
-	listener, err := transport.Listen(serverTLSConfig(), &quic.Config{})
+func (r *Registry) AttachQUICTransport(transport *quic.Transport, nodeID string) error {
+	tlsConfig, identity, err := serverTLSConfig(nodeID)
+	if err != nil {
+		return err
+	}
+	listener, err := transport.Listen(tlsConfig, &quic.Config{})
 	if err != nil {
 		return err
 	}
 	r.mu.Lock()
 	r.transport = transport
 	r.listener = listener
+	r.directIdentity = identity
 	r.mu.Unlock()
 	return nil
 }
@@ -189,7 +198,7 @@ func (r *Registry) OpenDirectStream(ctx context.Context, nextHop domain.Node, re
 	if err != nil {
 		return nil, err
 	}
-	tlsConfig, err := clientTLSConfig(nextHop)
+	tlsConfig, err := clientTLSConfig(state.PeerIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -244,19 +253,61 @@ func bridgeQUICStream(ctx context.Context, stream net.Conn, reader *bufio.Reader
 	_ = target.Close()
 }
 
-func serverTLSConfig() *tls.Config {
-	cert := selfSignedCertificate()
-	return &tls.Config{Certificates: []tls.Certificate{cert}, NextProtos: []string{directALPN}}
+func serverTLSConfig(nodeID string) (*tls.Config, domain.DirectNodeIdentity, error) {
+	serverName := directServerName(nodeID)
+	if serverName == "" {
+		return nil, domain.DirectNodeIdentity{}, errors.New("invalid_direct_node_identity")
+	}
+	cert, certPEM, fingerprint := selfSignedCertificate(serverName)
+	identity := domain.DirectNodeIdentity{
+		NodeID:                       nodeID,
+		ServerName:                   serverName,
+		CertificateFingerprintSHA256: fingerprint,
+		TrustMaterial:                certPEM,
+	}
+	return &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{cert}, NextProtos: []string{directALPN}}, identity, nil
 }
 
-func clientTLSConfig(nextHop domain.Node) (*tls.Config, error) {
-	if nextHop.PublicHost == "" {
+func clientTLSConfig(identity domain.DirectNodeIdentity) (*tls.Config, error) {
+	if identity.ServerName == "" || identity.TrustMaterial == "" || identity.CertificateFingerprintSHA256 == "" {
 		return nil, errors.New("invalid_direct_node_identity")
 	}
-	return &tls.Config{MinVersion: tls.VersionTLS12, ServerName: nextHop.PublicHost, NextProtos: []string{directALPN}}, nil
+	block, _ := pem.Decode([]byte(identity.TrustMaterial))
+	if block == nil || block.Type != "CERTIFICATE" {
+		return nil, errors.New("invalid_direct_node_identity")
+	}
+	fingerprint := sha256.Sum256(block.Bytes)
+	if !strings.EqualFold(hex.EncodeToString(fingerprint[:]), identity.CertificateFingerprintSHA256) {
+		return nil, errors.New("invalid_direct_node_identity")
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM([]byte(identity.TrustMaterial)) {
+		return nil, errors.New("invalid_direct_node_identity")
+	}
+	return &tls.Config{MinVersion: tls.VersionTLS12, ServerName: identity.ServerName, RootCAs: roots, NextProtos: []string{directALPN}}, nil
 }
 
-func selfSignedCertificate() tls.Certificate {
+func directServerName(nodeID string) string {
+	value := strings.TrimSpace(strings.ToLower(nodeID))
+	if value == "" {
+		return ""
+	}
+	var builder strings.Builder
+	for _, item := range value {
+		if (item >= 'a' && item <= 'z') || (item >= '0' && item <= '9') || item == '-' {
+			builder.WriteRune(item)
+		} else {
+			builder.WriteByte('-')
+		}
+	}
+	name := strings.Trim(builder.String(), "-")
+	if name == "" {
+		return ""
+	}
+	return name + ".direct.oneproxy.local"
+}
+
+func selfSignedCertificate(serverName string) (tls.Certificate, string, string) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(err)
@@ -267,10 +318,13 @@ func selfSignedCertificate() tls.Certificate {
 		NotAfter:     time.Now().Add(24 * time.Hour),
 		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     []string{serverName},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
 	if err != nil {
 		panic(err)
 	}
-	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
+	certPEM := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+	fingerprint := sha256.Sum256(der)
+	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}, certPEM, hex.EncodeToString(fingerprint[:])
 }

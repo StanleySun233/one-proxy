@@ -246,12 +246,12 @@ func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager, regist
 		return
 	}
 	quicTransport := &quic.Transport{Conn: conn}
-	if err := registry.AttachQUICTransport(quicTransport); err != nil {
+	current := manager.Current()
+	if err := registry.AttachQUICTransport(quicTransport, current.NodeID); err != nil {
 		log.Printf("direct transport disabled: quic listen failed: %v", err)
 		return
 	}
 	interval := parseDurationOrDefault(cfg.NodeDirectRefreshInterval, 30*time.Second)
-	current := manager.Current()
 	client := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken)
 	registry.SetClientSessionValidator(clientDirectSessionValidator{client: client})
 	directManager := direct.NewManager(direct.QUICPacketIO{Transport: quicTransport}, direct.CandidateGatherer{

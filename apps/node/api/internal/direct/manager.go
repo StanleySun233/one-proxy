@@ -65,10 +65,11 @@ func (m *Manager) RefreshOnce(ctx context.Context) error {
 	probe := ClassifyNAT(candidates)
 	if m.client != nil {
 		_, err = m.client.ReportDirectCandidates(domain.ReportDirectCandidatesInput{
-			UDPListenPort: localUDPPort(m.packetIO),
-			NATType:       probe.NATType,
-			Candidates:    candidates,
-			ObservedAt:    m.now().UTC().Format(time.RFC3339),
+			UDPListenPort:  localUDPPort(m.packetIO),
+			NATType:        probe.NATType,
+			Candidates:     candidates,
+			ObservedAt:     m.now().UTC().Format(time.RFC3339),
+			DirectIdentity: m.registry.DirectIdentity(),
 		})
 		if err != nil {
 			return err
@@ -92,9 +93,13 @@ func (m *Manager) applyPlan(ctx context.Context, plan domain.DirectLinkPlan) {
 			LinkID:         link.LinkID,
 			PeerNodeID:     link.PeerNodeID,
 			Status:         domain.DirectStatusProbing,
+			PeerIdentity:   link.PeerIdentity,
 			FallbackReason: "",
 		}
-		if candidate, rtt, ok := m.probePeer(ctx, plan.NodeID, link); ok {
+		if !validDirectIdentity(link.PeerIdentity) {
+			state.Status = domain.DirectStatusFailed
+			state.FallbackReason = "direct_identity_required"
+		} else if candidate, rtt, ok := m.probePeer(ctx, plan.NodeID, link); ok {
 			state.Status = domain.DirectStatusConnected
 			state.SelectedCandidate = candidate
 			state.RTT = rtt
@@ -110,11 +115,15 @@ func (m *Manager) applyPlan(ctx context.Context, plan domain.DirectLinkPlan) {
 					LastProbeAt:       state.LastProbeAt.Format(time.RFC3339),
 				})
 			}
-		} else if current, ok := m.registry.Get(link.PeerNodeID); ok && current.Status == domain.DirectStatusConnected {
+		} else if current, ok := m.registry.Get(link.PeerNodeID); ok && current.Status == domain.DirectStatusConnected && validDirectIdentity(current.PeerIdentity) {
 			state = current
 		}
 		m.registry.Upsert(state)
 	}
+}
+
+func validDirectIdentity(identity domain.DirectNodeIdentity) bool {
+	return identity.NodeID != "" && identity.ServerName != "" && identity.CertificateFingerprintSHA256 != "" && identity.TrustMaterial != ""
 }
 
 func (m *Manager) probePeer(ctx context.Context, nodeID string, link domain.DirectLinkItem) (domain.DirectCandidate, time.Duration, bool) {

@@ -16,7 +16,7 @@ type directTransportStore interface {
 }
 
 func (c *ControlPlane) UpsertDirectCandidates(nodeID string, input domain.DirectCandidatesInput) (domain.DirectCandidatesResult, error) {
-	if nodeID == "" || !validDirectCandidates(input) {
+	if nodeID == "" || !validDirectCandidates(nodeID, input) {
 		return domain.DirectCandidatesResult{}, invalidInput("invalid_candidate_payload")
 	}
 	store, ok := c.store.(directTransportStore)
@@ -58,8 +58,11 @@ func (c *ControlPlane) UpsertDirectStatus(nodeID string, input domain.DirectStat
 	return result, nil
 }
 
-func validDirectCandidates(input domain.DirectCandidatesInput) bool {
+func validDirectCandidates(nodeID string, input domain.DirectCandidatesInput) bool {
 	if input.UDPListenPort <= 0 || input.UDPListenPort > 65535 || input.ObservedAt == "" || len(input.Candidates) == 0 {
+		return false
+	}
+	if !validDirectIdentity(nodeID, input.DirectIdentity) {
 		return false
 	}
 	if _, err := time.Parse(time.RFC3339, input.ObservedAt); err != nil {
@@ -71,6 +74,13 @@ func validDirectCandidates(input domain.DirectCandidatesInput) bool {
 		}
 	}
 	return true
+}
+
+func validDirectIdentity(nodeID string, identity domain.DirectNodeIdentity) bool {
+	return identity.NodeID == nodeID &&
+		identity.ServerName != "" &&
+		identity.CertificateFingerprintSHA256 != "" &&
+		identity.TrustMaterial != ""
 }
 
 func validDirectStatus(input domain.DirectStatusInput) bool {
