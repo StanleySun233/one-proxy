@@ -397,6 +397,9 @@ async function syncRemoteState(config: OneProxyConfig, tokens: OneProxyTokens): 
     accessToken: tokens.accessToken,
     tenantId: config.activeTenantId
   });
+  if (bootstrap.schemaVersion !== 'v2.1.0') {
+    throw Object.assign(new Error(`Unsupported bootstrap schema version: ${bootstrap.schemaVersion}`), { code: 'UNSUPPORTED_BOOTSTRAP_CONTRACT' });
+  }
   const latestConfig = config as LatestConfig;
   const activeAccessPath =
     bootstrap.accessPaths.find((accessPath) => accessPath.enabled && accessPath.id === latestConfig.activeAccessPathId) ||

@@ -15,6 +15,8 @@ export type ProxyServers = {
   close: () => Promise<void>;
 };
 
+const maxRetryBufferBytes = 8 * 1024 * 1024;
+
 export async function startHttpProxyListeners(input: ProxyRouteContext, bindings: DaemonBindings, liveState = false, onProxyActivity?: () => void): Promise<ProxyServers> {
   const httpServer = createHttpProxyServer(input, liveState, onProxyActivity);
   const httpsServer = createHttpProxyServer(input, liveState, onProxyActivity);
@@ -141,6 +143,10 @@ async function proxyHttpRequest(input: ProxyRouteContext, liveState: boolean, re
     headers
   };
   try {
+    if (isRetryableProxyRequest(request.method)) {
+      await retryingBufferedHttpProxyRequest(request, response, upstreamOptions);
+      return;
+    }
     await streamHttpProxyRequest(request, response, upstreamOptions);
   } catch {
     if (!response.headersSent) {
@@ -288,6 +294,168 @@ function streamHttpProxyRequest(request: http.IncomingMessage, response: http.Se
     });
     request.pipe(upstreamRequest);
   });
+}
+
+async function retryingBufferedHttpProxyRequest(request: http.IncomingMessage, response: http.ServerResponse, upstreamOptions: http.RequestOptions): Promise<void> {
+  const body = await readRequestBody(request);
+  const method = (request.method || '').toUpperCase();
+  const isHead = method === 'HEAD';
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const result = await collectOrStreamHttpProxyResponse(upstreamOptions, body, response, isHead, attempt === 1);
+      if (result.streamed) {
+        return;
+      }
+      if (attempt === 1 && isRetryableProxyStatus(result.statusCode)) {
+        continue;
+      }
+      const headers = bufferedResponseHeaders(result.headers, result.body.length, isHead);
+      response.writeHead(result.statusCode, headers);
+      if (isHead) {
+        response.end();
+      } else {
+        response.end(result.body);
+      }
+      return;
+    } catch (error) {
+      lastError = error as Error;
+      if (attempt === 2) {
+        throw lastError;
+      }
+    }
+  }
+  throw lastError ?? new Error('proxy_request_failed');
+}
+
+type ProxyResponseResult =
+  | { streamed: false; statusCode: number; headers: http.IncomingHttpHeaders; body: Buffer }
+  | { streamed: true };
+
+function collectOrStreamHttpProxyResponse(upstreamOptions: http.RequestOptions, body: Buffer, response: http.ServerResponse, skipLengthCheck: boolean, allowRetry: boolean): Promise<ProxyResponseResult> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (error: Error | null, result?: ProxyResponseResult) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      error ? reject(error) : resolve(result ?? { streamed: true });
+    };
+    const upstreamRequest = http.request(upstreamOptions, (upstreamResponse) => {
+      const chunks: Buffer[] = [];
+      let totalBytes = 0;
+      const statusCode = upstreamResponse.statusCode ?? 502;
+      const cleanupBufferedHandlers = () => {
+        upstreamResponse.off('aborted', onAborted);
+        upstreamResponse.off('error', onError);
+        upstreamResponse.off('end', onEnd);
+        upstreamResponse.off('data', onData);
+      };
+      const onAborted = () => {
+        cleanupBufferedHandlers();
+        settle(new Error('upstream_response_aborted'));
+      };
+      const onError = (error: Error) => {
+        cleanupBufferedHandlers();
+        settle(error);
+      };
+      const onEnd = () => {
+        cleanupBufferedHandlers();
+        const responseBody = Buffer.concat(chunks);
+        const expectedLength = expectedContentLength(upstreamResponse.headers);
+        if (!skipLengthCheck && expectedLength !== null && expectedLength !== responseBody.length) {
+          settle(new Error('upstream_content_length_mismatch'));
+          return;
+        }
+        settle(null, {
+          streamed: false,
+          statusCode,
+          headers: upstreamResponse.headers,
+          body: responseBody
+        });
+      };
+      const streamOverflow = () => {
+        cleanupBufferedHandlers();
+        response.writeHead(statusCode, upstreamResponse.headers);
+        for (const chunk of chunks) {
+          response.write(chunk);
+        }
+        upstreamResponse.once('aborted', () => {
+          response.destroy(new Error('upstream_response_aborted'));
+          settle(new Error('upstream_response_aborted'));
+        });
+        upstreamResponse.once('error', (error) => {
+          response.destroy(error);
+          settle(error);
+        });
+        upstreamResponse.once('end', () => settle(null, { streamed: true }));
+        upstreamResponse.pipe(response);
+      };
+      const onData = (chunk: Buffer) => {
+        chunks.push(Buffer.from(chunk));
+        totalBytes += chunk.length;
+        if (totalBytes <= maxRetryBufferBytes || skipLengthCheck) {
+          return;
+        }
+        if (allowRetry && isRetryableProxyStatus(statusCode)) {
+          cleanupBufferedHandlers();
+          upstreamResponse.destroy();
+          settle(null, {
+            streamed: false,
+            statusCode,
+            headers: upstreamResponse.headers,
+            body: Buffer.alloc(0)
+          });
+          return;
+        }
+        streamOverflow();
+      };
+      upstreamResponse.on('data', onData);
+      upstreamResponse.once('aborted', onAborted);
+      upstreamResponse.once('error', onError);
+      upstreamResponse.once('end', onEnd);
+    });
+    upstreamRequest.once('error', (error) => settle(error));
+    upstreamRequest.end(body);
+  });
+}
+
+function readRequestBody(request: http.IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    request.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+    request.once('aborted', () => reject(new Error('request_aborted')));
+    request.once('error', reject);
+    request.once('end', () => resolve(Buffer.concat(chunks)));
+  });
+}
+
+function isRetryableProxyRequest(method: string | undefined) {
+  return new Set(['GET', 'HEAD', 'OPTIONS']).has((method || 'GET').toUpperCase());
+}
+
+function isRetryableProxyStatus(statusCode: number) {
+  return statusCode === 502 || statusCode === 503 || statusCode === 504;
+}
+
+function expectedContentLength(headers: http.IncomingHttpHeaders) {
+  const value = headers['content-length'];
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function bufferedResponseHeaders(headers: http.IncomingHttpHeaders, bodyLength: number, preserveContentLength: boolean): http.OutgoingHttpHeaders {
+  const next: http.OutgoingHttpHeaders = { ...headers };
+  delete next['transfer-encoding'];
+  delete next.connection;
+  if (!preserveContentLength) {
+    next['content-length'] = String(bodyLength);
+  }
+  return next;
 }
 
 function connectErrorResponse(route: RouteResult) {

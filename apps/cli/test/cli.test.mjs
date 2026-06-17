@@ -13,7 +13,6 @@ import {
   writeState,
   writeTokens
 } from '../src/storage.ts';
-import { routeRulesFromBootstrap } from '../src/control-plane.ts';
 import { resolveRoute } from '../src/daemon/router.ts';
 import { parseSshCommandArgs, parseSshTarget } from '../src/ssh.ts';
 import { parseShellCommandArgs } from '../src/shell.ts';
@@ -54,6 +53,36 @@ function runCli(args, home, extraEnv = {}) {
   });
 }
 
+function accessPath(overrides = {}) {
+  return {
+    id: 'path_1',
+    name: 'Default path',
+    chainId: 'chain_1',
+    protocol: 'http',
+    entryNodeId: 'entry_1',
+    listenHost: 'edge.example.com',
+    listenPort: 443,
+    enabled: true,
+    topology: [],
+    ...overrides
+  };
+}
+
+function routeSnapshot(overrides = {}) {
+  return {
+    id: 'route_1',
+    priority: 100,
+    matchType: 'domain_suffix',
+    matchValue: '.example.com',
+    actionType: 'chain',
+    chainId: 'chain_1',
+    accessPathId: 'path_1',
+    enabled: true,
+    topology: [],
+    ...overrides
+  };
+}
+
 test('storage normalizes defaults and override hosts', async () => {
   await withHome(async () => {
     assert.deepEqual(await readConfig(), {
@@ -66,7 +95,6 @@ test('storage normalizes defaults and override hosts', async () => {
       schemaVersion: 99,
       controlPlaneUrl: 'https://control.example.com',
       activeTenantId: 'tenant_1',
-      activeGroupId: 'group_1',
       overrides: {
         direct: [' Example.COM ', 'example.com', 'LOCALHOST'],
         proxy: ['Proxy.Example', '', 'proxy.example']
@@ -115,7 +143,6 @@ test('route matching applies direct override before proxy override and policy', 
     config: {
       schemaVersion: 1,
       activeTenantId: 'tenant_1',
-      activeGroupId: 'group_1',
       overrides: {
         direct: ['example.com'],
         proxy: ['example.com', 'proxy.local']
@@ -123,17 +150,9 @@ test('route matching applies direct override before proxy override and policy', 
     },
     state: {
       schemaVersion: 1,
-      bootstrap: {
-        entryNodes: [{ id: 'entry_1', host: 'edge.example.com', port: 443, protocol: 'connect' }]
-      },
-      routeGroups: [
-        {
-          id: 'group_1',
-          tenantId: 'tenant_1',
-          name: 'Default',
-          rules: [{ id: 'rule_1', type: 'suffix', pattern: 'example.com', mode: 'proxy' }]
-        }
-      ]
+      bootstrap: { tenantId: 'tenant_1', accessPathId: 'path_1' },
+      accessPaths: [accessPath()],
+      routes: [routeSnapshot()]
     },
     target: 'https://example.com/path'
   });
@@ -141,7 +160,6 @@ test('route matching applies direct override before proxy override and policy', 
   assert.equal(route.mode, 'direct');
   assert.equal(route.matched.source, 'local_override_direct');
   assert.equal(route.tenant.id, 'tenant_1');
-  assert.equal(route.group.id, 'group_1');
   assert.equal(route.topology, null);
 });
 
@@ -150,22 +168,13 @@ test('route matching returns proxied topology for suffix policy', () => {
     config: {
       schemaVersion: 1,
       activeTenantId: 'tenant_1',
-      activeGroupId: 'group_1',
       overrides: { direct: [], proxy: [] }
     },
     state: {
       schemaVersion: 1,
-      bootstrap: {
-        entryNodes: [{ id: 'entry_1', host: 'edge.example.com', port: 443, protocol: 'connect' }]
-      },
-      routeGroups: [
-        {
-          id: 'group_1',
-          tenantId: 'tenant_1',
-          name: 'Default',
-          rules: [{ id: 'rule_1', type: 'suffix', pattern: 'example.com', mode: 'proxy' }]
-        }
-      ]
+      bootstrap: { tenantId: 'tenant_1', accessPathId: 'path_1' },
+      accessPaths: [accessPath()],
+      routes: [routeSnapshot({ id: 'rule_1' })]
     },
     target: 'api.example.com',
     protocol: 'https'
@@ -173,11 +182,13 @@ test('route matching returns proxied topology for suffix policy', () => {
 
   assert.equal(route.mode, 'proxy');
   assert.equal(route.port, 443);
+  assert.equal(route.accessPath.id, 'path_1');
   assert.deepEqual(route.topology, {
     entryNodeId: 'entry_1',
     entryHost: 'edge.example.com',
     entryPort: 443,
-    protocol: 'connect'
+    protocol: 'http',
+    hops: []
   });
 });
 
@@ -188,29 +199,20 @@ test('route matching treats dot and wildcard suffix policies as root plus subdom
         config: {
           schemaVersion: 1,
           activeTenantId: 'tenant_1',
-          activeGroupId: 'group_1',
           overrides: { direct: [], proxy: [] }
         },
         state: {
           schemaVersion: 1,
-          bootstrap: {
-            entryNodes: [{ id: 'entry_1', host: 'edge.example.com', port: 443, protocol: 'connect' }]
-          },
-          routeGroups: [
-            {
-              id: 'group_1',
-              tenantId: 'tenant_1',
-              name: 'Default',
-              rules: [{ id: `rule_${pattern}`, type: 'suffix', pattern, mode: 'proxy' }]
-            }
-          ]
+          bootstrap: { tenantId: 'tenant_1', accessPathId: 'path_1' },
+          accessPaths: [accessPath()],
+          routes: [routeSnapshot({ id: `rule_${pattern}`, matchType: 'domain_suffix', matchValue: pattern })]
         },
         target,
         protocol: 'https'
       });
 
       assert.equal(route.mode, 'proxy');
-      assert.equal(route.matched.ruleType, 'suffix');
+      assert.equal(route.matched.ruleType, 'domain_suffix');
       assert.equal(route.matched.pattern, pattern);
     }
   }
@@ -378,15 +380,16 @@ test('status --json output matches contract shape', async () => {
       schemaVersion: 1,
       controlPlaneUrl: 'https://control.example.com',
       activeTenantId: 'tenant_1',
-      activeGroupId: 'group_1',
+      activeAccessPathId: 'path_1',
       overrides: { direct: ['direct.example'], proxy: ['proxy.example'] }
     });
     await writeState({
       schemaVersion: 1,
-      bootstrap: { groupId: 'group_1', entryNodes: [] },
+      bootstrap: { tenantId: 'tenant_1', accessPathId: 'path_1' },
       policyRevision: 'rev_1',
       fetchedAt: '2026-06-06T06:00:00.000Z',
-      routeGroups: [{ id: 'group_1', tenantId: 'tenant_1', name: 'Default', rules: [] }]
+      accessPaths: [accessPath({ id: 'path_1', name: 'Default path' })],
+      routes: []
     });
     await writeTokens({
       schemaVersion: 1,
@@ -400,10 +403,10 @@ test('status --json output matches contract shape', async () => {
     assert.equal(result.status, 0, result.stderr);
     const status = JSON.parse(result.stdout);
     assert.deepEqual(Object.keys(status).sort(), [
+      'accessPath',
       'account',
       'controlPlane',
       'daemon',
-      'group',
       'localPorts',
       'overrides',
       'policyRevision',
@@ -415,40 +418,29 @@ test('status --json output matches contract shape', async () => {
     assert.equal(status.localPorts.http, null);
     assert.equal(status.localPorts.https, null);
     assert.equal(status.overrides.directCount, 1);
+    assert.equal(status.accessPath.id, 'path_1');
   });
 });
 
-test('bootstrap route conversion preserves cidr match type', () => {
-  const rules = routeRulesFromBootstrap({
-    id: 'group_1',
-    name: 'hk-public-node',
-    routes: [
-      { id: 'route_1', matchType: 'ip_cidr', matchValue: '172.20.116.0/24', actionType: 'chain' },
-      { id: 'route_2', matchType: 'domain_suffix', matchValue: '.example.com', actionType: 'direct' },
-      { id: 'route_3', matchType: 'suffix', matchValue: 'legacy.example.com', actionType: 'direct' },
-      { id: 'route_4', matchType: 'default', matchValue: '*', actionType: 'proxy' }
-    ]
+test('route matching uses latest cidr routes without group conversion', () => {
+  const resolved = resolveRoute({
+    config: {
+      schemaVersion: 1,
+      activeTenantId: 'tenant_1',
+      activeAccessPathId: 'path_1',
+      overrides: { direct: [], proxy: [] }
+    },
+    state: {
+      schemaVersion: 1,
+      bootstrap: { tenantId: 'tenant_1', accessPathId: 'path_1' },
+      accessPaths: [accessPath()],
+      routes: [routeSnapshot({ id: 'route_cidr', matchType: 'ip_cidr', matchValue: '172.20.116.0/24' })]
+    },
+    target: '172.20.116.8',
+    protocol: 'http'
   });
 
-  assert.deepEqual(rules, [
-    { id: 'route_1', type: 'cidr', pattern: '172.20.116.0/24', mode: 'proxy' },
-    { id: 'route_2', type: 'suffix', pattern: '.example.com', mode: 'direct' },
-    { id: 'route_3', type: 'suffix', pattern: 'legacy.example.com', mode: 'direct' },
-    { id: 'route_4', type: 'wildcard', pattern: '*', mode: 'proxy' }
-  ]);
-});
-
-test('bootstrap host pattern conversion preserves suffix semantics', () => {
-  const rules = routeRulesFromBootstrap({
-    id: 'group_1',
-    name: 'hk-public-node',
-    proxyHosts: ['*.openai.com'],
-    directHosts: ['.example.com', 'exact.example.net']
-  });
-
-  assert.deepEqual(rules, [
-    { id: 'direct:.example.com', type: 'suffix', pattern: '.example.com', mode: 'direct' },
-    { id: 'direct:exact.example.net', type: 'domain', pattern: 'exact.example.net', mode: 'direct' },
-    { id: 'proxy:*.openai.com', type: 'suffix', pattern: '*.openai.com', mode: 'proxy' }
-  ]);
+  assert.equal(resolved.mode, 'proxy');
+  assert.equal(resolved.matched.ruleType, 'ip_cidr');
+  assert.equal(resolved.matched.pattern, '172.20.116.0/24');
 });

@@ -20,11 +20,26 @@ export type OneProxyConfig = {
   overrides?: Partial<LocalOverrides>;
 };
 
-export type EntryNode = {
+export type AccessPathSnapshot = {
   id: string;
-  host: string;
-  port: number;
-  protocol: string;
+  name?: string;
+  chainId?: string;
+  protocol?: string;
+  entryNodeId?: string;
+  listenHost: string;
+  listenPort: number;
+  enabled?: boolean;
+};
+
+export type RouteSnapshot = {
+  id: string;
+  priority: number;
+  matchType: 'domain' | 'domain_suffix' | 'ip' | 'ip_cidr' | 'protocol' | 'default';
+  matchValue: string;
+  actionType: 'chain' | 'direct' | 'deny';
+  chainId?: string;
+  accessPathId?: string;
+  enabled?: boolean;
 };
 
 export type OneProxyState = {
@@ -32,10 +47,11 @@ export type OneProxyState = {
   bootstrap?: {
     tenantId?: string;
     accessPathId?: string;
-    entryNodes?: EntryNode[];
   };
   policyRevision?: string;
   fetchedAt?: string;
+  accessPaths?: AccessPathSnapshot[];
+  routes?: RouteSnapshot[];
 };
 
 export type OneProxyTokens = {

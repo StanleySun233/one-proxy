@@ -54,6 +54,45 @@ async function freeConsecutivePorts() {
   throw new Error('No free consecutive test ports');
 }
 
+function accessPath(upstreamPort, overrides = {}) {
+  return {
+    id: 'path_1',
+    name: 'Default path',
+    chainId: 'chain_1',
+    protocol: 'http',
+    entryNodeId: 'entry_1',
+    listenHost: '127.0.0.1',
+    listenPort: upstreamPort,
+    enabled: true,
+    topology: [],
+    ...overrides
+  };
+}
+
+function latestState(upstreamPort, routes = []) {
+  return {
+    schemaVersion: 1,
+    bootstrap: { tenantId: 'tenant_1', accessPathId: 'path_1' },
+    accessPaths: [accessPath(upstreamPort)],
+    routes
+  };
+}
+
+function routeSnapshot(overrides = {}) {
+  return {
+    id: 'route_1',
+    priority: 100,
+    matchType: 'domain',
+    matchValue: 'example.com',
+    actionType: 'direct',
+    chainId: 'chain_1',
+    accessPathId: 'path_1',
+    enabled: true,
+    topology: [],
+    ...overrides
+  };
+}
+
 test('candidate scanning excludes common and occupied ports', async () => {
   const server = net.createServer();
   const occupiedPort = await listen(server);
@@ -91,7 +130,7 @@ test('HTTP CONNECT listener establishes a direct tunnel', async () => {
   const upstreamPort = await listen(upstream);
   const proxy = await startHttpProxyListeners({
     config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
-    state: { schemaVersion: 1, routeGroups: [] }
+    state: { schemaVersion: 1 }
   }, {
     host: '127.0.0.1',
     httpPort: 0,
@@ -136,29 +175,17 @@ test('HTTP proxy listener reads updated local state after startup', async () => 
     await writeFile(path.join(root, 'config.json'), JSON.stringify({
       schemaVersion: 1,
       activeTenantId: 'tenant_1',
-      activeGroupId: 'group_1',
+      activeAccessPathId: 'path_1',
       overrides: { direct: ['example.com'], proxy: [] }
     }));
-    await writeFile(path.join(root, 'state.json'), JSON.stringify({
-      schemaVersion: 1,
-      bootstrap: {
-        entryNodes: [{ id: 'entry_1', host: '127.0.0.1', port: upstreamPort, protocol: 'PROXY' }]
-      },
-      routeGroups: [{ id: 'group_1', tenantId: 'tenant_1', rules: [] }]
-    }));
+    await writeFile(path.join(root, 'state.json'), JSON.stringify(latestState(upstreamPort)));
     await writeFile(path.join(root, 'tokens.json'), JSON.stringify({
       schemaVersion: 1,
       proxyToken: 'proxy-token'
     }));
     const proxy = await startHttpProxyListeners({
-      config: { schemaVersion: 1, activeTenantId: 'tenant_1', activeGroupId: 'group_1', overrides: { direct: ['example.com'], proxy: [] } },
-      state: {
-        schemaVersion: 1,
-        bootstrap: {
-          entryNodes: [{ id: 'entry_1', host: '127.0.0.1', port: upstreamPort, protocol: 'PROXY' }]
-        },
-        routeGroups: [{ id: 'group_1', tenantId: 'tenant_1', rules: [] }]
-      }
+      config: { schemaVersion: 1, activeTenantId: 'tenant_1', activeAccessPathId: 'path_1', overrides: { direct: ['example.com'], proxy: [] } },
+      state: latestState(upstreamPort)
     }, {
       host: '127.0.0.1',
       httpPort,
@@ -170,7 +197,7 @@ test('HTTP proxy listener reads updated local state after startup', async () => 
       await writeFile(path.join(root, 'config.json'), JSON.stringify({
         schemaVersion: 1,
         activeTenantId: 'tenant_1',
-        activeGroupId: 'group_1',
+        activeAccessPathId: 'path_1',
         overrides: { direct: [], proxy: ['example.com'] }
       }));
       const body = await new Promise((resolve, reject) => {
@@ -221,20 +248,10 @@ test('proxy-only listener ignores direct routes and forwards through entry node'
       config: {
         schemaVersion: 1,
         activeTenantId: 'tenant_1',
-        activeGroupId: 'group_1',
+        activeAccessPathId: 'path_1',
         overrides: { direct: ['example.com'], proxy: [] }
       },
-      state: {
-        schemaVersion: 1,
-        bootstrap: {
-          entryNodes: [{ id: 'entry_1', host: '127.0.0.1', port: upstreamPort, protocol: 'PROXY' }]
-        },
-        routeGroups: [{
-          id: 'group_1',
-          tenantId: 'tenant_1',
-          rules: [{ id: 'direct_1', type: 'domain', pattern: 'example.com', mode: 'direct' }]
-        }]
-      }
+      state: latestState(upstreamPort, [routeSnapshot({ id: 'direct_1' })])
     }, {
       host: '127.0.0.1',
       httpPort: 0,
@@ -292,7 +309,7 @@ test('HTTP proxy listener retries transient static resource failures', async () 
   const upstreamPort = await listen(upstream);
   const proxy = await startHttpProxyListeners({
     config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
-    state: { schemaVersion: 1, routeGroups: [] }
+    state: { schemaVersion: 1 }
   }, {
     host: '127.0.0.1',
     httpPort: 0,
@@ -327,7 +344,7 @@ test('HTTP proxy listener retries transient static resource failures', async () 
   }
 });
 
-test('HTTP proxy listener retries POST requests with the original body', async () => {
+test('HTTP proxy listener does not retry unsafe POST requests', async () => {
   const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
   let attempts = 0;
   const bodies = [];
@@ -356,7 +373,7 @@ test('HTTP proxy listener retries POST requests with the original body', async (
   const upstreamPort = await listen(upstream);
   const proxy = await startHttpProxyListeners({
     config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
-    state: { schemaVersion: 1, routeGroups: [] }
+    state: { schemaVersion: 1 }
   }, {
     host: '127.0.0.1',
     httpPort: 0,
@@ -388,9 +405,9 @@ test('HTTP proxy listener retries POST requests with the original body', async (
       request.end('upload');
     });
 
-    assert.equal(body, 'saved');
-    assert.equal(attempts, 2);
-    assert.deepEqual(bodies, ['upload', 'upload']);
+    assert.equal(body, 'bad_gateway');
+    assert.equal(attempts, 1);
+    assert.deepEqual(bodies, ['upload']);
   } finally {
     await proxy.close();
     await closeServer(upstream);
@@ -413,7 +430,7 @@ test('HTTP proxy listener retries content length mismatches before responding', 
   const upstreamPort = await listen(upstream);
   const proxy = await startHttpProxyListeners({
     config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
-    state: { schemaVersion: 1, routeGroups: [] }
+    state: { schemaVersion: 1 }
   }, {
     host: '127.0.0.1',
     httpPort: 0,
@@ -442,6 +459,52 @@ test('HTTP proxy listener retries content length mismatches before responding', 
 
     assert.equal(body, 'loaded');
     assert.equal(attempts, 2);
+  } finally {
+    await proxy.close();
+    await closeServer(upstream);
+  }
+});
+
+test('HTTP proxy listener streams large safe responses without retry buffering', async () => {
+  const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
+  let attempts = 0;
+  const payload = Buffer.alloc(9 * 1024 * 1024, 'x');
+  const upstream = http.createServer((_request, response) => {
+    attempts += 1;
+    response.setHeader('content-length', String(payload.length));
+    response.end(payload);
+  });
+  const upstreamPort = await listen(upstream);
+  const proxy = await startHttpProxyListeners({
+    config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
+    state: { schemaVersion: 1 }
+  }, {
+    host: '127.0.0.1',
+    httpPort: 0,
+    httpsPort: 0,
+    ipcPort: 0
+  });
+  const httpPort = proxy.httpServer.address().port;
+
+  try {
+    const bytes = await new Promise((resolve, reject) => {
+      const request = http.get({
+        host: '127.0.0.1',
+        port: httpPort,
+        path: `http://127.0.0.1:${upstreamPort}/download.bin`,
+        headers: { host: `127.0.0.1:${upstreamPort}` }
+      }, (response) => {
+        let total = 0;
+        response.on('data', (chunk) => {
+          total += chunk.length;
+        });
+        response.on('end', () => resolve(total));
+      });
+      request.on('error', reject);
+    });
+
+    assert.equal(bytes, payload.length);
+    assert.equal(attempts, 1);
   } finally {
     await proxy.close();
     await closeServer(upstream);
@@ -513,13 +576,11 @@ test('lifecycle metadata and health expose contract shape', async () => {
       schemaVersion: 1,
       controlPlaneUrl: 'https://control.example.com',
       activeTenantId: 'tenant_1',
-      activeGroupId: 'group_1',
       overrides: { direct: [], proxy: [] }
     }));
     await writeFile(path.join(root, 'state.json'), JSON.stringify({
       schemaVersion: 1,
-      policyRevision: 'rev_1',
-      routeGroups: []
+      policyRevision: 'rev_1'
     }));
 
     const resolved = await resolveBindings();
@@ -556,8 +617,7 @@ test('daemon session end switches idle timeout to run cleanup window', async () 
       overrides: { direct: [], proxy: [] }
     }));
     await writeFile(path.join(root, 'state.json'), JSON.stringify({
-      schemaVersion: 1,
-      routeGroups: []
+      schemaVersion: 1
     }));
 
     const runtime = await startDaemonRuntime();
@@ -567,10 +627,11 @@ test('daemon session end switches idle timeout to run cleanup window', async () 
           host: runtime.metadata.bindings.host,
           port: runtime.metadata.bindings.ipcPort,
           path: '/v1/session/start',
-          method: 'POST'
+          method: 'POST',
+          headers: { 'X-One-Proxy-Daemon-Secret': runtime.metadata.daemonSecret }
         }, (response) => {
           response.resume();
-          response.on('end', resolve);
+          response.on('end', () => response.statusCode && response.statusCode >= 400 ? reject(new Error(`start rejected: ${response.statusCode}`)) : resolve());
         });
         request.on('error', reject);
         request.end('{}');
@@ -580,10 +641,11 @@ test('daemon session end switches idle timeout to run cleanup window', async () 
           host: runtime.metadata.bindings.host,
           port: runtime.metadata.bindings.ipcPort,
           path: '/v1/session/end',
-          method: 'POST'
+          method: 'POST',
+          headers: { 'X-One-Proxy-Daemon-Secret': runtime.metadata.daemonSecret }
         }, (response) => {
           response.resume();
-          response.on('end', resolve);
+          response.on('end', () => response.statusCode && response.statusCode >= 400 ? reject(new Error(`end rejected: ${response.statusCode}`)) : resolve());
         });
         request.on('error', reject);
         request.end('{}');
