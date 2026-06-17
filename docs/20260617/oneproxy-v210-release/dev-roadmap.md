@@ -1,14 +1,14 @@
 # Dev Roadmap: OneProxy v2.1.0 Release
 
 **Date:** 20260617
-**Status:** standing post-setup replacement complete; final tag pending
+**Status:** final corrected panel deployed; local node reset complete
 **Product document:** ./product-requirements.md
 
 ## Summary
 
-OneProxy v2.1.0 has been brought to a latest-contract-only runtime with safer node authorization, unified access-path routing, hardened token handling, clearer operational UX, and a final-schema-only panel baseline. The audited runtime commit is `3cf4562`; full audit evidence is recorded in `audit-report.md`.
+OneProxy v2.1.0 has been brought to a latest-contract-only runtime with safer node authorization, unified access-path routing, hardened token handling, clearer operational UX, and a final-schema-only panel baseline. The final corrected panel runtime commit is `ca6d859`; full audit evidence is recorded in `audit-report.md`.
 
-The manual panel setup flow has been completed by the user, and the standing panel, remote edge node, and local relay node now run the immutable `v2.1.0-rc.3cf4562` images. The `v2.1.0` tag remains gated by final product verification.
+The manual panel setup flow has been completed by the user. The standing panel now runs `ghcr.io/stanleysun233/oneproxy-panel:v2.1.2`; local node runtime state has been removed so node deployment can be retried manually. Tags `v2.1.0` and `v2.1.1` were superseded before final panel delivery by `v2.1.2` after route-group view and modal-scrollbar fixes.
 
 ## Team
 
@@ -108,3 +108,4 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 |------|------|----------|---------------------|------------|
 | 2026-06-17 | Standing replacement | test-release | The old standing database was not a valid final-schema-only target. | Reset completed; panel is running `v2.1.0-rc.65411e7` in setup mode with `configured=false`. |
 | 2026-06-17 | Standing node bootstrap | test-release | Remote and local nodes could not be bootstrapped until the panel setup flow wrote final DB configuration. | User completed setup; panel, remote edge, and local relay were replaced with `v2.1.0-rc.3cf4562` and verified healthy. |
+| 2026-06-17 | Final panel correction | frontend-panel-ops | Tags `v2.1.0` and `v2.1.1` were already published before the route-group view and full modal-scrollbar issues were found. | Immutable tags were not moved; corrected final panel image `v2.1.2` was built, deployed to camelbot, and verified through `/healthz`. |

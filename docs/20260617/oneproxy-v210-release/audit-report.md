@@ -2,7 +2,7 @@
 
 ## Scope
 
-This audit covers the OneProxy node runtime, panel API, panel web console, Chrome extension, TypeScript CLI, Go CLI, and VS Code extension. The audited runtime commit is `3cf4562` (`fix(panel): embed immutable node image in bootstrap command`).
+This audit covers the OneProxy node runtime, panel API, panel web console, Chrome extension, TypeScript CLI, Go CLI, and VS Code extension. The final corrected panel runtime commit is `ca6d859` (`style(panel): hide all modal scrollbars`). Tags `v2.1.0` and `v2.1.1` were published before final panel delivery and were superseded by the immutable correction tag `v2.1.2`.
 
 The release direction is latest-only. The final delivery must not preserve old bootstrap contracts, route-group client state, raw token validation, old access-path enum values, downgrade behavior, or incremental SQL files such as `00001` and `00002`.
 
@@ -71,6 +71,8 @@ Panel web improvements:
 - Auth handling moved away from persistent raw account tokens in browser `localStorage` for the production path.
 - Browser refresh now restores the session from the refresh-token path, so a normal F5 reload does not force a login when the refresh session is still valid.
 - Node status rendering now shows one lifecycle status instead of combining stale health and lifecycle badges in the same cell.
+- The route-group view action now opens the corresponding route-rule list with the selected group filter.
+- Console modals and dialog panels now hide scrollbars across modal-level and child scroll regions while preserving scroll behavior.
 - Console visual tokens and layout density were revised to reduce card chrome and make repeated operational scanning easier.
 
 Chrome extension improvements:
@@ -126,6 +128,16 @@ Image verification:
 - `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562`: `sha256:e5c1797e65f021dad46c1550bf2b9ca4d5a14c70748008109266c907c80bd18b`
 - `ghcr.io/stanleysun233/oneproxy-node-base:v2.1.0-rc.3cf4562`: `sha256:ec661e4ae6b2087cbe8cb1a9d8926792c580a4bbb381af6012a9b2d697d8a295`
 
+Final corrected image verification:
+
+- Panel image workflow: https://github.com/StanleySun233/one-proxy/actions/runs/27683952017
+- Node image workflow: https://github.com/StanleySun233/one-proxy/actions/runs/27683952034
+- Final correction tag: `v2.1.2`
+- `ghcr.io/stanleysun233/oneproxy-panel:v2.1.2`: `sha256:011c0bcdff63e9d13cff0370b4d800e41cbc38e4617a9893c8866d79e19e1f46`
+- `ghcr.io/stanleysun233/oneproxy-panel-base:v2.1.2`: `sha256:9bc72ce8f1ff14db1a14536cd636405ab2e64a02693a305dd5a2b64e3f3cb7c5`
+- `ghcr.io/stanleysun233/oneproxy-node:v2.1.2`: `sha256:99f0b648ebbdaa8bd2444e48c7f0f9f532ba9cdffa2a481f7f41489c53865c89`
+- `ghcr.io/stanleysun233/oneproxy-node-base:v2.1.2`: `sha256:c2a8f731eab7ba2ff12b9fb9c561a9724cd9fdbda2f460c02047d9801e8e6994`
+
 Local isolated scenario:
 
 - Command: `ONEPROXY_IMAGE_TAG=v2.1.0-rc.65411e7 scripts/test-v210-docker-scenario.sh run`
@@ -151,9 +163,12 @@ Standing post-setup evidence:
 - Relay transport state includes `reverse_ws_parent` from node `3` to `ws://103.214.172.211:2988/api/node/tunnel/connect?parentNodeId=1` with `connected`.
 - Parent URL probe for `http://103.214.172.211:2988` returns `reachable=true`, `statusCode=200`, `mode=proxy-node`, and `controlPlaneBound=true`.
 - The deployed panel static chunk contains `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562` and no `oneproxy-node:latest` reference.
+- Final standing panel image: `ghcr.io/stanleysun233/oneproxy-panel:v2.1.2`; `/api/setup/status` returns `configured=true`, and `/healthz` returns `dbBackend=mysql`, `httpAddr=127.0.0.1:2887`, and `status=ok`.
+- The deployed `v2.1.2` panel static chunks contain the modal scrollbar selectors for `.console-modal *` and `.dialog-panel *`.
+- Local node cleanup for manual retry is complete; no local `one-proxy-node` container or `one-proxy-node-runtime*` volume remains.
 
 ## Release Decision
 
-The code is suitable for a fresh v2.1.0 final-schema deployment after manual panel setup and direct provisioning of final access paths and route state. The standing post-setup environment has been replaced with the audited immutable `v2.1.0-rc.3cf4562` images and verifies the relay-parent and edge-public-IP UX path.
+The code is suitable for a fresh v2.1.0 final-schema deployment after manual panel setup and direct provisioning of final access paths and route state. The final standing panel has been replaced with the audited immutable `v2.1.2` image and verifies setup health, route-group view navigation, modal scrollbar suppression, relay-parent UX, and edge-public-IP UX. Node redeployment is intentionally left for manual retry after local node cleanup.
 
 The code is not suitable as an automatic upgrade over an old non-empty panel database. That would require migration compatibility, which is explicitly out of scope for the final delivery. The correct final-version path is to create a fresh final schema or rebuild the database state directly in the final model.

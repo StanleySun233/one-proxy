@@ -33,6 +33,10 @@
   - Commit: 6f44240
 - [x] Embed immutable node image tags in generated bootstrap commands
   - Commit: 3cf4562
+- [x] Open route-group rules from the group view action in `apps/panel/web/app/[locale]/(console)/proxy/routes/_components/route-management-page.tsx`
+  - Commit: 9d26b01
+- [x] Hide scrollbars across console modal and dialog content while preserving scroll behavior
+  - Commit: ca6d859
 
 ## Blockers
 

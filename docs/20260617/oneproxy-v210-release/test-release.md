@@ -79,6 +79,27 @@
     - DB transport evidence: node `3` has `reverse_ws_parent` connected to `ws://103.214.172.211:2988/api/node/tunnel/connect?parentNodeId=1`.
     - Parent URL probe for `http://103.214.172.211:2988` returns `reachable=true`, `statusCode=200`, `mode=proxy-node`, and `controlPlaneBound=true`.
     - Deployed panel static assets contain `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562` and no `oneproxy-node:latest` reference.
+- [x] Publish and deploy corrected final panel image after route-group view and modal-scrollbar fixes
+  - Evidence:
+    - Route-group view fix commit: `9d26b01`.
+    - Initial modal-scrollbar fix commit: `3c8fce6`.
+    - Full modal-scrollbar coverage commit: `ca6d859`.
+    - `v2.1.0` was published from `4e4cb1b` and superseded before final panel deployment.
+    - `v2.1.1` was published from `3c8fce6` and superseded before final panel deployment because modal child scroll regions still needed full coverage.
+    - Final correction tag: `v2.1.2`.
+    - Panel image workflow: pass, https://github.com/StanleySun233/one-proxy/actions/runs/27683952017
+    - Node image workflow: pass, https://github.com/StanleySun233/one-proxy/actions/runs/27683952034
+    - `ghcr.io/stanleysun233/oneproxy-panel:v2.1.2`: `sha256:011c0bcdff63e9d13cff0370b4d800e41cbc38e4617a9893c8866d79e19e1f46`
+    - `ghcr.io/stanleysun233/oneproxy-panel-base:v2.1.2`: `sha256:9bc72ce8f1ff14db1a14536cd636405ab2e64a02693a305dd5a2b64e3f3cb7c5`
+    - `ghcr.io/stanleysun233/oneproxy-node:v2.1.2`: `sha256:99f0b648ebbdaa8bd2444e48c7f0f9f532ba9cdffa2a481f7f41489c53865c89`
+    - `ghcr.io/stanleysun233/oneproxy-node-base:v2.1.2`: `sha256:c2a8f731eab7ba2ff12b9fb9c561a9724cd9fdbda2f460c02047d9801e8e6994`
+    - First `v2.1.2` remote panel replacement attempt rolled back because the check used `/api/health`, which is not a valid endpoint.
+    - Second `v2.1.2` remote panel replacement used `/healthz` and passed.
+    - Remote panel image is `ghcr.io/stanleysun233/oneproxy-panel:v2.1.2`.
+    - Remote `/api/setup/status` returns `configured=true`.
+    - Remote `/healthz` returns `dbBackend=mysql`, `httpAddr=127.0.0.1:2887`, and `status=ok`.
+    - Deployed panel static assets contain the `.console-modal *` and `.dialog-panel *` scrollbar suppression selectors.
+    - Local `one-proxy-node` container and `one-proxy-node-runtime-v210-final` volume were removed for manual node deployment retry.
 - [x] Run compile, unit, extension smoke, local Docker scenario, camelbot isolated scenario, image workflows, and isolated DB evidence
   - Evidence:
     - `bash -n scripts/test-v210-docker-scenario.sh scripts/test-camelbot-v210-scenario.sh scripts/deploy-v210-release-images.sh`: pass
@@ -120,8 +141,11 @@
     - Camelbot isolated scenario with `ONEPROXY_IMAGE_TAG=v2.1.0-rc.65411e7 ONEPROXY_MYSQL_IMAGE=mysql:8.0 ONEPROXY_REDIS_IMAGE=redis:7-alpine scripts/test-camelbot-v210-scenario.sh run`: pass; bootstrap `schema=v2.1.0 access_paths=1 routes=1`; proxy-token validation ok; session, node-token, and bootstrap-token hashes verified
     - Standing replacement deployment against an old non-empty panel database: intentionally not performed after final-schema-only change because the final release does not include old-version migration compatibility
     - Standing reset: complete; panel now runs the final image in setup mode and waits for manual database setup before node bootstrap
-- [ ] Create and push tag `v2.1.0` after all final deployment gates pass
+- [x] Create and push final tags after deployment gates pass
   - Evidence:
+    - `v2.1.0` pushed for the requested latest-plus-minor release line.
+    - `v2.1.1` pushed as the first immutable UI correction tag.
+    - `v2.1.2` pushed as the final immutable panel correction tag and deployed to camelbot.
 
 ## Blockers
 
