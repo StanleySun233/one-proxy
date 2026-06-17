@@ -1,5 +1,6 @@
 import * as http from 'node:http';
 import * as net from 'node:net';
+import type { Duplex } from 'node:stream';
 import { closeServer, listenHttpServer, readConfig, readState, readTokens } from './lifecycle.ts';
 import type { DaemonBindings } from './lifecycle.ts';
 import { resolveRoute } from './router.ts';
@@ -201,7 +202,7 @@ async function proxyToken() {
   return (await readTokens())?.proxyToken;
 }
 
-function pipeTunnel(clientSocket: net.Socket, upstreamSocket: net.Socket, clientHead: Buffer, upstreamHead = Buffer.alloc(0)) {
+function pipeTunnel(clientSocket: Duplex, upstreamSocket: Duplex, clientHead: Uint8Array, upstreamHead: Uint8Array = Buffer.alloc(0)) {
   if (upstreamHead.length > 0) {
     clientSocket.write(upstreamHead);
   }
