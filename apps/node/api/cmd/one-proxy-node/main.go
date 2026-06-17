@@ -497,6 +497,71 @@ func firstPositive(values ...int) int {
 }
 
 func detectPublicHost() string {
+	if host := detectInterfacePublicHost(); host != "" {
+		return host
+	}
+	return detectExternalPublicHost()
+}
+
+func detectInterfacePublicHost() string {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, item := range interfaces {
+		if item.Flags&net.FlagUp == 0 || item.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := item.Addrs()
+		if err != nil {
+			continue
+		}
+		if host := publicHostFromAddrs(addrs); host != "" {
+			return host
+		}
+	}
+	return ""
+}
+
+func publicHostFromAddrs(addrs []net.Addr) string {
+	for _, addr := range addrs {
+		var ip net.IP
+		switch value := addr.(type) {
+		case *net.IPNet:
+			ip = value.IP
+		case *net.IPAddr:
+			ip = value.IP
+		default:
+			continue
+		}
+		if isPublicIPv4(ip) {
+			return ip.To4().String()
+		}
+	}
+	return ""
+}
+
+func isPublicIPv4(ip net.IP) bool {
+	ip = ip.To4()
+	if ip == nil {
+		return false
+	}
+	return ip.IsGlobalUnicast() &&
+		!ip.IsPrivate() &&
+		!ip.IsLoopback() &&
+		!ip.IsUnspecified() &&
+		!ip.IsLinkLocalUnicast() &&
+		!ip.IsLinkLocalMulticast() &&
+		!ip.IsMulticast() &&
+		!isCarrierGradeNATIPv4(ip)
+}
+
+func isCarrierGradeNATIPv4(ip net.IP) bool {
+	ip = ip.To4()
+	return ip != nil && ip[0] == 100 && ip[1]&0xc0 == 0x40
+}
+
+func detectExternalPublicHost() string {
 	client := &http.Client{Timeout: 3 * time.Second}
 	for _, endpoint := range []string{"https://api.ipify.org", "https://ifconfig.me/ip"} {
 		resp, err := client.Get(endpoint)

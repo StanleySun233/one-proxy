@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -153,4 +154,32 @@ func TestParseBytesOrDefault(t *testing.T) {
 	if parseBytesOrDefault("", 99) != 99 {
 		t.Fatalf("fallback not used")
 	}
+}
+
+func TestPublicHostFromAddrsPrefersPublicIPv4(t *testing.T) {
+	got := publicHostFromAddrs([]net.Addr{
+		ipNetAddr("10.10.0.102"),
+		ipNetAddr("103.214.172.211"),
+		ipNetAddr("172.18.0.1"),
+	})
+	if got != "103.214.172.211" {
+		t.Fatalf("public host = %q", got)
+	}
+}
+
+func TestPublicHostFromAddrsSkipsNonPublicIPv4(t *testing.T) {
+	got := publicHostFromAddrs([]net.Addr{
+		ipNetAddr("127.0.0.1"),
+		ipNetAddr("10.0.0.8"),
+		ipNetAddr("172.18.0.1"),
+		ipNetAddr("192.168.1.8"),
+		ipNetAddr("100.64.0.1"),
+	})
+	if got != "" {
+		t.Fatalf("public host = %q", got)
+	}
+}
+
+func ipNetAddr(value string) net.Addr {
+	return &net.IPNet{IP: net.ParseIP(value), Mask: net.CIDRMask(32, 32)}
 }
