@@ -14,7 +14,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/extension/cli/internal/proxycommand"
 )
 
-const version = "0.4.0-dev"
+const version = "2.1.17"
 const defaultNodeHTTPPort = 2988
 
 func main() {

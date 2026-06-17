@@ -37,6 +37,11 @@ jobs:
           node apps/extension/chrome/tools/validate_extension.mjs
           node --check apps/extension/chrome/test/service_worker_smoke.mjs
           node --test apps/extension/chrome/test/session_persistence_test.mjs
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            ONEPROXY_RELEASE_VERSION="${GITHUB_REF_NAME#v}" node --test apps/extension/chrome/test/version_alignment_test.mjs
+          else
+            node --test apps/extension/chrome/test/version_alignment_test.mjs
+          fi
           python3 apps/extension/chrome/test/assert_no_sensitive_ak_in_smoke.py
 
       - name: Install Playwright
