@@ -1,135 +1,169 @@
 import { appendLog } from './diagnostics.js';
-import { activeGroupFrom, uniqueStrings } from './state.js';
-import { urlHostname } from './routing.js';
+import { accessPathById, uniqueStrings } from './state.js';
+import { accessPathProxyTarget, isUsableAccessPath, sortedEnabledRoutes, urlHostname } from './routing.js';
 
-function escapePacString(value) {
-  return String(value || '').replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+function denyProxyTarget() {
+  return 'PROXY 127.0.0.1:9';
 }
 
-function cidrToMask(prefix) {
-  const bits = Number(prefix);
-  if (!Number.isInteger(bits) || bits < 0 || bits > 32) {
-    return null;
-  }
-  const octets = [];
-  let remaining = bits;
-  for (let index = 0; index < 4; index += 1) {
-    const value = remaining >= 8 ? 255 : remaining <= 0 ? 0 : 256 - 2 ** (8 - remaining);
-    octets.push(value);
-    remaining -= 8;
-  }
-  return octets.join('.');
+function localHelperTarget(state) {
+  const helper = state.localHelper || {};
+  return helper.enabled && helper.host && helper.port ? `${helper.scheme || 'SOCKS5'} ${helper.host}:${helper.port}` : '';
 }
 
-function cidrEntries(items) {
-  return uniqueStrings(items)
-    .map((item) => {
-      const [network, prefix] = item.split('/');
-      const mask = cidrToMask(prefix);
-      if (!network || !mask) {
-        return null;
-      }
-      return { network, mask };
-    })
-    .filter(Boolean);
-}
-
-function hostEntries(items) {
-  return uniqueStrings(items).flatMap((item) => {
-    if (item.startsWith('*.')) {
-      return [item.slice(2), item];
-    }
-    if (item.startsWith('.')) {
-      return [item.slice(1), `*${item}`];
-    }
-    return [item];
+function compiledRules(state) {
+  const helperTarget = localHelperTarget(state);
+  return sortedEnabledRoutes(state).map((route) => {
+    const accessPath = accessPathById(state, route.accessPathId);
+    const proxyTarget = route.actionType === 'chain' && isUsableAccessPath(accessPath)
+      ? helperTarget || accessPathProxyTarget(accessPath)
+      : '';
+    return {
+      id: route.id,
+      matchType: route.matchType,
+      matchValue: route.matchValue,
+      actionType: route.actionType,
+      chainId: route.chainId,
+      accessPathId: route.accessPathId,
+      proxyTarget
+    };
   });
 }
 
 export function buildPacScript(state) {
-  const group = activeGroupFrom(state);
   const helper = state.localHelper || {};
-  const helperTarget = helper.enabled && helper.host && helper.port ? `${helper.scheme || 'SOCKS5'} ${helper.host}:${helper.port}` : '';
-  const proxyTarget = helperTarget || (group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT');
-  const directHosts = hostEntries([
-    'localhost',
-    '*.local',
-    '*.lan',
-    urlHostname(state.controlPlaneUrl),
-    group ? group.proxyHost : '',
-    helper.enabled ? helper.host : '',
-    ...(group ? group.directHosts : []),
-    ...(state.localOverrides.directHosts || [])
-  ]);
-  const proxyHosts = hostEntries([
-    ...(group ? group.proxyHosts : []),
-    ...(state.localOverrides.proxyHosts || [])
-  ]);
-  const directCidrs = cidrEntries(group ? group.directCidrs : []);
-  const proxyCidrs = cidrEntries(group ? group.proxyCidrs : []);
   return `
 const enabled = ${state.enabled ? 'true' : 'false'};
-const proxyTarget = '${escapePacString(proxyTarget)}';
-const proxyDefault = ${group && group.proxyDefault ? 'true' : 'false'};
-const directHosts = ${JSON.stringify(directHosts)};
-const proxyHosts = ${JSON.stringify(proxyHosts)};
-const directCidrs = ${JSON.stringify(directCidrs)};
-const proxyCidrs = ${JSON.stringify(proxyCidrs)};
+const rules = ${JSON.stringify(compiledRules(state))};
+const controlPlaneHost = ${JSON.stringify(urlHostname(state.controlPlaneUrl))};
+const helperHost = ${JSON.stringify(helper.enabled ? String(helper.host || '').toLowerCase() : '')};
+const helperPort = ${Number(helper.enabled ? helper.port || 0 : 0)};
+const denyTarget = ${JSON.stringify(denyProxyTarget())};
 
-function hostMatches(patterns, host) {
-  for (const pattern of patterns) {
-    if (shExpMatch(host, pattern)) {
-      return true;
-    }
-  }
-  return false;
+function protocolFromUrl(url) {
+  const index = String(url || '').indexOf(':');
+  return index > 0 ? String(url).slice(0, index).toLowerCase() : 'http';
 }
 
-function inCidrs(cidrs, ip) {
-  if (!ip) {
+function portFromUrl(url, protocol) {
+  const match = String(url || '').match(/^[a-z][a-z0-9+.-]*:\\/\\/(?:[^@/]*@)?(?:\\[[^\\]]+\\]|[^/:?#]+)(?::(\\d+))?/i);
+  if (match && match[1]) {
+    return Number(match[1]);
+  }
+  if (protocol === 'http' || protocol === 'ws') {
+    return 80;
+  }
+  if (protocol === 'https' || protocol === 'wss' || protocol === 'connect') {
+    return 443;
+  }
+  if (protocol === 'ssh') {
+    return 22;
+  }
+  return 0;
+}
+
+function sanitizeHost(host) {
+  return String(host || '').toLowerCase();
+}
+
+function domainSuffixMatches(value, host) {
+  const suffix = String(value || '').replace(/^\\*\\./, '').replace(/^\\./, '');
+  return Boolean(suffix) && (host === suffix || dnsDomainIs(host, '.' + suffix));
+}
+
+function ipv4ToNumber(value) {
+  const parts = String(value || '').split('.');
+  if (parts.length !== 4) {
+    return null;
+  }
+  let result = 0;
+  for (let index = 0; index < parts.length; index += 1) {
+    const octet = Number(parts[index]);
+    if (!Number.isInteger(octet) || octet < 0 || octet > 255) {
+      return null;
+    }
+    result = (result * 256) + octet;
+  }
+  return result;
+}
+
+function cidrMatches(pattern, host) {
+  const ip = ipv4ToNumber(host);
+  if (ip === null) {
     return false;
   }
-  for (const item of cidrs) {
-    if (isInNet(ip, item.network, item.mask)) {
-      return true;
-    }
+  const parts = String(pattern || '').split('/');
+  const networkIp = ipv4ToNumber(parts[0]);
+  const prefix = Number(parts[1]);
+  if (networkIp === null || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+    return false;
   }
-  return false;
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  return (ip & mask) === (networkIp & mask);
 }
 
-function isLocalOnly(host, ip) {
-  if (isPlainHostName(host) || dnsDomainIs(host, '.local')) {
+function isLoopbackHost(host) {
+  return host === 'localhost' ||
+    dnsDomainIs(host, '.localhost') ||
+    host === '::1' ||
+    host.indexOf('127.') === 0;
+}
+
+function isLocalSafetyDirect(host, port) {
+  if (host && host === controlPlaneHost) {
     return true;
   }
-  if (!ip) {
-    return false;
+  if (isLoopbackHost(host)) {
+    return true;
   }
-  return isInNet(ip, '127.0.0.0', '255.0.0.0') ||
-    isInNet(ip, '169.254.0.0', '255.255.0.0');
+  return Boolean(helperHost && host === helperHost && Number(port || 0) === helperPort);
+}
+
+function routeMatches(rule, target) {
+  switch (rule.matchType) {
+    case 'domain':
+      return target.host === String(rule.matchValue || '').toLowerCase();
+    case 'domain_suffix':
+      return domainSuffixMatches(rule.matchValue, target.host);
+    case 'ip':
+      return target.host === String(rule.matchValue || '').toLowerCase();
+    case 'ip_cidr':
+      return cidrMatches(rule.matchValue, target.host);
+    case 'protocol':
+      return target.protocol === String(rule.matchValue || '').toLowerCase();
+    case 'default':
+      return true;
+    default:
+      return false;
+  }
 }
 
 function FindProxyForURL(url, host) {
-  if (!enabled || proxyTarget === 'DIRECT') {
+  if (!enabled) {
     return 'DIRECT';
   }
-  const resolved = dnsResolve(host);
-  if (hostMatches(directHosts, host)) {
+  const protocol = protocolFromUrl(url);
+  const port = portFromUrl(url, protocol);
+  const target = {
+    host: sanitizeHost(host),
+    protocol,
+    port
+  };
+  if (isLocalSafetyDirect(target.host, target.port)) {
     return 'DIRECT';
   }
-  if (inCidrs(directCidrs, resolved)) {
-    return 'DIRECT';
-  }
-  if (hostMatches(proxyHosts, host)) {
-    return proxyTarget;
-  }
-  if (inCidrs(proxyCidrs, resolved)) {
-    return proxyTarget;
-  }
-  if (isLocalOnly(host, resolved)) {
-    return 'DIRECT';
-  }
-  if (proxyDefault) {
-    return proxyTarget;
+  for (let index = 0; index < rules.length; index += 1) {
+    const rule = rules[index];
+    if (!routeMatches(rule, target)) {
+      continue;
+    }
+    if (rule.actionType === 'direct') {
+      return 'DIRECT';
+    }
+    if (rule.actionType === 'chain') {
+      return rule.proxyTarget || denyTarget;
+    }
+    return denyTarget;
   }
   return 'DIRECT';
 }
@@ -137,22 +171,23 @@ function FindProxyForURL(url, host) {
 }
 
 export function pacSummary(state) {
-  const group = activeGroupFrom(state);
-  const helper = state.localHelper || {};
-  const helperTarget = helper.enabled && helper.host && helper.port ? `${helper.scheme || 'SOCKS5'} ${helper.host}:${helper.port}` : '';
+  const helperTarget = localHelperTarget(state);
+  const activePath = accessPathById(state, state.selection.activeAccessPathId);
+  const activeTarget = helperTarget || accessPathProxyTarget(activePath) || 'DIRECT';
+  const rules = compiledRules(state);
   return {
     enabled: Boolean(state.enabled),
-    activeGroupId: group ? group.id : '',
-    activeGroupName: group ? group.name : '',
-    proxyTarget: helperTarget || (group && group.proxyHost && group.proxyPort ? `${group.proxyScheme || 'PROXY'} ${group.proxyHost}:${group.proxyPort}` : 'DIRECT'),
+    activeAccessPathId: activePath ? activePath.id : '',
+    activeAccessPathName: activePath ? activePath.name : '',
+    proxyTarget: activeTarget,
     localHelper: helperTarget,
-    proxyDefault: Boolean(group && group.proxyDefault),
-    remoteProxyHosts: group ? uniqueStrings(group.proxyHosts).length : 0,
-    remoteProxyCidrs: group ? uniqueStrings(group.proxyCidrs).length : 0,
-    remoteDirectHosts: group ? uniqueStrings(group.directHosts).length : 0,
-    remoteDirectCidrs: group ? uniqueStrings(group.directCidrs).length : 0,
-    localProxyHosts: uniqueStrings(state.localOverrides.proxyHosts).length,
-    localDirectHosts: uniqueStrings(state.localOverrides.directHosts).length
+    accessPaths: state.remote.accessPaths.length,
+    routes: state.remote.routes.length,
+    enabledRoutes: rules.length,
+    chainRoutes: rules.filter((rule) => rule.actionType === 'chain').length,
+    directRoutes: rules.filter((rule) => rule.actionType === 'direct').length,
+    denyRoutes: rules.filter((rule) => rule.actionType === 'deny').length,
+    proxyTargets: uniqueStrings(rules.map((rule) => rule.proxyTarget)).length
   };
 }
 
