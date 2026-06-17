@@ -19,6 +19,8 @@
   - Commit: 493fa4f
 - [x] Reduce nested card chrome and improve console density in `apps/panel/web/app/styles/layout.css`
   - Commit: ae8264e
+- [x] Remove default node join password wording from panel node console locale messages in `apps/panel/web/messages/{en,zh}/nodesConsole.json`
+  - Commit: 76c7091
 
 ## Blockers
 
