@@ -19,9 +19,11 @@
   - Commit: 18fe33f
 - [x] Align VS Code SSH generation to access-path identity in `apps/extension/vscode/src/extension.ts`
   - Commit: 8a1c166
+- [x] Send daemon IPC secret from route and probe commands in `apps/cli/src/commands.ts`
+  - Commit: 6d8e9a0
 
 ## Blockers
 
 | Date | Blocker | Status |
 |------|---------|--------|
-| 2026-06-17 | `apps/cli/src/commands.ts` owns route/test IPC calls and is not assigned to this engineer; those calls still need to send `X-One-Proxy-Daemon-Secret` after lifecycle now rejects missing daemon secrets. | Open |
+| 2026-06-17 | `apps/cli/src/commands.ts` owns route/test IPC calls and is not assigned to this engineer; those calls still need to send `X-One-Proxy-Daemon-Secret` after lifecycle now rejects missing daemon secrets. | Resolved in 6d8e9a0 |
