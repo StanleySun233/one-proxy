@@ -23,8 +23,11 @@
   - Commit: 10a8f53e91a79652a9eff009f40d52738fce2031
 - [x] Update node proxy fail-closed auth tests in `apps/node/api/internal/proxy/server_test.go` and `apps/node/api/internal/proxy/reverse_test.go`
   - Commit: 4e03ebe4581af324ccf91dbf02422eb9410ba795
+- [x] Verify direct QUIC identity in node-to-node stream clients in `apps/node/api/internal/direct/quic_stream.go`
+  - Commit: cac1d22c8c9b72702c7a7c947d21880ef63452de
 
 ## Blockers
 
 | Date | Blocker | Status |
 |------|---------|--------|
+| 2026-06-17 | Node-to-node direct link plans do not currently pass DirectNodeIdentity trust material or certificate fingerprints; the node direct client now fails closed instead of falling back to insecure TLS. | Open |
