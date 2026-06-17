@@ -51,7 +51,7 @@ func (s *MySQLStore) createSession(accountID string, account string, role string
 	_, _ = s.db.Exec(
 		`INSERT INTO sessions (id, account_id, access_token_hash, refresh_token_hash, expires_at, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		sessionID, accountID, accessToken, refreshToken, expiresAt, now.Format(time.RFC3339), now.Format(time.RFC3339),
+		sessionID, accountID, auth.TokenHash(accessToken), auth.TokenHash(refreshToken), expiresAt, now.Format(time.RFC3339), now.Format(time.RFC3339),
 	)
 	memberships := s.ListTenantMemberships(accountID)
 	return domain.LoginResult{
@@ -346,7 +346,7 @@ func (s *MySQLStore) AuthenticateAccessToken(accessToken string) (domain.Account
 	)
 	err := s.db.QueryRow(
 		"SELECT account_id, expires_at FROM sessions WHERE access_token_hash = ?",
-		accessToken,
+		auth.TokenHash(accessToken),
 	).Scan(&accountID, &expiresAt)
 	if err != nil {
 		return domain.Account{}, false
@@ -369,7 +369,7 @@ func (s *MySQLStore) RefreshSession(refreshToken string) (domain.LoginResult, bo
 	)
 	err := s.db.QueryRow(
 		"SELECT account_id, expires_at FROM sessions WHERE refresh_token_hash = ?",
-		refreshToken,
+		auth.TokenHash(refreshToken),
 	).Scan(&accountID, &expiresAt)
 	if err != nil {
 		return domain.LoginResult{}, false
@@ -386,7 +386,7 @@ func (s *MySQLStore) RefreshSession(refreshToken string) (domain.LoginResult, bo
 }
 
 func (s *MySQLStore) Logout(accessToken string) bool {
-	result, err := s.db.Exec("DELETE FROM sessions WHERE access_token_hash = ?", accessToken)
+	result, err := s.db.Exec("DELETE FROM sessions WHERE access_token_hash = ?", auth.TokenHash(accessToken))
 	if err != nil {
 		return false
 	}
