@@ -93,6 +93,7 @@ export type DaemonMetadata = {
     excludedCommonPorts: number[];
   };
   idleTimeoutSeconds?: number;
+  daemonSecret: string;
 };
 
 export const loopbackHost = '127.0.0.1';
