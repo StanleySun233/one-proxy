@@ -61,6 +61,10 @@ type DoctorResult = {
   }>;
 };
 
+type DaemonIpcMetadata = DaemonMetadata & {
+  daemonSecret?: string;
+};
+
 function write(value: unknown, context: CliContext): void {
   if (context.json) {
     process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
@@ -97,8 +101,8 @@ function parseTarget(raw: string): { target: string; host: string; port: number;
   };
 }
 
-async function postIpc<T>(daemon: DaemonMetadata | null, path: string, body: unknown): Promise<T> {
-  if (!daemon?.bindings.ipcPort || !processIsRunning(daemon.pid)) {
+async function postIpc<T>(daemon: DaemonIpcMetadata | null, path: string, body: unknown): Promise<T> {
+  if (!daemon?.bindings.ipcPort || !daemon.daemonSecret || !processIsRunning(daemon.pid)) {
     throw Object.assign(new Error('Daemon is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
   }
   const payload = JSON.stringify(body);
@@ -111,7 +115,8 @@ async function postIpc<T>(daemon: DaemonMetadata | null, path: string, body: unk
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload)
+          'Content-Length': Buffer.byteLength(payload),
+          'X-One-Proxy-Daemon-Secret': daemon.daemonSecret
         },
         timeout: 1000
       },
