@@ -14,6 +14,8 @@
     - Camelbot isolated scenario: pass with `v2.1.0-rc.65411e7`
     - Panel and node image workflows: pass
     - Final schema policy: `schema/final.sql` only; no goose runtime; no numbered SQL migration chain
+    - Camelbot panel replacement script now rejects final-schema deploy without an explicit empty final database and confirmation
+    - Final standing cutover script added for fresh panel DB, fresh panel/node volumes, fresh bootstrap, route creation, policy publish, bootstrap validation, proxy-token validation, and DB evidence
     - Standing replacement over an old non-empty panel database is intentionally withheld because this release does not include old-version database migration compatibility
 
 ## Verification Report
@@ -42,3 +44,4 @@
 - Raw panel web TypeScript checking still reads stale generated `.next` output unless `.next` is excluded or refreshed.
 - The observed standing old panel database is not a valid automatic upgrade target for final-schema-only v2.1.0. It must be reset or directly provisioned into the final schema and route/access-path model.
 - Final replacement deployment and `v2.1.0` tag creation should wait until the standing environment is prepared as a final-schema deployment target.
+- Standing replacement now needs explicit authorization for final DB creation/use, fresh panel data volume use, service replacement, fresh node runtime binding, and final tag creation.

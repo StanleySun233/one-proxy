@@ -8,6 +8,10 @@ No isolated scenario may replace or stop the standing camelbot production panel 
 
 v2.1.0 is a final-schema-only release. Fresh panel databases are initialized from `apps/panel/api/schema/final.sql`. The release does not run goose, does not ship numbered SQL upgrade files, and does not upgrade non-empty old databases. Existing old databases must be recreated or directly provisioned into the final v2.1.0 model before replacement deployment.
 
+The release deployment script enforces this for the camelbot panel. `deploy camelbot-panel` requires `ONEPROXY_FINAL_PANEL_DB_NAME`, `ONEPROXY_FINAL_PANEL_ADMIN_PASSWORD`, `ONEPROXY_FINAL_PANEL_JWT_SIGNING_KEY`, and `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema`. The target final database must have zero tables before the final image is started.
+
+Use `scripts/deploy-v210-final-cutover.sh` for the final standing cutover. Its `check` and `dry-run` modes are read-only. Its `run` mode requires `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema`, final panel secrets, an immutable image tag, and `ONEPROXY_FINAL_LOCAL_NODE_PARENT_URL`. The run path uses a fresh final panel database, fresh panel data volume, fresh camelbot node runtime volume, and fresh local node runtime volume, then bootstraps and approves both nodes before creating chains, access paths, routes, publishing policy, validating latest bootstrap, validating proxy-token hashes, and printing database evidence.
+
 ## Image And Artifact Gate
 
 The node and panel image workflows must be run before the final release tag.
@@ -92,10 +96,13 @@ Modes:
 | `dry-run` | Prints the exact target and immutable replacement image. |
 | `check` | Runs non-destructive current-image and health checks. This is the default mode. |
 | `deploy` | Performs replacement deployment. This mode is required for local node, camelbot node, and camelbot panel replacement. |
+| `final-cutover run` | Performs the final-schema standing cutover through `scripts/deploy-v210-final-cutover.sh run <immutable_tag>`. |
 
 Acceptance criteria:
 
 - The script rejects missing tags and mutable tags such as `latest`.
+- The camelbot panel final-schema deploy path rejects missing final database configuration and rejects non-empty final databases.
+- The final cutover script rejects missing confirmation and secrets, and `check` confirms the target final database is empty before any destructive operation.
 - The local node replacement preserves the current environment, renames the previous container, starts the new immutable image, and checks `/healthz`.
 - The camelbot node path reuses the existing `deploy-camelbot-node.sh` deploy contract.
 - The camelbot panel replacement preserves the current environment, renames the previous container, starts the new immutable panel image, and checks `/healthz`.

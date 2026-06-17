@@ -53,6 +53,8 @@ Residual security and operations risks:
 
 - Final schema initialization skips non-empty databases. This avoids upgrade compatibility code, but it means old production databases must not be treated as automatically supported final-version inputs.
 - A standing old database observed during release checks still had numbered migration history and no final access-path rows. Deploying the final image over that database would keep the old data shape and leave users without usable latest access paths.
+- The camelbot panel deployment script now rejects final-schema deployment unless an explicit empty final database, final panel secrets, and `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema` are provided.
+- `scripts/deploy-v210-final-cutover.sh` now provides the fresh DB/fresh volume/fresh node bootstrap cutover path, but it has not been run against standing services because that operation replaces live containers and rebinds nodes.
 - Raw panel web `tsc --noEmit` still reads a stale `.next/types/validator.ts` generated file that references a removed duplicate audit route. Source TypeScript checks pass when stale `.next` output is excluded.
 - GitHub Actions image workflows pass, but both runs emit the upstream `actions/checkout@v4` Node.js 20 deprecation warning.
 

@@ -26,6 +26,19 @@
     - `apps/panel/api/migrations` has been removed.
     - Panel API initializes the schema only when the target database has zero tables.
     - A source scan found no panel API/web/Docker references to `goose`, `goose_db_version`, numbered SQL migrations, removed old access-path enums, old SOCKS-style aliases, or old raw TCP/UDP service names.
+- [x] Add final-schema deployment guard to the camelbot panel replacement script
+  - Evidence:
+    - `bash -n scripts/deploy-v210-release-images.sh`: pass
+    - `scripts/deploy-v210-release-images.sh dry-run camelbot-panel v2.1.0-rc.65411e7`: pass; prints required final DB and final volume
+    - `scripts/deploy-v210-release-images.sh deploy camelbot-panel v2.1.0-rc.65411e7`: rejects without `ONEPROXY_FINAL_PANEL_DB_NAME`
+    - `scripts/deploy-v210-release-images.sh check camelbot-panel v2.1.0-rc.65411e7`: pass; standing DB evidence `tables=40 goose_tables=1 access_paths=0`
+- [x] Add final-schema standing cutover script for fresh panel DB and fresh node runtime bindings
+  - Evidence:
+    - `bash -n scripts/deploy-v210-final-cutover.sh`: pass
+    - `scripts/deploy-v210-final-cutover.sh dry-run v2.1.0-rc.65411e7`: pass; prints final panel DB, fresh panel volume, fresh remote node volume, fresh local node volume, and target node names
+    - `scripts/deploy-v210-final-cutover.sh dry-run latest`: rejects mutable image tag
+    - `scripts/deploy-v210-final-cutover.sh check`: pass; local node, camelbot panel, and camelbot node are still on `v2.1.0-rc.38d3a66`; target final DB `one_proxy_v210_final` has `tables=0`
+    - `scripts/deploy-v210-final-cutover.sh run v2.1.0-rc.65411e7`: rejects without `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema`
 - [x] Run compile, unit, extension smoke, local Docker scenario, camelbot isolated scenario, image workflows, and isolated DB evidence
   - Evidence:
     - `bash -n scripts/test-v210-docker-scenario.sh scripts/test-camelbot-v210-scenario.sh scripts/deploy-v210-release-images.sh`: pass
@@ -75,3 +88,4 @@
 |------|---------|--------|
 | 2026-06-17 | Raw panel web `tsc --noEmit` includes stale `.next/types/validator.ts` generated output that references a removed duplicate audit route. | Source TypeScript check passes with `.next` excluded; generated cache must be refreshed before using raw `.next` as a release artifact. |
 | 2026-06-17 | Existing standing panel database is non-empty, has old migration history, and does not contain final access-path rows. | Do not deploy the final-schema-only image as an automatic upgrade. Recreate or directly provision final schema state. |
+| 2026-06-17 | Standing replacement still needs final panel secrets, `ONEPROXY_FINAL_LOCAL_NODE_PARENT_URL`, and explicit destructive-operation authorization. | `scripts/deploy-v210-final-cutover.sh` is ready; target final DB is empty; run mode is gated by confirmation. |
