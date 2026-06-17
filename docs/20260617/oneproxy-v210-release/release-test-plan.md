@@ -12,6 +12,8 @@ The release deployment script enforces this for the camelbot panel. `deploy came
 
 Use `scripts/deploy-v210-final-cutover.sh` for the final standing cutover. Its `check` and `dry-run` modes are read-only. Its `run` mode requires `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema`, final panel secrets, an immutable image tag, and `ONEPROXY_FINAL_LOCAL_NODE_PARENT_URL`. The run path uses a fresh final panel database, fresh panel data volume, fresh camelbot node runtime volume, and fresh local node runtime volume, then bootstraps and approves both nodes before creating chains, access paths, routes, publishing policy, validating latest bootstrap, validating proxy-token hashes, and printing database evidence.
 
+The cutover script restores renamed backup containers when panel, remote-node, local-node, or final control-plane provisioning fails before completion. It does not delete or rewrite the old database.
+
 ## Image And Artifact Gate
 
 The node and panel image workflows must be run before the final release tag.

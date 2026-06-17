@@ -180,10 +180,35 @@ panel_backup="${panel_container}-prev-$(date +%Y%m%d%H%M%S)"
 remote_node_backup="${remote_node_container}-prev-$(date +%Y%m%d%H%M%S)"
 panel_env="$(mktemp)"
 node_env="$(mktemp)"
+panel_renamed=0
+remote_node_renamed=0
+completed=0
 cleanup() {
   rm -f "$panel_env" "$node_env"
 }
+rollback() {
+  status=$?
+  if [ "$completed" -eq 0 ]; then
+    if [ "$remote_node_renamed" -eq 1 ]; then
+      docker rm -f "$remote_node_container" >/dev/null 2>&1 || true
+      if docker ps -a --format '{{.Names}}' | grep -Fxq "$remote_node_backup"; then
+        docker rename "$remote_node_backup" "$remote_node_container" >/dev/null 2>&1 || true
+        docker start "$remote_node_container" >/dev/null 2>&1 || true
+      fi
+    fi
+    if [ "$panel_renamed" -eq 1 ]; then
+      docker rm -f "$panel_container" >/dev/null 2>&1 || true
+      if docker ps -a --format '{{.Names}}' | grep -Fxq "$panel_backup"; then
+        docker rename "$panel_backup" "$panel_container" >/dev/null 2>&1 || true
+        docker start "$panel_container" >/dev/null 2>&1 || true
+      fi
+    fi
+  fi
+  cleanup
+  exit "$status"
+}
 trap cleanup EXIT
+trap rollback ERR HUP INT TERM
 
 json_get() {
   python3 -c 'import json,sys
@@ -295,6 +320,7 @@ mysql_root_password="$(docker exec "$mysql_container" sh -lc 'printf "%s" "$MYSQ
 docker pull "$panel_image" >/dev/null
 if docker inspect "$panel_container" >/dev/null 2>&1; then
   docker rename "$panel_container" "$panel_backup"
+  panel_renamed=1
   docker stop "$panel_backup" >/dev/null
   echo "panel_backup=${panel_backup}"
 fi
@@ -341,6 +367,7 @@ local_bootstrap_token="$(printf "%s" "$local_bootstrap_response" | json_get data
 docker pull "$node_image" >/dev/null
 if docker inspect "$remote_node_container" >/dev/null 2>&1; then
   docker rename "$remote_node_container" "$remote_node_backup"
+  remote_node_renamed=1
   docker stop "$remote_node_backup" >/dev/null
   echo "remote_node_backup=${remote_node_backup}"
 fi
@@ -359,7 +386,18 @@ docker run -d \
 remote_node_id="$(wait_pending_node "$remote_node_name")"
 remote_approve_response="$(api_request POST "/nodes/${remote_node_id}/approve" "$access_token" "$tenant_id" "{}")"
 remote_node_token="$(printf "%s" "$remote_approve_response" | json_get data.accessToken)"
-wait_for_http "http://127.0.0.1:2988/healthz" "remote_node_health"
+tries=0
+until curl -fsS http://127.0.0.1:2988/healthz 2>/dev/null | grep -q '"controlPlaneBound":true'; do
+  tries=$((tries + 1))
+  if [ "$tries" -ge 60 ]; then
+    echo "remote_node_bound=failed" >&2
+    exit 1
+  fi
+  sleep 2
+done
+echo "remote_node_bound=ok"
+completed=1
+trap - ERR HUP INT TERM
 echo "tenant_id=${tenant_id}"
 echo "scope_id=${scope_id}"
 echo "remote_node_id=${remote_node_id}"
@@ -373,6 +411,8 @@ deploy_local_node() {
   image="$(node_image)"
   env_file="$(mktemp)"
   backup="${local_node_container}-prev-$(date +%Y%m%d%H%M%S)"
+  renamed=0
+  completed=0
   network="$local_node_network"
   if [ -z "$network" ] && docker inspect "$local_node_container" >/dev/null 2>&1; then
     network="$(docker inspect "$local_node_container" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' | head -n 1)"
@@ -384,7 +424,20 @@ deploy_local_node() {
   cleanup() {
     rm -f "$env_file"
   }
+  rollback() {
+    status=$?
+    if [ "$completed" -eq 0 ] && [ "$renamed" -eq 1 ]; then
+      docker rm -f "$local_node_container" >/dev/null 2>&1 || true
+      if docker ps -a --format '{{.Names}}' | grep -Fxq "$backup"; then
+        docker rename "$backup" "$local_node_container" >/dev/null 2>&1 || true
+        docker start "$local_node_container" >/dev/null 2>&1 || true
+      fi
+    fi
+    cleanup
+    exit "$status"
+  }
   trap cleanup EXIT
+  trap rollback ERR HUP INT TERM
   {
     echo "NODE_BOOTSTRAP_TOKEN=${local_bootstrap_token}"
     echo "NODE_PARENT_URL=${local_node_parent_url}"
@@ -405,6 +458,7 @@ deploy_local_node() {
   docker pull "$image" >/dev/null
   if docker inspect "$local_node_container" >/dev/null 2>&1; then
     docker rename "$local_node_container" "$backup"
+    renamed=1
     docker stop "$backup" >/dev/null
     echo "local_node_backup=${backup}"
   fi
@@ -420,8 +474,50 @@ deploy_local_node() {
     -p 2991:2991/udp \
     -p 2992:2992/udp \
     "$image" >/dev/null
+  completed=1
+  trap - ERR HUP INT TERM
   trap - EXIT
   cleanup
+}
+
+restore_remote_backups() {
+  panel_backup="$1"
+  remote_node_backup="$2"
+  ssh -T "$ssh_host" 'bash -s' -- "$panel_container" "$panel_backup" "$remote_node_container" "$remote_node_backup" <<'REMOTE'
+set -euo pipefail
+panel_container="$1"
+panel_backup="$2"
+remote_node_container="$3"
+remote_node_backup="$4"
+restore_container() {
+  current="$1"
+  backup="$2"
+  if [ -z "$backup" ]; then
+    return 0
+  fi
+  if docker ps -a --format '{{.Names}}' | grep -Fxq "$backup"; then
+    docker rm -f "$current" >/dev/null 2>&1 || true
+    docker rename "$backup" "$current" >/dev/null
+    docker start "$current" >/dev/null
+    echo "restored=${current}"
+  fi
+}
+restore_container "$remote_node_container" "$remote_node_backup"
+restore_container "$panel_container" "$panel_backup"
+REMOTE
+}
+
+restore_local_backup() {
+  local_backup="$1"
+  if [ -z "$local_backup" ]; then
+    return 0
+  fi
+  if docker ps -a --format '{{.Names}}' | grep -Fxq "$local_backup"; then
+    docker rm -f "$local_node_container" >/dev/null 2>&1 || true
+    docker rename "$local_backup" "$local_node_container" >/dev/null
+    docker start "$local_node_container" >/dev/null
+    echo "restored=${local_node_container}"
+  fi
 }
 
 finish_control_plane_state() {
@@ -616,6 +712,8 @@ run_cutover() {
   require_run_env
   remote_output="$(deploy_panel_and_remote_node)"
   printf "%s\n" "$remote_output" | grep -Ev '(^|_)token=' || true
+  panel_backup="$(printf "%s" "$remote_output" | sed -n 's/^panel_backup=//p' | tail -n 1)"
+  remote_node_backup="$(printf "%s" "$remote_output" | sed -n 's/^remote_node_backup=//p' | tail -n 1)"
   tenant_id="$(printf "%s" "$remote_output" | sed -n 's/^tenant_id=//p' | tail -n 1)"
   scope_id="$(printf "%s" "$remote_output" | sed -n 's/^scope_id=//p' | tail -n 1)"
   remote_node_id="$(printf "%s" "$remote_output" | sed -n 's/^remote_node_id=//p' | tail -n 1)"
@@ -625,8 +723,18 @@ run_cutover() {
     echo "cutover output missing required identifiers" >&2
     exit 1
   fi
-  deploy_local_node "$local_bootstrap_token"
-  finish_control_plane_state "$tenant_id" "$scope_id" "$remote_node_id" "$remote_node_token"
+  if ! local_output="$(deploy_local_node "$local_bootstrap_token")"; then
+    restore_remote_backups "$panel_backup" "$remote_node_backup"
+    exit 1
+  fi
+  printf "%s\n" "$local_output"
+  local_backup="$(printf "%s" "$local_output" | sed -n 's/^local_node_backup=//p' | tail -n 1)"
+  if ! finish_output="$(finish_control_plane_state "$tenant_id" "$scope_id" "$remote_node_id" "$remote_node_token")"; then
+    restore_local_backup "$local_backup"
+    restore_remote_backups "$panel_backup" "$remote_node_backup"
+    exit 1
+  fi
+  printf "%s\n" "$finish_output"
   wait_local_bound
 }
 
