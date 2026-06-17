@@ -42,6 +42,43 @@ const STATUS_BUBBLE_LABELS = [
 ];
 const PATH_HEALTH_TTL_MS = 60000;
 const pathHealthCache = new Map();
+const STATUS_BUBBLE_FALLBACK_LABELS = {
+  account: 'Account',
+  activeGroup: 'Active group',
+  policyRevision: 'Policy',
+  syncedAt: 'Synced',
+  tenant: 'Tenant',
+  statusBubbleTitle: 'Proxy status',
+  statusBubbleUpload: 'Upload',
+  statusBubbleDownload: 'Download',
+  statusBubbleLatency: 'Latency',
+  statusBubbleRequests: 'Requests',
+  statusBubbleRoute: 'Route',
+  statusBubbleOpenedAt: 'Opened',
+  statusBubbleRequestMixShort: 'P / D / F',
+  statusBubbleCorrelation: 'IO source',
+  statusBubbleCorrelated: 'Node correlated',
+  statusBubbleNotCorrelated: 'Not correlated',
+  statusBubbleCache: 'Cache',
+  statusBubbleCacheStoredAt: 'Cache stored',
+  statusBubbleCacheResponses: 'Cache responses',
+  statusBubbleStatusCode: 'HTTP status',
+  statusBubbleHttpErrors: 'HTTP errors',
+  statusBubbleErrorCodes: 'Error codes',
+  statusBubbleLastError: 'Last error',
+  statusBubbleTopology: 'Path',
+  statusBubbleUserMachine: 'User machine',
+  statusBubbleWebsite: 'Website',
+  statusBubbleRoundTrip: 'RTT',
+  statusBubbleTransport: 'Transport',
+  statusBubbleDirectQUIC: 'Direct QUIC',
+  statusBubbleRelay: 'Relay',
+  statusBubbleFallback: 'Fallback',
+  statusBubbleRefresh: 'Refresh',
+  statusBubbleCopy: 'Copy diagnostics',
+  statusBubbleCopied: 'Copied',
+  statusBubbleUnknown: 'Unknown'
+};
 
 function tenantFrom(state) {
   const membership = state.session.tenantMemberships.find((item) => item.tenantId === state.session.activeTenantId);
@@ -54,10 +91,7 @@ function tenantFrom(state) {
 function labels() {
   return Object.fromEntries(STATUS_BUBBLE_LABELS.map((key) => {
     const message = chrome.i18n.getMessage(key);
-    if (!message) {
-      throw new Error(`missing_i18n_message:${key}`);
-    }
-    return [key, message];
+    return [key, message || STATUS_BUBBLE_FALLBACK_LABELS[key] || key];
   }));
 }
 
@@ -213,8 +247,14 @@ function routePayload(route) {
 
 function mergePageSnapshot(route, metrics, remoteStatus) {
   const requestCount = Number((remoteStatus && remoteStatus.requestCount) || (metrics && metrics.requestCount) || 0);
-  const proxiedRequestCount = Number((metrics && metrics.proxiedRequestCount) || 0) || (route.mode === 'proxy' ? requestCount : 0);
-  const directRequestCount = Number((metrics && metrics.directRequestCount) || 0) || (route.mode === 'proxy' ? 0 : requestCount);
+  const rawProxiedRequestCount = Number((metrics && metrics.proxiedRequestCount) || 0);
+  const rawDirectRequestCount = Number((metrics && metrics.directRequestCount) || 0);
+  const proxiedRequestCount = route.mode === 'proxy'
+    ? Math.max(rawProxiedRequestCount, requestCount - rawDirectRequestCount)
+    : rawProxiedRequestCount;
+  const directRequestCount = route.mode === 'proxy'
+    ? rawDirectRequestCount
+    : Math.max(rawDirectRequestCount, requestCount - rawProxiedRequestCount);
   return {
     host: route.host || '',
     openedAt: (metrics && metrics.openedAt) || new Date().toISOString(),
@@ -311,9 +351,6 @@ function normalizePageMetrics(metrics) {
 }
 
 function mergeLocalMetrics(primary, fallback) {
-  if (primary && Number(primary.requestCount || 0) > 0) {
-    return primary;
-  }
   if (!primary) {
     return fallback;
   }
@@ -322,9 +359,44 @@ function mergeLocalMetrics(primary, fallback) {
   }
   return {
     ...primary,
-    ...fallback,
-    openedAt: primary.openedAt || fallback.openedAt
+    openedAt: primary.openedAt || fallback.openedAt,
+    requestCount: maxNumber(primary.requestCount, fallback.requestCount),
+    responseCount: maxNumber(primary.responseCount, fallback.responseCount),
+    proxiedRequestCount: maxNumber(primary.proxiedRequestCount, fallback.proxiedRequestCount),
+    directRequestCount: maxNumber(primary.directRequestCount, fallback.directRequestCount),
+    failureCount: maxNumber(primary.failureCount, fallback.failureCount),
+    uploadBytes: maxNumber(primary.uploadBytes, fallback.uploadBytes),
+    downloadBytes: maxNumber(primary.downloadBytes, fallback.downloadBytes),
+    latencyMs: firstPositive(primary.latencyMs, fallback.latencyMs),
+    statusCode: firstPositive(primary.statusCode, fallback.statusCode),
+    httpErrorCount: maxNumber(primary.httpErrorCount, fallback.httpErrorCount),
+    errorCodeCount: mergeErrorCodeCount(primary.errorCodeCount, fallback.errorCodeCount),
+    cacheStatus: primary.cacheStatus || fallback.cacheStatus,
+    cacheStoredAt: primary.cacheStoredAt || fallback.cacheStoredAt,
+    cacheAgeSeconds: maxNumber(primary.cacheAgeSeconds, fallback.cacheAgeSeconds),
+    cacheResponseCount: maxNumber(primary.cacheResponseCount, fallback.cacheResponseCount),
+    lastErrorCode: primary.lastErrorCode || fallback.lastErrorCode,
+    lastErrorMessage: primary.lastErrorMessage || fallback.lastErrorMessage
   };
+}
+
+function maxNumber(primary, fallback) {
+  return Math.max(Number(primary || 0), Number(fallback || 0));
+}
+
+function firstPositive(primary, fallback) {
+  const first = Number(primary || 0);
+  return first > 0 ? first : Number(fallback || 0);
+}
+
+function mergeErrorCodeCount(primary, fallback) {
+  const result = { ...(fallback || {}) };
+  Object.entries(primary || {}).forEach(([key, value]) => {
+    if (key) {
+      result[key] = Math.max(Number(result[key] || 0), Number(value || 0));
+    }
+  });
+  return result;
 }
 
 function pathLatencyMs(pathHealth) {

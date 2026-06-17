@@ -3,6 +3,43 @@
   const POSITION_KEY = 'oneProxyStatusBubblePosition';
   const FADE_DELAY_MS = 5000;
   const REFRESH_INTERVAL_MS = 30000;
+  const LABEL_FALLBACKS = {
+    account: 'Account',
+    activeGroup: 'Active group',
+    policyRevision: 'Policy',
+    syncedAt: 'Synced',
+    tenant: 'Tenant',
+    statusBubbleTitle: 'Proxy status',
+    statusBubbleUpload: 'Upload',
+    statusBubbleDownload: 'Download',
+    statusBubbleLatency: 'Latency',
+    statusBubbleRequests: 'Requests',
+    statusBubbleRoute: 'Route',
+    statusBubbleOpenedAt: 'Opened',
+    statusBubbleRequestMixShort: 'P / D / F',
+    statusBubbleCorrelation: 'IO source',
+    statusBubbleCorrelated: 'Node correlated',
+    statusBubbleNotCorrelated: 'Not correlated',
+    statusBubbleCache: 'Cache',
+    statusBubbleCacheStoredAt: 'Cache stored',
+    statusBubbleCacheResponses: 'Cache responses',
+    statusBubbleStatusCode: 'HTTP status',
+    statusBubbleHttpErrors: 'HTTP errors',
+    statusBubbleErrorCodes: 'Error codes',
+    statusBubbleLastError: 'Last error',
+    statusBubbleTopology: 'Path',
+    statusBubbleUserMachine: 'User machine',
+    statusBubbleWebsite: 'Website',
+    statusBubbleRoundTrip: 'RTT',
+    statusBubbleTransport: 'Transport',
+    statusBubbleDirectQUIC: 'Direct QUIC',
+    statusBubbleRelay: 'Relay',
+    statusBubbleFallback: 'Fallback',
+    statusBubbleRefresh: 'Refresh',
+    statusBubbleCopy: 'Copy diagnostics',
+    statusBubbleCopied: 'Copied',
+    statusBubbleUnknown: 'Unknown'
+  };
   const state = {
     root: null,
     icon: null,
@@ -18,10 +55,16 @@
   function label(key) {
     const labels = state.payload && state.payload.labels;
     const value = labels && labels[key];
-    if (!value) {
-      throw new Error(`missing_status_bubble_label:${key}`);
+    if (value) {
+      return value;
     }
-    return value;
+    if (typeof chrome !== 'undefined' && chrome.i18n && chrome.i18n.getMessage) {
+      const message = chrome.i18n.getMessage(key);
+      if (message) {
+        return message;
+      }
+    }
+    return LABEL_FALLBACKS[key] || key;
   }
 
   function formatMb(bytes) {

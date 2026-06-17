@@ -49,6 +49,11 @@ if (/^\s*import\s/m.test(serviceWorkerSource) || /^\s*export\s/m.test(serviceWor
   throw new Error(`service_worker_entry_contains_module_syntax:${manifest.background.service_worker}`);
 }
 
+const statusBubbleSource = readFileSync(path.join(root, 'content/status-bubble.js'), 'utf8');
+if (statusBubbleSource.includes('missing_status_bubble_label')) {
+  throw new Error('status_bubble_label_fallback_required');
+}
+
 function files(dir) {
   const result = [];
   for (const name of readdirSync(dir)) {
