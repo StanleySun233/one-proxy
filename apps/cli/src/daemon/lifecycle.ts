@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import { spawn } from 'node:child_process';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import * as http from 'node:http';
 import * as net from 'node:net';
 import * as path from 'node:path';
@@ -86,6 +87,7 @@ export type DaemonMetadata = {
   bindings: DaemonBindings;
   portSelection: PortSelection;
   idleTimeoutSeconds: number;
+  daemonSecret: string;
 };
 
 export type DaemonHealth = {
@@ -229,7 +231,8 @@ export async function buildDaemonMetadata(resolved: ResolvedBindings): Promise<D
     policyRevision: state.policyRevision,
     bindings: resolved.bindings,
     portSelection: resolved.portSelection,
-    idleTimeoutSeconds: envIdleTimeoutSeconds
+    idleTimeoutSeconds: envIdleTimeoutSeconds,
+    daemonSecret: randomBytes(32).toString('hex')
   };
 }
 
@@ -261,6 +264,10 @@ export async function closeServer(server: http.Server | net.Server) {
 export function createIpcServer(metadata: DaemonMetadata, handlers: Record<string, (body: unknown) => Promise<unknown>>) {
   return http.createServer(async (request, response) => {
     const url = new URL(request.url ?? '/', `http://${loopbackHost}`);
+    if (!authorizedDaemonRequest(request, metadata)) {
+      writeDaemonAuthRequired(response);
+      return;
+    }
     if (request.method === 'GET' && url.pathname === '/v1/health') {
       response.setHeader('content-type', 'application/json');
       response.end(JSON.stringify(healthFromMetadata(metadata)));
@@ -438,7 +445,7 @@ export async function serveDaemon(): Promise<void> {
 
 export async function probeDaemon(metadata?: DaemonMetadata | null): Promise<DaemonHealth | null> {
   const targetMetadata = metadata ?? await readDaemonMetadata();
-  if (!targetMetadata) {
+  if (!targetMetadata?.daemonSecret) {
     return null;
   }
   return await new Promise((resolve) => {
@@ -447,6 +454,7 @@ export async function probeDaemon(metadata?: DaemonMetadata | null): Promise<Dae
         host: targetMetadata.bindings.host,
         port: targetMetadata.bindings.ipcPort,
         path: '/v1/health',
+        headers: daemonSecretHeader(targetMetadata),
         timeout: 1000
       },
       (response) => {
@@ -475,10 +483,17 @@ async function postDaemon(metadata: DaemonMetadata, path: string): Promise<void>
       port: metadata.bindings.ipcPort,
       path,
       method: 'POST',
+      headers: daemonSecretHeader(metadata),
       timeout: 1000
     }, (response) => {
       response.resume();
-      response.on('end', () => resolve());
+      response.on('end', () => {
+        if (response.statusCode && response.statusCode >= 400) {
+          reject(Object.assign(new Error('Daemon IPC request was rejected'), { code: 'DAEMON_UNAVAILABLE' }));
+          return;
+        }
+        resolve();
+      });
     });
     request.on('error', reject);
     request.on('timeout', () => {
@@ -487,6 +502,26 @@ async function postDaemon(metadata: DaemonMetadata, path: string): Promise<void>
     });
     request.end('{}');
   });
+}
+
+function daemonSecretHeader(metadata: DaemonMetadata) {
+  return { 'X-One-Proxy-Daemon-Secret': metadata.daemonSecret };
+}
+
+function authorizedDaemonRequest(request: http.IncomingMessage, metadata: DaemonMetadata) {
+  const header = request.headers['x-one-proxy-daemon-secret'];
+  const actual = Array.isArray(header) ? header[0] : header;
+  if (!actual) {
+    return false;
+  }
+  const expectedBytes = Buffer.from(metadata.daemonSecret);
+  const actualBytes = Buffer.from(actual);
+  return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
+}
+
+function writeDaemonAuthRequired(response: http.ServerResponse) {
+  response.writeHead(401, { 'content-type': 'application/json' });
+  response.end(JSON.stringify({ code: 401, message: 'daemon_auth_required', data: null }));
 }
 
 async function readRequestJson(request: http.IncomingMessage) {
