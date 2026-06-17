@@ -35,6 +35,7 @@ jobs:
       - name: Static extension checks
         run: |
           node apps/extension/chrome/tools/validate_extension.mjs
+          node --check apps/extension/chrome/test/service_worker_smoke.mjs
           python3 apps/extension/chrome/test/assert_no_sensitive_ak_in_smoke.py
 
       - name: Install Playwright

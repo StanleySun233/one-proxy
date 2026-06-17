@@ -296,8 +296,7 @@ chromium.launchPersistentContext(userDataDir, {
             console.log(`chrome_extension_service_worker_ok id=${result.id} version=${result.version}`);
           });
         });
-    });
-  })
+    })
   .then(cleanup, (error) => cleanup().then(() => {
     throw error;
   }));

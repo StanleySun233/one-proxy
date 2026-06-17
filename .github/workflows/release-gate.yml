@@ -66,6 +66,7 @@ jobs:
         run: |
           node apps/extension/chrome/tools/build_background_bundle.mjs
           node apps/extension/chrome/tools/validate_extension.mjs
+          node --check apps/extension/chrome/test/service_worker_smoke.mjs
           node --test apps/extension/chrome/test/domain_suffix_test.mjs
           python3 apps/extension/chrome/test/assert_no_sensitive_ak_in_smoke.py
 
