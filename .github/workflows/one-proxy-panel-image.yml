@@ -12,6 +12,16 @@ on:
       - 'docker/one-proxy-panel-start.sh'
       - '.github/workflows/one-proxy-panel-image.yml'
   workflow_dispatch:
+    inputs:
+      image_version:
+        description: 'Immutable image tag to build. Defaults to v2.1.0-rc.<run_number>.'
+        required: false
+        type: string
+      push_image:
+        description: 'Push the immutable test image to GHCR.'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -28,41 +38,83 @@ jobs:
 
       - name: Image metadata
         shell: bash
+        env:
+          INPUT_IMAGE_VERSION: ${{ inputs.image_version }}
+          INPUT_PUSH_IMAGE: ${{ inputs.push_image }}
         run: |
+          push_image=false
+          push_latest=false
           if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            echo "IMAGE_VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+            image_version="$GITHUB_REF_NAME"
+            push_image=true
+            push_latest=true
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            image_version="$INPUT_IMAGE_VERSION"
+            if [[ -z "$image_version" ]]; then
+              image_version="v2.1.0-rc.${GITHUB_RUN_NUMBER}"
+            fi
+            push_image="$INPUT_PUSH_IMAGE"
           else
-            echo "IMAGE_VERSION=ci-${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+            image_version="ci-${GITHUB_SHA::12}"
           fi
+          if [[ -z "$image_version" || "$image_version" == "latest" ]]; then
+            echo "invalid image version: $image_version" >&2
+            exit 2
+          fi
+          echo "IMAGE_VERSION=$image_version" >> "$GITHUB_ENV"
+          echo "PUSH_IMAGE=$push_image" >> "$GITHUB_ENV"
+          echo "PUSH_LATEST=$push_latest" >> "$GITHUB_ENV"
+          echo "IMAGE_SOURCE=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" >> "$GITHUB_ENV"
+          echo "IMAGE_CREATED=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
 
       - name: Login to GHCR
-        if: github.event_name == 'push' && github.ref_type == 'tag'
+        if: env.PUSH_IMAGE == 'true'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Build panel base image
-        run: docker build -f docker/one-proxy-panel-base.Dockerfile -t oneproxy-panel-base:${{ github.sha }} .
+        run: |
+          docker build -f docker/one-proxy-panel-base.Dockerfile \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            --label org.opencontainers.image.version=${{ env.IMAGE_VERSION }} \
+            --label org.opencontainers.image.source=${{ env.IMAGE_SOURCE }} \
+            --label org.opencontainers.image.created=${{ env.IMAGE_CREATED }} \
+            -t oneproxy-panel-base:${{ github.sha }} .
 
-      - name: Tag panel base release image
-        if: github.event_name == 'push' && github.ref_type == 'tag'
+      - name: Tag panel base image
+        if: env.PUSH_IMAGE == 'true'
         run: |
           docker tag oneproxy-panel-base:${{ github.sha }} ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:${{ env.IMAGE_VERSION }}
-          docker tag oneproxy-panel-base:${{ github.sha }} ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
+          if [[ "${{ env.PUSH_LATEST }}" == "true" ]]; then
+            docker tag oneproxy-panel-base:${{ github.sha }} ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
+          fi
 
       - name: Build control-plane image
+        shell: bash
         run: |
+          tags=(-t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:${{ env.IMAGE_VERSION }})
+          if [[ "${{ env.PUSH_LATEST }}" == "true" ]]; then
+            tags+=(-t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:latest)
+          fi
           docker build -f docker/one-proxy-panel.Dockerfile \
             --build-arg PANEL_BASE_IMAGE=oneproxy-panel-base:${{ github.sha }} \
-            -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:${{ env.IMAGE_VERSION }} \
-            -t ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:latest .
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            --label org.opencontainers.image.version=${{ env.IMAGE_VERSION }} \
+            --label org.opencontainers.image.source=${{ env.IMAGE_SOURCE }} \
+            --label org.opencontainers.image.created=${{ env.IMAGE_CREATED }} \
+            "${tags[@]}" .
 
       - name: Push panel base image
-        if: github.event_name == 'push' && github.ref_type == 'tag'
+        if: env.PUSH_IMAGE == 'true'
         run: |
           docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:${{ env.IMAGE_VERSION }}
-          docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
+          if [[ "${{ env.PUSH_LATEST }}" == "true" ]]; then
+            docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel-base:latest
+          fi
 
       - name: Push control-plane image
-        if: github.event_name == 'push' && github.ref_type == 'tag'
+        if: env.PUSH_IMAGE == 'true'
         run: |
           docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:${{ env.IMAGE_VERSION }}
-          docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:latest
+          if [[ "${{ env.PUSH_LATEST }}" == "true" ]]; then
+            docker push ghcr.io/${{ env.OWNER_LC }}/oneproxy-panel:latest
+          fi
