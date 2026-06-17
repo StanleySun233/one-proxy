@@ -1,10 +1,33 @@
 import { clearDiagnosticLogs, diagnosticLogs, appendLog } from './diagnostics.js';
 import { login, logout, normalizeControlPlaneUrl, selectTenant, syncRemoteConfig, testConnection } from './api.js';
-import { activeGroupFrom, getState, persistState, setPartialState, uniqueStrings } from './state.js';
+import { activeAccessPathFrom, getState, persistState, setPartialState, uniqueStrings } from './state.js';
 import { pacSummary } from './pac.js';
 import { routePreviewForUrl, sanitizeHost } from './routing.js';
 import { testUrlRoute } from './monitor.js';
 import { getStatusBubblePageStatus } from './status-bubble.js';
+
+const INTERNAL_MESSAGE_TYPES = new Set([
+  'get-state',
+  'get-diagnostic-logs',
+  'clear-diagnostic-logs',
+  'record-diagnostic-event',
+  'set-enabled',
+  'set-theme-mode',
+  'set-control-plane-url',
+  'login',
+  'test-connection',
+  'logout',
+  'sync-remote-config',
+  'select-tenant',
+  'test-url-route',
+  'select-access-path',
+  'set-local-overrides',
+  'set-local-helper',
+  'add-current-host-to-direct',
+  'add-current-host-to-proxy',
+  'remove-current-host-override'
+]);
+const CONTENT_MESSAGE_TYPES = new Set(['status-bubble-page-status']);
 
 export function getCurrentTabInfo() {
   const queries = [{ active: true, currentWindow: true }, { active: true, lastFocusedWindow: true }];
@@ -33,16 +56,40 @@ export function getCurrentTabInfo() {
 
 export function getComputedState() {
   return Promise.all([getState(), getCurrentTabInfo()]).then(([state, currentTab]) => {
+    return computedStateView(state, currentTab);
+  });
+}
+
+function sessionView(session) {
   return {
-    state,
-    session: state.session,
+    account: session.account || '',
+    expiresAt: session.expiresAt || '',
+    mustRotatePassword: Boolean(session.mustRotatePassword),
+    tenantMemberships: session.tenantMemberships || [],
+    activeTenantId: session.activeTenantId || '',
+    authenticated: Boolean(session.accessToken),
+    proxyTokenAvailable: Boolean(session.proxyToken),
+    proxyTokenExpiresAt: session.proxyTokenExpiresAt || ''
+  };
+}
+
+function stateView(state) {
+  return {
+    ...state,
+    session: sessionView(state.session)
+  };
+}
+
+function computedStateView(state, currentTab) {
+  return {
+    state: stateView(state),
+    session: sessionView(state.session),
     remote: state.remote,
-    activeGroup: activeGroupFrom(state),
+    activeAccessPath: activeAccessPathFrom(state),
     currentTab,
     currentRoute: routePreviewForUrl(state, currentTab && currentTab.url),
     monitorRoute: routePreviewForUrl(state, state.monitor.targetUrl)
   };
-  });
 }
 
 function addHostToRule(kind, host) {
@@ -119,12 +166,12 @@ function handleMessage(message, sender) {
       return testUrlRoute(message.url, { saveMonitorTarget: Boolean(message.saveMonitorTarget) });
     case 'status-bubble-page-status':
       return getStatusBubblePageStatus(message, sender);
-    case 'select-group':
+    case 'select-access-path':
       return computedAfter(() => setPartialState((state) => ({
         ...state,
         selection: {
           ...state.selection,
-          activeGroupId: message.groupId || ''
+          activeAccessPathId: message.accessPathId || ''
         }
       })));
     case 'set-local-overrides':
@@ -156,8 +203,35 @@ function handleMessage(message, sender) {
   }
 }
 
+function extensionPageSender(sender) {
+  const senderUrl = String((sender && sender.url) || '');
+  return senderUrl.startsWith(chrome.runtime.getURL(''));
+}
+
+function contentSender(sender) {
+  return Boolean(sender && sender.tab && !extensionPageSender(sender));
+}
+
+function allowedMessage(message, sender) {
+  if (sender && sender.id && sender.id !== chrome.runtime.id) {
+    return false;
+  }
+  if (contentSender(sender)) {
+    return CONTENT_MESSAGE_TYPES.has(message.type);
+  }
+  return INTERNAL_MESSAGE_TYPES.has(message.type);
+}
+
 export function registerMessageHandler() {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (!message || !message.type) {
+      sendResponse(null);
+      return false;
+    }
+    if (!allowedMessage(message, sender)) {
+      sendResponse({ error: 'message_not_allowed' });
+      return false;
+    }
     handleMessage(message, sender).then(sendResponse).catch((error) => {
       appendLog('error', 'runtime_message_failed', {
         type: message && message.type ? message.type : '',
