@@ -522,7 +522,6 @@ export function getStatusBubblePageStatus(message, sender) {
           account: state.session.account || '',
           tenant: tenantFrom(state),
           accessPath: accessPath ? { id: accessPath.id || '', name: accessPath.name || accessPath.entryNodeName || accessPath.id || '' } : { id: '', name: '' },
-          accessPath: accessPath ? { id: accessPath.id || '', name: accessPath.name || accessPath.entryNodeName || accessPath.id || '' } : { id: '', name: '' },
           route: routeInfo,
           page,
           io: {

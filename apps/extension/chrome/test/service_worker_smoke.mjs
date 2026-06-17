@@ -238,6 +238,18 @@ chromium.launchPersistentContext(userDataDir, {
             if (syncResult.error) {
               throw new Error(syncResult.error);
             }
+            if (!syncResult.remote || syncResult.remote.accessPaths.length !== 1 || syncResult.remote.routes.length !== 1) {
+              throw new Error('service_worker_sync_missing_access_paths_or_routes');
+            }
+            if (!syncResult.activeAccessPath || syncResult.activeAccessPath.id !== 'path-1') {
+              throw new Error('service_worker_sync_missing_active_access_path');
+            }
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'get-diagnostic-logs' }));
+          }).then((logs) => {
+            const synced = [...logs].reverse().find((entry) => entry.event === 'remote_config_synced');
+            if (!synced || synced.details.accessPaths !== 1 || synced.details.routes !== 1 || Object.hasOwn(synced.details, 'groups')) {
+              throw new Error('service_worker_sync_log_contract_invalid');
+            }
             return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests);
           }).then((requests) => {
             const bootstraps = requests.filter((request) => request.url.endsWith('/api/proxy/extension/bootstrap'));
@@ -249,6 +261,12 @@ chromium.launchPersistentContext(userDataDir, {
           }).then((enableResult) => {
             if (enableResult.error || !enableResult.enabled) {
               throw new Error(enableResult.error || 'service_worker_enable_failed');
+            }
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'get-diagnostic-logs' }));
+          }).then((logs) => {
+            const applied = [...logs].reverse().find((entry) => entry.event === 'proxy_applied' && entry.details.enabled === true);
+            if (!applied || applied.details.activeAccessPathId !== 'path-1' || applied.details.accessPaths !== 1 || applied.details.routes !== 1 || applied.details.enabledRoutes !== 1 || applied.details.chainRoutes !== 1 || applied.details.proxyTarget !== 'PROXY 127.0.0.1:2988' || Object.hasOwn(applied.details, 'groups')) {
+              throw new Error('service_worker_proxy_applied_contract_invalid');
             }
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({
               type: 'set-local-helper',

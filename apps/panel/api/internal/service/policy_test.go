@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
@@ -74,5 +75,29 @@ func TestExtensionBootstrapSnapshotsUseLatestAccessPathContract(t *testing.T) {
 	}
 	if routes[0].ID != "route" || routes[0].AccessPathID != "path" || routes[0].Topology[0].NodeID != "edge" {
 		t.Fatalf("route = %+v", routes[0])
+	}
+
+	bootstrap := domain.ExtensionBootstrap{
+		SchemaVersion: "v2.1.0",
+		Nodes:         []domain.Node{nodesByID["edge"]},
+		AccessPaths:   accessPaths,
+		Routes:        routes,
+	}
+	raw, err := json.Marshal(bootstrap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := payload["groups"]; ok {
+		t.Fatalf("legacy groups field present: %s", raw)
+	}
+	if _, ok := payload["accessPaths"]; !ok {
+		t.Fatalf("missing accessPaths field: %s", raw)
+	}
+	if _, ok := payload["routes"]; !ok {
+		t.Fatalf("missing routes field: %s", raw)
 	}
 }
