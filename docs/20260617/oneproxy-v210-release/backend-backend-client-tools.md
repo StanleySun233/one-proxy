@@ -21,6 +21,10 @@
   - Commit: 8a1c166
 - [x] Send daemon IPC secret from route and probe commands in `apps/cli/src/commands.ts`
   - Commit: 6d8e9a0
+- [x] Persist daemon IPC secret in CLI metadata storage type in `apps/cli/src/storage.ts`
+  - Commit: d20d411
+- [x] Type CONNECT tunnel sockets in `apps/cli/src/daemon/http-proxy.ts`
+  - Commit: 721b9bc
 
 ## Blockers
 
