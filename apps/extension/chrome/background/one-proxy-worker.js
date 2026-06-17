@@ -30,6 +30,7 @@ function clearDiagnosticLogs() {
 
 const STORAGE_KEY = 'oneProxyState';
 const SESSION_STORAGE_KEY = 'oneProxySession';
+const PERSISTENT_SESSION_STORAGE_KEY = 'oneProxyPersistentSession';
 
 const DEFAULT_ROUTE_EVALUATION = {
   defaultClientMode: 'direct',
@@ -308,10 +309,14 @@ function getState() {
   }
   return Promise.all([
     chrome.storage.local.get(STORAGE_KEY),
+    chrome.storage.local.get(PERSISTENT_SESSION_STORAGE_KEY),
     chrome.storage.session.get(SESSION_STORAGE_KEY)
-  ]).then(([stored, sessionStored]) => {
+  ]).then(([stored, persistentSessionStored, sessionStored]) => {
     const durableState = stateWithoutSessionSecrets(mergeState(stored[STORAGE_KEY] || {}));
-    stateCache = mergeState(mergeSessionSecrets(durableState, sessionStored[SESSION_STORAGE_KEY] || {}));
+    stateCache = mergeState(mergeSessionSecrets(durableState, {
+      ...(persistentSessionStored[PERSISTENT_SESSION_STORAGE_KEY] || {}),
+      ...(sessionStored[SESSION_STORAGE_KEY] || {})
+    }));
     return structuredClone(stateCache);
   });
 }
@@ -330,6 +335,7 @@ function persistState(nextState) {
   stateCache = mergeState(nextState);
   return Promise.all([
     chrome.storage.local.set({ [STORAGE_KEY]: stateWithoutSessionSecrets(stateCache) }),
+    chrome.storage.local.set({ [PERSISTENT_SESSION_STORAGE_KEY]: sessionSecretsFrom(stateCache) }),
     chrome.storage.session.set({ [SESSION_STORAGE_KEY]: sessionSecretsFrom(stateCache) })
   ])
     .then(() => persistEffects(stateCache))
@@ -346,6 +352,10 @@ function handleStateStorageChange(changes, areaName) {
   if (areaName === 'local' && changes[STORAGE_KEY]) {
     const secrets = stateCache ? sessionSecretsFrom(stateCache) : {};
     stateCache = mergeState(mergeSessionSecrets(stateWithoutSessionSecrets(mergeState(changes[STORAGE_KEY].newValue || {})), secrets));
+    return stateCache;
+  }
+  if (areaName === 'local' && changes[PERSISTENT_SESSION_STORAGE_KEY]) {
+    stateCache = mergeState(mergeSessionSecrets(stateCache || {}, changes[PERSISTENT_SESSION_STORAGE_KEY].newValue || {}));
     return stateCache;
   }
   if (areaName === 'session' && changes[SESSION_STORAGE_KEY]) {
