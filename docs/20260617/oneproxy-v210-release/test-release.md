@@ -52,6 +52,14 @@
     - `scripts/deploy-v210-post-setup-nodes.sh dry-run v2.1.0-rc.65411e7`: pass; prints final node image and local/remote parent URLs
     - `scripts/deploy-v210-post-setup-nodes.sh check`: pass; panel is running final image in setup mode with `configured=false`; remote and local node containers are missing after reset
     - `scripts/deploy-v210-post-setup-nodes.sh run v2.1.0-rc.65411e7`: rejects without `ONEPROXY_POST_SETUP_CONFIRM=bootstrap-nodes`
+- [x] Reset standing deployment for manual final-schema setup testing
+  - Evidence:
+    - User requested a full reset and deletion of old configuration so setup can be tested from database creation.
+    - Remote standing panel runs `ghcr.io/stanleysun233/oneproxy-panel:v2.1.0-rc.65411e7`.
+    - Public `/api/setup/status` returns `configured=false`.
+    - Public `/healthz` returns `mode=setup`.
+    - Remote node container is missing after reset.
+    - Local node container is missing after reset.
 - [x] Run compile, unit, extension smoke, local Docker scenario, camelbot isolated scenario, image workflows, and isolated DB evidence
   - Evidence:
     - `bash -n scripts/test-v210-docker-scenario.sh scripts/test-camelbot-v210-scenario.sh scripts/deploy-v210-release-images.sh`: pass
@@ -92,6 +100,7 @@
     - Local isolated scenario with `ONEPROXY_IMAGE_TAG=v2.1.0-rc.65411e7 scripts/test-v210-docker-scenario.sh run`: pass; bootstrap `schema=v2.1.0 access_paths=1 routes=1`; proxy-token validation ok; session, node-token, and bootstrap-token hashes verified
     - Camelbot isolated scenario with `ONEPROXY_IMAGE_TAG=v2.1.0-rc.65411e7 ONEPROXY_MYSQL_IMAGE=mysql:8.0 ONEPROXY_REDIS_IMAGE=redis:7-alpine scripts/test-camelbot-v210-scenario.sh run`: pass; bootstrap `schema=v2.1.0 access_paths=1 routes=1`; proxy-token validation ok; session, node-token, and bootstrap-token hashes verified
     - Standing replacement deployment against an old non-empty panel database: intentionally not performed after final-schema-only change because the final release does not include old-version migration compatibility
+    - Standing reset: complete; panel now runs the final image in setup mode and waits for manual database setup before node bootstrap
 - [ ] Create and push tag `v2.1.0` after all final deployment gates pass
   - Evidence:
 
@@ -100,5 +109,6 @@
 | Date | Blocker | Status |
 |------|---------|--------|
 | 2026-06-17 | Raw panel web `tsc --noEmit` includes stale `.next/types/validator.ts` generated output that references a removed duplicate audit route. | Source TypeScript check passes with `.next` excluded; generated cache must be refreshed before using raw `.next` as a release artifact. |
-| 2026-06-17 | Existing standing panel database is non-empty, has old migration history, and does not contain final access-path rows. | Do not deploy the final-schema-only image as an automatic upgrade. Recreate or directly provision final schema state. |
-| 2026-06-17 | Standing replacement still needs explicit destructive-operation authorization. | `scripts/deploy-v210-final-cutover.sh` can reuse current panel secrets and infer local node parent URL; target final DB is empty; run mode is gated by confirmation. |
+| 2026-06-17 | Existing standing panel database was non-empty, had old migration history, and did not contain final access-path rows. | Reset complete; do not use old database compatibility. |
+| 2026-06-17 | Standing replacement needed explicit destructive-operation authorization. | User authorized full reset; reset complete. |
+| 2026-06-17 | Panel setup is intentionally manual for database-creation testing. | Waiting for setup completion before running post-setup node bootstrap and real-user tests. |

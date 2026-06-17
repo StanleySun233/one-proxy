@@ -1,14 +1,14 @@
 # Dev Roadmap: OneProxy v2.1.0 Release
 
 **Date:** 20260617
-**Status:** final-schema audit complete; standing deployment gated by database state
+**Status:** standing reset complete; manual panel setup pending
 **Product document:** ./product-requirements.md
 
 ## Summary
 
 OneProxy v2.1.0 has been brought to a latest-contract-only runtime with safer node authorization, unified access-path routing, hardened token handling, clearer operational UX, and a final-schema-only panel baseline. The audited runtime commit is `65411e7`; full audit evidence is recorded in `audit-report.md`.
 
-Final standing deployment and the `v2.1.0` tag remain gated because the observed standing panel database is an old non-empty database. The final release intentionally does not include old-version database migration compatibility, so that environment must be reset or directly provisioned into the final schema model before replacement deployment.
+Final standing deployment and the `v2.1.0` tag remain gated by the manual panel setup flow. The old standing panel database, panel volume, node runtime volumes, and node containers were reset; the current panel runs the final image in setup mode so database creation can be tested from the first setup screen.
 
 ## Team
 
@@ -106,3 +106,5 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 
 | Date | Task | Engineer | Blocker Description | Resolution |
 |------|------|----------|---------------------|------------|
+| 2026-06-17 | Standing replacement | test-release | The old standing database was not a valid final-schema-only target. | Reset completed; panel is running `v2.1.0-rc.65411e7` in setup mode with `configured=false`. |
+| 2026-06-17 | Standing node bootstrap | test-release | Remote and local nodes cannot be bootstrapped until the panel setup flow writes final DB configuration. | Waiting for manual panel setup; continue with `scripts/deploy-v210-post-setup-nodes.sh run v2.1.0-rc.65411e7` after setup. |

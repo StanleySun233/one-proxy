@@ -52,9 +52,9 @@ Resolved high-risk findings:
 Residual security and operations risks:
 
 - Final schema initialization skips non-empty databases. This avoids upgrade compatibility code, but it means old production databases must not be treated as automatically supported final-version inputs.
-- A standing old database observed during release checks still had numbered migration history and no final access-path rows. Deploying the final image over that database would keep the old data shape and leave users without usable latest access paths.
+- The standing environment was reset after this risk was observed. The release is still gated by manual panel setup, post-setup node bootstrap, standing database evidence, and real-user functional validation.
 - The camelbot panel deployment script now rejects final-schema deployment unless an explicit empty final database, final panel secrets, and `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema` are provided.
-- `scripts/deploy-v210-final-cutover.sh` now provides the fresh DB/fresh volume/fresh node bootstrap cutover path, but it has not been run against standing services because that operation replaces live containers and rebinds nodes.
+- `scripts/deploy-v210-post-setup-nodes.sh` now provides the continuation path after manual panel setup; it starts fresh node runtimes, provisions latest access paths and routes, publishes policy, validates latest bootstrap, validates proxy-token hashes, and prints database evidence.
 - Raw panel web `tsc --noEmit` still reads a stale `.next/types/validator.ts` generated file that references a removed duplicate audit route. Source TypeScript checks pass when stale `.next` output is excluded.
 - GitHub Actions image workflows pass, but both runs emit the upstream `actions/checkout@v4` Node.js 20 deprecation warning.
 
@@ -135,8 +135,17 @@ Camelbot isolated scenario:
 - Evidence: panel health ok; tenant, scope, bootstrap token, node enrollment, node approval, chain, access path, route group, and route created; bootstrap returned `schema=v2.1.0 access_paths=1 routes=1`; proxy-token validation ok.
 - Database hash-shape evidence: sessions, node API tokens, and bootstrap tokens were stored as hash-shaped values.
 
+Standing reset evidence:
+
+- User-requested full reset removed the standing OneProxy panel/node containers, old OneProxy databases, panel data volumes, and node runtime volumes.
+- Current standing panel image: `ghcr.io/stanleysun233/oneproxy-panel:v2.1.0-rc.65411e7`.
+- Current public setup status: `{"code":0,"message":"ok","data":{"configured":false}}`.
+- Current public health: `{"code":0,"message":"ok","data":{"mode":"setup","status":"ok"}}`.
+- Current remote node state: missing.
+- Current local node state: missing.
+
 ## Release Decision
 
-The code is suitable for a fresh v2.1.0 final-schema deployment after direct provisioning of final access paths and route state.
+The code is suitable for a fresh v2.1.0 final-schema deployment after manual panel setup and direct provisioning of final access paths and route state.
 
 The code is not suitable as an automatic upgrade over an old non-empty panel database. That would require migration compatibility, which is explicitly out of scope for the final delivery. The correct final-version path is to create a fresh final schema or rebuild the database state directly in the final model.
