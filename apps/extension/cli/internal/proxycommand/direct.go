@@ -3,12 +3,17 @@ package proxycommand
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,16 +26,26 @@ const directALPN = "one-proxy-direct/1"
 
 type directSessionRequest struct {
 	AccessPathID string `json:"accessPathId"`
+	ClientID     string `json:"clientId"`
 	TargetHost   string `json:"targetHost,omitempty"`
 	TargetPort   int    `json:"targetPort,omitempty"`
 }
 
 type directSession struct {
 	SessionID      string            `json:"sessionId"`
+	TargetNodeID   string            `json:"targetNodeId"`
 	TargetHost     string            `json:"targetHost"`
 	TargetPort     int               `json:"targetPort"`
 	PunchToken     string            `json:"punchToken"`
 	NodeCandidates []directCandidate `json:"nodeCandidates"`
+	NodeIdentity   directNodeIdentity `json:"nodeIdentity"`
+}
+
+type directNodeIdentity struct {
+	NodeID                       string `json:"nodeId"`
+	ServerName                   string `json:"serverName"`
+	CertificateFingerprintSHA256 string `json:"certificateFingerprintSha256"`
+	TrustMaterial                string `json:"trustMaterial"`
 }
 
 type directCandidate struct {
@@ -94,6 +109,7 @@ func requestDirectSession(cfg Config) (directSession, error) {
 	}
 	body, _ := json.Marshal(directSessionRequest{
 		AccessPathID: cfg.AccessPathID,
+		ClientID:     directClientID(),
 		TargetHost:   cfg.TargetHost,
 		TargetPort:   cfg.TargetPort,
 	})
@@ -108,6 +124,10 @@ func requestDirectSession(cfg Config) (directSession, error) {
 }
 
 func openDirectCandidate(ctx context.Context, candidate directCandidate, session directSession) (net.Conn, error) {
+	tlsConfig, err := directTLSConfig(session)
+	if err != nil {
+		return nil, err
+	}
 	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(candidate.Address, strconv.Itoa(candidate.Port)))
 	if err != nil {
 		return nil, err
@@ -117,7 +137,7 @@ func openDirectCandidate(ctx context.Context, candidate directCandidate, session
 		return nil, err
 	}
 	transport := &quic.Transport{Conn: packetConn}
-	conn, err := transport.Dial(ctx, udpAddr, &tls.Config{InsecureSkipVerify: true, NextProtos: []string{directALPN}}, &quic.Config{})
+	conn, err := transport.Dial(ctx, udpAddr, tlsConfig, &quic.Config{})
 	if err != nil {
 		_ = packetConn.Close()
 		return nil, err
@@ -155,6 +175,84 @@ func openDirectCandidate(ctx context.Context, candidate directCandidate, session
 		return nil, errors.New(ack.Message)
 	}
 	return quicClientConn{Stream: stream, conn: conn, packetConn: packetConn, localAddr: conn.LocalAddr(), remoteAddr: conn.RemoteAddr()}, nil
+}
+
+func directTLSConfig(session directSession) (*tls.Config, error) {
+	identity := session.NodeIdentity
+	if identity.NodeID == "" || identity.ServerName == "" || identity.CertificateFingerprintSHA256 == "" || strings.TrimSpace(identity.TrustMaterial) == "" {
+		return nil, errors.New("invalid_direct_node_identity")
+	}
+	if session.TargetNodeID != "" && session.TargetNodeID != identity.NodeID {
+		return nil, errors.New("direct_node_identity_mismatch")
+	}
+	roots, err := directRootCAs(identity.TrustMaterial)
+	if err != nil {
+		return nil, err
+	}
+	expectedFingerprint := normalizeCertificateFingerprint(identity.CertificateFingerprintSHA256)
+	if expectedFingerprint == "" {
+		return nil, errors.New("invalid_direct_node_identity")
+	}
+	return &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		ServerName: identity.ServerName,
+		RootCAs:   roots,
+		NextProtos: []string{directALPN},
+		VerifyConnection: func(state tls.ConnectionState) error {
+			if len(state.PeerCertificates) == 0 {
+				return errors.New("direct_node_identity_mismatch")
+			}
+			fingerprint := sha256.Sum256(state.PeerCertificates[0].Raw)
+			if hex.EncodeToString(fingerprint[:]) != expectedFingerprint {
+				return errors.New("direct_node_identity_mismatch")
+			}
+			return nil
+		},
+	}, nil
+}
+
+func directRootCAs(trustMaterial string) (*x509.CertPool, error) {
+	roots := x509.NewCertPool()
+	remaining := []byte(trustMaterial)
+	added := false
+	for {
+		block, rest := pem.Decode(remaining)
+		if block == nil {
+			break
+		}
+		remaining = rest
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		roots.AddCert(cert)
+		added = true
+	}
+	if !added {
+		return nil, errors.New("invalid_direct_node_identity")
+	}
+	return roots, nil
+}
+
+func normalizeCertificateFingerprint(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	normalized = strings.TrimPrefix(normalized, "sha256:")
+	normalized = strings.ReplaceAll(normalized, ":", "")
+	if len(normalized) != sha256.Size*2 {
+		return ""
+	}
+	return normalized
+}
+
+func directClientID() string {
+	hostname, err := os.Hostname()
+	if err != nil || strings.TrimSpace(hostname) == "" {
+		return "oneproxy-cli"
+	}
+	return "oneproxy-cli:" + hostname
 }
 
 func (cfg Config) validateDirect() error {
