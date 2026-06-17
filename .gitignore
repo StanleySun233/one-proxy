@@ -159,6 +159,9 @@ docs/*
 !docs/20260613/
 !docs/20260613/cli-tui-runtime/
 !docs/20260613/cli-tui-runtime/**
+!docs/20260617/
+!docs/20260617/oneproxy-v210-release/
+!docs/20260617/oneproxy-v210-release/**
 env/
 venv/
 ENV/
