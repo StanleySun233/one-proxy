@@ -32,15 +32,17 @@ Use `scripts/test-v210-docker-scenario.sh`.
 |------|----------|
 | `check` | Prints the `oneproxy-v210-local` project plan, required services, image tags, host ports, and local tool availability. This is the default mode. |
 | `build` | Builds local panel base, panel, node base, and node images under the configured immutable test tag. |
-| `run` | Starts the isolated MySQL, Redis, panel, and node services under the `oneproxy-v210-local` Compose project and checks panel and node health. |
+| `run` | Recreates the isolated Compose project, starts MySQL, Redis, and panel, creates a tenant, scope, and node bootstrap token, starts an edge node, approves the pending node, creates a chain, access path, route group, and route, validates latest extension bootstrap, validates hashed proxy-token authorization through the node API, and queries database evidence. |
 | `clean` | Removes only the isolated `oneproxy-v210-local` Compose project resources and volumes. |
 
 Required evidence:
 
 - Command, mode, image tag, git SHA, and timestamp.
 - Panel `/healthz` result through the isolated host port.
-- Node `/healthz` result through the isolated host port.
-- Database query output for the minimum database evidence set.
+- Node `/healthz` result through the isolated host port with `controlPlaneBound=true`.
+- Latest bootstrap result with `schemaVersion=v2.1.0`, non-empty `nodes`, `accessPaths`, and `routes`, and no legacy `groups`.
+- Proxy-token validation result through `POST /api/node/agent/proxy/token/validate` using only `tokenHash`.
+- Database query output for the minimum database evidence set and hash-shape checks.
 - Real-user functional results for the local target.
 
 ### Camelbot Isolated Scenario
@@ -57,12 +59,15 @@ Required environment:
 | `ONEPROXY_IMAGE_TAG` | Immutable pre-tag image version, or pass the tag as the second script argument. |
 | `ONEPROXY_PANEL_IMAGE_REPO` | Panel image repository. |
 | `ONEPROXY_NODE_IMAGE_REPO` | Node image repository. |
+| `ONEPROXY_CAMELBOT_V210_ADMIN_PASSWORD` | Isolated panel admin password. |
+| `ONEPROXY_CAMELBOT_V210_TENANT_NAME` | Isolated scenario tenant name. |
+| `ONEPROXY_CAMELBOT_V210_NODE_NAME` | Isolated scenario node name. |
 
 Acceptance criteria:
 
 - `check` runs through SSH and does not create, start, stop, or remove containers.
 - `build` pulls the configured immutable images into the isolated remote directory and Compose project.
-- `run` starts only the isolated MySQL, Redis, panel, and node services under the `oneproxy-v210-camelbot` Compose project.
+- `run` recreates only the isolated MySQL, Redis, panel, and node services under the `oneproxy-v210-camelbot` Compose project and validates the same latest bootstrap, node enrollment, proxy-token hash authorization, and database evidence gates as the local scenario.
 - `clean` removes only resources owned by the isolated Compose project.
 - Standing camelbot production container names, networks, and volumes are not reused by the isolated scenario.
 
