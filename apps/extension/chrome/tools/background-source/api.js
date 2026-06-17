@@ -162,12 +162,18 @@ export function syncRemoteConfig(sourceState) {
     }
     return apiRequest(state, '/api/proxy/extension/bootstrap')
       .then((data) => {
+        if (!data || data.schemaVersion !== 'v2.1.0') {
+          throw new Error('invalid_bootstrap');
+        }
         const nextState = mergeState({
           ...state,
           remote: {
             policyRevision: data.policyRevision || '',
             fetchedAt: data.fetchedAt || '',
-            groups: Array.isArray(data.groups) ? data.groups : []
+            nodes: Array.isArray(data.nodes) ? data.nodes : [],
+            accessPaths: Array.isArray(data.accessPaths) ? data.accessPaths : [],
+            routes: Array.isArray(data.routes) ? data.routes : [],
+            routeEvaluation: data.routeEvaluation || DEFAULT_STATE.remote.routeEvaluation
           },
           session: {
             ...state.session,
@@ -180,7 +186,8 @@ export function syncRemoteConfig(sourceState) {
         return persistState(nextState)
           .then(() => appendLog('info', 'remote_config_synced', {
             policyRevision: nextState.remote.policyRevision,
-            groups: nextState.remote.groups.length
+            accessPaths: nextState.remote.accessPaths.length,
+            routes: nextState.remote.routes.length
           }));
       })
       .then(() => null);
