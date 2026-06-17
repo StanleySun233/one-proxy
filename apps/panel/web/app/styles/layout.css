@@ -1,9 +1,9 @@
 .console-shell {
   min-height: 100vh;
-  padding: 22px;
+  padding: 16px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 20px;
+  gap: 14px;
 }
 
 .console-topbar,
@@ -18,15 +18,14 @@
 .triple-grid,
 .nav-panel {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .console-topbar,
 .nav-panel,
 .panel-card,
 .hero-panel,
-.flow-card,
-.console-main {
+.flow-card {
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel) 86%, var(--backdrop) 14%);
   box-shadow: var(--shadow-md);
@@ -37,9 +36,8 @@
 .nav-panel,
 .panel-card,
 .hero-panel,
-.flow-card,
-.console-main {
-  border-radius: 20px;
+.flow-card {
+  border-radius: 8px;
 }
 
 .console-topbar {
@@ -47,8 +45,8 @@
   z-index: 20;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  padding: 10px 16px;
-  gap: 14px;
+  padding: 8px 12px;
+  gap: 12px;
 }
 
 .console-topbar-brand {
@@ -64,7 +62,7 @@
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel-2) 86%, var(--panel) 14%);
 }
@@ -107,7 +105,7 @@
   gap: 8px;
   padding: 6px 10px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--panel-2) 84%, var(--panel) 16%);
 }
 
@@ -130,7 +128,7 @@ button.console-user-card:hover {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--primary) 20%, var(--panel) 80%);
   color: var(--success);
@@ -140,7 +138,7 @@ button.console-user-card:hover {
 .console-user-avatar.is-large {
   width: 42px;
   height: 42px;
-  border-radius: 14px;
+  border-radius: 8px;
   font-size: 17px;
 }
 
@@ -176,10 +174,10 @@ button.console-user-card:hover {
   right: 0;
   width: min(360px, calc(100vw - 44px));
   display: grid;
-  gap: 14px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 8px;
   background: var(--panel);
   box-shadow: var(--shadow-md);
   z-index: 45;
@@ -220,7 +218,7 @@ button.console-user-card:hover {
 }
 
 .console-workspace {
-  grid-template-columns: 288px minmax(0, 1fr);
+  grid-template-columns: 264px minmax(0, 1fr);
   align-items: start;
 }
 
@@ -231,9 +229,14 @@ button.console-user-card:hover {
 }
 
 .nav-panel,
-.panel-card,
+.panel-card {
+  padding: 14px;
+}
+
 .console-main {
-  padding: 18px;
+  min-width: 0;
+  align-content: start;
+  padding: 0;
 }
 
 .section-kicker {
@@ -248,12 +251,9 @@ button.console-user-card:hover {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   align-items: start;
-  gap: 18px;
-  min-height: calc(100vh - 154px);
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--panel) 88%, var(--backdrop) 12%);
+  gap: 12px;
+  min-height: calc(100vh - 108px);
+  padding: 0;
 }
 
 .console-page-head {
@@ -261,9 +261,9 @@ button.console-user-card:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  min-height: 48px;
-  padding-bottom: 14px;
+  gap: 12px;
+  min-height: 40px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -275,7 +275,7 @@ button.console-user-card:hover {
 
 .console-page-title h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.25;
 }
 
@@ -291,7 +291,7 @@ button.console-user-card:hover {
   width: 100%;
   display: grid;
   align-content: start;
-  gap: 16px;
+  gap: 12px;
 }
 
 @media (max-width: 760px) {
@@ -316,8 +316,7 @@ button.console-user-card:hover {
   }
 
   .console-page {
-    padding: 14px;
-    border-radius: 14px;
+    padding: 0;
   }
 
   .console-page-head {
