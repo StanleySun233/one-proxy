@@ -60,6 +60,25 @@
     - Public `/healthz` returns `mode=setup`.
     - Remote node container is missing after reset.
     - Local node container is missing after reset.
+- [x] Replace standing panel, remote edge node, and local relay node after manual setup
+  - Evidence:
+    - User completed manual panel setup against database `one_proxy`.
+    - Commit: 3cf4562
+    - Panel image workflow: pass, https://github.com/StanleySun233/one-proxy/actions/runs/27682252948
+    - Node image workflow: pass, https://github.com/StanleySun233/one-proxy/actions/runs/27682252778
+    - Immutable post-UX pre-tag image: `v2.1.0-rc.3cf4562`
+    - `ghcr.io/stanleysun233/oneproxy-panel:v2.1.0-rc.3cf4562`: `sha256:ae936f12bd415f7cf264a4162706f739595f43bd0c53185f9f4bd030baaa6f83`
+    - `ghcr.io/stanleysun233/oneproxy-panel-base:v2.1.0-rc.3cf4562`: `sha256:e52c16867a20c16c0840270a33843466dfbf30975610477ff8bc8baa8ff7e964`
+    - `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562`: `sha256:e5c1797e65f021dad46c1550bf2b9ca4d5a14c70748008109266c907c80bd18b`
+    - `ghcr.io/stanleysun233/oneproxy-node-base:v2.1.0-rc.3cf4562`: `sha256:ec661e4ae6b2087cbe8cb1a9d8926792c580a4bbb381af6012a9b2d697d8a295`
+    - Remote panel container image is `ghcr.io/stanleysun233/oneproxy-panel:v2.1.0-rc.3cf4562`; `/healthz` returns `status=ok`.
+    - Remote `camelbot` edge node image is `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562`; `/healthz` returns `controlPlaneBound=true`.
+    - Local `astar-58` relay node image is `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562`; `/healthz` returns `controlPlaneBound=true`.
+    - DB nodes: `camelbot edge healthy public_host=103.214.172.211 public_port=2988`; `astar-58 relay healthy parent_node_id=1`.
+    - DB health snapshots: nodes `1` and `3` report `{"runtime":"up"}`.
+    - DB transport evidence: node `3` has `reverse_ws_parent` connected to `ws://103.214.172.211:2988/api/node/tunnel/connect?parentNodeId=1`.
+    - Parent URL probe for `http://103.214.172.211:2988` returns `reachable=true`, `statusCode=200`, `mode=proxy-node`, and `controlPlaneBound=true`.
+    - Deployed panel static assets contain `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562` and no `oneproxy-node:latest` reference.
 - [x] Run compile, unit, extension smoke, local Docker scenario, camelbot isolated scenario, image workflows, and isolated DB evidence
   - Evidence:
     - `bash -n scripts/test-v210-docker-scenario.sh scripts/test-camelbot-v210-scenario.sh scripts/deploy-v210-release-images.sh`: pass
@@ -111,4 +130,4 @@
 | 2026-06-17 | Raw panel web `tsc --noEmit` includes stale `.next/types/validator.ts` generated output that references a removed duplicate audit route. | Source TypeScript check passes with `.next` excluded; generated cache must be refreshed before using raw `.next` as a release artifact. |
 | 2026-06-17 | Existing standing panel database was non-empty, had old migration history, and did not contain final access-path rows. | Reset complete; do not use old database compatibility. |
 | 2026-06-17 | Standing replacement needed explicit destructive-operation authorization. | User authorized full reset; reset complete. |
-| 2026-06-17 | Panel setup is intentionally manual for database-creation testing. | Waiting for setup completion before running post-setup node bootstrap and real-user tests. |
+| 2026-06-17 | Panel setup is intentionally manual for database-creation testing. | Setup completed by user; standing panel, remote edge, and local relay replacement verified. |

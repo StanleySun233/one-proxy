@@ -25,9 +25,17 @@
   - Commit: ccdcb23
 - [x] Align access-path editor modes, protocols, service types, and TLS values to the latest final contract only
   - Commit: 65411e7
+- [x] Restore matcha visual tokens after release styling regression
+  - Commit: d1efd76
+- [x] Preserve browser refresh sessions without localStorage access-token persistence
+  - Commit: 6f44240
+- [x] Auto-select relay parent nodes, hide edge public-host input, add parent URL probing, and simplify node status rendering
+  - Commit: 6f44240
+- [x] Embed immutable node image tags in generated bootstrap commands
+  - Commit: 3cf4562
 
 ## Blockers
 
 | Date | Blocker | Status |
 |------|---------|--------|
-| 2026-06-17 | Panel web `tsc --noEmit` reads stale `.next/types/validator.ts` that still imports the deleted duplicate audit route. | Open; source tasks complete, generated Next types need refresh outside this worker's allowed commands. |
+| 2026-06-17 | Panel web `tsc --noEmit` reads stale `.next/types/validator.ts` that still imports the deleted duplicate audit route. | Source TypeScript check passes with `.next` excluded; release image build regenerates `.next`. |

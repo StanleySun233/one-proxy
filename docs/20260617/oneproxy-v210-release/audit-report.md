@@ -2,7 +2,7 @@
 
 ## Scope
 
-This audit covers the OneProxy node runtime, panel API, panel web console, Chrome extension, TypeScript CLI, Go CLI, and VS Code extension. The audited runtime commit is `65411e7` (`fix(panel): ship final schema baseline`).
+This audit covers the OneProxy node runtime, panel API, panel web console, Chrome extension, TypeScript CLI, Go CLI, and VS Code extension. The audited runtime commit is `3cf4562` (`fix(panel): embed immutable node image in bootstrap command`).
 
 The release direction is latest-only. The final delivery must not preserve old bootstrap contracts, route-group client state, raw token validation, old access-path enum values, downgrade behavior, or incremental SQL files such as `00001` and `00002`.
 
@@ -26,6 +26,9 @@ The user connection model now centers on access paths and route snapshots:
 
 - Panel-created access paths require concrete listener ports and internally consistent `mode`, `protocol`, `serviceType`, and `targetProtocol` values.
 - Routes point to access paths and include topology and health information for client-side preview.
+- Relay bootstrap auto-selects an enabled parent node from the current tenant inventory and exposes a parent URL probe before the command is copied.
+- Edge bootstrap no longer requires users to type a public host; the node reports its detected public IP at enrollment while the panel keeps the selected public port.
+- Generated bootstrap commands now embed the same immutable node image tag as the panel image build.
 - Chrome PAC routing, Chrome route preview, TypeScript CLI daemon routing, Go CLI access-path selection, and VS Code SSH generation use the same route and access-path model.
 - `onep init` rejects bootstrap payloads that are not `v2.1.0` and requires non-empty latest `accessPaths`.
 - CLI visible commands now use access-path terminology instead of route-group terminology.
@@ -66,6 +69,8 @@ Panel web improvements:
 - The UI rejects unusable listener definitions instead of letting invalid paths reach runtime use.
 - Route health and access-path topology are surfaced in the console.
 - Auth handling moved away from persistent raw account tokens in browser `localStorage` for the production path.
+- Browser refresh now restores the session from the refresh-token path, so a normal F5 reload does not force a login when the refresh session is still valid.
+- Node status rendering now shows one lifecycle status instead of combining stale health and lifecycle badges in the same cell.
 - Console visual tokens and layout density were revised to reduce card chrome and make repeated operational scanning easier.
 
 Chrome extension improvements:
@@ -95,7 +100,7 @@ The following old-version paths were removed or rejected:
 - CLI group commands and old bootstrap fallback behavior.
 - Duplicate panel audit proxy fallback route.
 
-A source scan of panel API, panel web, and Docker files at `65411e7` found no matches for the removed migration/runtime and old enum markers.
+A source scan of panel API, panel web, and Docker files at `65411e7` found no matches for the removed migration/runtime and old enum markers. The post-UX release image at `3cf4562` also removes `oneproxy-node:latest` from the panel-generated bootstrap command path.
 
 ## Verification Evidence
 
@@ -113,13 +118,13 @@ Static and unit checks:
 
 Image verification:
 
-- Panel image workflow: https://github.com/StanleySun233/one-proxy/actions/runs/27671854441
-- Node image workflow: https://github.com/StanleySun233/one-proxy/actions/runs/27671854468
-- Immutable test tag: `v2.1.0-rc.65411e7`
-- `ghcr.io/stanleysun233/oneproxy-panel:v2.1.0-rc.65411e7`: `sha256:4803a7bf3a1b94be9a0e951c4ff3c13a596d222ce5ab73d0f49fd30c7c9e7d4a`
-- `ghcr.io/stanleysun233/oneproxy-panel-base:v2.1.0-rc.65411e7`: `sha256:dfa63195389d6c82e9152121d43a69d76eacec55525463ff0de592ea2aa00d32`
-- `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.65411e7`: `sha256:0a19998dd5011f0a065889fad1a7dba96bbb1542778514e136af6ffdb369f567`
-- `ghcr.io/stanleysun233/oneproxy-node-base:v2.1.0-rc.65411e7`: `sha256:62fd4e5b070b1fbc2391dd05eb61b0844ded749d2d60b2b7dd727e5a707fe8ce`
+- Panel image workflow: https://github.com/StanleySun233/one-proxy/actions/runs/27682252948
+- Node image workflow: https://github.com/StanleySun233/one-proxy/actions/runs/27682252778
+- Immutable test tag: `v2.1.0-rc.3cf4562`
+- `ghcr.io/stanleysun233/oneproxy-panel:v2.1.0-rc.3cf4562`: `sha256:ae936f12bd415f7cf264a4162706f739595f43bd0c53185f9f4bd030baaa6f83`
+- `ghcr.io/stanleysun233/oneproxy-panel-base:v2.1.0-rc.3cf4562`: `sha256:e52c16867a20c16c0840270a33843466dfbf30975610477ff8bc8baa8ff7e964`
+- `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562`: `sha256:e5c1797e65f021dad46c1550bf2b9ca4d5a14c70748008109266c907c80bd18b`
+- `ghcr.io/stanleysun233/oneproxy-node-base:v2.1.0-rc.3cf4562`: `sha256:ec661e4ae6b2087cbe8cb1a9d8926792c580a4bbb381af6012a9b2d697d8a295`
 
 Local isolated scenario:
 
@@ -135,17 +140,20 @@ Camelbot isolated scenario:
 - Evidence: panel health ok; tenant, scope, bootstrap token, node enrollment, node approval, chain, access path, route group, and route created; bootstrap returned `schema=v2.1.0 access_paths=1 routes=1`; proxy-token validation ok.
 - Database hash-shape evidence: sessions, node API tokens, and bootstrap tokens were stored as hash-shaped values.
 
-Standing reset evidence:
+Standing post-setup evidence:
 
-- User-requested full reset removed the standing OneProxy panel/node containers, old OneProxy databases, panel data volumes, and node runtime volumes.
-- Current standing panel image: `ghcr.io/stanleysun233/oneproxy-panel:v2.1.0-rc.65411e7`.
-- Current public setup status: `{"code":0,"message":"ok","data":{"configured":false}}`.
-- Current public health: `{"code":0,"message":"ok","data":{"mode":"setup","status":"ok"}}`.
-- Current remote node state: missing.
-- Current local node state: missing.
+- The user completed manual setup against database `one_proxy`.
+- Standing panel image: `ghcr.io/stanleysun233/oneproxy-panel:v2.1.0-rc.3cf4562`; `/healthz` returns `status=ok`.
+- Standing remote edge image: `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562`; `/healthz` returns `controlPlaneBound=true`.
+- Standing local relay image: `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562`; `/healthz` returns `controlPlaneBound=true`.
+- Node DB state: `camelbot` is `edge`, `healthy`, public endpoint `103.214.172.211:2988`; `astar-58` is `relay`, `healthy`, parent node `1`.
+- Health snapshots exist for nodes `1` and `3` with `{"runtime":"up"}`.
+- Relay transport state includes `reverse_ws_parent` from node `3` to `ws://103.214.172.211:2988/api/node/tunnel/connect?parentNodeId=1` with `connected`.
+- Parent URL probe for `http://103.214.172.211:2988` returns `reachable=true`, `statusCode=200`, `mode=proxy-node`, and `controlPlaneBound=true`.
+- The deployed panel static chunk contains `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.3cf4562` and no `oneproxy-node:latest` reference.
 
 ## Release Decision
 
-The code is suitable for a fresh v2.1.0 final-schema deployment after manual panel setup and direct provisioning of final access paths and route state.
+The code is suitable for a fresh v2.1.0 final-schema deployment after manual panel setup and direct provisioning of final access paths and route state. The standing post-setup environment has been replaced with the audited immutable `v2.1.0-rc.3cf4562` images and verifies the relay-parent and edge-public-IP UX path.
 
 The code is not suitable as an automatic upgrade over an old non-empty panel database. That would require migration compatibility, which is explicitly out of scope for the final delivery. The correct final-version path is to create a fresh final schema or rebuild the database state directly in the final model.

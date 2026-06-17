@@ -1,14 +1,14 @@
 # Dev Roadmap: OneProxy v2.1.0 Release
 
 **Date:** 20260617
-**Status:** standing reset complete; manual panel setup pending
+**Status:** standing post-setup replacement complete; final tag pending
 **Product document:** ./product-requirements.md
 
 ## Summary
 
-OneProxy v2.1.0 has been brought to a latest-contract-only runtime with safer node authorization, unified access-path routing, hardened token handling, clearer operational UX, and a final-schema-only panel baseline. The audited runtime commit is `65411e7`; full audit evidence is recorded in `audit-report.md`.
+OneProxy v2.1.0 has been brought to a latest-contract-only runtime with safer node authorization, unified access-path routing, hardened token handling, clearer operational UX, and a final-schema-only panel baseline. The audited runtime commit is `3cf4562`; full audit evidence is recorded in `audit-report.md`.
 
-Final standing deployment and the `v2.1.0` tag remain gated by the manual panel setup flow. The old standing panel database, panel volume, node runtime volumes, and node containers were reset; the current panel runs the final image in setup mode so database creation can be tested from the first setup screen.
+The manual panel setup flow has been completed by the user, and the standing panel, remote edge node, and local relay node now run the immutable `v2.1.0-rc.3cf4562` images. The `v2.1.0` tag remains gated by final product verification.
 
 ## Team
 
@@ -107,4 +107,4 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 | Date | Task | Engineer | Blocker Description | Resolution |
 |------|------|----------|---------------------|------------|
 | 2026-06-17 | Standing replacement | test-release | The old standing database was not a valid final-schema-only target. | Reset completed; panel is running `v2.1.0-rc.65411e7` in setup mode with `configured=false`. |
-| 2026-06-17 | Standing node bootstrap | test-release | Remote and local nodes cannot be bootstrapped until the panel setup flow writes final DB configuration. | Waiting for manual panel setup; continue with `scripts/deploy-v210-post-setup-nodes.sh run v2.1.0-rc.65411e7` after setup. |
+| 2026-06-17 | Standing node bootstrap | test-release | Remote and local nodes could not be bootstrapped until the panel setup flow wrote final DB configuration. | User completed setup; panel, remote edge, and local relay were replaced with `v2.1.0-rc.3cf4562` and verified healthy. |
