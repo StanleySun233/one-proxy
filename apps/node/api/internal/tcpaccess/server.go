@@ -71,11 +71,13 @@ func (s *Server) handle(conn net.Conn) {
 		writeResponse(conn, "failed", "invalid_auth_frame")
 		return
 	}
-	if s.authorizer != nil && !s.authorizer.Validate(context.Background(), frame.Token) {
+	ctx, cancel := context.WithTimeout(context.Background(), authTimeout)
+	defer cancel()
+	if s.authorizer == nil || frame.Token == "" || !s.authorizer.Validate(ctx, frame.Token) {
 		writeResponse(conn, "failed", "auth_required")
 		return
 	}
-	targetConn, err := s.connect(context.Background(), frame)
+	targetConn, err := s.connect(ctx, frame)
 	if err != nil {
 		writeResponse(conn, "failed", err.Error())
 		return
@@ -89,7 +91,7 @@ func (s *Server) handle(conn net.Conn) {
 }
 
 func (s *Server) connect(ctx context.Context, frame AuthFrame) (net.Conn, error) {
-	if frame.TargetHost == "" || frame.TargetPort <= 0 {
+	if frame.TargetHost == "" || frame.TargetPort <= 0 || frame.TargetPort > 65535 {
 		return nil, errors.New("invalid_target")
 	}
 	nextNodeID, remaining := chain(frame)
@@ -97,9 +99,17 @@ func (s *Server) connect(ctx context.Context, frame AuthFrame) (net.Conn, error)
 		if s.streams == nil {
 			return nil, errors.New("stream_registry_unavailable")
 		}
-		return s.streams.OpenStream(nextNodeID, remaining, frame.TargetHost, frame.TargetPort)
+		conn, err := s.streams.OpenStream(nextNodeID, remaining, frame.TargetHost, frame.TargetPort)
+		if err != nil {
+			return nil, errors.New("connect_failed")
+		}
+		return conn, nil
 	}
-	return s.dial(ctx, frame.TargetHost, frame.TargetPort)
+	conn, err := s.dial(ctx, frame.TargetHost, frame.TargetPort)
+	if err != nil {
+		return nil, errors.New("connect_failed")
+	}
+	return conn, nil
 }
 
 func chain(frame AuthFrame) (string, []string) {
