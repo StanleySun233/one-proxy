@@ -1,17 +1,24 @@
 import { appendLog } from './diagnostics.js';
-import { activeGroupFrom } from './state.js';
+import { isUsableAccessPath } from './routing.js';
 
 let proxyAuthCache = {
-  host: '',
-  port: 0,
+  targets: new Set(),
   token: ''
 };
 
+function proxyTargetKey(host, port) {
+  return `${String(host || '').toLowerCase()}:${Number(port || 0)}`;
+}
+
+function proxyAuthTargetsFrom(state) {
+  return new Set((state.remote.accessPaths || [])
+    .filter(isUsableAccessPath)
+    .map((path) => proxyTargetKey(path.listenHost, path.listenPort)));
+}
+
 export function updateProxyAuthCache(state) {
-  const group = activeGroupFrom(state);
   proxyAuthCache = {
-    host: group && group.proxyHost ? String(group.proxyHost) : '',
-    port: group && group.proxyPort ? Number(group.proxyPort) : 0,
+    targets: proxyAuthTargetsFrom(state),
     token: state.session && state.session.proxyToken ? String(state.session.proxyToken) : ''
   };
 }
@@ -21,7 +28,7 @@ function matchesProxyChallenge(details) {
     return false;
   }
   const challenger = details.challenger || {};
-  return challenger.host === proxyAuthCache.host && Number(challenger.port || 0) === proxyAuthCache.port;
+  return proxyAuthCache.targets.has(proxyTargetKey(challenger.host, challenger.port));
 }
 
 export function registerProxyAuthHandler() {
@@ -33,9 +40,10 @@ export function registerProxyAuthHandler() {
       if (!matchesProxyChallenge(details)) {
         return {};
       }
+      const challenger = details.challenger || {};
       appendLog('info', 'proxy_auth_supplied', {
-        host: proxyAuthCache.host,
-        port: proxyAuthCache.port
+        host: String(challenger.host || ''),
+        port: Number(challenger.port || 0)
       }).catch(() => {});
       return {
         authCredentials: {
