@@ -16,6 +16,8 @@ The cutover script restores renamed backup containers when panel, remote-node, l
 
 The camelbot node parent URL defaults to `http://one-proxy-panel:2886`, matching the standing container-to-container path through the panel web/API proxy. The panel backend default `127.0.0.1:2887` is internal to the panel container and is not the default node parent URL for standing deployment.
 
+After a manual panel setup flow, use `scripts/deploy-v210-post-setup-nodes.sh` to continue the release without reinitializing the database. Its `check` and `dry-run` modes are read-only. Its `run` mode requires `ONEPROXY_POST_SETUP_CONFIRM=bootstrap-nodes`, starts fresh local and camelbot node runtime volumes, creates latest access paths and routes, publishes policy, validates latest bootstrap and proxy-token hashes, and prints database evidence.
+
 ## Image And Artifact Gate
 
 The node and panel image workflows must be run before the final release tag.

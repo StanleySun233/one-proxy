@@ -46,6 +46,12 @@
     - `bash -n scripts/deploy-v210-final-cutover.sh`: pass
     - `scripts/deploy-v210-final-cutover.sh verify latest`: rejects mutable image tag
     - `scripts/deploy-v210-final-cutover.sh verify <immutable_tag>` is read-only and checks local node, camelbot panel, camelbot node, final DB table shape, no `goose_db_version`, access paths, routes, policy revisions, and token hash shapes
+- [x] Add post-manual-setup node bootstrap and evidence script
+  - Evidence:
+    - `bash -n scripts/deploy-v210-post-setup-nodes.sh`: pass
+    - `scripts/deploy-v210-post-setup-nodes.sh dry-run v2.1.0-rc.65411e7`: pass; prints final node image and local/remote parent URLs
+    - `scripts/deploy-v210-post-setup-nodes.sh check`: pass; panel is running final image in setup mode with `configured=false`; remote and local node containers are missing after reset
+    - `scripts/deploy-v210-post-setup-nodes.sh run v2.1.0-rc.65411e7`: rejects without `ONEPROXY_POST_SETUP_CONFIRM=bootstrap-nodes`
 - [x] Run compile, unit, extension smoke, local Docker scenario, camelbot isolated scenario, image workflows, and isolated DB evidence
   - Evidence:
     - `bash -n scripts/test-v210-docker-scenario.sh scripts/test-camelbot-v210-scenario.sh scripts/deploy-v210-release-images.sh`: pass
