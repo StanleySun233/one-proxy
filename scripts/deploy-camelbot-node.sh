@@ -83,7 +83,7 @@ panel_healthy() {
 }
 
 node_auth_ready() {
-  code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:2988/ || true)"
+  code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:2988/ 2>/dev/null || true)"
   [ "$code" = "401" ] || [ "$code" = "407" ]
 }
 

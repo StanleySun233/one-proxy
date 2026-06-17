@@ -191,7 +191,7 @@ docker run -d \
   -p "${port}:2886" \
   "$image" >/dev/null
 tries=0
-until curl -fsS "http://127.0.0.1:${port}/healthz" >/dev/null; do
+until curl -fsS "http://127.0.0.1:${port}/healthz" >/dev/null 2>&1; do
   tries=$((tries + 1))
   if [ "$tries" -ge 45 ]; then
     echo "panel health failed" >&2
