@@ -21,9 +21,11 @@
   - Commit: `4169d52`
 - [x] Update options route/group display for latest access-path state in `apps/extension/chrome/options/runtime.js`
   - Commit: `dc8bff3`
+- [x] Authorize multiple access-path proxy challenges in `apps/extension/chrome/tools/background-source/proxy-auth.js`
+  - Commit: `c1dd049`
 
 ## Blockers
 
 | Date | Blocker | Status |
 |------|---------|--------|
-| 2026-06-17 | `apps/extension/chrome/tools/background-source/proxy-auth.js` is outside this assignment and still caches one proxy auth target while latest PAC routes can emit multiple access-path proxy targets. | Open |
+| 2026-06-17 | `apps/extension/chrome/tools/background-source/proxy-auth.js` is outside this assignment and still caches one proxy auth target while latest PAC routes can emit multiple access-path proxy targets. | Resolved by `c1dd049` |
