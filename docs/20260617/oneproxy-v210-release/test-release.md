@@ -30,6 +30,14 @@
     - `node --test apps/extension/chrome/tools/domain_suffix_test.mjs`: pass, 3 tests
     - `node apps/extension/chrome/tools/validate_extension.mjs`: pass, `chrome_extension_static_ok`
     - `cd apps/panel/web && node node_modules/typescript/bin/tsc --noEmit --pretty false --incremental false`: fail; `.next/types/validator.ts` still references the removed duplicate audit route
+    - Pushed commit: `e3de1ed56bef` to `origin/main`
+    - GitHub Actions node image workflow: pass, https://github.com/StanleySun233/one-proxy/actions/runs/27666696189
+    - GitHub Actions panel image workflow: pass, https://github.com/StanleySun233/one-proxy/actions/runs/27666696137
+    - Immutable pre-tag image: `v2.1.0-rc.e3de1ed56bef`
+    - `ghcr.io/stanleysun233/oneproxy-node-base:v2.1.0-rc.e3de1ed56bef`: `sha256:7bca41bcd0b672a0d2c29a388facbd6cb8800f91bc13bb664d06926a8d2c0936`
+    - `ghcr.io/stanleysun233/oneproxy-node:v2.1.0-rc.e3de1ed56bef`: `sha256:d50310dca5c012123e8c6af82b3db3c0147a175abdc749801650806cd45908c9`
+    - `ghcr.io/stanleysun233/oneproxy-panel-base:v2.1.0-rc.e3de1ed56bef`: `sha256:c5e7acbc1bf418de69d583a57d51a77c639bced5fc935a24af0a803f6e7d19bf`
+    - `ghcr.io/stanleysun233/oneproxy-panel:v2.1.0-rc.e3de1ed56bef`: `sha256:323fe5dbb95d579b0be01562cee91c8c652deda1e0e61e323fc98d2a74cc21d0`
     - `shellcheck`: not run; command not installed
     - Local Docker `build/run`, camelbot isolated `check/build/run`, replacement deployment, DB queries, real-user tests, and tag gate: not run yet
 - [ ] Create and push tag `v2.1.0` after all gates pass
