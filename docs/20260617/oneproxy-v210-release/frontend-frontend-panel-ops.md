@@ -23,6 +23,8 @@
   - Commit: 76c7091
 - [x] Remove legacy auth token wrapper fallback from panel web auth client in `apps/panel/web/lib/api/auth.ts`
   - Commit: ccdcb23
+- [x] Align access-path editor modes, protocols, service types, and TLS values to the latest final contract only
+  - Commit: 65411e7
 
 ## Blockers
 

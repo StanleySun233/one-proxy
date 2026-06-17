@@ -33,6 +33,8 @@
   - Commit: b3ac4cf
 - [x] Regenerate tracked CLI dist artifacts after init and command-surface changes in `apps/cli/dist/**`
   - Commit: b3ac4cf
+- [x] Enforce latest bootstrap state in `onep init` and reject missing latest access paths
+  - Commit: 17b220c
 
 ## Blockers
 

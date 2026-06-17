@@ -6,6 +6,8 @@ This plan defines the release gates for OneProxy `v2.1.0`: immutable image publi
 
 No isolated scenario may replace or stop the standing camelbot production panel or node. Replacement deployment requires an explicit `deploy` mode and an immutable image tag.
 
+v2.1.0 is a final-schema-only release. Fresh panel databases are initialized from `apps/panel/api/schema/final.sql`. The release does not run goose, does not ship numbered SQL upgrade files, and does not upgrade non-empty old databases. Existing old databases must be recreated or directly provisioned into the final v2.1.0 model before replacement deployment.
+
 ## Image And Artifact Gate
 
 The node and panel image workflows must be run before the final release tag.

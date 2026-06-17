@@ -21,8 +21,13 @@
   - Commit: 2ff5bfe
 - [x] Keep the approval-issued node token valid when enrollment exchange issues its own current node token in `apps/panel/api/internal/store/mysql_node_enrollment.go`
   - Commit: 58ab36a
+- [x] Replace numbered SQL migrations with a final-schema-only baseline in `apps/panel/api/schema/final.sql`
+  - Commit: 65411e7
+- [x] Remove old panel access-path enum values and old compatibility paths from panel API onboarding and repository validation
+  - Commit: 65411e7
 
 ## Blockers
 
 | Date | Blocker | Status |
 |------|---------|--------|
+| 2026-06-17 | Existing non-empty old panel databases cannot be automatically upgraded by the final-schema-only release. | Accepted by release policy; reset or directly provision final schema state instead of adding migration compatibility. |

@@ -1,12 +1,14 @@
 # Dev Roadmap: OneProxy v2.1.0 Release
 
 **Date:** 20260617
-**Status:** in-progress
+**Status:** final-schema audit complete; standing deployment gated by database state
 **Product document:** ./product-requirements.md
 
 ## Summary
 
-OneProxy v2.1.0 must turn the audited system into a latest-contract-only release with safer node authorization, unified access-path routing, hardened token handling, and clearer operational UX. The release must be verified through local and camelbot Docker scenarios, GitHub Actions built images, database-backed real-user functional tests, and only then tagged as `v2.1.0`.
+OneProxy v2.1.0 has been brought to a latest-contract-only runtime with safer node authorization, unified access-path routing, hardened token handling, clearer operational UX, and a final-schema-only panel baseline. The audited runtime commit is `65411e7`; full audit evidence is recorded in `audit-report.md`.
+
+Final standing deployment and the `v2.1.0` tag remain gated because the observed standing panel database is an old non-empty database. The final release intentionally does not include old-version database migration compatibility, so that environment must be reset or directly provisioned into the final schema model before replacement deployment.
 
 ## Team
 
