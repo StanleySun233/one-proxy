@@ -10,7 +10,11 @@ import (
 	"time"
 )
 
-const defaultIdleTimeout = 2 * time.Minute
+const (
+	authTimeout          = 10 * time.Second
+	defaultIdleTimeout   = 2 * time.Minute
+	defaultMaxPacketSize = 65507
+)
 
 type Authorizer interface {
 	Validate(ctx context.Context, token string) bool
@@ -30,12 +34,13 @@ type Response struct {
 }
 
 type Server struct {
-	authorizer Authorizer
-	timeout    time.Duration
+	authorizer    Authorizer
+	timeout       time.Duration
+	maxPacketSize int
 }
 
 func New(authorizer Authorizer) *Server {
-	return &Server{authorizer: authorizer, timeout: defaultIdleTimeout}
+	return &Server{authorizer: authorizer, timeout: defaultIdleTimeout, maxPacketSize: defaultMaxPacketSize}
 }
 
 func (s *Server) Serve(conn *net.UDPConn) error {
@@ -56,12 +61,18 @@ func (s *Server) handle(serverConn *net.UDPConn, clientAddr *net.UDPAddr, payloa
 		_ = writeResponse(serverConn, clientAddr, Response{Status: "failed", Message: "invalid_packet"})
 		return
 	}
-	if s.authorizer != nil && !s.authorizer.Validate(context.Background(), packet.Token) {
+	ctx, cancel := context.WithTimeout(context.Background(), authTimeout)
+	defer cancel()
+	if s.authorizer == nil || packet.Token == "" || !s.authorizer.Validate(ctx, packet.Token) {
 		_ = writeResponse(serverConn, clientAddr, Response{Status: "failed", Message: "auth_required"})
 		return
 	}
-	if packet.TargetHost == "" || packet.TargetPort <= 0 || len(packet.Data) == 0 {
+	if packet.TargetHost == "" || packet.TargetPort <= 0 || packet.TargetPort > 65535 || len(packet.Data) == 0 {
 		_ = writeResponse(serverConn, clientAddr, Response{Status: "failed", Message: "invalid_target"})
+		return
+	}
+	if len(packet.Data) > s.packetSizeLimit() {
+		_ = writeResponse(serverConn, clientAddr, Response{Status: "failed", Message: "packet_too_large"})
 		return
 	}
 	data, err := s.roundTrip(packet)
@@ -79,28 +90,35 @@ func (s *Server) roundTrip(packet Packet) ([]byte, error) {
 	}
 	target, err := net.ResolveUDPAddr("udp", net.JoinHostPort(packet.TargetHost, strconv.Itoa(packet.TargetPort)))
 	if err != nil {
-		return nil, err
+		return nil, errors.New("connect_failed")
 	}
 	conn, err := net.DialUDP("udp", nil, target)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("connect_failed")
 	}
 	defer conn.Close()
 	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
-		return nil, err
+		return nil, errors.New("udp_forward_failed")
 	}
 	if _, err := conn.Write(packet.Data); err != nil {
-		return nil, err
+		return nil, errors.New("udp_forward_failed")
 	}
-	buffer := make([]byte, 65535)
+	buffer := make([]byte, s.packetSizeLimit())
 	n, err := conn.Read(buffer)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("udp_response_failed")
 	}
 	if n == 0 {
 		return nil, errors.New("empty_udp_response")
 	}
 	return append([]byte(nil), buffer[:n]...), nil
+}
+
+func (s *Server) packetSizeLimit() int {
+	if s.maxPacketSize <= 0 {
+		return defaultMaxPacketSize
+	}
+	return s.maxPacketSize
 }
 
 func writeResponse(conn *net.UDPConn, addr *net.UDPAddr, response Response) error {
