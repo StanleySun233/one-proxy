@@ -106,6 +106,6 @@
   "linkUpdated": "链接已更新",
   "linkDeleted": "链接已删除",
   "nodeRejected": "节点已驳回",
-  "defaultPasswordHint": "如果节点启动时未设置 NODE_JOIN_PASSWORD，请在上方输入 password，并在这里设置替换密码。",
+  "defaultPasswordHint": "没有默认的节点加入密码。请在节点上显式设置 NODE_JOIN_PASSWORD，并在上方输入该加入密码或密钥后再审批。",
   "placeholderNodeName": "例如 hk-gateway"
 }

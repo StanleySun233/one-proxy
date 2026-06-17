@@ -106,6 +106,6 @@
   "linkUpdated": "Link updated",
   "linkDeleted": "Link deleted",
   "nodeRejected": "Node rejected",
-  "defaultPasswordHint": "If the node started without NODE_JOIN_PASSWORD, enter password above and set the replacement password here.",
+  "defaultPasswordHint": "There is no default join password. Set an explicit NODE_JOIN_PASSWORD on the node, then enter that join password or secret above before approval.",
   "placeholderNodeName": "e.g. hk-gateway"
 }
