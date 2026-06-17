@@ -67,6 +67,7 @@ jobs:
           node apps/extension/chrome/tools/build_background_bundle.mjs
           node apps/extension/chrome/tools/validate_extension.mjs
           node --test apps/extension/chrome/tools/domain_suffix_test.mjs
+          python3 apps/extension/chrome/tools/assert_no_sensitive_ak_in_smoke.py
 
       - name: Chrome extension service worker smoke
         run: |

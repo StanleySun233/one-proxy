@@ -76,9 +76,9 @@ chromium.launchPersistentContext(userDataDir, {
               const headers = new Headers(options.headers || {});
               requests.push({
                 url: String(url),
-                accessToken: headers.get('X-One-Proxy-Access-Token') || '',
-                tenantId: headers.get('X-One-Proxy-Tenant-ID') || '',
-                refreshToken: headers.get('X-One-Proxy-Refresh-Token') || '',
+                accessTokenPresent: Boolean(headers.get('X-One-Proxy-Access-Token')),
+                tenantIdPresent: Boolean(headers.get('X-One-Proxy-Tenant-ID')),
+                refreshTokenPresent: Boolean(headers.get('X-One-Proxy-Refresh-Token')),
                 body: options.body || ''
               });
               if (String(url).endsWith('/api/auth/login')) {
@@ -230,7 +230,7 @@ chromium.launchPersistentContext(userDataDir, {
             return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests);
           }).then((requests) => {
             const bootstrap = requests.find((request) => request.url.endsWith('/api/proxy/extension/bootstrap'));
-            if (!bootstrap || bootstrap.accessToken !== 'access-token' || bootstrap.tenantId !== 'tenant-1') {
+            if (!bootstrap || !bootstrap.accessTokenPresent || !bootstrap.tenantIdPresent) {
               throw new Error('service_worker_bootstrap_missing_one_proxy_headers');
             }
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'sync-remote-config' }));
@@ -242,7 +242,7 @@ chromium.launchPersistentContext(userDataDir, {
           }).then((requests) => {
             const bootstraps = requests.filter((request) => request.url.endsWith('/api/proxy/extension/bootstrap'));
             const latestBootstrap = bootstraps[bootstraps.length - 1];
-            if (!latestBootstrap || latestBootstrap.accessToken !== 'access-token' || latestBootstrap.tenantId !== 'tenant-1') {
+            if (!latestBootstrap || !latestBootstrap.accessTokenPresent || !latestBootstrap.tenantIdPresent) {
               throw new Error('service_worker_sync_missing_one_proxy_headers');
             }
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'set-enabled', enabled: true }));
