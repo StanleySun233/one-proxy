@@ -2,7 +2,7 @@ ARG PANEL_BASE_IMAGE=oneproxy-panel-base:latest
 
 FROM ${PANEL_BASE_IMAGE} AS web-builder
 WORKDIR /workspace/apps/panel/web
-ARG ONEPROXY_NODE_IMAGE=ghcr.io/stanleysun233/oneproxy-node:v2.1.0
+ARG ONEPROXY_NODE_IMAGE=
 ENV NEXT_PUBLIC_ONEPROXY_NODE_IMAGE=${ONEPROXY_NODE_IMAGE}
 COPY apps/panel/web ./
 RUN cp -a /base/apps/panel/web/node_modules ./node_modules
