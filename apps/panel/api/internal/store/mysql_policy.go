@@ -18,6 +18,67 @@ func (s *MySQLStore) tenantPolicyInputs(tenantCtx domain.TenantAuthContext) ([]d
 	return s.policyNodesForTenant(scoped), s.ListNodeLinksForTenant(scoped), s.ListChainsForTenant(scoped), s.ListPolicyRouteRulesForTenant(scoped)
 }
 
+func (s *MySQLStore) ensureDefaultAccessPathsForTenant(tenantCtx domain.TenantAuthContext) error {
+	scoped := tenantPolicyContext(tenantCtx)
+	nodes := s.ListNodesForTenant(scoped)
+	nodeByID := make(map[string]domain.Node, len(nodes))
+	for _, node := range nodes {
+		nodeByID[node.ID] = node
+	}
+	chains := s.ListChainsForTenant(scoped)
+	paths := s.ListNodeAccessPathsForTenant(scoped)
+	pathsByChainID := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		pathsByChainID[path.ChainID] = true
+	}
+	for _, chain := range chains {
+		if pathsByChainID[chain.ID] || len(chain.Hops) == 0 {
+			continue
+		}
+		entryNode, entryOK := nodeByID[chain.Hops[0]]
+		targetNode, targetOK := nodeByID[chain.Hops[len(chain.Hops)-1]]
+		if !entryOK || !targetOK {
+			continue
+		}
+		listenHost := entryNode.PublicHost
+		if listenHost == "" {
+			listenHost = "127.0.0.1"
+		}
+		listenPort := entryNode.PublicPort
+		if listenPort == 0 {
+			listenPort = 2988
+		}
+		_, err := s.CreateNodeAccessPathForTenant(scoped, domain.CreateNodeAccessPathInput{
+			ChainID:        chain.ID,
+			Name:           chain.Name + " default",
+			Mode:           domain.PathModeForward,
+			Protocol:       domain.AccessProtocolHTTP,
+			ServiceType:    domain.AccessServiceHTTPForwardProxy,
+			TargetNodeID:   targetNode.ID,
+			EntryNodeID:    entryNode.ID,
+			RelayNodeIDs:   relayNodeIDs(chain.Hops),
+			ListenHost:     listenHost,
+			ListenPort:     listenPort,
+			TargetProtocol: domain.AccessProtocolHTTP,
+			TargetPort:     listenPort,
+			AuthMode:       domain.AccessAuthProxyToken,
+			Options:        map[string]string{},
+		})
+		if err != nil {
+			return err
+		}
+		pathsByChainID[chain.ID] = true
+	}
+	return nil
+}
+
+func relayNodeIDs(hops []string) []string {
+	if len(hops) <= 2 {
+		return nil
+	}
+	return append([]string(nil), hops[1:len(hops)-1]...)
+}
+
 func (s *MySQLStore) policyNodesForTenant(tenantCtx domain.TenantAuthContext) []domain.Node {
 	all := s.ListNodesForTenant(tenantCtx)
 	items := make([]domain.Node, 0, len(all))
@@ -82,6 +143,9 @@ func (s *MySQLStore) ListPolicyRevisionsForTenant(tenantCtx domain.TenantAuthCon
 }
 
 func (s *MySQLStore) PublishPolicy(tenantCtx domain.TenantAuthContext, accountID string) (domain.PolicyRevision, error) {
+	if err := s.ensureDefaultAccessPathsForTenant(tenantCtx); err != nil {
+		return domain.PolicyRevision{}, err
+	}
 	nodes, links, chains, rules := s.tenantPolicyInputs(tenantCtx)
 	raw, err := policy.CompileForTenant(tenantCtx.ActiveTenant.TenantID, nodes, links, chains, rules, nil)
 	if err != nil {
