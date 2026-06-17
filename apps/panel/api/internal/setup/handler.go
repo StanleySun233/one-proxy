@@ -1,18 +1,25 @@
 package setup
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	mysql "github.com/go-sql-driver/mysql"
 )
+
+const setupDBPingTimeout = 5 * time.Second
 
 type SetupHandler struct {
 	envFilePath  string
@@ -121,6 +128,10 @@ func (h *SetupHandler) handleTestConnection(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusBadRequest, "invalid_request_body")
 		return
 	}
+	if err := validateSetupDBRequest(req.Host, req.Port, req.User, req.Database); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	database := req.Database
 	if req.NeedInitialize {
@@ -129,26 +140,28 @@ func (h *SetupHandler) handleTestConnection(w http.ResponseWriter, r *http.Reque
 	dsn := buildDSN(req.User, req.Password, req.Host, req.Port, database)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		writeSuccess(w, http.StatusOK, map[string]any{
-			"success": false,
-			"message": err.Error(),
-		})
+		log.Printf("setup test sql open failed: %v", err)
+		writeConnectionTestFailure(w)
 		return
 	}
 	defer db.Close()
 
-	db.SetConnMaxLifetime(5 * time.Second)
-	if err := db.Ping(); err != nil {
-		writeSuccess(w, http.StatusOK, map[string]any{
-			"success": false,
-			"message": err.Error(),
-		})
+	configureSetupDB(db)
+	ctx, cancel := context.WithTimeout(r.Context(), setupDBPingTimeout)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		log.Printf("setup test ping failed: %v", err)
+		writeConnectionTestFailure(w)
 		return
 	}
 
 	var tableCount int
 	if req.Database != "" {
-		_ = db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?", req.Database).Scan(&tableCount)
+		if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?", req.Database).Scan(&tableCount); err != nil {
+			log.Printf("setup test table count failed: %v", err)
+			writeConnectionTestFailure(w)
+			return
+		}
 	}
 
 	writeSuccess(w, http.StatusOK, map[string]any{
@@ -187,23 +200,41 @@ func (h *SetupHandler) handleInit(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "admin_password_required")
 		return
 	}
+	if err := validateSetupDBRequest(req.Host, req.Port, req.User, req.Database); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	if _, err := os.Stat(h.envFilePath); err == nil {
+		writeError(w, http.StatusConflict, "setup_already_configured")
+		return
+	} else if !os.IsNotExist(err) {
+		log.Printf("setup env stat failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "setup_status_failed")
+		return
+	}
+
 	dsn := buildDSN(req.User, req.Password, req.Host, req.Port, req.Database)
 
 	if req.NeedInitialize {
-		initDSN := fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=utf8mb4&parseTime=true&loc=UTC",
-			req.User, req.Password, req.Host, req.Port)
+		initDSN := buildDSN(req.User, req.Password, req.Host, req.Port, "")
 		initDB, err := sql.Open("mysql", initDSN)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			log.Printf("setup init sql open failed: %v", err)
+			writeError(w, http.StatusInternalServerError, "database_connection_failed")
 			return
 		}
-		if _, err := initDB.Exec("CREATE DATABASE IF NOT EXISTS `" + req.Database + "`"); err != nil {
+		configureSetupDB(initDB)
+		ctx, cancel := context.WithTimeout(r.Context(), setupDBPingTimeout)
+		_, err = initDB.ExecContext(ctx, "CREATE DATABASE IF NOT EXISTS `"+req.Database+"`")
+		cancel()
+		if err != nil {
 			initDB.Close()
-			writeError(w, http.StatusInternalServerError, err.Error())
+			log.Printf("setup create database failed: %v", err)
+			writeError(w, http.StatusInternalServerError, "database_initialization_failed")
 			return
 		}
 		initDB.Close()
@@ -212,13 +243,18 @@ func (h *SetupHandler) handleInit(w http.ResponseWriter, r *http.Request) {
 	// Validate the full DSN connection before writing .env
 	testDB, err := sql.Open("mysql", dsn)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("setup init test sql open failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "database_connection_failed")
 		return
 	}
-	testDB.SetConnMaxLifetime(5 * time.Second)
-	if err := testDB.Ping(); err != nil {
+	configureSetupDB(testDB)
+	ctx, cancel := context.WithTimeout(r.Context(), setupDBPingTimeout)
+	err = testDB.PingContext(ctx)
+	cancel()
+	if err != nil {
 		testDB.Close()
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("setup init test ping failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "database_connection_failed")
 		return
 	}
 	testDB.Close()
@@ -228,13 +264,15 @@ func (h *SetupHandler) handleInit(w http.ResponseWriter, r *http.Request) {
 		envContent += fmt.Sprintf("ADMIN_PASSWORD=%s\n", req.AdminPassword)
 	}
 	if err := os.WriteFile(h.envFilePath, []byte(envContent), 0600); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("setup env write failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "setup_write_failed")
 		return
 	}
 
 	if err := h.transitionFn(); err != nil {
 		os.Remove(h.envFilePath)
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("setup transition failed: %v", err)
+		writeError(w, http.StatusInternalServerError, "setup_transition_failed")
 		return
 	}
 
@@ -247,6 +285,63 @@ func (h *SetupHandler) handleInit(w http.ResponseWriter, r *http.Request) {
 // --- Helpers ---
 
 func buildDSN(user, password, host string, port int, database string) string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=UTC",
-		user, password, host, port, database)
+	cfg := mysql.NewConfig()
+	cfg.User = user
+	cfg.Passwd = password
+	cfg.Net = "tcp"
+	cfg.Addr = net.JoinHostPort(host, strconv.Itoa(port))
+	cfg.DBName = database
+	cfg.ParseTime = true
+	cfg.Loc = time.UTC
+	cfg.Params = map[string]string{"charset": "utf8mb4"}
+	return cfg.FormatDSN()
+}
+
+func configureSetupDB(db *sql.DB) {
+	db.SetConnMaxLifetime(setupDBPingTimeout)
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(0)
+}
+
+func validateSetupDBRequest(host string, port int, user string, database string) error {
+	if !validSetupHost(host) || port < 1 || port > 65535 || user == "" {
+		return fmt.Errorf("invalid_database_connection")
+	}
+	if !validDatabaseName(database) {
+		return fmt.Errorf("invalid_database_name")
+	}
+	return nil
+}
+
+func validSetupHost(host string) bool {
+	if host == "" || strings.TrimSpace(host) != host {
+		return false
+	}
+	for _, char := range host {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '-' || char == '.' || char == '_' || char == ':' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func validDatabaseName(name string) bool {
+	if name == "" || len(name) > 64 {
+		return false
+	}
+	for _, char := range name {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func writeConnectionTestFailure(w http.ResponseWriter) {
+	writeSuccess(w, http.StatusOK, map[string]any{
+		"success": false,
+		"message": "connection_failed",
+	})
 }
