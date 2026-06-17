@@ -27,6 +27,23 @@
   - Commit: `6cc26db`
 - [x] Regenerate tracked Chrome extension bundles in `apps/extension/chrome/background/one-proxy-worker.js`, `apps/extension/chrome/popup/runtime.js`, and `apps/extension/chrome/options/runtime.js`
   - Commit: `6ff1552`
+- [x] Replace status bubble and monitor legacy group probes with latest access-path route topology in `apps/extension/chrome/tools/background-source/status-bubble.js` and `apps/extension/chrome/tools/background-source/monitor.js`
+  - Commit: `5539c4d`
+- [x] Update shared page-source contracts and extension smoke fixtures to latest access-path bootstrap state in `apps/extension/chrome/tools/page-source/shared/contracts.js`, `apps/extension/chrome/tools/domain_suffix_test.mjs`, and `apps/extension/chrome/tools/service_worker_smoke.mjs`
+  - Commit: `5539c4d`
+- [x] Regenerate tracked Chrome extension bundles after monitor/status/test fixture updates in `apps/extension/chrome/background/one-proxy-worker.js`
+  - Commit: `5539c4d`
+
+## Verification
+
+- `node --check apps/extension/chrome/tools/background-source/status-bubble.js`: pass
+- `node --check apps/extension/chrome/tools/background-source/monitor.js`: pass
+- `node --check apps/extension/chrome/tools/page-source/shared/contracts.js`: pass
+- `node --check apps/extension/chrome/tools/domain_suffix_test.mjs`: pass
+- `node --check apps/extension/chrome/tools/service_worker_smoke.mjs`: pass
+- `node --test apps/extension/chrome/tools/domain_suffix_test.mjs`: pass, 3 tests
+- `node apps/extension/chrome/tools/build_background_bundle.mjs`: pass
+- `node apps/extension/chrome/tools/validate_extension.mjs`: pass, `chrome_extension_static_ok`
 
 ## Blockers
 
