@@ -2,7 +2,15 @@
 
 import {createContext, ReactNode, useContext, useEffect, useMemo, useState} from 'react';
 
-import {AUTH_INVALID_EVENT, login as loginRequest, logout as logoutRequest, Session, updateAccount} from '@/lib/api';
+import {
+  AUTH_INVALID_EVENT,
+  SESSION_STORAGE_KEY,
+  login as loginRequest,
+  logout as logoutRequest,
+  refreshSession as refreshSessionRequest,
+  Session,
+  updateAccount
+} from '@/lib/api';
 import type {ActiveTenant, TenantMembership} from '@/lib/types/auth';
 
 type AuthContextValue = {
@@ -53,17 +61,89 @@ function normalizeSession(session: Session): Session {
   };
 }
 
+type StoredSessionSeed = {
+  refreshToken: string;
+  activeTenantId?: string | null;
+};
+
+function storedSessionSeed(): StoredSessionSeed | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const raw = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as {refreshToken?: string; activeTenantId?: string | null};
+    return parsed.refreshToken ? {refreshToken: parsed.refreshToken, activeTenantId: parsed.activeTenantId ?? null} : null;
+  } catch {
+    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    return null;
+  }
+}
+
+function persistSession(session: Session | null) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (!session) {
+    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    return;
+  }
+  window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+    refreshToken: session.refreshToken,
+    activeTenantId: session.activeTenantId
+  }));
+}
+
 export function AuthProvider({children}: {children: ReactNode}) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setReady(true);
+    let cancelled = false;
+    const seed = storedSessionSeed();
+    if (!seed) {
+      setReady(true);
+      return;
+    }
+    refreshSessionRequest(seed.refreshToken)
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        const nextSession = normalizeSession({
+          account: result.account,
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+          expiresAt: result.expiresAt,
+          mustRotatePassword: result.mustRotatePassword,
+          tenantMemberships: result.tenantMemberships,
+          activeTenantId: seed.activeTenantId ?? result.activeTenantId
+        });
+        setSession(nextSession);
+        persistSession(nextSession);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          persistSession(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setReady(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     const handleUnauthorized = () => {
       setSession(null);
+      persistSession(null);
     };
 
     window.addEventListener(AUTH_INVALID_EVENT, handleUnauthorized);
@@ -91,6 +171,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
         });
 
         setSession(nextSession);
+        persistSession(nextSession);
         return nextSession;
       },
       async rotatePassword(password: string) {
@@ -104,6 +185,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
           mustRotatePassword: account.mustRotatePassword
         };
         setSession(nextSession);
+        persistSession(nextSession);
         return nextSession;
       },
       switchTenant(tenantId: string | null) {
@@ -119,6 +201,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
           activeTenantId: tenantId
         };
         setSession(nextSession);
+        persistSession(nextSession);
         return nextSession;
       },
       async logout() {
@@ -129,6 +212,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
         }
 
         setSession(null);
+        persistSession(null);
       }
     }),
     [ready, session]

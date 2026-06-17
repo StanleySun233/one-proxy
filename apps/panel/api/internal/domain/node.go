@@ -238,6 +238,20 @@ type CreateBootstrapTokenInput struct {
 	PublicPort   int    `json:"publicPort"`
 }
 
+type ProbeNodeParentURLInput struct {
+	URL string `json:"url"`
+}
+
+type ProbeNodeParentURLResult struct {
+	Reachable         bool   `json:"reachable"`
+	URL               string `json:"url"`
+	HealthURL         string `json:"healthUrl"`
+	StatusCode        int    `json:"statusCode"`
+	Mode              string `json:"mode"`
+	ControlPlaneBound *bool  `json:"controlPlaneBound,omitempty"`
+	Message           string `json:"message"`
+}
+
 type EnrollNodeInput struct {
 	Token        string `json:"token"`
 	Name         string `json:"name"`

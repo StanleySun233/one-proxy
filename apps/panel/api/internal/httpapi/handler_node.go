@@ -197,6 +197,29 @@ func (r *Router) handleNodeBootstrapToken(w http.ResponseWriter, req *http.Reque
 	writeSuccess(w, http.StatusCreated, item)
 }
 
+func (r *Router) handleNodeParentURLProbe(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeMethodNotAllowed(w, "POST")
+		return
+	}
+	var payload domain.ProbeNodeParentURLInput
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	tenantCtx, ok := tenantAuthContextFromContext(req.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant_required")
+		return
+	}
+	item, err := r.service.ProbeNodeParentURL(req.Context(), tenantCtx, payload)
+	if err != nil {
+		writeServiceError(w, req, err, "parent_url_probe_failed")
+		return
+	}
+	writeSuccess(w, http.StatusOK, item)
+}
+
 func (r *Router) handleUnconsumedBootstrapTokens(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		writeMethodNotAllowed(w, "GET")

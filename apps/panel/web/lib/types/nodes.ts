@@ -168,3 +168,13 @@ export type UnconsumedBootstrapToken = {
   expiresAt: string;
   createdAt: string;
 };
+
+export type NodeParentURLProbeResult = {
+  reachable: boolean;
+  url: string;
+  healthUrl: string;
+  statusCode: number;
+  mode: string;
+  controlPlaneBound?: boolean;
+  message: string;
+};

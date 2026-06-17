@@ -38,3 +38,13 @@ func TestLoadUsesNodeOperationalDefaults(t *testing.T) {
 		t.Fatalf("NodeResponseCacheDisk = %q", cfg.NodeResponseCacheDisk)
 	}
 }
+
+func TestLoadNormalizesSchemeLessParentURL(t *testing.T) {
+	t.Setenv("NODE_PARENT_URL", "103.214.172.211:2988")
+
+	cfg := Load()
+
+	if cfg.ControlPlaneURL != "http://103.214.172.211:2988" {
+		t.Fatalf("ControlPlaneURL = %q", cfg.ControlPlaneURL)
+	}
+}

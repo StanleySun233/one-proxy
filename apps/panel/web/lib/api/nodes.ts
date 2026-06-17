@@ -4,6 +4,7 @@ import type {
   NodeDeleteImpact,
   NodeTransport,
   BootstrapToken,
+  NodeParentURLProbeResult,
   UnconsumedBootstrapToken,
   NodeHealth,
   NodeHealthHistory,
@@ -64,6 +65,15 @@ export function createBootstrapToken(
     accessToken,
     tenantId,
     body: payload
+  });
+}
+
+export function probeNodeParentURL(accessToken: string, tenantId: string | null, url: string) {
+  return request<NodeParentURLProbeResult>('/nodes/bootstrap/parent-url/probe', {
+    method: 'POST',
+    accessToken,
+    tenantId,
+    body: {url}
   });
 }
 

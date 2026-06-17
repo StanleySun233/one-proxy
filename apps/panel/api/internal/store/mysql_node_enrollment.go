@@ -49,15 +49,21 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	if parentNodeID.Valid {
 		effectiveParentNodeID = parentNodeID.String
 	}
-	effectivePublicHost := input.PublicHost
-	if publicHost.Valid {
+	effectivePublicHost := ""
+	if effectiveMode == domain.NodeModeEdge {
+		effectivePublicHost = input.PublicHost
+	}
+	if publicHost.Valid && publicHost.String != "" {
 		effectivePublicHost = publicHost.String
 	}
-	effectivePublicPort := input.PublicPort
+	effectivePublicPort := 0
+	if effectiveMode == domain.NodeModeEdge {
+		effectivePublicPort = input.PublicPort
+	}
 	if publicPort.Valid && publicPort.Int64 > 0 {
 		effectivePublicPort = int(publicPort.Int64)
 	}
-	if effectivePublicPort <= 0 {
+	if effectiveMode == domain.NodeModeEdge && effectivePublicPort <= 0 {
 		effectivePublicPort = input.PublicPort
 	}
 	now := nowRFC3339()

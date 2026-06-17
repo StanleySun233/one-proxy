@@ -37,9 +37,12 @@ export function NodeBootstrapPageContent() {
           <BootstrapTokenTab
             form={nodeConsole.bootstrapForm}
             latestToken={nodeConsole.latestToken}
+            parentProbePending={nodeConsole.probeParentURL.isPending}
+            parentProbeResult={nodeConsole.probeParentURL.data || null}
             submitting={nodeConsole.bootstrap.isPending}
             nodes={nodeConsole.nodesQuery.data || []}
             scopes={nodeConsole.scopesQuery.data || []}
+            onProbeParentURL={(url) => nodeConsole.probeParentURL.mutate(url)}
             onSubmit={handleBootstrap}
           />
         </ConsoleList>

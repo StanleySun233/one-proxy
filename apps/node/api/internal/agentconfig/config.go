@@ -44,7 +44,7 @@ type Config struct {
 func Load() Config {
 	joinPassword, joinPasswordProvided := lookupEnvOrDefault("NODE_JOIN_PASSWORD", "")
 	parentID := envOrDefault("NODE_PARENT_ID", "")
-	parentURL := envOrDefault("NODE_PARENT_URL", "")
+	parentURL := normalizeParentURL(envOrDefault("NODE_PARENT_URL", ""))
 	return Config{
 		ControlPlaneURL:           parentURL,
 		NodeBootstrapToken:        envOrDefault("NODE_BOOTSTRAP_TOKEN", ""),
@@ -108,4 +108,16 @@ func lookupEnvOrDefault(key string, fallback string) (string, bool) {
 		return fallback, false
 	}
 	return value, true
+}
+
+func normalizeParentURL(value string) string {
+	if value == "" {
+		return ""
+	}
+	for i := 0; i+2 < len(value); i++ {
+		if value[i:i+3] == "://" {
+			return value
+		}
+	}
+	return "http://" + value
 }

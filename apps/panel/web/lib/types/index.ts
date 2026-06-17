@@ -12,6 +12,7 @@ export type {
   NodeSLAMinute,
   BootstrapToken,
   UnconsumedBootstrapToken,
+  NodeParentURLProbeResult,
 } from './nodes';
 export type {
   Chain,

@@ -7,7 +7,7 @@ import {NameTag} from '@/components/common/name-tag';
 import {FieldEnumMap, Node, Scope} from '@/lib/types';
 import {formatControlPlaneError, formatISODateTime} from '@/lib/presentation';
 
-import {describeNodeName, healthBadgeClassName, statusBadgeClassName} from './node-utils';
+import {describeNodeName, statusBadgeClassName} from './node-utils';
 import {RegistryNodeRow} from './types';
 
 type RegistryNodeTableProps = {
@@ -165,10 +165,7 @@ function RegistryNodeTableRow({
         </div>
       </td>
       <td>
-        <div className="registry-name-cell">
-          <span className={healthBadgeClassName(node.derivedHealthStatus, enums)}>{node.derivedHealthLabel}</span>
-          <span className={statusBadgeClassName(node.status, enums)}>{node.status}</span>
-        </div>
+        <span className={statusBadgeClassName(node.status, enums)}>{node.status}</span>
       </td>
       <td>{node.mode}</td>
       <td>{scopeName ? <NameTag kind="scope">{scopeName}</NameTag> : <span className="muted-text">{t('common.noScope')}</span>}</td>

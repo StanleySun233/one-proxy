@@ -11,6 +11,7 @@ export {
   getPendingNodes,
   getNodeTransports,
   createBootstrapToken,
+  probeNodeParentURL,
   getUnconsumedBootstrapTokens,
   deleteBootstrapToken,
   getOverview,

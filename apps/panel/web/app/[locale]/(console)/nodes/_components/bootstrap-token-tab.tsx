@@ -5,7 +5,7 @@ import {useTranslations} from 'next-intl';
 import {UseFormReturn} from 'react-hook-form';
 import {toast} from 'sonner';
 
-import {BootstrapToken, Node, Scope} from '@/lib/types';
+import {BootstrapToken, Node, NodeParentURLProbeResult, Scope} from '@/lib/types';
 import {BootstrapFormValues} from './types';
 
 function shellQuote(value: string) {
@@ -37,15 +37,21 @@ export function BootstrapTokenTab({
   form,
   submitting,
   latestToken,
+  parentProbePending,
+  parentProbeResult,
   nodes,
   scopes,
+  onProbeParentURL,
   onSubmit
 }: {
   form: UseFormReturn<BootstrapFormValues>;
   submitting: boolean;
   latestToken: BootstrapToken | null;
+  parentProbePending: boolean;
+  parentProbeResult: NodeParentURLProbeResult | null;
   nodes: Node[];
   scopes: Scope[];
+  onProbeParentURL: (url: string) => void;
   onSubmit: (data: BootstrapFormValues) => void;
 }) {
   const t = useTranslations();
@@ -57,13 +63,43 @@ export function BootstrapTokenTab({
     return window.location.origin;
   }, []);
   const selectedNodeMode = form.watch('nodeMode');
+  const selectedScopeKey = form.watch('scopeKey');
   const selectedParentNodeId = form.watch('parentNodeId');
   const parentReachableUrl = form.watch('parentReachableUrl');
   const publicPort = form.watch('publicPort');
   const selectedParentNode = nodes.find((node) => node.id === selectedParentNodeId);
+  const parentCandidates = useMemo(() => {
+    const enabled = nodes.filter((node) => node.enabled);
+    const ranked = [
+      ...enabled.filter((node) => node.mode === 'edge' && node.scopeKey === selectedScopeKey),
+      ...enabled.filter((node) => node.mode === 'edge' && node.scopeKey !== selectedScopeKey),
+      ...enabled.filter((node) => node.mode !== 'edge' && node.scopeKey === selectedScopeKey),
+      ...enabled.filter((node) => node.mode !== 'edge' && node.scopeKey !== selectedScopeKey)
+    ];
+    const seen = new Set<string>();
+    return ranked.filter((node) => {
+      if (seen.has(node.id)) {
+        return false;
+      }
+      seen.add(node.id);
+      return true;
+    });
+  }, [nodes, selectedScopeKey]);
   const autoParentReachableUrl = selectedParentNode?.publicHost
     ? `http://${selectedParentNode.publicHost}:${selectedParentNode.publicPort || 2988}`
     : '';
+
+  useEffect(() => {
+    if (selectedNodeMode === 'relay') {
+      if (parentCandidates.length > 0 && !parentCandidates.some((node) => node.id === selectedParentNodeId)) {
+        form.setValue('parentNodeId', parentCandidates[0].id, {shouldDirty: true, shouldValidate: true});
+      }
+      return;
+    }
+    if (selectedParentNodeId) {
+      form.setValue('parentNodeId', '', {shouldDirty: true, shouldValidate: true});
+    }
+  }, [form, parentCandidates, selectedNodeMode, selectedParentNodeId]);
 
   useEffect(() => {
     form.setValue('parentReachableUrl', autoParentReachableUrl, {shouldDirty: false, shouldValidate: true});
@@ -83,6 +119,7 @@ export function BootstrapTokenTab({
       `  -p ${hostPublicPort}:2988 \\`,
       '  -p 2989:2989 \\',
       '  -v one-proxy-node-runtime:/app/runtime \\',
+      `  -e NODE_MODE=${shellQuote(selectedNodeMode)} \\`,
       `  -e NODE_PARENT_URL=${shellQuote(bootstrapURL)} \\`,
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
       '  ghcr.io/stanleysun233/oneproxy-node:latest'
@@ -169,35 +206,49 @@ export function BootstrapTokenTab({
       </div>
       <div className="field-stack">
         <span>{t('nodes.bootstrap.parentNodeId')}</span>
-        <select className="field-input" {...form.register('parentNodeId')}>
+        <select className="field-input" disabled={selectedNodeMode !== 'relay'} {...form.register('parentNodeId')}>
           <option value="">{t('nodes.bootstrap.noParent')}</option>
-          {nodes.map((node) => (
+          {parentCandidates.map((node) => (
             <option key={node.id} value={node.id}>{node.name}</option>
           ))}
         </select>
+        <p className="field-hint">{t('nodes.bootstrap.parentNodeAutoHint')}</p>
       </div>
       {needsParentReachableUrl ? (
         <div className="field-stack nodes-form-full">
           <span>{t('nodes.bootstrap.parentReachableUrl')}</span>
-          <input
-            className="field-input"
-            placeholder={t('nodes.bootstrap.parentReachableUrlPlaceholder')}
-            {...form.register('parentReachableUrl', {
-              validate: (value) => {
-                if (!needsParentReachableUrl) return true;
-                return value.trim() !== '' ? true : t('nodes.bootstrap.parentReachableUrlRequired');
-              }
-            })}
-          />
+          <div style={{display: 'flex', gap: 8, alignItems: 'center'}}>
+            <input
+              className="field-input"
+              placeholder={t('nodes.bootstrap.parentReachableUrlPlaceholder')}
+              {...form.register('parentReachableUrl', {
+                validate: (value) => {
+                  if (!needsParentReachableUrl) return true;
+                  return value.trim() !== '' ? true : t('nodes.bootstrap.parentReachableUrlRequired');
+                }
+              })}
+            />
+            <button
+              className="secondary-button"
+              disabled={parentProbePending || !parentReachableUrl.trim()}
+              onClick={() => onProbeParentURL(parentReachableUrl.trim())}
+              type="button"
+            >
+              {parentProbePending ? t('nodes.bootstrap.testingParentUrl') : t('nodes.bootstrap.testParentUrl')}
+            </button>
+          </div>
+          {parentProbeResult ? (
+            <span className={`conn-status is-${parentProbeResult.reachable ? 'success' : 'failed'}`}>
+              <span className="conn-status-dot" />
+              {parentProbeResult.reachable ? t('nodes.bootstrap.parentUrlReachable') : t('nodes.bootstrap.parentUrlUnreachable')}
+            </span>
+          ) : null}
           {form.formState.errors.parentReachableUrl ? (
             <p className="field-error">{form.formState.errors.parentReachableUrl.message}</p>
           ) : null}
         </div>
       ) : null}
-      <div className="field-stack">
-        <span>{t('nodes.bootstrap.publicHost')}</span>
-        <input className="field-input" placeholder={t('nodes.bootstrap.publicHostPlaceholder')} {...form.register('publicHost')} />
-      </div>
+      <input type="hidden" {...form.register('publicHost')} />
       <div className="field-stack">
         <span>{t('nodes.bootstrap.publicPort')}</span>
         <input
@@ -214,6 +265,9 @@ export function BootstrapTokenTab({
         />
         {form.formState.errors.publicPort ? (
           <p className="field-error">{form.formState.errors.publicPort.message}</p>
+        ) : null}
+        {selectedNodeMode === 'edge' ? (
+          <p className="field-hint">{t('nodes.bootstrap.publicEndpointAutoHint')}</p>
         ) : null}
       </div>
       <div className="field-stack nodes-form-full">

@@ -23,6 +23,7 @@ import {
   getPendingNodes,
   getScopes,
   getUnconsumedBootstrapTokens,
+  probeNodeParentURL,
   rejectNode,
   updateNode,
   updateNodeLink
@@ -132,6 +133,16 @@ export function useNodeConsole() {
       });
       bootstrapForm.setValue('targetId', '');
       setLatestToken(result);
+    },
+    onError: (error) => {
+      toast.error(formatControlPlaneError(error));
+    }
+  });
+
+  const probeParentURLMutation = useMutation({
+    mutationFn: (url: string) => probeNodeParentURL(accessToken, activeTenantId, url),
+    onSuccess: (result) => {
+      toast.success(result.reachable ? 'parent URL reachable' : 'parent URL unreachable');
     },
     onError: (error) => {
       toast.error(formatControlPlaneError(error));
@@ -277,6 +288,7 @@ export function useNodeConsole() {
     unconsumedTokensQuery,
     latestToken,
     bootstrap: bootstrapMutation,
+    probeParentURL: probeParentURLMutation,
     approve: approveMutation,
     rejectNode: rejectNodeMutation,
     updateNode: updateNodeMutation,

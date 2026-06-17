@@ -56,6 +56,7 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/nodes/", r.requireAccount(r.handleNodeByID))
 	r.mux.HandleFunc("/api/nodes/transports", r.requireAccount(r.handleNodeTransports))
 	r.mux.HandleFunc("/api/nodes/bootstrap/token", r.requireAccount(r.handleNodeBootstrapToken))
+	r.mux.HandleFunc("/api/nodes/bootstrap/parent-url/probe", r.requireAccount(r.handleNodeParentURLProbe))
 	r.mux.HandleFunc("/api/nodes/bootstrap/tokens/unconsumed", r.requireAccount(r.handleUnconsumedBootstrapTokens))
 	r.mux.HandleFunc("/api/nodes/bootstrap/tokens/", r.requireAccount(r.handleBootstrapTokenByID))
 	r.mux.HandleFunc("/api/nodes/enroll", r.handleNodeEnroll)

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -36,6 +37,9 @@ import (
 func main() {
 	startedAt := time.Now()
 	cfg := agentconfig.Load()
+	if cfg.NodeMode == "edge" && cfg.NodePublicHost == "" {
+		cfg.NodePublicHost = detectPublicHost()
+	}
 	if err := nodelog.Configure(nodelog.Config{
 		Dir:       cfg.NodeLogDir,
 		Retention: parseDurationOrDefault(cfg.NodeLogRetention, 72*time.Hour),
@@ -490,4 +494,24 @@ func firstPositive(values ...int) int {
 		}
 	}
 	return 0
+}
+
+func detectPublicHost() string {
+	client := &http.Client{Timeout: 3 * time.Second}
+	for _, endpoint := range []string{"https://api.ipify.org", "https://ifconfig.me/ip"} {
+		resp, err := client.Get(endpoint)
+		if err != nil {
+			continue
+		}
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 128))
+		_ = resp.Body.Close()
+		if readErr != nil || resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			continue
+		}
+		ip := strings.TrimSpace(string(body))
+		if net.ParseIP(ip) != nil {
+			return ip
+		}
+	}
+	return ""
 }
