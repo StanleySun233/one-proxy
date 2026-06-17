@@ -97,6 +97,7 @@ jobs:
           fi
           docker build -f docker/one-proxy-panel.Dockerfile \
             --build-arg PANEL_BASE_IMAGE=oneproxy-panel-base:${{ github.sha }} \
+            --build-arg ONEPROXY_NODE_IMAGE=ghcr.io/${{ env.OWNER_LC }}/oneproxy-node:${{ env.IMAGE_VERSION }} \
             --label org.opencontainers.image.revision=${{ github.sha }} \
             --label org.opencontainers.image.version=${{ env.IMAGE_VERSION }} \
             --label org.opencontainers.image.source=${{ env.IMAGE_SOURCE }} \

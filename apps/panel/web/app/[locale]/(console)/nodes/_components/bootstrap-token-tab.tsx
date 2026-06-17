@@ -8,12 +8,14 @@ import {toast} from 'sonner';
 import {BootstrapToken, Node, NodeParentURLProbeResult, Scope} from '@/lib/types';
 import {BootstrapFormValues} from './types';
 
+const nodeImage = process.env.NEXT_PUBLIC_ONEPROXY_NODE_IMAGE || 'ghcr.io/stanleysun233/oneproxy-node:v2.1.0';
+
 function shellQuote(value: string) {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 function highlightedBash(line: string) {
-  const parts = line.split(/(docker|rm|run|true|ghcr\.io\/stanleysun233\/oneproxy-node:latest|--[a-z-]+|-e|-p|-v|\\|'[^']*'|\S+:[^\s]+)/g).filter(Boolean);
+  const parts = line.split(/(docker|rm|run|true|ghcr\.io\/stanleysun233\/oneproxy-node:[^\s]+|--[a-z-]+|-e|-p|-v|\\|'[^']*'|\S+:[^\s]+)/g).filter(Boolean);
 
   return parts.map((part, index) => {
     let className = 'bash-plain';
@@ -122,7 +124,7 @@ export function BootstrapTokenTab({
       `  -e NODE_MODE=${shellQuote(selectedNodeMode)} \\`,
       `  -e NODE_PARENT_URL=${shellQuote(bootstrapURL)} \\`,
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
-      '  ghcr.io/stanleysun233/oneproxy-node:latest'
+      `  ${nodeImage}`
     ].join('\n');
   }, [controlPlaneURL, latestToken, parentReachableUrl, publicPort, selectedNodeMode]);
   const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);
