@@ -23,6 +23,10 @@
   - Commit: `dc8bff3`
 - [x] Authorize multiple access-path proxy challenges in `apps/extension/chrome/tools/background-source/proxy-auth.js`
   - Commit: `c1dd049`
+- [x] Sync Chrome page-source popup/options with latest access-path runtime in `apps/extension/chrome/tools/page-source/popup/index.js` and `apps/extension/chrome/tools/page-source/options/index.js`
+  - Commit: `6cc26db`
+- [x] Regenerate tracked Chrome extension bundles in `apps/extension/chrome/background/one-proxy-worker.js`, `apps/extension/chrome/popup/runtime.js`, and `apps/extension/chrome/options/runtime.js`
+  - Commit: `6ff1552`
 
 ## Blockers
 
