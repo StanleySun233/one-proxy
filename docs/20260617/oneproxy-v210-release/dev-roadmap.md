@@ -57,6 +57,10 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 - [ ] backend-client-tools: fix CONNECT tunnel socket typing in `apps/cli/src/daemon/http-proxy.ts` (depends: http-proxy.ts)
 - [ ] backend-client-tools: regenerate tracked CLI dist artifacts in `apps/cli/dist/**` for v2.1.0 source changes (depends: all CLI source tasks)
 - [ ] backend-node-security: update node proxy tests for v2.1.0 fail-closed behavior in `apps/node/api/internal/proxy/server_test.go` and `apps/node/api/internal/proxy/reverse_test.go` (depends: auth.go)
+- [ ] backend-client-tools: update `onep init` to consume only latest access-path bootstrap state in `apps/cli/src/init.ts` (depends: control-plane.ts)
+- [ ] backend-client-tools: replace visible `group list|use` CLI surface with `access-path list|use` in `apps/cli/src/main.ts` and `apps/cli/src/control-plane.ts` (depends: init.ts)
+- [ ] backend-client-tools: regenerate tracked CLI dist artifacts after init and command-surface changes in `apps/cli/dist/**` (depends: init.ts, main.ts)
+- [ ] backend-node-security: verify direct QUIC identity in node-to-node stream clients in `apps/node/api/internal/direct/quic_stream.go` (depends: api-contract.md)
 
 ### Frontend Tasks
 
@@ -78,6 +82,10 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 - [ ] frontend-extension-routing: authorize multiple access-path proxy challenges in `apps/extension/chrome/tools/background-source/proxy-auth.js` (depends: pac.js)
 - [ ] frontend-extension-routing: sync Chrome page-source popup/options with latest access-path runtime in `apps/extension/chrome/tools/page-source/popup/index.js` and `apps/extension/chrome/tools/page-source/options/index.js` (depends: popup/runtime.js, options/runtime.js)
 - [ ] frontend-extension-routing: regenerate tracked Chrome extension bundles in `apps/extension/chrome/background/one-proxy-worker.js`, `apps/extension/chrome/popup/runtime.js`, and `apps/extension/chrome/options/runtime.js` (depends: page-source and background-source tasks)
+- [ ] frontend-panel-ops: remove default join-password guidance from node console messages in `apps/panel/web/messages/en/nodesConsole.json` and `apps/panel/web/messages/zh/nodesConsole.json` (depends: agentconfig/config.go)
+- [ ] frontend-extension-routing: replace status bubble and monitor legacy group probes with latest access-path route topology in `apps/extension/chrome/tools/background-source/status-bubble.js` and `apps/extension/chrome/tools/background-source/monitor.js` (depends: state.js, routing.js)
+- [ ] frontend-extension-routing: update shared page-source contracts and extension smoke fixtures to latest access-path bootstrap state in `apps/extension/chrome/tools/page-source/shared/contracts.js`, `apps/extension/chrome/tools/domain_suffix_test.mjs`, and `apps/extension/chrome/tools/service_worker_smoke.mjs` (depends: api.js)
+- [ ] frontend-extension-routing: regenerate tracked Chrome extension bundles after monitor/status/test fixture updates (depends: status-bubble.js, monitor.js)
 
 ### Release, Test, and Deployment Tasks
 
