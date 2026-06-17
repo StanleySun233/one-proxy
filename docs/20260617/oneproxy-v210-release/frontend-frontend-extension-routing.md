@@ -33,6 +33,8 @@
   - Commit: `5539c4d`
 - [x] Regenerate tracked Chrome extension bundles after monitor/status/test fixture updates in `apps/extension/chrome/background/one-proxy-worker.js`
   - Commit: `5539c4d`
+- [x] Rename visible extension group terminology to access-path terminology in popup, options, status bubble, locales, and generated runtime assets
+  - Commit: `13b6358`
 
 ## Verification
 
@@ -44,6 +46,7 @@
 - `node --test apps/extension/chrome/tools/domain_suffix_test.mjs`: pass, 3 tests
 - `node apps/extension/chrome/tools/build_background_bundle.mjs`: pass
 - `node apps/extension/chrome/tools/validate_extension.mjs`: pass, `chrome_extension_static_ok`
+- `rg -n "activeGroup|noGroup|statusNoGroups|\bgroups\b|groupDetail|Group default|Remote groups|remote groups|远程分组|当前分组|无分组|分组详情|分组默认|panel-groups" apps/extension/chrome/tools apps/extension/chrome/_locales apps/extension/chrome/popup apps/extension/chrome/options apps/extension/chrome/content apps/extension/chrome/background`: pass, no matches
 
 ## Blockers
 
