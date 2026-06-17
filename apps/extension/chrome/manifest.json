@@ -5,15 +5,16 @@
   "default_locale": "en",
   "description": "__MSG_appDescription__",
   "permissions": [
+    "activeTab",
     "alarms",
     "proxy",
     "storage",
-    "tabs",
     "webRequest",
     "webRequestAuthProvider"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background/one-proxy-worker.js"
