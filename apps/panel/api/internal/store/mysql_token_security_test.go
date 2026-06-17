@@ -25,6 +25,7 @@ type tokenSecurityRecord struct {
 	calls      []tokenSecurityCall
 	sequences  map[string]int64
 	nodeStatus string
+	tableCount int64
 }
 
 func (r *tokenSecurityRecord) add(query string, args []driver.Value) {
@@ -154,6 +155,8 @@ func (r *tokenSecurityRecord) rows(query string, args []driver.Value) driver.Row
 	case normalized == "SELECT current_value FROM id_sequences WHERE name = ?":
 		name, _ := args[0].(string)
 		return tokenSecurityRow([]string{"current_value"}, r.sequence(name))
+	case normalized == "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()":
+		return tokenSecurityRow([]string{"count"}, r.tableCount)
 	case strings.HasPrefix(normalized, "SELECT id, target_id, node_name, node_mode, scope_key, parent_node_id, public_host, public_port, expires_at, consumed_at FROM bootstrap_tokens WHERE token_hash = ?"):
 		return tokenSecurityRow([]string{"id", "target_id", "node_name", "node_mode", "scope_key", "parent_node_id", "public_host", "public_port", "expires_at", "consumed_at"}, "bootstrap-1", "node-1", "local-node", "relay", "default", nil, "127.0.0.1", int64(2988), time.Now().UTC().Add(time.Hour).Format(time.RFC3339), nil)
 	case strings.HasPrefix(normalized, "SELECT id, name, mode, scope_key, COALESCE(parent_node_id, ''), enabled, status, COALESCE(public_host, ''), COALESCE(public_port, 0) FROM nodes WHERE id = ?"):

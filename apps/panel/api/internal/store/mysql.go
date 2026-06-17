@@ -43,7 +43,7 @@ func (s *MySQLStore) BootstrapAdminPassword() string {
 }
 
 func (s *MySQLStore) init(ctx context.Context) error {
-	if err := s.runMigrations(ctx); err != nil {
+	if err := s.initSchema(ctx); err != nil {
 		return err
 	}
 	if err := s.db.PingContext(ctx); err != nil {

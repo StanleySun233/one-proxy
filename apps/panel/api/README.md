@@ -8,5 +8,5 @@ Go backend for node management, routing policy, auth, certificate lifecycle, and
 - `internal/app`
 - `internal/config`
 - `internal/httpapi`
-- `schema/001_init.sql`
+- `schema/final.sql`
 - `openapi.yaml`

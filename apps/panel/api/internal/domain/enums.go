@@ -37,41 +37,37 @@ const (
 
 // Path mode constants
 const (
-	PathModeDirect       = "direct"
-	PathModeRelayChain   = "relay_chain"
-	PathModeUpstreamPull = "upstream_pull"
+	PathModeForward = "forward"
+	PathModeReverse = "reverse"
+	PathModeDirect  = "direct"
+	PathModeTCP     = "tcp"
+	PathModeUDP     = "udp"
 )
 
 // Access protocol constants
 const (
-	AccessProtocolHTTP   = "http"
-	AccessProtocolTCP    = "tcp"
-	AccessProtocolTLS    = "tls"
-	AccessProtocolSSH    = "ssh"
-	AccessProtocolRDP    = "rdp"
-	AccessProtocolSocks5 = "socks5"
-	AccessProtocolSS5    = "ss5"
-	AccessProtocolUDP    = "udp"
+	AccessProtocolHTTP    = "http"
+	AccessProtocolHTTPS   = "https"
+	AccessProtocolConnect = "connect"
+	AccessProtocolTCP     = "tcp"
+	AccessProtocolUDP     = "udp"
+	AccessProtocolQUIC    = "quic"
 )
 
 // Access service type constants
 const (
-	AccessServiceHTTP           = "http"
-	AccessServiceHTTPS          = "https"
-	AccessServiceRawTCP         = "raw_tcp"
-	AccessServiceRawUDP         = "raw_udp"
-	AccessServiceSSH            = "ssh"
-	AccessServiceRDP            = "rdp"
-	AccessServiceSocks5         = "socks5"
-	AccessServiceSS5            = "ss5"
-	AccessServiceTLSPassthrough = "tls_passthrough"
+	AccessServiceHTTPForwardProxy = "http_forward_proxy"
+	AccessServiceReverseProxy     = "reverse_proxy"
+	AccessServiceTCPAccess        = "tcp_access"
+	AccessServiceUDPAccess        = "udp_access"
+	AccessServiceDirectQUIC       = "direct_quic"
 )
 
 // TLS mode constants
 const (
-	TLSModeNone        = "none"
-	TLSModePassthrough = "passthrough"
-	TLSModeTerminate   = "terminate"
+	TLSModePassthrough  = "passthrough"
+	TLSModeTerminate    = "terminate"
+	TLSModeDirectVerify = "direct_verify"
 )
 
 // Access auth mode constants

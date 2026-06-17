@@ -20,7 +20,7 @@ ENV HTTP_ADDR=127.0.0.1:2887
 ENV CONTROL_PLANE_URL=http://127.0.0.1:2887
 
 COPY --from=api-builder /out/one-proxy-panel /app/bin/one-proxy-panel
-COPY --from=api-builder /workspace/apps/panel/api/migrations /app/apps/panel/api/migrations
+COPY --from=api-builder /workspace/apps/panel/api/schema /app/apps/panel/api/schema
 COPY --from=web-builder /workspace/apps/panel/web/.next/standalone /app
 COPY --from=web-builder /workspace/apps/panel/web/.next/static /app/.next/static
 COPY --from=web-builder /workspace/apps/panel/web/public /app/public

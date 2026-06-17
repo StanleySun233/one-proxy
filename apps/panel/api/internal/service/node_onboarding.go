@@ -35,21 +35,13 @@ func (c *ControlPlane) CreateNodeOnboardingTask(accountID string, input domain.C
 			return item, nil
 		}
 		return updated, nil
-	case domain.PathModeRelayChain:
+	default:
 		status, message := c.probeRelayPath(input.PathID)
 		updated, updateErr := c.store.UpdateNodeOnboardingTaskStatus(item.ID, status, message)
 		if updateErr != nil {
 			return item, nil
 		}
 		return updated, nil
-	case domain.PathModeUpstreamPull:
-		updated, updateErr := c.store.UpdateNodeOnboardingTaskStatus(item.ID, domain.TaskStatusPending, "waiting_for_target_node_pull")
-		if updateErr != nil {
-			return item, nil
-		}
-		return updated, nil
-	default:
-		return item, nil
 	}
 }
 
@@ -75,7 +67,7 @@ func (c *ControlPlane) validateNodeOnboardingTask(mode string, pathID string, ta
 		if targetHost == "" || targetPort <= 0 {
 			return invalidInput("invalid_node_onboarding_task_payload")
 		}
-	case domain.PathModeRelayChain, domain.PathModeUpstreamPull:
+	default:
 		if pathID == "" {
 			return invalidInput("invalid_node_onboarding_task_payload")
 		}
@@ -112,7 +104,7 @@ func (c *ControlPlane) probeRelayPath(pathID string) (string, string) {
 	}
 	relayURLs, ok := relayURLsForPath(c.store.ListNodes(), path)
 	if !ok || len(relayURLs) == 0 {
-		return domain.ProbeResultStatusFailed, "invalid_relay_chain"
+		return domain.ProbeResultStatusFailed, "invalid_access_path"
 	}
 	result, err := controlrelay.Execute(relayURLs[0], controlrelay.ProbeRequest{
 		RemainingRelayURLs: relayURLs[1:],

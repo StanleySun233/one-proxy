@@ -18,6 +18,7 @@ import type {Chain, FieldEnumEntry, Node, NodeAccessPath, NodeAccessPathDeleteIm
 type AccessPathFormState = {
   chainId: string;
   name: string;
+  mode: string;
   protocol: string;
   listenHost: string;
   listenPort: string;
@@ -42,13 +43,14 @@ type NodeAccessPathWithHealth = NodeAccessPath & {
 const emptyForm: AccessPathFormState = {
   chainId: '',
   name: '',
-  protocol: 'tcp',
+  mode: 'forward',
+  protocol: 'http',
   listenHost: '0.0.0.0',
   listenPort: '',
   targetHost: '',
   targetPort: '',
   targetSni: '',
-  tlsMode: 'none',
+  tlsMode: '',
   authMode: 'proxy_token',
   enabled: true
 };
@@ -57,35 +59,53 @@ function enumOptions(values?: Record<string, FieldEnumEntry>) {
   return values ? Object.entries(values).map(([value, item]) => ({value, label: item.name})) : [];
 }
 
-function serviceTypeForProtocol(protocol: string) {
-  const mapping: Record<string, string> = {
-    http: 'http',
-    tcp: 'raw_tcp',
-    tls: 'tls_passthrough',
-    ssh: 'ssh',
-    rdp: 'rdp',
-    socks5: 'socks5',
-    ss5: 'ss5',
-    udp: 'raw_udp'
-  };
-  return mapping[protocol] || 'raw_tcp';
+const protocolsByMode: Record<string, string[]> = {
+  forward: ['http', 'https', 'connect'],
+  reverse: ['http', 'https'],
+  direct: ['quic'],
+  tcp: ['tcp'],
+  udp: ['udp']
+};
+
+function protocolsForMode(mode: string) {
+  return protocolsByMode[mode] || protocolsByMode.forward;
 }
 
-function targetProtocolFor(protocol: string) {
-  return protocol === 'tls' ? 'tcp' : protocol;
+function normalizedProtocolForMode(mode: string, protocol: string) {
+  const allowed = protocolsForMode(mode);
+  return allowed.includes(protocol) ? protocol : allowed[0];
+}
+
+function serviceTypeFor(mode: string) {
+  const mapping: Record<string, string> = {
+    forward: 'http_forward_proxy',
+    reverse: 'reverse_proxy',
+    direct: 'direct_quic',
+    tcp: 'tcp_access',
+    udp: 'udp_access'
+  };
+  return mapping[mode] || 'http_forward_proxy';
+}
+
+function targetProtocolFor(mode: string, protocol: string) {
+  if (mode === 'direct') {
+    return 'quic';
+  }
+  return protocol === 'connect' ? 'tcp' : protocol;
 }
 
 function pathFormValues(path: NodeAccessPath): AccessPathFormState {
   return {
     chainId: path.chainId,
     name: path.name,
+    mode: path.mode,
     protocol: path.protocol,
     listenHost: path.listenHost || '0.0.0.0',
     listenPort: String(path.listenPort || ''),
     targetHost: path.targetHost || '',
     targetPort: String(path.targetPort || ''),
     targetSni: path.targetSni || '',
-    tlsMode: path.tlsMode || 'none',
+    tlsMode: path.tlsMode || '',
     authMode: path.authMode || 'proxy_token',
     enabled: path.enabled
   };
@@ -147,15 +167,15 @@ function submitPayload(form: AccessPathFormState, chains: Chain[]): NodeAccessPa
   return {
     chainId: form.chainId,
     name: form.name.trim(),
-    mode: 'relay_chain',
+    mode: form.mode as NodeAccessPathPayload['mode'],
     protocol: form.protocol as NodeAccessPathPayload['protocol'],
-    serviceType: serviceTypeForProtocol(form.protocol) as NodeAccessPathPayload['serviceType'],
+    serviceType: serviceTypeFor(form.mode) as NodeAccessPathPayload['serviceType'],
     targetNodeId: hops[hops.length - 1] || '',
     entryNodeId: hops[0] || '',
-    relayNodeIds: hops,
+    relayNodeIds: hops.length > 2 ? hops.slice(1, -1) : [],
     listenHost: form.listenHost.trim(),
     listenPort: portNumber(form.listenPort),
-    targetProtocol: targetProtocolFor(form.protocol),
+    targetProtocol: targetProtocolFor(form.mode, form.protocol),
     targetHost: form.targetHost.trim(),
     targetPort: portNumber(form.targetPort),
     targetSni: form.targetSni.trim(),
@@ -259,6 +279,10 @@ export function AccessPathPanel({
     setFormState((current) => ({...current, [field]: value}));
   };
 
+  const setMode = (mode: string) => {
+    setFormState((current) => ({...current, mode, protocol: normalizedProtocolForMode(mode, current.protocol)}));
+  };
+
   const handleEdit = (path: NodeAccessPath) => {
     setEditingPath(path);
     setCreateOpen(false);
@@ -313,7 +337,9 @@ export function AccessPathPanel({
 
   const paths = pathsQuery.data || [];
   const enums = enumsQuery.data || {};
+  const modeOptions = enumOptions(enums.path_mode);
   const protocolOptions = enumOptions(enums.access_protocol);
+  const formProtocolOptions = protocolOptions.filter((option) => protocolsForMode(formState.mode).includes(option.value));
   const tlsOptions = enumOptions(enums.tls_mode);
   const authOptions = enumOptions(enums.access_auth_mode);
   const selectedChain = chainById.get(formState.chainId);
@@ -401,7 +427,7 @@ export function AccessPathPanel({
                     <tr key={path.id}>
                       <td><NameTag kind="node">{path.name}</NameTag></td>
                       <td><NameTag kind="chain">{chainById.get(path.chainId)?.name || t('common.unknown')}</NameTag></td>
-                      <td className="mono">{path.protocol} / {path.serviceType}</td>
+                      <td className="mono">{path.mode} / {path.protocol} / {path.serviceType}</td>
                       <td className="mono">{path.targetHost}:{path.targetPort}</td>
                       <td className="mono">{path.listenHost || '*'}:{path.listenPort}</td>
                       <td>
@@ -483,9 +509,15 @@ export function AccessPathPanel({
           <input className="field-input" onChange={(event) => setField('name', event.target.value)} value={formState.name} />
         </label>
         <label className="field-stack">
+          <span>{t('common.mode')}</span>
+          <select className="field-select" onChange={(event) => setMode(event.target.value)} value={formState.mode}>
+            {modeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label className="field-stack">
           <span>{accessPathsT('protocol')}</span>
           <select className="field-select" onChange={(event) => setField('protocol', event.target.value)} value={formState.protocol}>
-            {protocolOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            {formProtocolOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
         <label className="field-stack">
