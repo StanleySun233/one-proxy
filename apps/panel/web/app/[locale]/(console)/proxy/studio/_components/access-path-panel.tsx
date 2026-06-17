@@ -29,12 +29,22 @@ type AccessPathFormState = {
   enabled: boolean;
 };
 
+type AccessPathHealth = {
+  status: 'available' | 'degraded' | 'unavailable' | 'unknown';
+  reason: string;
+  checkedAt: string;
+};
+
+type NodeAccessPathWithHealth = NodeAccessPath & {
+  health?: AccessPathHealth;
+};
+
 const emptyForm: AccessPathFormState = {
   chainId: '',
   name: '',
   protocol: 'tcp',
   listenHost: '0.0.0.0',
-  listenPort: '0',
+  listenPort: '',
   targetHost: '',
   targetPort: '',
   targetSni: '',
@@ -71,7 +81,7 @@ function pathFormValues(path: NodeAccessPath): AccessPathFormState {
     name: path.name,
     protocol: path.protocol,
     listenHost: path.listenHost || '0.0.0.0',
-    listenPort: String(path.listenPort || 0),
+    listenPort: String(path.listenPort || ''),
     targetHost: path.targetHost || '',
     targetPort: String(path.targetPort || ''),
     targetSni: path.targetSni || '',
@@ -81,8 +91,38 @@ function pathFormValues(path: NodeAccessPath): AccessPathFormState {
   };
 }
 
+function portNumber(value: string) {
+  return Number(value.trim());
+}
+
+function isValidPort(value: string) {
+  const port = portNumber(value);
+  return Number.isInteger(port) && port >= 1 && port <= 65535;
+}
+
 function chainNodeIds(chain?: Chain) {
   return chain?.hops || [];
+}
+
+function accessPathHealth(path: NodeAccessPath) {
+  return (path as NodeAccessPathWithHealth).health;
+}
+
+function accessPathHealthBadgeClassName(status?: string) {
+  if (status === 'available') {
+    return 'badge is-good';
+  }
+  if (status === 'degraded') {
+    return 'badge is-warn';
+  }
+  if (status === 'unavailable') {
+    return 'badge is-danger';
+  }
+  return 'badge is-neutral';
+}
+
+function accessPathHealthTitle(health?: AccessPathHealth) {
+  return [health?.reason, health?.checkedAt].filter(Boolean).join(' | ') || health?.status || 'unknown';
 }
 
 function NodeTagPath({labels}: {labels: string[]}) {
@@ -114,10 +154,10 @@ function submitPayload(form: AccessPathFormState, chains: Chain[]): NodeAccessPa
     entryNodeId: hops[0] || '',
     relayNodeIds: hops,
     listenHost: form.listenHost.trim(),
-    listenPort: Number(form.listenPort || 0),
+    listenPort: portNumber(form.listenPort),
     targetProtocol: targetProtocolFor(form.protocol),
     targetHost: form.targetHost.trim(),
-    targetPort: Number(form.targetPort || 0),
+    targetPort: portNumber(form.targetPort),
     targetSni: form.targetSni.trim(),
     tlsMode: form.tlsMode as NodeAccessPathPayload['tlsMode'],
     authMode: form.authMode as NodeAccessPathPayload['authMode'],
@@ -250,11 +290,20 @@ export function AccessPathPanel({
   }, [createRequestKey]);
 
   const handleSubmit = () => {
-    const payload = submitPayload(formState, chains);
-    if (!payload.chainId || !payload.name || !payload.targetHost || payload.targetPort <= 0) {
+    const chain = chainById.get(formState.chainId);
+    if (!chain || chain.hops.length === 0 || !formState.name.trim() || !formState.listenHost.trim() || !formState.targetHost.trim()) {
       toast.error(accessPathsT('required'));
       return;
     }
+    if (!isValidPort(formState.listenPort)) {
+      toast.error(`${accessPathsT('listenPort')}: ${t('common.invalid')}`);
+      return;
+    }
+    if (!isValidPort(formState.targetPort)) {
+      toast.error(`${accessPathsT('targetPort')}: ${t('common.invalid')}`);
+      return;
+    }
+    const payload = submitPayload(formState, chains);
     if (editingPath) {
       updateMutation.mutate(payload);
       return;
@@ -347,6 +396,7 @@ export function AccessPathPanel({
               <tbody>
                 {filteredPaths.map((path) => {
                   const canManage = globalSuperAdmin || path.permission === 'manage';
+                  const health = accessPathHealth(path);
                   return (
                     <tr key={path.id}>
                       <td><NameTag kind="node">{path.name}</NameTag></td>
@@ -354,7 +404,14 @@ export function AccessPathPanel({
                       <td className="mono">{path.protocol} / {path.serviceType}</td>
                       <td className="mono">{path.targetHost}:{path.targetPort}</td>
                       <td className="mono">{path.listenHost || '*'}:{path.listenPort}</td>
-                      <td><span className={`badge ${path.enabled ? 'is-success' : 'is-neutral'}`}>{path.enabled ? t('common.enabled') : t('common.disabled')}</span></td>
+                      <td>
+                        <div className="inline-cluster">
+                          <span className={`badge ${path.enabled ? 'is-good' : 'is-neutral'}`}>{path.enabled ? t('common.enabled') : t('common.disabled')}</span>
+                          <span className={accessPathHealthBadgeClassName(health?.status)} title={accessPathHealthTitle(health)}>
+                            {health?.status || t('common.unknown')}
+                          </span>
+                        </div>
+                      </td>
                       {canWrite ? (
                         <td>
                           <div className="chain-list-actions">
@@ -437,7 +494,7 @@ export function AccessPathPanel({
         </label>
         <label className="field-stack">
           <span>{accessPathsT('listenPort')}</span>
-          <input className="field-input" inputMode="numeric" onChange={(event) => setField('listenPort', event.target.value)} value={formState.listenPort} />
+          <input className="field-input" inputMode="numeric" max={65535} min={1} onChange={(event) => setField('listenPort', event.target.value)} type="number" value={formState.listenPort} />
         </label>
         <label className="field-stack">
           <span>{accessPathsT('targetHost')}</span>
@@ -445,7 +502,7 @@ export function AccessPathPanel({
         </label>
         <label className="field-stack">
           <span>{accessPathsT('targetPort')}</span>
-          <input className="field-input" inputMode="numeric" onChange={(event) => setField('targetPort', event.target.value)} value={formState.targetPort} />
+          <input className="field-input" inputMode="numeric" max={65535} min={1} onChange={(event) => setField('targetPort', event.target.value)} type="number" value={formState.targetPort} />
         </label>
         <label className="field-stack">
           <span>{accessPathsT('tlsMode')}</span>
