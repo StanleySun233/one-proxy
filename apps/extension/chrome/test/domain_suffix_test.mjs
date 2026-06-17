@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildPacScript } from './background-source/pac.js';
-import { routeMatches, routePreviewForHost } from './background-source/routing.js';
+import { buildPacScript } from '../tools/background-source/pac.js';
+import { routeMatches, routePreviewForHost } from '../tools/background-source/routing.js';
 
 function stateWithDomainSuffixRoute(matchValue) {
   return {

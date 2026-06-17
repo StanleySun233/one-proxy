@@ -6,11 +6,13 @@ on:
     paths:
       - 'apps/extension/chrome/**'
       - 'apps/extension/chrome/tools/**'
+      - 'apps/extension/chrome/test/**'
       - '.github/workflows/chrome-extension-ci.yml'
   pull_request:
     paths:
       - 'apps/extension/chrome/**'
       - 'apps/extension/chrome/tools/**'
+      - 'apps/extension/chrome/test/**'
       - '.github/workflows/chrome-extension-ci.yml'
   workflow_dispatch:
 
@@ -33,7 +35,7 @@ jobs:
       - name: Static extension checks
         run: |
           node apps/extension/chrome/tools/validate_extension.mjs
-          python3 apps/extension/chrome/tools/assert_no_sensitive_ak_in_smoke.py
+          python3 apps/extension/chrome/test/assert_no_sensitive_ak_in_smoke.py
 
       - name: Install Playwright
         run: |
@@ -41,4 +43,4 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Service worker smoke test
-        run: xvfb-run --auto-servernum node apps/extension/chrome/tools/service_worker_smoke.mjs
+        run: xvfb-run --auto-servernum node apps/extension/chrome/test/service_worker_smoke.mjs

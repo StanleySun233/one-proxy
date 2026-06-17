@@ -4,7 +4,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[4]
-SMOKE = ROOT / "apps" / "extension" / "chrome" / "tools" / "service_worker_smoke.mjs"
+SMOKE = ROOT / "apps" / "extension" / "chrome" / "test" / "service_worker_smoke.mjs"
 
 
 def fail(message: str) -> None:
