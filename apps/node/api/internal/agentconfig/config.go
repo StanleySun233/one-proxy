@@ -42,7 +42,7 @@ type Config struct {
 }
 
 func Load() Config {
-	joinPassword, joinPasswordProvided := lookupEnvOrDefault("NODE_JOIN_PASSWORD", "password")
+	joinPassword, joinPasswordProvided := lookupEnvOrDefault("NODE_JOIN_PASSWORD", "")
 	parentID := envOrDefault("NODE_PARENT_ID", "")
 	parentURL := envOrDefault("NODE_PARENT_URL", "")
 	return Config{
