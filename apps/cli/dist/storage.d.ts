@@ -78,6 +78,7 @@ export type DaemonMetadata = {
         excludedCommonPorts: number[];
     };
     idleTimeoutSeconds?: number;
+    daemonSecret: string;
 };
 export declare const loopbackHost = "127.0.0.1";
 export type ProfileRecord = {

@@ -1,82 +1,148 @@
 export function resolveRoute(input) {
     const target = parseTarget(input.target, input.protocol);
     const host = target.host.toLowerCase();
-    const group = activeRouteGroup(input);
-    const entryNode = firstEntryNode(input.state);
+    if (isSafetyDirectTarget(host, input.config)) {
+        return routeResult(input, target, 'direct', 'local_safety_direct');
+    }
     if (input.proxyOnly) {
-        return routeResult(input, target, 'proxy', { source: 'proxy_only' }, group, entryNode);
+        return proxyOnlyRoute(input, target);
     }
     if (matchesOverride(host, input.config.overrides?.direct ?? [])) {
-        return routeResult(input, target, 'direct', { source: 'local_override_direct' }, group, null);
+        return routeResult(input, target, 'direct', 'local_override_direct');
     }
     if (matchesOverride(host, input.config.overrides?.proxy ?? [])) {
-        return routeResult(input, target, 'proxy', { source: 'local_override_proxy' }, group, entryNode);
+        return routeForAccessPath(input, target, activeAccessPath(input), 'local_override_proxy');
     }
-    const rule = group?.rules.find((candidate) => matchesRule(host, candidate));
-    if (rule) {
-        return routeResult(input, target, rule.mode, { source: 'policy', ruleId: rule.id, ruleType: rule.type, pattern: rule.pattern }, group, rule.mode === 'proxy' ? entryNode : null);
+    const route = enabledRoutes(input.state)
+        .sort((left, right) => left.priority - right.priority || left.id.localeCompare(right.id))
+        .find((candidate) => matchesRoute(target, candidate));
+    if (!route) {
+        return routeResult(input, target, 'direct', 'default_direct');
     }
-    return routeResult(input, target, 'direct', { source: 'default_direct' }, group, null);
+    if (route.actionType === 'direct') {
+        return routeResult(input, target, 'direct', 'policy', route);
+    }
+    if (route.actionType === 'deny') {
+        return routeResult(input, target, 'deny', 'policy', route, undefined, 'route_denied');
+    }
+    const accessPath = accessPaths(input.state).find((candidate) => candidate.enabled && candidate.id === route.accessPathId);
+    if (!accessPath) {
+        return routeResult(input, target, 'deny', 'policy', route, undefined, 'access_path_unavailable');
+    }
+    return routeResult(input, target, 'proxy', 'policy', route, accessPath);
 }
-function activeRouteGroup(input) {
-    return (input.state.routeGroups ?? []).find((group) => group.id === input.config.activeGroupId);
+function proxyOnlyRoute(input, target) {
+    const accessPath = activeAccessPath(input);
+    return accessPath
+        ? routeForAccessPath(input, target, accessPath, 'proxy_only')
+        : routeResult(input, target, 'deny', 'proxy_only', undefined, undefined, 'access_path_unavailable');
 }
-function firstEntryNode(state) {
-    const node = state.bootstrap?.entryNodes?.[0];
-    return node ? node : null;
+function routeForAccessPath(input, target, accessPath, source) {
+    return accessPath
+        ? routeResult(input, target, 'proxy', source, undefined, accessPath)
+        : routeResult(input, target, 'deny', source, undefined, undefined, 'access_path_unavailable');
 }
-function routeResult(input, target, mode, matched, group, entryNode) {
+function routeResult(input, target, mode, source, route, accessPath, denyReason = '') {
     return {
         target: target.original,
         host: target.host,
         port: target.port,
+        targetHost: target.host,
+        targetPort: target.port,
+        protocol: target.protocol,
         mode,
-        matched,
+        source,
+        routeId: route?.id ?? '',
+        chainId: route?.chainId ?? accessPath?.chainId ?? '',
+        accessPathId: route?.accessPathId ?? accessPath?.id ?? '',
+        denyReason,
+        matched: {
+            source,
+            ruleId: route?.id,
+            ruleType: route?.matchType,
+            pattern: route?.matchValue
+        },
         tenant: { id: input.config.activeTenantId },
-        group: { id: group?.id, name: group?.name },
-        topology: mode === 'proxy' && entryNode ? {
-            entryNodeId: entryNode.id,
-            entryHost: entryNode.host,
-            entryPort: entryNode.port,
-            protocol: entryNode.protocol
-        } : null
+        group: { id: route?.chainId ?? accessPath?.chainId },
+        topology: mode === 'proxy' && accessPath ? topologyFromAccessPath(accessPath) : null
+    };
+}
+function accessPaths(state) {
+    return (state.accessPaths ?? []);
+}
+function enabledRoutes(state) {
+    return (state.routes ?? []).filter((route) => route.enabled);
+}
+function activeAccessPath(input) {
+    const config = input.config;
+    const state = input.state;
+    const selectedId = config.activeAccessPathId ?? state.bootstrap?.accessPathId;
+    const paths = accessPaths(input.state);
+    return paths.find((accessPath) => accessPath.enabled && accessPath.id === selectedId) || paths.find((accessPath) => accessPath.enabled);
+}
+function topologyFromAccessPath(accessPath) {
+    return {
+        entryNodeId: accessPath.entryNodeId,
+        entryHost: accessPath.listenHost,
+        entryPort: accessPath.listenPort,
+        protocol: accessPath.protocol,
+        hops: accessPath.topology
     };
 }
 function parseTarget(target, protocol = 'https') {
-    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(target) ? target : `${protocol}://${target}`;
+    const normalizedProtocol = protocol.toLowerCase().replace(/:$/, '');
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(target) ? target : `${normalizedProtocol}://${target}`;
     const url = new URL(withScheme);
-    const port = url.port ? Number(url.port) : defaultPort(url.protocol);
+    const parsedProtocol = url.protocol.replace(':', '').toLowerCase();
+    const port = url.port ? Number(url.port) : defaultPort(parsedProtocol);
     return {
         original: target,
         host: url.hostname.toLowerCase(),
-        port
+        port,
+        protocol: parsedProtocol
     };
 }
 function defaultPort(protocol) {
-    if (protocol === 'http:') {
+    if (protocol === 'http') {
         return 80;
     }
-    if (protocol === 'ssh:') {
+    if (protocol === 'ssh') {
         return 22;
     }
     return 443;
 }
+function isSafetyDirectTarget(host, config) {
+    if (isLoopbackHost(host)) {
+        return true;
+    }
+    return Boolean(config.controlPlaneUrl && new URL(config.controlPlaneUrl).hostname.toLowerCase() === host);
+}
+function isLoopbackHost(host) {
+    const normalized = host.replace(/^\[|\]$/g, '');
+    return normalized === 'localhost' || normalized === '::1' || normalized.startsWith('127.') || normalized === '0.0.0.0';
+}
 function matchesOverride(host, overrides) {
     return overrides.some((override) => hostMatchesPattern(host, override.toLowerCase()));
 }
-function matchesRule(host, rule) {
-    const pattern = rule.pattern.toLowerCase();
-    if (rule.type === 'wildcard') {
-        return pattern === '*' || hostMatchesPattern(host, pattern);
+function matchesRoute(target, route) {
+    const pattern = route.matchValue.toLowerCase();
+    if (route.matchType === 'default') {
+        return true;
     }
-    if (rule.type === 'suffix') {
-        return hostMatchesSuffix(host, pattern);
+    if (route.matchType === 'protocol') {
+        return target.protocol === pattern;
     }
-    if (rule.type === 'domain') {
-        return host === pattern;
+    if (route.matchType === 'domain_suffix') {
+        return hostMatchesSuffix(target.host, pattern);
     }
-    if (rule.type === 'cidr') {
-        return matchesIpv4Cidr(host, pattern);
+    if (route.matchType === 'domain') {
+        return target.host === pattern;
+    }
+    if (route.matchType === 'ip') {
+        return target.host === pattern;
+    }
+    if (route.matchType === 'ip_cidr') {
+        return matchesIpv4Cidr(target.host, pattern);
     }
     return false;
 }

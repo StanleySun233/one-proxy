@@ -34,7 +34,7 @@ function parseTarget(raw) {
     };
 }
 async function postIpc(daemon, path, body) {
-    if (!daemon?.bindings.ipcPort || !processIsRunning(daemon.pid)) {
+    if (!daemon?.bindings.ipcPort || !daemon.daemonSecret || !processIsRunning(daemon.pid)) {
         throw Object.assign(new Error('Daemon is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
     }
     const payload = JSON.stringify(body);
@@ -46,7 +46,8 @@ async function postIpc(daemon, path, body) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload)
+                'Content-Length': Buffer.byteLength(payload),
+                'X-One-Proxy-Daemon-Secret': daemon.daemonSecret
             },
             timeout: 1000
         }, (res) => {

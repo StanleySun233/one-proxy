@@ -2,7 +2,6 @@ import * as http from 'node:http';
 import * as net from 'node:net';
 import { closeServer, listenHttpServer, readConfig, readState, readTokens } from "./lifecycle.js";
 import { resolveRoute } from "./router.js";
-const proxyRetryBackoffs = [100, 250];
 export async function startHttpProxyListeners(input, bindings, liveState = false, onProxyActivity) {
     const httpServer = createHttpProxyServer(input, liveState, onProxyActivity);
     const httpsServer = createHttpProxyServer(input, liveState, onProxyActivity);
@@ -43,27 +42,46 @@ export function createHttpProxyServer(input, liveState = false, onProxyActivity,
         }
         const context = await proxyContext(input, liveState);
         const route = resolveRoute({ ...context, target: `${target.host}:${target.port}`, protocol: 'connect', proxyOnly });
+        if (route.mode === 'deny') {
+            clientSocket.end(connectErrorResponse(route));
+            return;
+        }
         if (route.mode === 'proxy' && !route.topology) {
             clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n');
             return;
         }
         const token = route.mode === 'proxy' ? await proxyToken() : undefined;
+        if (route.mode === 'proxy' && !token) {
+            clientSocket.end('HTTP/1.1 407 Proxy Authentication Required\r\n\r\nproxy_auth_required');
+            return;
+        }
         const upstream = route.mode === 'proxy' && route.topology ? {
             host: route.topology.entryHost,
             port: route.topology.entryPort
         } : target;
-        const upstreamSocket = net.connect(upstream.port, upstream.host, () => {
+        const upstreamSocket = net.connect(upstream.port, upstream.host, async () => {
             if (route.mode === 'proxy') {
                 upstreamSocket.write(connectRequest(target.host, target.port, token));
+                try {
+                    const proxyResponse = await readConnectProxyResponse(upstreamSocket);
+                    if (proxyResponse.statusCode !== 200) {
+                        clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\nbad_connect_response');
+                        upstreamSocket.destroy();
+                        return;
+                    }
+                    clientSocket.write(proxyResponse.header);
+                    pipeTunnel(clientSocket, upstreamSocket, head, proxyResponse.remaining);
+                }
+                catch {
+                    clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\nbad_connect_response');
+                    upstreamSocket.destroy();
+                }
+                return;
             }
             else {
                 clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
             }
-            if (head.length > 0) {
-                upstreamSocket.write(head);
-            }
-            clientSocket.pipe(upstreamSocket);
-            upstreamSocket.pipe(clientSocket);
+            pipeTunnel(clientSocket, upstreamSocket, head);
         });
         upstreamSocket.on('error', () => clientSocket.destroy());
         clientSocket.on('error', () => upstreamSocket.destroy());
@@ -79,6 +97,10 @@ async function proxyHttpRequest(input, liveState, request, response, proxyOnly) 
     }
     const context = await proxyContext(input, liveState);
     const route = resolveRoute({ ...context, target: target.url, protocol: target.protocol, proxyOnly });
+    if (route.mode === 'deny') {
+        writeRouteDenied(response, route);
+        return;
+    }
     if (route.mode === 'proxy' && !route.topology) {
         response.writeHead(502);
         response.end();
@@ -86,11 +108,15 @@ async function proxyHttpRequest(input, liveState, request, response, proxyOnly) 
     }
     const headers = { ...request.headers };
     delete headers['proxy-connection'];
+    delete headers['proxy-authorization'];
     if (route.mode === 'proxy') {
         const token = await proxyToken();
-        if (token) {
-            headers['proxy-authorization'] = `Bearer ${token}`;
+        if (!token) {
+            response.writeHead(407, { 'content-type': 'text/plain' });
+            response.end('proxy_auth_required');
+            return;
         }
+        headers['proxy-authorization'] = `Bearer ${token}`;
     }
     const upstreamOptions = {
         host: route.mode === 'proxy' && route.topology ? route.topology.entryHost : target.host,
@@ -100,8 +126,7 @@ async function proxyHttpRequest(input, liveState, request, response, proxyOnly) 
         headers
     };
     try {
-        const body = await readRequestBody(request);
-        await forwardHttpWithRetry(request.method || 'GET', body, response, upstreamOptions);
+        await streamHttpProxyRequest(request, response, upstreamOptions);
     }
     catch {
         if (!response.headersSent) {
@@ -157,78 +182,103 @@ function connectRequest(host, port, token) {
 async function proxyToken() {
     return (await readTokens())?.proxyToken;
 }
-async function forwardHttpWithRetry(method, body, response, upstreamOptions) {
-    let attempt = 0;
-    for (;;) {
-        try {
-            const upstreamResponse = await sendProxyRequest(method, body, upstreamOptions);
-            if (attempt < proxyRetryBackoffs.length && retryableProxyStatus(upstreamResponse.statusCode)) {
-                const delay = proxyRetryBackoffs[attempt];
-                attempt += 1;
-                await sleep(delay);
-                continue;
-            }
-            response.writeHead(upstreamResponse.statusCode, upstreamResponse.headers);
-            response.end(method === 'HEAD' ? undefined : upstreamResponse.body);
-            return;
-        }
-        catch (error) {
-            if (attempt < proxyRetryBackoffs.length) {
-                const delay = proxyRetryBackoffs[attempt];
-                attempt += 1;
-                await sleep(delay);
-                continue;
-            }
-            throw error;
-        }
+function pipeTunnel(clientSocket, upstreamSocket, clientHead, upstreamHead = Buffer.alloc(0)) {
+    if (upstreamHead.length > 0) {
+        clientSocket.write(upstreamHead);
     }
+    if (clientHead.length > 0) {
+        upstreamSocket.write(clientHead);
+    }
+    clientSocket.pipe(upstreamSocket);
+    upstreamSocket.pipe(clientSocket);
 }
-function readRequestBody(request) {
+function readConnectProxyResponse(socket) {
     return new Promise((resolve, reject) => {
-        const chunks = [];
-        request.on('data', (chunk) => {
-            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-        request.on('end', () => resolve(Buffer.concat(chunks)));
-        request.on('error', reject);
-        request.on('aborted', () => reject(new Error('request_aborted')));
-    });
-}
-function sendProxyRequest(method, body, upstreamOptions) {
-    return new Promise((resolve, reject) => {
-        const upstreamRequest = http.request(upstreamOptions, (upstreamResponse) => {
-            const chunks = [];
-            upstreamResponse.on('data', (chunk) => {
-                chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-            });
-            upstreamResponse.on('end', () => {
-                const responseBody = method === 'HEAD' ? Buffer.alloc(0) : Buffer.concat(chunks);
-                const contentLength = upstreamResponse.headers['content-length'];
-                if (method !== 'HEAD' && typeof contentLength === 'string' && Number(contentLength) !== responseBody.length) {
-                    reject(new Error('response_content_length_mismatch'));
-                    return;
+        let buffered = Buffer.alloc(0);
+        const cleanup = () => {
+            socket.off('data', onData);
+            socket.off('error', onError);
+            socket.off('end', onEnd);
+        };
+        const onData = (chunk) => {
+            buffered = Buffer.concat([buffered, chunk]);
+            const headerEnd = buffered.indexOf('\r\n\r\n');
+            if (headerEnd < 0) {
+                if (buffered.length > 65536) {
+                    cleanup();
+                    reject(new Error('connect_response_too_large'));
                 }
-                resolve({
-                    statusCode: upstreamResponse.statusCode ?? 502,
-                    headers: upstreamResponse.headers,
-                    body: responseBody
-                });
+                return;
+            }
+            cleanup();
+            const header = buffered.subarray(0, headerEnd + 4);
+            resolve({
+                statusCode: connectStatusCode(header),
+                header,
+                remaining: buffered.subarray(headerEnd + 4)
             });
-            upstreamResponse.on('error', reject);
-            upstreamResponse.on('aborted', () => reject(new Error('response_aborted')));
-        });
-        upstreamRequest.on('error', reject);
-        if (body.length > 0) {
-            upstreamRequest.end(body);
-            return;
-        }
-        upstreamRequest.end();
+        };
+        const onError = (error) => {
+            cleanup();
+            reject(error);
+        };
+        const onEnd = () => {
+            cleanup();
+            reject(new Error('connect_response_closed'));
+        };
+        socket.on('data', onData);
+        socket.once('error', onError);
+        socket.once('end', onEnd);
     });
 }
-function retryableProxyStatus(statusCode) {
-    return statusCode === 502 || statusCode === 503 || statusCode === 504;
+function connectStatusCode(header) {
+    const line = header.toString('ascii', 0, header.indexOf('\r\n')).trim();
+    const match = /^HTTP\/\d(?:\.\d)?\s+(\d{3})/.exec(line);
+    return match ? Number(match[1]) : 0;
 }
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+function streamHttpProxyRequest(request, response, upstreamOptions) {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const settle = (error) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            error ? reject(error) : resolve();
+        };
+        const upstreamRequest = http.request(upstreamOptions, (upstreamResponse) => {
+            response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
+            if (request.method === 'HEAD') {
+                upstreamResponse.resume();
+                response.end();
+                settle();
+                return;
+            }
+            upstreamResponse.pipe(response);
+            upstreamResponse.on('error', settle);
+            upstreamResponse.on('end', () => settle());
+        });
+        upstreamRequest.on('error', settle);
+        request.on('aborted', () => {
+            upstreamRequest.destroy();
+            settle(new Error('request_aborted'));
+        });
+        request.pipe(upstreamRequest);
+    });
+}
+function connectErrorResponse(route) {
+    if (route.denyReason === 'access_path_unavailable' || route.denyReason === 'node_unavailable') {
+        return `HTTP/1.1 502 Bad Gateway\r\n\r\n${route.denyReason}`;
+    }
+    return `HTTP/1.1 403 Forbidden\r\n\r\n${route.denyReason || 'route_denied'}`;
+}
+function writeRouteDenied(response, route) {
+    if (route.denyReason === 'access_path_unavailable' || route.denyReason === 'node_unavailable') {
+        response.writeHead(502, { 'content-type': 'text/plain' });
+        response.end(route.denyReason);
+        return;
+    }
+    response.writeHead(403, { 'content-type': 'text/plain' });
+    response.end(route.denyReason || 'route_denied');
 }
 //# sourceMappingURL=http-proxy.js.map

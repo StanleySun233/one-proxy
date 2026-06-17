@@ -73,6 +73,7 @@ export type DaemonMetadata = {
     bindings: DaemonBindings;
     portSelection: PortSelection;
     idleTimeoutSeconds: number;
+    daemonSecret: string;
 };
 export type DaemonHealth = {
     ok: boolean;

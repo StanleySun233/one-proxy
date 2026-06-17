@@ -63,14 +63,13 @@ async function promptMissingPassword(value) {
     return promptPassword('Password: ');
 }
 function tokenFromLogin(result) {
-    const accessTokenExpiresAt = result.tokens?.expiresAt || result.expiresAt;
     return {
         schemaVersion: 1,
         account: result.account,
-        accessToken: result.tokens?.accessToken || result.accessToken,
-        refreshToken: result.tokens?.refreshToken || result.refreshToken,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
         proxyToken: undefined,
-        accessTokenExpiresAt,
+        accessTokenExpiresAt: result.expiresAt,
         refreshTokenExpiresAt: undefined,
         proxyTokenExpiresAt: undefined
     };
@@ -116,10 +115,16 @@ export async function login(args, context) {
     const tokens = tokenFromLogin(result);
     const memberships = result.tenantMemberships ?? [];
     const defaultTenantId = result.activeTenantId || (memberships.length === 1 ? tenantIdOf(memberships[0]) : undefined);
-    await writeConfig({ ...nextConfig, activeTenantId: defaultTenantId || config.activeTenantId });
+    const loginConfig = {
+        ...nextConfig,
+        activeTenantId: defaultTenantId || config.activeTenantId,
+        activeGroupId: undefined,
+        activeAccessPathId: undefined
+    };
+    await writeConfig(loginConfig);
     await writeTokens(tokens);
     if (defaultTenantId) {
-        await syncRemoteStateWithRefresh({ ...nextConfig, activeTenantId: defaultTenantId || config.activeTenantId }, tokens);
+        await syncRemoteStateWithRefresh(loginConfig, tokens);
     }
     print(context.json
         ? { account: tokens.account, activeTenantId: defaultTenantId ?? null, tenantSelectionRequired: !defaultTenantId }
@@ -143,8 +148,7 @@ export async function refreshSession() {
     }
     const result = await request(config, '/auth/refresh', {
         method: 'POST',
-        refreshToken: tokens.refreshToken,
-        body: { refreshToken: tokens.refreshToken }
+        refreshToken: tokens.refreshToken
     });
     const nextTokens = { ...tokens, ...tokenFromLogin(result) };
     await writeTokens(nextTokens);
@@ -172,12 +176,12 @@ export async function tenantUse(args, context) {
     }
     const config = await readConfig();
     const nextTenantId = tenantIdOf(tenant);
-    const state = await readState();
-    const currentGroup = state.routeGroups.find((group) => group.id === config.activeGroupId);
+    const latestConfig = config;
     const nextConfig = {
         ...config,
         activeTenantId: nextTenantId,
-        activeGroupId: currentGroup?.tenantId === nextTenantId ? config.activeGroupId : undefined
+        activeGroupId: undefined,
+        activeAccessPathId: latestConfig.activeTenantId === nextTenantId ? latestConfig.activeAccessPathId : undefined
     };
     await writeConfig(nextConfig);
     await syncRemoteStateWithRefresh(nextConfig, await requireTokens());
@@ -188,75 +192,31 @@ export async function groupList(_args, context) {
     if (!config.activeTenantId) {
         throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
     }
-    const state = await readState();
-    const groups = state.routeGroups.filter((group) => group.tenantId === config.activeTenantId);
+    const state = (await readState());
+    const accessPaths = state.accessPaths ?? [];
     if (context.json) {
-        print({ groups }, context);
+        print({ accessPaths }, context);
         return;
     }
-    print(groups.map((group) => `${group.id}\t${group.name || group.id}`).join('\n'), context);
+    print(accessPaths.map((accessPath) => `${accessPath.id}\t${accessPath.name || accessPath.id}`).join('\n'), context);
 }
 export async function groupUse(args, context) {
-    const config = await readConfig();
+    const config = (await readConfig());
     if (!config.activeTenantId) {
         throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
     }
     const target = args[0].toLowerCase();
-    const state = await readState();
-    const groups = state.routeGroups.filter((group) => group.tenantId === config.activeTenantId);
-    const group = groups.find((item) => item.id.toLowerCase() === target || (item.name || '').toLowerCase() === target);
-    if (!group) {
-        throw Object.assign(new Error(`Group not found in synced state: ${args[0]}. Run onep sync first.`), { code: 'GROUP_REQUIRED' });
+    const state = (await readState());
+    const accessPath = (state.accessPaths ?? []).find((item) => item.id.toLowerCase() === target || (item.name || '').toLowerCase() === target);
+    if (!accessPath) {
+        throw Object.assign(new Error(`Access path not found in synced state: ${args[0]}. Run onep sync first.`), { code: 'ACCESS_PATH_REQUIRED' });
     }
-    await writeConfig({ ...config, activeGroupId: group.id });
-    print(context.json ? { activeGroupId: group.id } : `Active group: ${group.name || group.id}`, context);
+    const nextConfig = { ...config, activeGroupId: undefined, activeAccessPathId: accessPath.id };
+    await writeConfig(nextConfig);
+    print(context.json ? { activeAccessPathId: accessPath.id } : `Active access path: ${accessPath.name || accessPath.id}`, context);
 }
-export function routeRulesFromBootstrap(group) {
-    const directHosts = (group.directHosts ?? []).map((host) => ({
-        id: `direct:${host}`,
-        type: routeTypeFromHostPattern(host),
-        pattern: host,
-        mode: 'direct'
-    }));
-    const proxyHosts = (group.proxyHosts ?? []).map((host) => ({
-        id: `proxy:${host}`,
-        type: routeTypeFromHostPattern(host),
-        pattern: host,
-        mode: 'proxy'
-    }));
-    const routes = (group.routes ?? []).map((route) => ({
-        id: route.id,
-        type: routeTypeFromMatchType(route.matchType),
-        pattern: route.matchValue,
-        mode: route.actionType === 'direct' ? 'direct' : 'proxy'
-    }));
-    return [...routes, ...directHosts, ...proxyHosts];
-}
-function routeTypeFromMatchType(matchType) {
-    const normalized = matchType.toLowerCase();
-    if (normalized === 'suffix' || normalized === 'cidr' || normalized === 'wildcard') {
-        return normalized;
-    }
-    if (normalized === 'domain_suffix') {
-        return 'suffix';
-    }
-    if (normalized === 'ip_cidr') {
-        return 'cidr';
-    }
-    if (normalized === 'default') {
-        return 'wildcard';
-    }
-    return 'domain';
-}
-function routeTypeFromHostPattern(host) {
-    const normalized = host.trim().toLowerCase();
-    if (normalized.startsWith('*.') || normalized.startsWith('.')) {
-        return 'suffix';
-    }
-    if (normalized.includes('*')) {
-        return 'wildcard';
-    }
-    return 'domain';
+export function routeRulesFromBootstrap(_group) {
+    throw Object.assign(new Error('Route groups are not part of the v2.1.0 bootstrap contract.'), { code: 'UNSUPPORTED_BOOTSTRAP_CONTRACT' });
 }
 async function syncRemoteState(config, tokens) {
     if (!config.activeTenantId) {
@@ -269,38 +229,35 @@ async function syncRemoteState(config, tokens) {
         accessToken: tokens.accessToken,
         tenantId: config.activeTenantId
     });
-    const routeGroups = (bootstrap.groups ?? []).map((group) => ({
-        id: group.id,
-        tenantId: config.activeTenantId || '',
-        name: group.name,
-        rules: routeRulesFromBootstrap(group)
-    }));
-    const activeGroup = routeGroups.find((group) => group.id === config.activeGroupId) || routeGroups.find((group) => group.id);
-    const entryGroup = (bootstrap.groups ?? []).find((group) => group.id === activeGroup?.id);
+    const latestConfig = config;
+    const activeAccessPath = bootstrap.accessPaths.find((accessPath) => accessPath.enabled && accessPath.id === latestConfig.activeAccessPathId) ||
+        bootstrap.accessPaths.find((accessPath) => accessPath.enabled);
     const state = {
         ...(await readState()),
         schemaVersion: 1,
         bootstrap: {
             tenantId: config.activeTenantId,
-            groupId: activeGroup?.id,
-            entryNodes: entryGroup?.proxyHost
-                ? [{ id: entryGroup.entryNodeId || entryGroup.id, host: entryGroup.proxyHost, port: entryGroup.proxyPort || 443, protocol: entryGroup.proxyScheme || 'connect' }]
-                : []
+            accessPathId: activeAccessPath?.id
         },
         policyRevision: bootstrap.policyRevision,
-        fetchedAt: bootstrap.fetchedAt || new Date().toISOString(),
-        routeGroups
+        fetchedAt: bootstrap.fetchedAt,
+        nodes: bootstrap.nodes,
+        accessPaths: bootstrap.accessPaths,
+        routes: bootstrap.routes,
+        routeEvaluation: bootstrap.routeEvaluation,
+        routeGroups: []
     };
     await writeState(state);
     await writeTokens({
         ...tokens,
-        proxyToken: bootstrap.proxyToken || tokens.proxyToken,
-        proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt || tokens.proxyTokenExpiresAt
+        proxyToken: bootstrap.proxyToken,
+        proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt
     });
-    if (activeGroup?.id && activeGroup.id !== config.activeGroupId) {
-        await writeConfig({ ...config, activeGroupId: activeGroup.id });
+    if (activeAccessPath?.id && activeAccessPath.id !== latestConfig.activeAccessPathId) {
+        const nextConfig = { ...config, activeGroupId: undefined, activeAccessPathId: activeAccessPath.id };
+        await writeConfig(nextConfig);
     }
-    return { policyRevision: state.policyRevision, groupCount: routeGroups.length };
+    return { policyRevision: state.policyRevision, accessPathCount: bootstrap.accessPaths.length };
 }
 async function syncRemoteStateWithRefresh(config, tokens) {
     try {
@@ -330,6 +287,8 @@ export async function autoSyncRemoteState() {
 }
 export async function sync(_args, context) {
     const result = await syncRemoteStateWithRefresh(await readConfig(), await requireTokens());
-    print(context.json ? { synced: true, policyRevision: result.policyRevision, groupCount: result.groupCount } : `Synced ${result.groupCount} group(s).`, context);
+    print(context.json
+        ? { synced: true, policyRevision: result.policyRevision, accessPathCount: result.accessPathCount }
+        : `Synced ${result.accessPathCount} access path(s).`, context);
 }
 //# sourceMappingURL=control-plane.js.map
