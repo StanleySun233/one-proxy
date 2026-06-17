@@ -61,6 +61,7 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 - [ ] backend-client-tools: replace visible `group list|use` CLI surface with `access-path list|use` in `apps/cli/src/main.ts` and `apps/cli/src/control-plane.ts` (depends: init.ts)
 - [ ] backend-client-tools: regenerate tracked CLI dist artifacts after init and command-surface changes in `apps/cli/dist/**` (depends: init.ts, main.ts)
 - [ ] backend-node-security: verify direct QUIC identity in node-to-node stream clients in `apps/node/api/internal/direct/quic_stream.go` (depends: api-contract.md)
+- [ ] backend-node-security: pass direct QUIC peer identity through node candidates and link plans in `apps/node/api/internal/domain/direct.go`, `apps/node/api/internal/direct/**`, and `apps/panel/api/internal/{domain,store}/direct_transport.go` (depends: quic_stream.go)
 
 ### Frontend Tasks
 

@@ -493,6 +493,41 @@ POST /api/node/agent/proxy/token/validate
 POST /api/node/agent/proxy/sessions
 ```
 
+`POST /api/node/agent/direct/candidates` request:
+
+```ts
+type DirectCandidatesRequest = {
+  udpListenPort: number;
+  natType: string;
+  candidates: DirectCandidate[];
+  observedAt: string;
+  directIdentity: DirectNodeIdentity;
+};
+```
+
+`GET /api/node/agent/direct/link/plan` response:
+
+```ts
+type DirectLinkPlanResult = {
+  nodeId: string;
+  links: DirectLinkPlan[];
+};
+
+type DirectLinkPlan = {
+  linkId: string;
+  peerNodeId: string;
+  role: 'dialer' | 'listener' | string;
+  preferredTransport: 'direct_quic';
+  fallbackTransport: 'relay_ws_parent';
+  punchToken: string;
+  expiresAt: string;
+  peerCandidates: DirectCandidate[];
+  peerIdentity: DirectNodeIdentity;
+};
+```
+
+Node-to-node direct QUIC stream clients must use `peerIdentity`. A link plan without complete peer identity is unusable for direct QUIC and must not become a connected direct peer.
+
 `GET /api/node/agent/auth/validate` returns:
 
 ```ts
@@ -554,7 +589,7 @@ type DirectNodeIdentity = {
 };
 ```
 
-Direct QUIC clients must verify the peer identity using `nodeIdentity`. `InsecureSkipVerify` is not valid in the v2.1.0 production path.
+`trustMaterial` is the PEM-encoded certificate material used to build a scoped trust pool for that peer. Direct QUIC clients must verify the peer identity using `nodeIdentity` or `peerIdentity`. `InsecureSkipVerify` is not valid in the v2.1.0 production path.
 
 ### `POST /api/node/agent/direct/client/session/validate`
 
