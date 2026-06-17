@@ -2,6 +2,7 @@ package proxyservice
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
 	proxy "github.com/StanleySun233/python-proxy/apps/panel/api/internal/features/proxy/domain"
@@ -18,12 +19,8 @@ func (s *Service) CreateAccessPath(tenantCtx domain.TenantAuthContext, input dom
 	if !tenantCtx.SuperAdmin && tenantCtx.ActiveTenant.Role != domain.TenantRoleAdmin {
 		return domain.NodeAccessPath{}, newError(http.StatusForbidden, "tenant_role_forbidden")
 	}
-	input = normalizeCreateAccessPathInput(input)
-	if err := s.validateAccessPath(tenantCtx, input.ChainID, input.Name, input.Mode, input.Protocol, input.ServiceType, input.TargetHost, input.TargetPort, input.ListenPort, input.TLSMode, input.AuthMode); err != nil {
+	if err := s.validateCreateAccessPath(tenantCtx, input); err != nil {
 		return domain.NodeAccessPath{}, err
-	}
-	if !s.tenantNodesExist(tenantCtx, accessPathNodeIDs(input.TargetNodeID, input.EntryNodeID, input.RelayNodeIDs)) {
-		return domain.NodeAccessPath{}, invalidInput("node_not_found")
 	}
 	return s.store.CreateNodeAccessPathForTenant(tenantCtx, input)
 }
@@ -37,12 +34,8 @@ func (s *Service) UpdateAccessPath(tenantCtx domain.TenantAuthContext, pathID st
 	}); err != nil {
 		return domain.NodeAccessPath{}, err
 	}
-	input = normalizeUpdateAccessPathInput(input)
-	if err := s.validateAccessPath(tenantCtx, input.ChainID, input.Name, input.Mode, input.Protocol, input.ServiceType, input.TargetHost, input.TargetPort, input.ListenPort, input.TLSMode, input.AuthMode); err != nil {
+	if err := s.validateUpdateAccessPath(tenantCtx, input); err != nil {
 		return domain.NodeAccessPath{}, err
-	}
-	if !s.tenantNodesExist(tenantCtx, accessPathNodeIDs(input.TargetNodeID, input.EntryNodeID, input.RelayNodeIDs)) {
-		return domain.NodeAccessPath{}, invalidInput("node_not_found")
 	}
 	return s.store.UpdateNodeAccessPath(pathID, input)
 }
@@ -77,44 +70,6 @@ func (s *Service) AccessPathDeleteImpact(tenantCtx domain.TenantAuthContext, pat
 	return s.store.GetNodeAccessPathDeleteImpact(pathID)
 }
 
-func normalizeCreateAccessPathInput(input domain.CreateNodeAccessPathInput) domain.CreateNodeAccessPathInput {
-	if input.Protocol == "" {
-		input.Protocol = domain.AccessProtocolHTTP
-	}
-	if input.ServiceType == "" {
-		input.ServiceType = domain.AccessServiceHTTP
-	}
-	if input.TargetProtocol == "" {
-		input.TargetProtocol = input.Protocol
-	}
-	if input.TLSMode == "" {
-		input.TLSMode = domain.TLSModeNone
-	}
-	if input.AuthMode == "" {
-		input.AuthMode = domain.AccessAuthProxyToken
-	}
-	return input
-}
-
-func normalizeUpdateAccessPathInput(input domain.UpdateNodeAccessPathInput) domain.UpdateNodeAccessPathInput {
-	if input.Protocol == "" {
-		input.Protocol = domain.AccessProtocolHTTP
-	}
-	if input.ServiceType == "" {
-		input.ServiceType = domain.AccessServiceHTTP
-	}
-	if input.TargetProtocol == "" {
-		input.TargetProtocol = input.Protocol
-	}
-	if input.TLSMode == "" {
-		input.TLSMode = domain.TLSModeNone
-	}
-	if input.AuthMode == "" {
-		input.AuthMode = domain.AccessAuthProxyToken
-	}
-	return input
-}
-
 func accessPathNodeIDs(targetNodeID string, entryNodeID string, relayNodeIDs []string) []string {
 	nodeIDs := make([]string, 0, len(relayNodeIDs)+2)
 	if targetNodeID != "" {
@@ -131,36 +86,138 @@ func accessPathNodeIDs(targetNodeID string, entryNodeID string, relayNodeIDs []s
 	return nodeIDs
 }
 
-func (s *Service) validateAccessPath(tenantCtx domain.TenantAuthContext, chainID string, name string, mode string, protocol string, serviceType string, targetHost string, targetPort int, listenPort int, tlsMode string, authMode string) error {
-	if chainID == "" || name == "" || mode == "" {
-		return invalidInput("invalid_access_path_payload")
+type accessPathValidationInput struct {
+	ChainID        string
+	Name           string
+	Mode           string
+	Protocol       string
+	ServiceType    string
+	TargetNodeID   string
+	EntryNodeID    string
+	RelayNodeIDs   []string
+	ListenHost     string
+	ListenPort     int
+	TargetProtocol string
+	TargetHost     string
+	TargetPort     int
+	TLSMode        string
+	AuthMode       string
+}
+
+func (s *Service) validateCreateAccessPath(tenantCtx domain.TenantAuthContext, input domain.CreateNodeAccessPathInput) error {
+	return s.validateAccessPath(tenantCtx, accessPathValidationInput{
+		ChainID:        input.ChainID,
+		Name:           input.Name,
+		Mode:           input.Mode,
+		Protocol:       input.Protocol,
+		ServiceType:    input.ServiceType,
+		TargetNodeID:   input.TargetNodeID,
+		EntryNodeID:    input.EntryNodeID,
+		RelayNodeIDs:   input.RelayNodeIDs,
+		ListenHost:     input.ListenHost,
+		ListenPort:     input.ListenPort,
+		TargetProtocol: input.TargetProtocol,
+		TargetHost:     input.TargetHost,
+		TargetPort:     input.TargetPort,
+		TLSMode:        input.TLSMode,
+		AuthMode:       input.AuthMode,
+	})
+}
+
+func (s *Service) validateUpdateAccessPath(tenantCtx domain.TenantAuthContext, input domain.UpdateNodeAccessPathInput) error {
+	return s.validateAccessPath(tenantCtx, accessPathValidationInput{
+		ChainID:        input.ChainID,
+		Name:           input.Name,
+		Mode:           input.Mode,
+		Protocol:       input.Protocol,
+		ServiceType:    input.ServiceType,
+		TargetNodeID:   input.TargetNodeID,
+		EntryNodeID:    input.EntryNodeID,
+		RelayNodeIDs:   input.RelayNodeIDs,
+		ListenHost:     input.ListenHost,
+		ListenPort:     input.ListenPort,
+		TargetProtocol: input.TargetProtocol,
+		TargetHost:     input.TargetHost,
+		TargetPort:     input.TargetPort,
+		TLSMode:        input.TLSMode,
+		AuthMode:       input.AuthMode,
+	})
+}
+
+func (s *Service) validateAccessPath(tenantCtx domain.TenantAuthContext, input accessPathValidationInput) error {
+	if input.ChainID == "" || input.Name == "" || input.Mode == "" || input.Protocol == "" || input.ServiceType == "" || input.TargetNodeID == "" || input.EntryNodeID == "" || input.ListenHost == "" || input.TargetProtocol == "" {
+		return invalidInput("invalid_access_path")
 	}
-	if _, ok := chainByID(s.store.ListChainsForTenant(tenantCtx), chainID); !ok {
-		return invalidInput("chain_not_found")
+	chain, ok := chainByID(s.store.ListChainsForTenant(tenantCtx), input.ChainID)
+	if !ok || !chain.Enabled {
+		return invalidInput("invalid_access_path")
 	}
-	if !s.isValidEnum("path_mode", mode) {
-		return invalidInput("invalid_access_path_payload")
+	if !validLatestPathMode(input.Mode) || !validLatestAccessProtocol(input.Protocol) || !validLatestServiceType(input.ServiceType) {
+		return invalidInput("invalid_access_path")
 	}
-	if !s.isValidEnum("access_protocol", protocol) || !s.isValidEnum("access_service_type", serviceType) {
-		return invalidInput("invalid_access_path_payload")
+	if !validLatestTLSMode(input.TLSMode) || input.AuthMode != domain.AccessAuthProxyToken {
+		return invalidInput("invalid_access_path")
 	}
-	if tlsMode != "" && !s.isValidEnum("tls_mode", tlsMode) {
-		return invalidInput("invalid_access_path_payload")
+	if !validLatestAccessPathCombination(input.Mode, input.Protocol, input.ServiceType) {
+		return invalidInput("invalid_access_path")
 	}
-	if authMode != "" && !s.isValidEnum("access_auth_mode", authMode) {
-		return invalidInput("invalid_access_path_payload")
+	if input.ListenPort < 1 || input.ListenPort > 65535 || input.TargetPort < 1 || input.TargetPort > 65535 {
+		return invalidInput("invalid_access_path")
 	}
-	switch mode {
-	case domain.PathModeDirect, domain.PathModeRelayChain:
-		if targetHost == "" || targetPort <= 0 {
-			return invalidInput("invalid_access_path_payload")
-		}
+	if input.Mode != "forward" && input.TargetHost == "" {
+		return invalidInput("invalid_access_path")
 	}
-	switch protocol {
-	case domain.AccessProtocolTCP, domain.AccessProtocolTLS, domain.AccessProtocolSSH, domain.AccessProtocolRDP, domain.AccessProtocolSocks5, domain.AccessProtocolSS5, domain.AccessProtocolUDP:
-		if listenPort < 0 || targetPort <= 0 {
-			return invalidInput("invalid_access_path_payload")
-		}
+	if !s.tenantEnabledNodesExist(tenantCtx, accessPathNodeIDs(input.TargetNodeID, input.EntryNodeID, input.RelayNodeIDs)) {
+		return invalidInput("invalid_access_path")
 	}
 	return nil
+}
+
+func validLatestPathMode(value string) bool {
+	return slices.Contains([]string{"forward", "reverse", "direct", "tcp", "udp"}, value)
+}
+
+func validLatestAccessProtocol(value string) bool {
+	return slices.Contains([]string{"http", "https", "connect", "tcp", "udp", "quic"}, value)
+}
+
+func validLatestServiceType(value string) bool {
+	return slices.Contains([]string{"http_forward_proxy", "reverse_proxy", "tcp_access", "udp_access", "direct_quic"}, value)
+}
+
+func validLatestTLSMode(value string) bool {
+	return slices.Contains([]string{"", "passthrough", "terminate", "direct_verify"}, value)
+}
+
+func validLatestAccessPathCombination(mode string, protocol string, serviceType string) bool {
+	switch mode {
+	case "forward":
+		return serviceType == "http_forward_proxy" && slices.Contains([]string{"http", "https", "connect"}, protocol)
+	case "reverse":
+		return serviceType == "reverse_proxy" && slices.Contains([]string{"http", "https"}, protocol)
+	case "direct":
+		return serviceType == "direct_quic" && protocol == "quic"
+	case "tcp":
+		return serviceType == "tcp_access" && protocol == "tcp"
+	case "udp":
+		return serviceType == "udp_access" && protocol == "udp"
+	}
+	return false
+}
+
+func (s *Service) tenantEnabledNodesExist(tenantCtx domain.TenantAuthContext, nodeIDs []string) bool {
+	nodes := s.store.ListNodesForTenant(tenantCtx)
+	for _, nodeID := range nodeIDs {
+		found := false
+		for _, node := range nodes {
+			if node.ID == nodeID && node.Enabled {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
