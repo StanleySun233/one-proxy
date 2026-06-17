@@ -1,14 +1,20 @@
 'use client';
 
 import {useEffect, useMemo, useState} from 'react';
+import {useQuery} from '@tanstack/react-query';
 import {useTranslations} from 'next-intl';
 import {UseFormReturn} from 'react-hook-form';
 import {toast} from 'sonner';
 
+import {getNodeReleaseTags} from '@/lib/api';
 import {BootstrapToken, Node, NodeParentURLProbeResult, Scope} from '@/lib/types';
 import {BootstrapFormValues} from './types';
 
-const nodeImage = process.env.NEXT_PUBLIC_ONEPROXY_NODE_IMAGE || 'ghcr.io/stanleysun233/oneproxy-node:v2.1.0';
+const nodeImageRepo = 'ghcr.io/stanleysun233/oneproxy-node';
+const buildNodeImage = process.env.NEXT_PUBLIC_ONEPROXY_NODE_IMAGE || '';
+const releaseTagPattern = /^v\d+\.\d+\.\d+$/;
+const buildNodeImageCandidate = buildNodeImage.startsWith(`${nodeImageRepo}:`) ? buildNodeImage.slice(nodeImageRepo.length + 1) : '';
+const buildNodeImageTag = releaseTagPattern.test(buildNodeImageCandidate) ? buildNodeImageCandidate : '';
 
 function shellQuote(value: string) {
   return `'${value.replace(/'/g, `'\\''`)}'`;
@@ -58,12 +64,18 @@ export function BootstrapTokenTab({
 }) {
   const t = useTranslations();
   const [copied, setCopied] = useState('');
+  const [selectedNodeImageTag, setSelectedNodeImageTag] = useState('');
   const controlPlaneURL = useMemo(() => {
     if (typeof window === 'undefined') {
       return '';
     }
     return window.location.origin;
   }, []);
+  const releaseTagsQuery = useQuery({
+    queryKey: ['node-release-tags'],
+    queryFn: getNodeReleaseTags,
+    staleTime: 300000
+  });
   const selectedNodeMode = form.watch('nodeMode');
   const selectedScopeKey = form.watch('scopeKey');
   const selectedParentNodeId = form.watch('parentNodeId');
@@ -90,6 +102,12 @@ export function BootstrapTokenTab({
   const autoParentReachableUrl = selectedParentNode?.publicHost
     ? `http://${selectedParentNode.publicHost}:${selectedParentNode.publicPort || 2988}`
     : '';
+  const releaseTags = useMemo(
+    () => releaseTagsQuery.data?.tags?.length ? releaseTagsQuery.data.tags : (buildNodeImageTag ? [buildNodeImageTag] : []),
+    [releaseTagsQuery.data?.tags]
+  );
+  const selectedNodeImageRepo = releaseTagsQuery.data?.imageRepo || nodeImageRepo;
+  const selectedNodeImage = selectedNodeImageTag ? `${selectedNodeImageRepo}:${selectedNodeImageTag}` : buildNodeImage;
 
   useEffect(() => {
     if (selectedNodeMode === 'relay') {
@@ -106,6 +124,16 @@ export function BootstrapTokenTab({
   useEffect(() => {
     form.setValue('parentReachableUrl', autoParentReachableUrl, {shouldDirty: false, shouldValidate: true});
   }, [autoParentReachableUrl, form]);
+
+  useEffect(() => {
+    if (releaseTags.length === 0) {
+      return;
+    }
+    const latestTag = releaseTagsQuery.data?.latestTag || releaseTags[0];
+    if (!selectedNodeImageTag || !releaseTags.includes(selectedNodeImageTag)) {
+      setSelectedNodeImageTag(latestTag);
+    }
+  }, [releaseTags, releaseTagsQuery.data?.latestTag, selectedNodeImageTag]);
 
   const dockerCommand = useMemo(() => {
     if (!latestToken) {
@@ -124,9 +152,9 @@ export function BootstrapTokenTab({
       `  -e NODE_MODE=${shellQuote(selectedNodeMode)} \\`,
       `  -e NODE_PARENT_URL=${shellQuote(bootstrapURL)} \\`,
       `  -e NODE_BOOTSTRAP_TOKEN=${shellQuote(latestToken.token)} \\`,
-      `  ${nodeImage}`
+      `  ${selectedNodeImage}`
     ].join('\n');
-  }, [controlPlaneURL, latestToken, parentReachableUrl, publicPort, selectedNodeMode]);
+  }, [controlPlaneURL, latestToken, parentReachableUrl, publicPort, selectedNodeImage, selectedNodeMode]);
   const dockerCommandLines = useMemo(() => dockerCommand.split('\n'), [dockerCommand]);
   const needsParentReachableUrl = selectedNodeMode === 'relay' && selectedParentNodeId.trim() !== '';
 
@@ -300,6 +328,26 @@ export function BootstrapTokenTab({
                 {copied === 'docker' ? t('nodes.bootstrap.copied') : t('nodes.bootstrap.copyCommand')}
               </button>
             </div>
+            <label className="field-stack">
+              <span>{t('nodes.bootstrap.nodeImageTag')}</span>
+              <select
+                className="field-select"
+                disabled={releaseTagsQuery.isPending || releaseTags.length === 0}
+                onChange={(event) => setSelectedNodeImageTag(event.target.value)}
+                value={selectedNodeImageTag}
+              >
+                {releaseTags.map((tag) => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))}
+              </select>
+              <span className="field-hint">
+                {releaseTagsQuery.isPending
+                  ? t('nodes.bootstrap.loadingNodeImageTags')
+                  : releaseTagsQuery.isError
+                    ? t('nodes.bootstrap.nodeImageTagsFallback')
+                    : t('nodes.bootstrap.nodeImageTagsHint')}
+              </span>
+            </label>
             <div className="command-block" role="region" aria-label={t('nodes.bootstrap.dockerOneLiner')}>
               <div className="command-gutter" aria-hidden="true">
                 {dockerCommandLines.map((_, index) => (
