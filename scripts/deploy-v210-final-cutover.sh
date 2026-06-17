@@ -63,14 +63,52 @@ node_image() {
   printf "%s:%s" "$node_repo" "$tag"
 }
 
+current_panel_value() {
+  key="$1"
+  ssh -T "$ssh_host" 'bash -s' -- "$panel_container" "$key" <<'REMOTE'
+set -euo pipefail
+container="$1"
+key="$2"
+value="$(docker exec -e LOOKUP_KEY="$key" "$container" sh -lc 'if [ -f /app/data/.env ]; then awk -F= -v key="$LOOKUP_KEY" '\''$1 == key {sub(/^[^=]*=/, "", $0); print; exit}'\'' /app/data/.env; fi' 2>/dev/null || true)"
+if [ -z "$value" ]; then
+  value="$(docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, "", $0); print; exit}')"
+fi
+printf "%s" "$value"
+REMOTE
+}
+
+infer_local_node_parent_url() {
+  host="$(ssh -G "$ssh_host" 2>/dev/null | awk '/^hostname /{print $2; exit}')"
+  if [ -z "$host" ]; then
+    return 0
+  fi
+  candidate="http://${host}:${panel_port}"
+  if curl -fsS "${candidate}/healthz" >/dev/null 2>&1; then
+    printf "%s" "$candidate"
+  fi
+}
+
+resolve_run_env() {
+  if [ -z "$admin_password" ]; then
+    admin_password="$(current_panel_value ADMIN_PASSWORD)"
+  fi
+  if [ -z "$jwt_signing_key" ]; then
+    jwt_signing_key="$(current_panel_value JWT_SIGNING_KEY)"
+  fi
+  if [ -z "$local_node_parent_url" ]; then
+    local_node_parent_url="$(infer_local_node_parent_url)"
+  fi
+}
+
 require_run_env() {
   require_tag
   if [ "$confirm" != "deploy-final-schema" ]; then
     echo "run requires ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema" >&2
     exit 2
   fi
+  resolve_run_env
   if [ -z "$admin_password" ] || [ -z "$jwt_signing_key" ] || [ -z "$local_node_parent_url" ]; then
-    echo "run requires ONEPROXY_FINAL_PANEL_ADMIN_PASSWORD, ONEPROXY_FINAL_PANEL_JWT_SIGNING_KEY, and ONEPROXY_FINAL_LOCAL_NODE_PARENT_URL" >&2
+    echo "run requires final panel secrets and ONEPROXY_FINAL_LOCAL_NODE_PARENT_URL, or reusable existing panel secrets plus a reachable camelbot panel URL" >&2
     exit 2
   fi
 }
@@ -93,7 +131,11 @@ print_plan() {
   echo "tenant_name=${tenant_name}"
   echo "local_node=${local_node_name}"
   echo "remote_node=${remote_node_name}"
-  echo "local_node_parent_url=${local_node_parent_url:-<required-for-run>}"
+  display_local_parent_url="$local_node_parent_url"
+  if [ -z "$display_local_parent_url" ]; then
+    display_local_parent_url="$(infer_local_node_parent_url)"
+  fi
+  echo "local_node_parent_url=${display_local_parent_url:-<required-for-run>}"
   echo "remote_node_parent_url=${remote_node_parent_url}"
 }
 

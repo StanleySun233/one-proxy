@@ -44,4 +44,4 @@
 - Raw panel web TypeScript checking still reads stale generated `.next` output unless `.next` is excluded or refreshed.
 - The observed standing old panel database is not a valid automatic upgrade target for final-schema-only v2.1.0. It must be reset or directly provisioned into the final schema and route/access-path model.
 - Final replacement deployment and `v2.1.0` tag creation should wait until the standing environment is prepared as a final-schema deployment target.
-- Standing replacement now needs explicit authorization for final DB creation/use, fresh panel data volume use, service replacement, fresh node runtime binding, and final tag creation.
+- Standing replacement now needs explicit authorization for final DB creation/use, fresh panel data volume use, service replacement, fresh node runtime binding, and final tag creation. Final panel secrets and local node parent URL can be resolved by the cutover script without printing secret values.

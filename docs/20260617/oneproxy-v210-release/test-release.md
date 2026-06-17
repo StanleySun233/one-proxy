@@ -36,7 +36,7 @@
   - Evidence:
     - `bash -n scripts/deploy-v210-final-cutover.sh`: pass
     - `scripts/deploy-v210-final-cutover.sh dry-run v2.1.0-rc.65411e7`: pass; prints final panel DB, fresh panel volume, fresh remote node volume, fresh local node volume, and target node names
-    - The same dry-run prints `remote_node_parent_url=http://one-proxy-panel:2886` and `local_node_parent_url=<required-for-run>`
+    - The same dry-run prints `remote_node_parent_url=http://one-proxy-panel:2886` and infers `local_node_parent_url=http://103.214.172.211:2886`
     - `scripts/deploy-v210-final-cutover.sh dry-run latest`: rejects mutable image tag
     - `scripts/deploy-v210-final-cutover.sh check`: pass; local node, camelbot panel, and camelbot node are still on `v2.1.0-rc.38d3a66`; target final DB `one_proxy_v210_final` has `tables=0`
     - `scripts/deploy-v210-final-cutover.sh run v2.1.0-rc.65411e7`: rejects without `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema`
@@ -95,4 +95,4 @@
 |------|---------|--------|
 | 2026-06-17 | Raw panel web `tsc --noEmit` includes stale `.next/types/validator.ts` generated output that references a removed duplicate audit route. | Source TypeScript check passes with `.next` excluded; generated cache must be refreshed before using raw `.next` as a release artifact. |
 | 2026-06-17 | Existing standing panel database is non-empty, has old migration history, and does not contain final access-path rows. | Do not deploy the final-schema-only image as an automatic upgrade. Recreate or directly provision final schema state. |
-| 2026-06-17 | Standing replacement still needs final panel secrets, `ONEPROXY_FINAL_LOCAL_NODE_PARENT_URL`, and explicit destructive-operation authorization. | `scripts/deploy-v210-final-cutover.sh` is ready; target final DB is empty; run mode is gated by confirmation. |
+| 2026-06-17 | Standing replacement still needs explicit destructive-operation authorization. | `scripts/deploy-v210-final-cutover.sh` can reuse current panel secrets and infer local node parent URL; target final DB is empty; run mode is gated by confirmation. |
