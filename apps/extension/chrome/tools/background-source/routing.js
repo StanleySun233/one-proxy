@@ -1,4 +1,4 @@
-import { activeGroupFrom, uniqueStrings } from './state.js';
+import { accessPathById, uniqueStrings } from './state.js';
 
 export function wildcardToRegExp(pattern) {
   return new RegExp(`^${String(pattern || '').replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*')}$`, 'i');
@@ -61,47 +61,81 @@ export function routePreviewForHost(state, host) {
 export function routePreviewForUrl(state, value) {
   const parsed = parseTargetUrl(value);
   const cleanHost = sanitizeHost(parsed.host);
-  const group = activeGroupFrom(state);
   if (!cleanHost) {
     return { mode: 'unknown', source: 'no_site', host: '', topology: [] };
   }
   if (!state.enabled) {
-    return { mode: 'direct', source: 'proxy_off', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
+    return { ...emptyResult(parsed), mode: 'direct', source: 'proxy_off', host: cleanHost };
   }
-  if (!group || !group.proxyHost || !group.proxyPort) {
-    return { mode: 'direct', source: 'no_proxy_target', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
-  }
-  if (hostMatches(['localhost', '*.local', '*.lan', urlHostname(state.controlPlaneUrl), group.proxyHost, ...(group.directHosts || []), ...(state.localOverrides.directHosts || [])], cleanHost)) {
-    const local = hostMatches(state.localOverrides.directHosts, cleanHost);
-    return { mode: 'direct', source: local ? 'local_direct' : 'remote_direct', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
-  }
-  if (cidrMatches(group.directCidrs || [], cleanHost)) {
-    return { mode: 'direct', source: 'remote_direct', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
-  }
-  const matchedRoute = matchGroupRoute(group, parsed);
-  if (matchedRoute) {
-    const mode = matchedRoute.actionType === 'direct' ? 'direct' : 'proxy';
+  return evaluateClientRoute(state, parsed);
+}
+
+export function evaluateClientRoute(state, input) {
+  const parsed = normalizeRouteInput(input);
+  const cleanHost = sanitizeHost(parsed.host);
+  if (isLocalSafetyDirect(state, parsed)) {
     return {
-      mode,
-      source: routeSource(matchedRoute),
-      host: cleanHost,
-      protocol: parsed.protocol,
-      port: parsed.port,
-      rule: matchedRoute,
-      topology: mode === 'proxy' ? (matchedRoute.topology && matchedRoute.topology.length ? matchedRoute.topology : group.topology) : []
+      ...emptyResult(parsed),
+      mode: 'direct',
+      source: 'local_safety_direct',
+      host: cleanHost
     };
   }
-  if (hostMatches([...(group.proxyHosts || []), ...(state.localOverrides.proxyHosts || [])], cleanHost)) {
-    const local = hostMatches(state.localOverrides.proxyHosts, cleanHost);
-    return { mode: 'proxy', source: local ? 'local_proxy' : 'remote_proxy', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: group.topology || [] };
+  const route = firstMatchingRoute(state, parsed);
+  if (!route) {
+    return {
+      ...emptyResult(parsed),
+      mode: 'direct',
+      source: 'default_direct',
+      host: cleanHost
+    };
   }
-  if (cidrMatches(group.proxyCidrs || [], cleanHost)) {
-    return { mode: 'proxy', source: 'remote_proxy', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: group.topology || [] };
+  return applyRouteAction(state, route, parsed);
+}
+
+function emptyResult(parsed) {
+  return {
+    routeId: '',
+    chainId: '',
+    accessPathId: '',
+    targetHost: sanitizeHost(parsed.host),
+    targetPort: parsed.port,
+    protocol: parsed.protocol,
+    topology: [],
+    denyReason: '',
+    host: sanitizeHost(parsed.host),
+    port: parsed.port,
+    rule: null
+  };
+}
+
+function applyRouteAction(state, route, parsed) {
+  const base = {
+    ...emptyResult(parsed),
+    source: 'policy',
+    routeId: route.id,
+    chainId: route.chainId,
+    accessPathId: route.accessPathId,
+    rule: route
+  };
+  if (route.actionType === 'direct') {
+    return { ...base, mode: 'direct' };
   }
-  if (group.proxyDefault) {
-    return { mode: 'proxy', source: 'proxy_default', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: group.topology || [] };
+  if (route.actionType === 'deny') {
+    return { ...base, mode: 'deny', denyReason: 'route_denied' };
   }
-  return { mode: 'direct', source: 'default_direct', host: cleanHost, protocol: parsed.protocol, port: parsed.port, topology: [] };
+  if (route.actionType === 'chain') {
+    const accessPath = accessPathById(state, route.accessPathId);
+    if (!isUsableAccessPath(accessPath)) {
+      return { ...base, mode: 'deny', denyReason: 'access_path_unavailable' };
+    }
+    return {
+      ...base,
+      mode: 'proxy',
+      topology: route.topology.length > 0 ? route.topology : accessPath.topology
+    };
+  }
+  return { ...base, mode: 'deny', denyReason: 'route_denied' };
 }
 
 export function parseTargetUrl(value) {
@@ -116,30 +150,50 @@ export function parseTargetUrl(value) {
     const port = Number(parsed.port) || defaultPort(protocol);
     return { url: parsed.href, host: parsed.hostname, protocol, port };
   } catch (_error) {
-    return { url: raw, host: raw.split('/')[0], protocol: 'http', port: 80 };
+    return normalizeRouteInput({ url: raw, host: raw.split('/')[0], protocol: 'http', port: 80 });
   }
+}
+
+function normalizeRouteInput(input) {
+  const parsed = typeof input === 'object' && input ? input : parseTargetUrl(input);
+  const protocol = String(parsed.protocol || 'http').replace(':', '').toLowerCase();
+  return {
+    url: String(parsed.url || ''),
+    host: sanitizeHost(parsed.host),
+    port: Number(parsed.port || defaultPort(protocol)),
+    protocol,
+    accessPathId: String(parsed.accessPathId || '')
+  };
 }
 
 function defaultPort(protocol) {
-  if (protocol === 'https' || protocol === 'wss') {
+  if (protocol === 'http' || protocol === 'ws') {
+    return 80;
+  }
+  if (protocol === 'https' || protocol === 'wss' || protocol === 'connect') {
     return 443;
   }
-  return 80;
+  if (protocol === 'ssh') {
+    return 22;
+  }
+  return 0;
 }
 
-function matchGroupRoute(group, parsed) {
-  const routes = [...(group.routes || [])].sort((left, right) => Number(left.priority || 0) - Number(right.priority || 0));
-  for (const route of routes) {
-    if (!routeMatches(route, parsed)) {
-      continue;
-    }
-    return route;
-  }
-  return null;
+export function sortedEnabledRoutes(state) {
+  return [...(state.remote.routes || [])]
+    .filter((route) => route.enabled)
+    .sort((left, right) => {
+      const priority = Number(left.priority || 0) - Number(right.priority || 0);
+      return priority || String(left.id || '').localeCompare(String(right.id || ''));
+    });
+}
+
+export function firstMatchingRoute(state, parsed) {
+  return sortedEnabledRoutes(state).find((route) => routeMatches(route, parsed)) || null;
 }
 
 export function routeMatches(route, target) {
-  const parsed = typeof target === 'object' && target ? target : parseTargetUrl(target);
+  const parsed = normalizeRouteInput(target);
   const value = String(route.matchValue || '').toLowerCase();
   const cleanHost = sanitizeHost(parsed.host);
   switch (route.matchType) {
@@ -147,14 +201,12 @@ export function routeMatches(route, target) {
       return cleanHost === value;
     case 'domain_suffix':
       return domainSuffixMatches(value, cleanHost);
+    case 'ip':
+      return cleanHost === value;
     case 'ip_cidr':
       return cidrMatches([route.matchValue], cleanHost);
-    case 'ip_range':
-      return ipRangeMatches(value, cleanHost);
-    case 'port':
-      return Number(parsed.port) === Number(value);
-    case 'url_regex':
-      return urlRegexMatches(route.matchValue, parsed.url);
+    case 'protocol':
+      return parsed.protocol === value;
     case 'default':
       return true;
     default:
@@ -167,39 +219,48 @@ function domainSuffixMatches(value, host) {
   return Boolean(suffix) && (host === suffix || host.endsWith(`.${suffix}`));
 }
 
-function ipRangeMatches(value, host) {
-  const ip = ipv4ToNumber(host);
-  if (ip === null) {
-    return false;
+export function isLocalSafetyDirect(state, target) {
+  const parsed = normalizeRouteInput(target);
+  const controlPlaneHost = urlHostname(state.controlPlaneUrl);
+  if (parsed.host && parsed.host === controlPlaneHost) {
+    return true;
   }
-  const [start, end] = value.split('-', 2).map((item) => ipv4ToNumber(item.trim()));
-  return start !== null && end !== null && ip >= Math.min(start, end) && ip <= Math.max(start, end);
+  if (isLoopbackHost(parsed.host)) {
+    return true;
+  }
+  const helper = state.localHelper || {};
+  return Boolean(helper.enabled && parsed.host === sanitizeHost(helper.host) && Number(parsed.port || 0) === Number(helper.port || 0));
 }
 
-function urlRegexMatches(pattern, url) {
-  try {
-    return new RegExp(pattern).test(url || '');
-  } catch (_error) {
-    return false;
-  }
+function isLoopbackHost(host) {
+  const cleanHost = sanitizeHost(host).replace(/^\[/, '').replace(/\]$/, '');
+  return cleanHost === 'localhost' ||
+    cleanHost.endsWith('.localhost') ||
+    cleanHost === '::1' ||
+    cleanHost.startsWith('127.');
 }
 
-function routeSource(route) {
-  if (route.actionType === 'direct') {
-    return 'remote_direct';
+export function isUsableAccessPath(accessPath) {
+  return Boolean(accessPath &&
+    accessPath.enabled &&
+    accessPath.authMode === 'proxy_token' &&
+    accessPath.serviceType === 'http_forward_proxy' &&
+    accessPath.listenHost &&
+    accessPath.listenPort > 0 &&
+    (!accessPath.health || accessPath.health.status !== 'unavailable'));
+}
+
+export function accessPathProxyTarget(accessPath) {
+  if (!isUsableAccessPath(accessPath)) {
+    return '';
   }
-  if (route.matchType === 'default') {
-    return 'proxy_default';
-  }
-  if (route.actionType === 'chain') {
-    return 'remote_proxy';
-  }
-  return 'remote_proxy';
+  const scheme = accessPath.protocol === 'https' ? 'HTTPS' : 'PROXY';
+  return `${scheme} ${accessPath.listenHost}:${accessPath.listenPort}`;
 }
 
 export function urlHostname(value) {
   try {
-    return new URL(value).hostname;
+    return new URL(value).hostname.toLowerCase();
   } catch (_error) {
     return '';
   }
