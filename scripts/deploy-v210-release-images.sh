@@ -8,7 +8,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 node_repo="${ONEPROXY_NODE_IMAGE_REPO:-ghcr.io/stanleysun233/oneproxy-node}"
 panel_repo="${ONEPROXY_PANEL_IMAGE_REPO:-ghcr.io/stanleysun233/oneproxy-panel}"
 local_node_container="${ONEPROXY_LOCAL_NODE_CONTAINER:-one-proxy-node}"
-local_node_network="${ONEPROXY_LOCAL_NODE_NETWORK:-one-proxy-net}"
+local_node_network="${ONEPROXY_LOCAL_NODE_NETWORK:-}"
 local_node_volume="${ONEPROXY_LOCAL_NODE_VOLUME:-one-proxy-node-runtime}"
 camelbot_ssh_host="${CAMELBOT_SSH_HOST:-camelbot}"
 camelbot_panel_container="${ONEPROXY_PANEL_CONTAINER:-one-proxy-panel}"
@@ -69,6 +69,14 @@ deploy_local_node() {
   image="$(node_image)"
   backup="${local_node_container}-prev-$(date +%Y%m%d%H%M%S)"
   env_file="$(mktemp)"
+  network="$local_node_network"
+  if [ -z "$network" ]; then
+    network="$(docker inspect "$local_node_container" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' | head -n 1)"
+  fi
+  network_args=()
+  if [ -n "$network" ]; then
+    network_args=(--network "$network")
+  fi
   renamed=0
   completed=0
   rollback() {
@@ -93,7 +101,7 @@ deploy_local_node() {
   docker run -d \
     --name "$local_node_container" \
     --restart unless-stopped \
-    --network "$local_node_network" \
+    "${network_args[@]}" \
     --env-file "$env_file" \
     -v "${local_node_volume}:/app/runtime" \
     -p 2988:2988 \
