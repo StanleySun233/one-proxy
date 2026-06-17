@@ -224,7 +224,7 @@ chromium.launchPersistentContext(userDataDir, {
             if (messageResult.error) {
               throw new Error(messageResult.error);
             }
-            if (messageResult.session.accessToken !== 'access-token' || messageResult.session.proxyToken !== 'proxy-token') {
+            if (!messageResult.session.authenticated || !messageResult.session.proxyTokenAvailable) {
               throw new Error('service_worker_login_state_missing_token');
             }
             return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests);
