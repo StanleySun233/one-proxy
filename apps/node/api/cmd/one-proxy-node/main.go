@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -116,10 +117,14 @@ func main() {
 			}
 		}
 	}
-	proxyAuth := proxy.AuthConfig{CacheTTL: parseDurationOrDefault(cfg.NodeProxyTokenCacheTTL, 24*time.Hour)}
-	if manager.Bound() {
-		current := manager.Current()
-		proxyAuth.Validator = proxyTokenValidator(current.ControlPlaneURL, current.NodeAccessToken)
+	startedBound := manager.Bound()
+	startupNodeAuthValid := !startedBound || validateCurrentNodeAuth(manager)
+	dataPathReady := func() bool {
+		return manager.Bound() && startupNodeAuthValid
+	}
+	proxyAuth := proxy.AuthConfig{
+		Validator: managerProxyTokenValidator{manager: manager},
+		CacheTTL:  parseDurationOrDefault(cfg.NodeProxyTokenCacheTTL, 24*time.Hour),
 	}
 	proxyAuthorizer := proxy.NewTokenAuthorizer(proxyAuth)
 	proxyHandler, err := proxy.NewServerWithAuthorizer(store, manager.NodeID, tunnelRegistry, cfg.NodeReverseTargetURL, proxy.AuthConfig{
@@ -141,17 +146,18 @@ func main() {
 		proxyHandler.SetResponseCache(cache)
 		log.Printf("proxy response cache enabled dir=%s ttl=%s memoryMax=%s diskMax=%s", cfg.NodeResponseCacheDir, cfg.NodeResponseCacheTTL, cfg.NodeResponseCacheMemory, cfg.NodeResponseCacheDisk)
 	}
-	if manager.Bound() {
+	if dataPathReady() {
 		current := manager.Current()
 		proxyHandler.SetProxySessionReporter(controlplane.New(current.ControlPlaneURL, current.NodeAccessToken))
 	}
 	proxyHandler.SetDirectStreamOpener(directRegistry)
+	dataPathHandler := dataPathReadyHandler(dataPathReady, proxyHandler)
 	mux := http.NewServeMux()
 	localConsole := localconsole.New(manager, store, cfg, startedAt)
 	consoleWeb := localconsole.WebHandler(cfg.NodeConsoleWebRoot, localConsole.Authenticated)
 	mux.Handle("/api/local/", localConsole)
-	mux.Handle("/", nodeRouteSplitHandler(consoleWeb, proxyHandler))
-	httpHandler := proxyAwareHandler(proxyHandler, mux)
+	mux.Handle("/", nodeRouteSplitHandler(consoleWeb, dataPathHandler))
+	httpHandler := proxyAwareHandler(dataPathHandler, mux)
 	mux.Handle("/api/control/relay/probe", controlrelay.NewProbeHandler(tunnelRegistry, func() string {
 		if !manager.Bound() {
 			return ""
@@ -160,7 +166,7 @@ func main() {
 	}))
 	mux.Handle("/api/node/bootstrap/attach", bootstrap.New(cfg.ListenAddr, cfg.HTTPSListenAddr, manager))
 	mux.Handle(cfg.NodeTunnelPath, tunnel.NewServer(manager, tunnelRegistry))
-	if manager.Bound() {
+	if dataPathReady() {
 		current := manager.Current()
 		forwarder, err := controlproxy.New(current.ControlPlaneURL)
 		if err != nil {
@@ -206,13 +212,15 @@ func main() {
 		}()
 	}
 	tunnelController := tunnel.NewController(manager, tunnelRegistry, cfg.NodeTunnelPath, tunnelInterval)
-	go tunnelController.Run()
-	startDirectManager(cfg, manager, directRegistry)
+	if !startedBound || dataPathReady() {
+		go tunnelController.Run()
+	}
+	startDirectManager(cfg, manager, directRegistry, dataPathReady())
 	go manager.Run()
-	if cfg.TCPAccessListenAddr != "" {
+	if cfg.TCPAccessListenAddr != "" && dataPathReady() {
 		go tcpaccess.ListenAndServe(cfg.TCPAccessListenAddr, tcpaccess.New(proxyAuthorizer, tunnelRegistry))
 	}
-	if cfg.UDPAccessListenAddr != "" {
+	if cfg.UDPAccessListenAddr != "" && dataPathReady() {
 		go udpaccess.ListenAndServe(cfg.UDPAccessListenAddr, udpaccess.New(proxyAuthorizer))
 	}
 	server := &http.Server{
@@ -223,8 +231,8 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
-func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager, registry *direct.Registry) {
-	if cfg.NodeDirectListenAddr == "" || !manager.Bound() {
+func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager, registry *direct.Registry, dataPathReady bool) {
+	if cfg.NodeDirectListenAddr == "" || !dataPathReady || !manager.Bound() {
 		return
 	}
 	addr, err := net.ResolveUDPAddr("udp", cfg.NodeDirectListenAddr)
@@ -290,19 +298,19 @@ func splitCSV(value string) []string {
 	return items
 }
 
-type panelProxyTokenValidator struct {
-	client *controlplane.Client
+type managerProxyTokenValidator struct {
+	manager *runtime.Manager
 }
 
-func proxyTokenValidator(controlPlaneURL string, nodeAccessToken string) proxy.TokenValidator {
-	if controlPlaneURL == "" || nodeAccessToken == "" {
-		return nil
+func (v managerProxyTokenValidator) ValidateProxyToken(ctx context.Context, tokenHash string) (proxy.TokenValidation, error) {
+	if v.manager == nil {
+		return proxy.TokenValidation{}, errors.New("node_control_plane_unbound")
 	}
-	return panelProxyTokenValidator{client: controlplane.New(controlPlaneURL, nodeAccessToken)}
-}
-
-func (v panelProxyTokenValidator) ValidateProxyToken(ctx context.Context, tokenHash string) (proxy.TokenValidation, error) {
-	result, err := v.client.ValidateProxyToken(ctx, tokenHash)
+	current := v.manager.Current()
+	if !bindingComplete(current) {
+		return proxy.TokenValidation{}, errors.New("node_control_plane_unbound")
+	}
+	result, err := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken).ValidateProxyToken(ctx, tokenHash)
 	if err != nil {
 		return proxy.TokenValidation{}, err
 	}
@@ -317,6 +325,23 @@ func (v panelProxyTokenValidator) ValidateProxyToken(ctx context.Context, tokenH
 		AllowLocalProxy: result.AllowLocalProxy,
 		TenantID:        stringValue(result.ActiveTenantID),
 	}, nil
+}
+
+func validateCurrentNodeAuth(manager *runtime.Manager) bool {
+	current := manager.Current()
+	if !bindingComplete(current) {
+		return false
+	}
+	result, err := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken).ValidateNodeAuth()
+	if err != nil || result.NodeID != current.NodeID {
+		log.Printf("proxy-node data paths closed: node auth validation failed")
+		return false
+	}
+	return true
+}
+
+func bindingComplete(binding runtime.Binding) bool {
+	return binding.ControlPlaneURL != "" && binding.NodeID != "" && binding.NodeAccessToken != ""
 }
 
 func stringValue(value *string) string {
@@ -394,6 +419,16 @@ func withObservability(next http.Handler) http.Handler {
 			}
 		}()
 		next.ServeHTTP(sw, req)
+	})
+}
+
+func dataPathReadyHandler(ready func() bool, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if ready == nil || !ready() {
+			http.Error(w, "node_control_plane_unbound", http.StatusServiceUnavailable)
+			return
+		}
+		next.ServeHTTP(w, req)
 	})
 }
 
