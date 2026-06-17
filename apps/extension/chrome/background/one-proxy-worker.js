@@ -2196,24 +2196,25 @@ function registerProxyAuthHandler() {
     return;
   }
   chrome.webRequest.onAuthRequired.addListener(
-    (details) => {
+    (details, callback) => {
       if (!matchesProxyChallenge(details)) {
-        return {};
+        callback({});
+        return;
       }
       const challenger = details.challenger || {};
       appendLog('info', 'proxy_auth_supplied', {
         host: String(challenger.host || ''),
         port: Number(challenger.port || 0)
       }).catch(() => {});
-      return {
+      callback({
         authCredentials: {
           username: 'token',
           password: proxyAuthCache.token
         }
-      };
+      });
     },
     { urls: ['<all_urls>'] },
-    ['blocking']
+    ['asyncBlocking']
   );
 }
 

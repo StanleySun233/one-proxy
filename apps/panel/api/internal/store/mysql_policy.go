@@ -35,41 +35,52 @@ func (s *MySQLStore) ensureDefaultAccessPathsForTenant(tenantCtx domain.TenantAu
 		if pathsByChainID[chain.ID] || len(chain.Hops) == 0 {
 			continue
 		}
-		entryNode, entryOK := nodeByID[chain.Hops[0]]
-		targetNode, targetOK := nodeByID[chain.Hops[len(chain.Hops)-1]]
-		if !entryOK || !targetOK {
+		input, ok := defaultAccessPathInput(chain, nodeByID)
+		if !ok {
 			continue
 		}
-		listenHost := entryNode.PublicHost
-		if listenHost == "" {
-			listenHost = "127.0.0.1"
-		}
-		listenPort := entryNode.PublicPort
-		if listenPort == 0 {
-			listenPort = 2988
-		}
-		_, err := s.CreateNodeAccessPathForTenant(scoped, domain.CreateNodeAccessPathInput{
-			ChainID:        chain.ID,
-			Name:           chain.Name + " default",
-			Mode:           domain.PathModeForward,
-			Protocol:       domain.AccessProtocolHTTP,
-			ServiceType:    domain.AccessServiceHTTPForwardProxy,
-			TargetNodeID:   targetNode.ID,
-			EntryNodeID:    entryNode.ID,
-			RelayNodeIDs:   relayNodeIDs(chain.Hops),
-			ListenHost:     listenHost,
-			ListenPort:     listenPort,
-			TargetProtocol: domain.AccessProtocolHTTP,
-			TargetPort:     listenPort,
-			AuthMode:       domain.AccessAuthProxyToken,
-			Options:        map[string]string{},
-		})
+		_, err := s.CreateNodeAccessPathForTenant(scoped, input)
 		if err != nil {
 			return err
 		}
 		pathsByChainID[chain.ID] = true
 	}
 	return nil
+}
+
+func defaultAccessPathInput(chain proxy.Chain, nodeByID map[string]domain.Node) (domain.CreateNodeAccessPathInput, bool) {
+	if len(chain.Hops) == 0 {
+		return domain.CreateNodeAccessPathInput{}, false
+	}
+	entryNode, entryOK := nodeByID[chain.Hops[0]]
+	targetNode, targetOK := nodeByID[chain.Hops[len(chain.Hops)-1]]
+	if !entryOK || !targetOK {
+		return domain.CreateNodeAccessPathInput{}, false
+	}
+	listenHost := entryNode.PublicHost
+	if listenHost == "" {
+		listenHost = "127.0.0.1"
+	}
+	listenPort := entryNode.PublicPort
+	if listenPort == 0 {
+		listenPort = 2988
+	}
+	return domain.CreateNodeAccessPathInput{
+		ChainID:        chain.ID,
+		Name:           chain.Name + " default",
+		Mode:           domain.PathModeForward,
+		Protocol:       domain.AccessProtocolHTTP,
+		ServiceType:    domain.AccessServiceHTTPForwardProxy,
+		TargetNodeID:   targetNode.ID,
+		EntryNodeID:    entryNode.ID,
+		RelayNodeIDs:   relayNodeIDs(chain.Hops),
+		ListenHost:     listenHost,
+		ListenPort:     listenPort,
+		TargetProtocol: domain.AccessProtocolHTTP,
+		TargetPort:     listenPort,
+		AuthMode:       domain.AccessAuthProxyToken,
+		Options:        map[string]string{},
+	}, true
 }
 
 func relayNodeIDs(hops []string) []string {
