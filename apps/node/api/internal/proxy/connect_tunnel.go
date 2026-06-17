@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
@@ -42,6 +43,13 @@ func (s *Server) tunnelDirect(w http.ResponseWriter, req *http.Request, tracker 
 }
 
 func (s *Server) tunnelViaProxy(w http.ResponseWriter, req *http.Request, nextHop domain.Node, tracker *proxySessionTracker) {
+	nextHopAuth := nextHopProxyAuthorization(req)
+	if nextHopAuth == "" {
+		w.Header().Set("Proxy-Authenticate", `Basic realm="one-proxy"`)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorProxyAuthRequired, proxyErrorProxyAuthRequired)
+		writeProxyError(w, req, proxyErrorProxyAuthRequired, http.StatusProxyAuthRequired)
+		return
+	}
 	tracker.markForward()
 	connectStarted := time.Now().UTC()
 	proxyConn, err := net.Dial("tcp", net.JoinHostPort(nextHop.PublicHost, strconv.Itoa(nextHop.PublicPort)))
@@ -51,7 +59,7 @@ func (s *Server) tunnelViaProxy(w http.ResponseWriter, req *http.Request, nextHo
 		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
 		return
 	}
-	if _, err := fmt.Fprintf(proxyConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", req.Host, req.Host); err != nil {
+	if _, err := fmt.Fprintf(proxyConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\nProxy-Authorization: %s\r\n\r\n", req.Host, req.Host, nextHopAuth); err != nil {
 		proxyConn.Close()
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)
 		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
@@ -125,4 +133,12 @@ func (s *Server) tunnelViaStream(w http.ResponseWriter, req *http.Request, hop c
 	tracker.markResponseReceive()
 	_, _ = clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 	bridgeTunnelWithMetrics(clientConn, streamConn, streamConn, tracker)
+}
+
+func nextHopProxyAuthorization(req *http.Request) string {
+	value := strings.TrimSpace(req.Header.Get("Proxy-Authorization"))
+	if value == "" || strings.ContainsAny(value, "\r\n") {
+		return ""
+	}
+	return value
 }
