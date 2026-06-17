@@ -1,7 +1,7 @@
 # Dev Roadmap: OneProxy v2.1.0 Release
 
 **Date:** 20260617
-**Status:** planned
+**Status:** in-progress
 **Product document:** ./product-requirements.md
 
 ## Summary
