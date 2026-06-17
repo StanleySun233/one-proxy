@@ -21,6 +21,8 @@
   - Commit: 8b74303d46c4d29b0ba05543e0273d4dde8f8186
 - [x] Stream HTTP forwarding, add timeouts, and limit unsafe retries in `apps/node/api/internal/proxy/forward_http.go`
   - Commit: 10a8f53e91a79652a9eff009f40d52738fce2031
+- [x] Update node proxy fail-closed auth tests in `apps/node/api/internal/proxy/server_test.go` and `apps/node/api/internal/proxy/reverse_test.go`
+  - Commit: 4e03ebe4581af324ccf91dbf02422eb9410ba795
 
 ## Blockers
 
