@@ -177,6 +177,25 @@
   overflow: auto;
 }
 
+.console-modal-backdrop,
+.console-modal-body,
+.console-modal .table-card,
+.console-modal .list-card,
+.console-modal .check-list {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.console-modal-backdrop::-webkit-scrollbar,
+.console-modal-body::-webkit-scrollbar,
+.console-modal .table-card::-webkit-scrollbar,
+.console-modal .list-card::-webkit-scrollbar,
+.console-modal .check-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .console-modal {
   width: min(920px, calc(100vw - 48px));
   max-height: min(820px, calc(100vh - 48px));

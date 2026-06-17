@@ -271,6 +271,19 @@
   overflow: auto;
 }
 
+.dialog-backdrop,
+.dialog-panel {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.dialog-backdrop::-webkit-scrollbar,
+.dialog-panel::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .dialog-panel h3 {
   margin: 0;
 }
