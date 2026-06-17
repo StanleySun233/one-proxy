@@ -36,6 +36,7 @@
   - Evidence:
     - `bash -n scripts/deploy-v210-final-cutover.sh`: pass
     - `scripts/deploy-v210-final-cutover.sh dry-run v2.1.0-rc.65411e7`: pass; prints final panel DB, fresh panel volume, fresh remote node volume, fresh local node volume, and target node names
+    - The same dry-run prints `remote_node_parent_url=http://one-proxy-panel:2886` and `local_node_parent_url=<required-for-run>`
     - `scripts/deploy-v210-final-cutover.sh dry-run latest`: rejects mutable image tag
     - `scripts/deploy-v210-final-cutover.sh check`: pass; local node, camelbot panel, and camelbot node are still on `v2.1.0-rc.38d3a66`; target final DB `one_proxy_v210_final` has `tables=0`
     - `scripts/deploy-v210-final-cutover.sh run v2.1.0-rc.65411e7`: rejects without `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema`

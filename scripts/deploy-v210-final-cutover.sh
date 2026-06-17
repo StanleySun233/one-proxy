@@ -25,7 +25,7 @@ scope_name="${ONEPROXY_FINAL_SCOPE_NAME:-v2.1.0 final scope}"
 local_node_name="${ONEPROXY_FINAL_LOCAL_NODE_NAME:-hk-public-node}"
 remote_node_name="${ONEPROXY_FINAL_CAMELBOT_NODE_NAME:-sg-astar-58}"
 local_node_parent_url="${ONEPROXY_FINAL_LOCAL_NODE_PARENT_URL:-}"
-remote_node_parent_url="${ONEPROXY_FINAL_CAMELBOT_NODE_PARENT_URL:-http://${panel_container}:2887}"
+remote_node_parent_url="${ONEPROXY_FINAL_CAMELBOT_NODE_PARENT_URL:-http://${panel_container}:2886}"
 local_node_public_host="${ONEPROXY_FINAL_LOCAL_NODE_PUBLIC_HOST:-127.0.0.1}"
 remote_node_public_host="${ONEPROXY_FINAL_CAMELBOT_NODE_PUBLIC_HOST:-127.0.0.1}"
 local_node_http_port="${ONEPROXY_FINAL_LOCAL_NODE_HTTP_PORT:-2988}"
@@ -93,6 +93,8 @@ print_plan() {
   echo "tenant_name=${tenant_name}"
   echo "local_node=${local_node_name}"
   echo "remote_node=${remote_node_name}"
+  echo "local_node_parent_url=${local_node_parent_url:-<required-for-run>}"
+  echo "remote_node_parent_url=${remote_node_parent_url}"
 }
 
 check_local() {
@@ -118,7 +120,8 @@ curl -fsS "http://127.0.0.1:${panel_port}/healthz" >/dev/null 2>&1 && echo "heal
 echo "target=camelbot-node"
 docker inspect "$remote_node_container" --format 'current={{.Config.Image}} status={{.State.Status}} started={{.State.StartedAt}}' 2>/dev/null || echo "current=missing"
 if docker inspect "$mysql_container" >/dev/null 2>&1; then
-  tables="$(docker exec -e MYSQL_QUERY="SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${final_db}';" "$mysql_container" sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B -e "$MYSQL_QUERY"' 2>/dev/null || echo unknown)"
+  final_db_literal="$(printf "%s" "$final_db" | sed "s/'/''/g")"
+  tables="$(docker exec -e MYSQL_QUERY="SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${final_db_literal}';" "$mysql_container" sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B -e "$MYSQL_QUERY"' 2>/dev/null || echo unknown)"
   echo "final_db=${final_db} tables=${tables}"
 else
   echo "mysql=missing"

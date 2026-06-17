@@ -14,6 +14,8 @@ Use `scripts/deploy-v210-final-cutover.sh` for the final standing cutover. Its `
 
 The cutover script restores renamed backup containers when panel, remote-node, local-node, or final control-plane provisioning fails before completion. It does not delete or rewrite the old database.
 
+The camelbot node parent URL defaults to `http://one-proxy-panel:2886`, matching the standing container-to-container path through the panel web/API proxy. The panel backend default `127.0.0.1:2887` is internal to the panel container and is not the default node parent URL for standing deployment.
+
 ## Image And Artifact Gate
 
 The node and panel image workflows must be run before the final release tag.
