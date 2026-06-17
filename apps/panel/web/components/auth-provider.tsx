@@ -1,8 +1,8 @@
 'use client';
 
-import {createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState} from 'react';
+import {createContext, ReactNode, useContext, useEffect, useMemo, useState} from 'react';
 
-import {AUTH_INVALID_EVENT, login as loginRequest, logout as logoutRequest, refreshSession, Session, SESSION_STORAGE_KEY, updateAccount} from '@/lib/api';
+import {AUTH_INVALID_EVENT, login as loginRequest, logout as logoutRequest, Session, updateAccount} from '@/lib/api';
 import type {ActiveTenant, TenantMembership} from '@/lib/types/auth';
 
 type AuthContextValue = {
@@ -58,58 +58,18 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
-
-    if (stored) {
-      try {
-        const parsed = normalizeSession(JSON.parse(stored) as Session);
-        if (Date.parse(parsed.expiresAt) > Date.now()) {
-          setSession(parsed);
-          window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsed));
-          void refreshSession(parsed.refreshToken).then((result) => {
-            const refreshed = normalizeSession({
-              account: result.account,
-              accessToken: result.accessToken,
-              refreshToken: result.refreshToken,
-              expiresAt: result.expiresAt,
-              mustRotatePassword: result.mustRotatePassword,
-              tenantMemberships: result.tenantMemberships,
-              activeTenantId: result.activeTenantId || parsed.activeTenantId
-            });
-            setSession(refreshed);
-            window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(refreshed));
-          }).catch(() => {});
-        } else {
-          window.localStorage.removeItem(SESSION_STORAGE_KEY);
-        }
-      } catch {
-        window.localStorage.removeItem(SESSION_STORAGE_KEY);
-      }
-    }
-
     setReady(true);
   }, []);
 
   useEffect(() => {
     const handleUnauthorized = () => {
       setSession(null);
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
     };
 
     window.addEventListener(AUTH_INVALID_EVENT, handleUnauthorized);
     return () => {
       window.removeEventListener(AUTH_INVALID_EVENT, handleUnauthorized);
     };
-  }, []);
-
-  const persistSession = useCallback((nextSession: Session | null) => {
-    setSession(nextSession);
-
-    if (nextSession) {
-      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
-    } else {
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    }
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -130,7 +90,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
           activeTenantId: result.activeTenantId
         });
 
-        persistSession(nextSession);
+        setSession(nextSession);
         return nextSession;
       },
       async rotatePassword(password: string) {
@@ -143,7 +103,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
           account,
           mustRotatePassword: account.mustRotatePassword
         };
-        persistSession(nextSession);
+        setSession(nextSession);
         return nextSession;
       },
       switchTenant(tenantId: string | null) {
@@ -158,7 +118,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
           ...session,
           activeTenantId: tenantId
         };
-        persistSession(nextSession);
+        setSession(nextSession);
         return nextSession;
       },
       async logout() {
@@ -168,10 +128,10 @@ export function AuthProvider({children}: {children: ReactNode}) {
           } catch {}
         }
 
-        persistSession(null);
+        setSession(null);
       }
     }),
-    [persistSession, ready, session]
+    [ready, session]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
