@@ -45,16 +45,16 @@ func writeServiceError(w http.ResponseWriter, req *http.Request, err error, fall
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		log.Printf("http service error method=%s path=%s status=%d code=%s err=%v", req.Method, req.URL.Path, http.StatusNotFound, "resource_not_found", err)
-		writeError(w, http.StatusNotFound, err.Error())
+		writeError(w, http.StatusNotFound, "resource_not_found")
 		return
 	}
 	if serviceErr, ok := err.(*service.Error); ok {
 		log.Printf("http service error method=%s path=%s status=%d code=%s err=%v", req.Method, req.URL.Path, serviceErr.Status, serviceErr.Code, err)
-		writeError(w, serviceErr.Status, serviceErr.Message)
+		writeError(w, serviceErr.Status, serviceErr.Code)
 		return
 	}
 	log.Printf("http service error method=%s path=%s status=%d code=%s err=%v", req.Method, req.URL.Path, http.StatusInternalServerError, fallback, err)
-	writeError(w, http.StatusInternalServerError, err.Error())
+	writeError(w, http.StatusInternalServerError, fallback)
 }
 
 func writeEnvelope[T any](w http.ResponseWriter, status int, payload APIResponse[T]) {
