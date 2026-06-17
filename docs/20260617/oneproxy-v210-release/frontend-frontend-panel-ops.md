@@ -21,6 +21,8 @@
   - Commit: ae8264e
 - [x] Remove default node join password wording from panel node console locale messages in `apps/panel/web/messages/{en,zh}/nodesConsole.json`
   - Commit: 76c7091
+- [x] Remove legacy auth token wrapper fallback from panel web auth client in `apps/panel/web/lib/api/auth.ts`
+  - Commit: ccdcb23
 
 ## Blockers
 
