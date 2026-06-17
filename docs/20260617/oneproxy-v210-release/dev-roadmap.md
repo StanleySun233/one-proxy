@@ -55,6 +55,7 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 - [ ] backend-client-tools: send daemon IPC secret from route and probe commands in `apps/cli/src/commands.ts` (depends: lifecycle.ts)
 - [ ] backend-client-tools: align daemon metadata storage type with IPC secret in `apps/cli/src/storage.ts` (depends: lifecycle.ts)
 - [ ] backend-client-tools: fix CONNECT tunnel socket typing in `apps/cli/src/daemon/http-proxy.ts` (depends: http-proxy.ts)
+- [ ] backend-client-tools: regenerate tracked CLI dist artifacts in `apps/cli/dist/**` for v2.1.0 source changes (depends: all CLI source tasks)
 - [ ] backend-node-security: update node proxy tests for v2.1.0 fail-closed behavior in `apps/node/api/internal/proxy/server_test.go` and `apps/node/api/internal/proxy/reverse_test.go` (depends: auth.go)
 
 ### Frontend Tasks
@@ -75,6 +76,8 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 - [ ] frontend-extension-routing: update popup route/group display for latest access-path state in `apps/extension/chrome/popup/runtime.js` (depends: state.js)
 - [ ] frontend-extension-routing: update options route/group display for latest access-path state in `apps/extension/chrome/options/runtime.js` (depends: state.js)
 - [ ] frontend-extension-routing: authorize multiple access-path proxy challenges in `apps/extension/chrome/tools/background-source/proxy-auth.js` (depends: pac.js)
+- [ ] frontend-extension-routing: sync Chrome page-source popup/options with latest access-path runtime in `apps/extension/chrome/tools/page-source/popup/index.js` and `apps/extension/chrome/tools/page-source/options/index.js` (depends: popup/runtime.js, options/runtime.js)
+- [ ] frontend-extension-routing: regenerate tracked Chrome extension bundles in `apps/extension/chrome/background/one-proxy-worker.js`, `apps/extension/chrome/popup/runtime.js`, and `apps/extension/chrome/options/runtime.js` (depends: page-source and background-source tasks)
 
 ### Release, Test, and Deployment Tasks
 
