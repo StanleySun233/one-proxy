@@ -10,6 +10,7 @@ import {AuthGate} from '@/components/auth-gate';
 import {ConsolePage} from '@/components/console-template';
 import {ResourceGrantModal} from '@/components/resource-grant-modal';
 import {useAuth} from '@/components/auth-provider';
+import {useRouter} from '@/i18n/navigation';
 import {createRouteRule, createRouteRuleGroup, deleteRouteRule, deleteRouteRuleGroup, fetchEnums, getChains, getPolicyRevisions, getRouteRuleGroupDeleteImpact, getRouteRuleGroups, getRouteRules, getScopes, publishPolicy, updateRouteRule, updateRouteRuleGroup} from '@/lib/api';
 import {RouteRule, RouteRuleGroup, RouteRuleGroupDeleteImpact} from '@/lib/types';
 import {formatControlPlaneError} from '@/lib/presentation';
@@ -34,6 +35,7 @@ export function RouteManagementPage({view}: {view: RouteManagementView}) {
   const routesT = useTranslations('proxyRoutes');
   const {session, activeTenant} = useAuth();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const accessToken = session?.accessToken || '';
   const activeTenantId = session?.activeTenantId || null;
   const canWrite = session?.account.role === 'super_admin' || activeTenant?.role === 'tenant_admin';
@@ -321,6 +323,11 @@ export function RouteManagementPage({view}: {view: RouteManagementView}) {
     groupDeleteImpactMutation.mutate(group.id);
   }, [groupDeleteImpactMutation]);
 
+  const viewGroupRules = useCallback((groupId: string) => {
+    setSelectedGroupId(groupId);
+    router.push(`/proxy/routes/rules?groupId=${encodeURIComponent(groupId)}`);
+  }, [router]);
+
   useEffect(() => {
     if (actionType !== 'chain') {
       return;
@@ -344,6 +351,15 @@ export function RouteManagementPage({view}: {view: RouteManagementView}) {
       setSelectedGroupId(routeGroups[0].id);
     }
   }, [routeGroups, selectedGroupId, showsGroups]);
+  useEffect(() => {
+    if (!showsRules || routeGroups.length === 0 || typeof window === 'undefined') {
+      return;
+    }
+    const queryGroupId = new URLSearchParams(window.location.search).get('groupId') || '';
+    if (queryGroupId && queryGroupId !== selectedGroupId && routeGroups.some((group) => group.id === queryGroupId)) {
+      setSelectedGroupId(queryGroupId);
+    }
+  }, [routeGroups, selectedGroupId, showsRules]);
   const modalOpen = createOpen || Boolean(editingRule);
   const routeDeleteSections = routeRuleDeleteSections(deletingRule, routesT);
   const groupDeleteSections = routeRuleGroupDeleteSections(deletingGroup, groupDeleteImpact, routesT);
@@ -403,7 +419,7 @@ export function RouteManagementPage({view}: {view: RouteManagementView}) {
             onDelete={canWrite ? openDeleteGroup : undefined}
             onEdit={canWrite ? startEditGroup : undefined}
             onGrant={canWrite ? setGrantGroup : undefined}
-            onSelect={setSelectedGroupId}
+            onSelect={viewGroupRules}
             routesT={routesT}
             selectedGroupId={selectedGroupId}
             t={t}
