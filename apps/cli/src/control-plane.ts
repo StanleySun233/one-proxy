@@ -14,9 +14,7 @@ import {
   useProfile,
   type Account,
   type OneProxyConfig,
-  type OneProxyTokens,
-  type RouteGroup,
-  type RouteRule
+  type OneProxyTokens
 } from './storage.ts';
 
 type RequestOptions = {
@@ -40,54 +38,121 @@ type Tenant = {
   tenantName?: string;
 };
 
-type Group = {
-  id: string;
-  name: string;
-  enabled?: boolean;
-};
-
 type LoginResult = {
   account: Account;
-  accessToken?: string;
-  refreshToken?: string;
-  expiresAt?: string;
-  tokens?: {
-    accessToken?: string;
-    refreshToken?: string;
-    expiresAt?: string;
-  };
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+  mustRotatePassword: boolean;
   tenantMemberships?: Tenant[];
   activeTenantId?: string | null;
 };
 
+type TopologyHop = {
+  nodeId: string;
+  nodeName: string;
+  mode: string;
+  scopeKey: string;
+  publicHost?: string;
+  publicPort?: number;
+  transport: string;
+};
+
+type BootstrapNode = {
+  id: string;
+  name: string;
+  mode: string;
+  scopeKey: string;
+  parentNodeId: string;
+  enabled: boolean;
+  status: string;
+  publicHost?: string;
+  publicPort?: number;
+};
+
+type AccessPathSnapshot = {
+  id: string;
+  name: string;
+  chainId: string;
+  mode: string;
+  protocol: string;
+  serviceType: string;
+  targetNodeId: string;
+  entryNodeId: string;
+  relayNodeIds: string[];
+  listenHost: string;
+  listenPort: number;
+  targetProtocol: string;
+  targetHost: string;
+  targetPort: number;
+  targetSni: string;
+  tlsMode: string;
+  authMode: 'proxy_token';
+  enabled: boolean;
+  options: Record<string, string>;
+  topology: TopologyHop[];
+  health: {
+    status: string;
+    reason: string;
+    checkedAt: string;
+  };
+};
+
+type RouteSnapshot = {
+  id: string;
+  priority: number;
+  matchType: 'domain' | 'domain_suffix' | 'ip' | 'ip_cidr' | 'protocol' | 'default';
+  matchValue: string;
+  actionType: 'chain' | 'direct' | 'deny';
+  chainId: string;
+  accessPathId: string;
+  destinationScope: string;
+  enabled: boolean;
+  topology: TopologyHop[];
+};
+
+type RouteEvaluationContract = {
+  defaultClientMode: 'direct';
+  defaultNodeMode: 'deny';
+  ruleOrder: 'priority_asc_then_id_asc';
+  noMatchNodeDenyReason: 'route_not_found';
+  supportedMatchTypes: RouteSnapshot['matchType'][];
+  supportedActions: RouteSnapshot['actionType'][];
+};
+
 type ExtensionBootstrap = {
-  policyRevision?: string;
-  fetchedAt?: string;
-  proxyToken?: string;
-  proxyTokenExpiresAt?: string;
-  groups?: Array<{
-    id: string;
-    name: string;
-    entryNodeId?: string;
-    proxyHost?: string;
-    proxyPort?: number;
-    proxyScheme?: string;
-    proxyDefault?: boolean;
-    proxyHosts?: string[];
-    directHosts?: string[];
-    routes?: Array<{
-      id: string;
-      matchType: string;
-      matchValue: string;
-      actionType: string;
-      topology?: Array<{ id: string; publicHost?: string; publicPort?: number; mode?: string }>;
-    }>;
-  }>;
+  schemaVersion: 'v2.1.0';
+  account: Account;
+  tenant: Tenant;
+  policyRevision: string;
+  fetchedAt: string;
+  proxyToken: string;
+  proxyTokenExpiresAt: string;
+  nodes: BootstrapNode[];
+  accessPaths: AccessPathSnapshot[];
+  routes: RouteSnapshot[];
+  routeEvaluation: RouteEvaluationContract;
 };
 
 type SyncResult = {
   policyRevision?: string;
-  groupCount: number;
+  accessPathCount: number;
+};
+
+type LatestConfig = OneProxyConfig & {
+  activeAccessPathId?: string;
+};
+
+type LatestState = Awaited<ReturnType<typeof readState>> & {
+  nodes?: BootstrapNode[];
+  accessPaths?: AccessPathSnapshot[];
+  routes?: RouteSnapshot[];
+  routeEvaluation?: RouteEvaluationContract;
+  bootstrap?: {
+    tenantId?: string;
+    accessPathId?: string;
+    groupId?: string;
+  };
 };
 
 function print(value: unknown, context: CliContext): void {
@@ -159,14 +224,13 @@ async function promptMissingPassword(value: string | undefined): Promise<string>
 }
 
 function tokenFromLogin(result: LoginResult): OneProxyTokens {
-  const accessTokenExpiresAt = result.tokens?.expiresAt || result.expiresAt;
   return {
     schemaVersion: 1,
     account: result.account,
-    accessToken: result.tokens?.accessToken || result.accessToken,
-    refreshToken: result.tokens?.refreshToken || result.refreshToken,
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken,
     proxyToken: undefined,
-    accessTokenExpiresAt,
+    accessTokenExpiresAt: result.expiresAt,
     refreshTokenExpiresAt: undefined,
     proxyTokenExpiresAt: undefined
   };
@@ -214,10 +278,16 @@ export async function login(args: string[], context: CliContext): Promise<void> 
   const tokens = tokenFromLogin(result);
   const memberships = result.tenantMemberships ?? [];
   const defaultTenantId = result.activeTenantId || (memberships.length === 1 ? tenantIdOf(memberships[0]) : undefined);
-  await writeConfig({ ...nextConfig, activeTenantId: defaultTenantId || config.activeTenantId });
+  const loginConfig: LatestConfig = {
+    ...nextConfig,
+    activeTenantId: defaultTenantId || config.activeTenantId,
+    activeGroupId: undefined,
+    activeAccessPathId: undefined
+  };
+  await writeConfig(loginConfig);
   await writeTokens(tokens);
   if (defaultTenantId) {
-    await syncRemoteStateWithRefresh({ ...nextConfig, activeTenantId: defaultTenantId || config.activeTenantId }, tokens);
+    await syncRemoteStateWithRefresh(loginConfig, tokens);
   }
   print(
     context.json
@@ -246,8 +316,7 @@ export async function refreshSession(): Promise<OneProxyTokens> {
   }
   const result = await request<LoginResult>(config, '/auth/refresh', {
     method: 'POST',
-    refreshToken: tokens.refreshToken,
-    body: { refreshToken: tokens.refreshToken }
+    refreshToken: tokens.refreshToken
   });
   const nextTokens = { ...tokens, ...tokenFromLogin(result) };
   await writeTokens(nextTokens);
@@ -278,12 +347,12 @@ export async function tenantUse(args: string[], context: CliContext): Promise<vo
   }
   const config = await readConfig();
   const nextTenantId = tenantIdOf(tenant);
-  const state = await readState();
-  const currentGroup = state.routeGroups.find((group) => group.id === config.activeGroupId);
-  const nextConfig = {
+  const latestConfig = config as LatestConfig;
+  const nextConfig: LatestConfig = {
     ...config,
     activeTenantId: nextTenantId,
-    activeGroupId: currentGroup?.tenantId === nextTenantId ? config.activeGroupId : undefined
+    activeGroupId: undefined,
+    activeAccessPathId: latestConfig.activeTenantId === nextTenantId ? latestConfig.activeAccessPathId : undefined
   };
   await writeConfig(nextConfig);
   await syncRemoteStateWithRefresh(nextConfig, await requireTokens());
@@ -295,79 +364,33 @@ export async function groupList(_args: string[], context: CliContext): Promise<v
   if (!config.activeTenantId) {
     throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
   }
-  const state = await readState();
-  const groups = state.routeGroups.filter((group) => group.tenantId === config.activeTenantId);
+  const state = (await readState()) as LatestState;
+  const accessPaths = state.accessPaths ?? [];
   if (context.json) {
-    print({ groups }, context);
+    print({ accessPaths }, context);
     return;
   }
-  print(groups.map((group) => `${group.id}\t${group.name || group.id}`).join('\n'), context);
+  print(accessPaths.map((accessPath) => `${accessPath.id}\t${accessPath.name || accessPath.id}`).join('\n'), context);
 }
 
 export async function groupUse(args: string[], context: CliContext): Promise<void> {
-  const config = await readConfig();
+  const config = (await readConfig()) as LatestConfig;
   if (!config.activeTenantId) {
     throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
   }
   const target = args[0].toLowerCase();
-  const state = await readState();
-  const groups = state.routeGroups.filter((group) => group.tenantId === config.activeTenantId);
-  const group = groups.find((item) => item.id.toLowerCase() === target || (item.name || '').toLowerCase() === target);
-  if (!group) {
-    throw Object.assign(new Error(`Group not found in synced state: ${args[0]}. Run onep sync first.`), { code: 'GROUP_REQUIRED' });
+  const state = (await readState()) as LatestState;
+  const accessPath = (state.accessPaths ?? []).find((item) => item.id.toLowerCase() === target || (item.name || '').toLowerCase() === target);
+  if (!accessPath) {
+    throw Object.assign(new Error(`Access path not found in synced state: ${args[0]}. Run onep sync first.`), { code: 'ACCESS_PATH_REQUIRED' });
   }
-  await writeConfig({ ...config, activeGroupId: group.id });
-  print(context.json ? { activeGroupId: group.id } : `Active group: ${group.name || group.id}`, context);
+  const nextConfig: LatestConfig = { ...config, activeGroupId: undefined, activeAccessPathId: accessPath.id };
+  await writeConfig(nextConfig);
+  print(context.json ? { activeAccessPathId: accessPath.id } : `Active access path: ${accessPath.name || accessPath.id}`, context);
 }
 
-export function routeRulesFromBootstrap(group: NonNullable<ExtensionBootstrap['groups']>[number]): RouteRule[] {
-  const directHosts = (group.directHosts ?? []).map((host) => ({
-    id: `direct:${host}`,
-    type: routeTypeFromHostPattern(host),
-    pattern: host,
-    mode: 'direct' as const
-  }));
-  const proxyHosts = (group.proxyHosts ?? []).map((host) => ({
-    id: `proxy:${host}`,
-    type: routeTypeFromHostPattern(host),
-    pattern: host,
-    mode: 'proxy' as const
-  }));
-  const routes = (group.routes ?? []).map((route) => ({
-    id: route.id,
-    type: routeTypeFromMatchType(route.matchType),
-    pattern: route.matchValue,
-    mode: route.actionType === 'direct' ? ('direct' as const) : ('proxy' as const)
-  }));
-  return [...routes, ...directHosts, ...proxyHosts];
-}
-
-function routeTypeFromMatchType(matchType: string): RouteRule['type'] {
-  const normalized = matchType.toLowerCase();
-  if (normalized === 'suffix' || normalized === 'cidr' || normalized === 'wildcard') {
-    return normalized;
-  }
-  if (normalized === 'domain_suffix') {
-    return 'suffix';
-  }
-  if (normalized === 'ip_cidr') {
-    return 'cidr';
-  }
-  if (normalized === 'default') {
-    return 'wildcard';
-  }
-  return 'domain';
-}
-
-function routeTypeFromHostPattern(host: string): RouteRule['type'] {
-  const normalized = host.trim().toLowerCase();
-  if (normalized.startsWith('*.') || normalized.startsWith('.')) {
-    return 'suffix';
-  }
-  if (normalized.includes('*')) {
-    return 'wildcard';
-  }
-  return 'domain';
+export function routeRulesFromBootstrap(_group: unknown): never[] {
+  throw Object.assign(new Error('Route groups are not part of the v2.1.0 bootstrap contract.'), { code: 'UNSUPPORTED_BOOTSTRAP_CONTRACT' });
 }
 
 async function syncRemoteState(config: OneProxyConfig, tokens: OneProxyTokens): Promise<SyncResult> {
@@ -381,38 +404,36 @@ async function syncRemoteState(config: OneProxyConfig, tokens: OneProxyTokens): 
     accessToken: tokens.accessToken,
     tenantId: config.activeTenantId
   });
-  const routeGroups: RouteGroup[] = (bootstrap.groups ?? []).map((group) => ({
-    id: group.id,
-    tenantId: config.activeTenantId || '',
-    name: group.name,
-    rules: routeRulesFromBootstrap(group)
-  }));
-  const activeGroup = routeGroups.find((group) => group.id === config.activeGroupId) || routeGroups.find((group) => group.id);
-  const entryGroup = (bootstrap.groups ?? []).find((group) => group.id === activeGroup?.id);
+  const latestConfig = config as LatestConfig;
+  const activeAccessPath =
+    bootstrap.accessPaths.find((accessPath) => accessPath.enabled && accessPath.id === latestConfig.activeAccessPathId) ||
+    bootstrap.accessPaths.find((accessPath) => accessPath.enabled);
   const state = {
     ...(await readState()),
     schemaVersion: 1,
     bootstrap: {
       tenantId: config.activeTenantId,
-      groupId: activeGroup?.id,
-      entryNodes: entryGroup?.proxyHost
-        ? [{ id: entryGroup.entryNodeId || entryGroup.id, host: entryGroup.proxyHost, port: entryGroup.proxyPort || 443, protocol: entryGroup.proxyScheme || 'connect' }]
-        : []
+      accessPathId: activeAccessPath?.id
     },
     policyRevision: bootstrap.policyRevision,
-    fetchedAt: bootstrap.fetchedAt || new Date().toISOString(),
-    routeGroups
+    fetchedAt: bootstrap.fetchedAt,
+    nodes: bootstrap.nodes,
+    accessPaths: bootstrap.accessPaths,
+    routes: bootstrap.routes,
+    routeEvaluation: bootstrap.routeEvaluation,
+    routeGroups: []
   };
   await writeState(state);
   await writeTokens({
     ...tokens,
-    proxyToken: bootstrap.proxyToken || tokens.proxyToken,
-    proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt || tokens.proxyTokenExpiresAt
+    proxyToken: bootstrap.proxyToken,
+    proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt
   });
-  if (activeGroup?.id && activeGroup.id !== config.activeGroupId) {
-    await writeConfig({ ...config, activeGroupId: activeGroup.id });
+  if (activeAccessPath?.id && activeAccessPath.id !== latestConfig.activeAccessPathId) {
+    const nextConfig: LatestConfig = { ...config, activeGroupId: undefined, activeAccessPathId: activeAccessPath.id };
+    await writeConfig(nextConfig);
   }
-  return { policyRevision: state.policyRevision, groupCount: routeGroups.length };
+  return { policyRevision: state.policyRevision, accessPathCount: bootstrap.accessPaths.length };
 }
 
 async function syncRemoteStateWithRefresh(config: OneProxyConfig, tokens: OneProxyTokens): Promise<SyncResult> {
@@ -443,5 +464,10 @@ export async function autoSyncRemoteState(): Promise<boolean> {
 
 export async function sync(_args: string[], context: CliContext): Promise<void> {
   const result = await syncRemoteStateWithRefresh(await readConfig(), await requireTokens());
-  print(context.json ? { synced: true, policyRevision: result.policyRevision, groupCount: result.groupCount } : `Synced ${result.groupCount} group(s).`, context);
+  print(
+    context.json
+      ? { synced: true, policyRevision: result.policyRevision, accessPathCount: result.accessPathCount }
+      : `Synced ${result.accessPathCount} access path(s).`,
+    context
+  );
 }
