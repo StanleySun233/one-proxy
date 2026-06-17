@@ -25,13 +25,11 @@ func TestReverseTargetForwardsOriginFormHTTP(t *testing.T) {
 	}))
 	defer origin.Close()
 
-	server, err := NewServerWithReverseTarget(policystore.New(""), func() string { return "node-1" }, nil, origin.URL+"/lab")
-	if err != nil {
-		t.Fatal(err)
-	}
+	server := newAuthenticatedReverseServer(t, origin.URL+"/lab")
 	req := httptest.NewRequest(http.MethodGet, "http://proxy.local/api", nil)
 	req.URL.Scheme = ""
 	req.URL.Host = ""
+	setReverseProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 
@@ -40,6 +38,25 @@ func TestReverseTargetForwardsOriginFormHTTP(t *testing.T) {
 	}
 	if resp.Body.String() != "proxy.local" {
 		t.Fatalf("forwarded host = %q", resp.Body.String())
+	}
+}
+
+func TestReverseTargetRejectsNilValidator(t *testing.T) {
+	server, err := NewServerWithReverseTarget(policystore.New(""), func() string { return "node-1" }, nil, "http://example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "http://proxy.local/api", nil)
+	req.URL.Scheme = ""
+	req.URL.Host = ""
+	setReverseProxyToken(req)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d", resp.Code)
+	}
+	if resp.Header().Get("X-One-Proxy-Authenticate") == "" {
+		t.Fatal("missing challenge")
 	}
 }
 
@@ -184,13 +201,11 @@ func TestReverseTargetRetriesContentLengthMismatch(t *testing.T) {
 	}))
 	defer origin.Close()
 
-	server, err := NewServerWithReverseTarget(policystore.New(""), func() string { return "node-1" }, nil, origin.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	server := newAuthenticatedReverseServer(t, origin.URL)
 	req := httptest.NewRequest(http.MethodGet, "http://proxy.local/api/scenario/id/track", nil)
 	req.URL.Scheme = ""
 	req.URL.Host = ""
+	setReverseProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 
@@ -224,13 +239,11 @@ func TestReverseTargetRetriesPostRequest(t *testing.T) {
 	}))
 	defer origin.Close()
 
-	server, err := NewServerWithReverseTarget(policystore.New(""), func() string { return "node-1" }, nil, origin.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	server := newAuthenticatedReverseServer(t, origin.URL)
 	req := httptest.NewRequest(http.MethodPost, "http://proxy.local/api/save", strings.NewReader("upload"))
 	req.URL.Scheme = ""
 	req.URL.Host = ""
+	setReverseProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 
@@ -268,15 +281,15 @@ func TestReverseTargetForwardsOriginFormWebSocket(t *testing.T) {
 	}))
 	defer origin.Close()
 
-	server, err := NewServerWithReverseTarget(policystore.New(""), func() string { return "node-1" }, nil, origin.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	server := newAuthenticatedReverseServer(t, origin.URL)
 	proxy := httptest.NewServer(server)
 	defer proxy.Close()
 
 	targetURL := "ws" + proxy.URL[len("http"):] + "/terminals/websocket/1"
-	conn, _, err := websocket.DefaultDialer.Dial(targetURL, http.Header{"Origin": []string{"http://proxy.local"}})
+	conn, _, err := websocket.DefaultDialer.Dial(targetURL, http.Header{
+		"Origin":          []string{"http://proxy.local"},
+		reverseHeaderName: []string{"reverse-token"},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

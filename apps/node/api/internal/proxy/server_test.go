@@ -103,6 +103,40 @@ func (r recordingSessionReporter) ReportProxySessions(_ context.Context, input d
 	return nil
 }
 
+func newAuthenticatedForwardServer(t *testing.T, store *policystore.Store) *Server {
+	t.Helper()
+	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
+		Validator: validRecordingTokenValidator(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return server
+}
+
+func newAuthenticatedReverseServer(t *testing.T, reverseTargetURL string) *Server {
+	t.Helper()
+	server, err := NewServerWithOptions(policystore.New(""), func() string { return "node-1" }, nil, reverseTargetURL, AuthConfig{
+		Validator: validRecordingTokenValidator(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return server
+}
+
+func validRecordingTokenValidator() *recordingTokenValidator {
+	return &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour)}
+}
+
+func setForwardProxyToken(req *http.Request) {
+	req.Header.Set("Proxy-Authorization", "Bearer proxy-token")
+}
+
+func setReverseProxyToken(req *http.Request) {
+	req.Header.Set(reverseHeaderName, "reverse-token")
+}
+
 func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Header.Get("X-Forwarded-For") != "" {
@@ -133,10 +167,12 @@ func TestForwardDirectUsesForwardProxySemantics(t *testing.T) {
 	if err := store.Update("test", string(payload)); err != nil {
 		t.Fatal(err)
 	}
+	server := newAuthenticatedForwardServer(t, store)
 
 	req := httptest.NewRequest(http.MethodGet, origin.URL+"/health", nil)
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
-	NewServer(store, func() string { return "node-1" }, nil).ServeHTTP(resp, req)
+	server.ServeHTTP(resp, req)
 
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
@@ -165,9 +201,11 @@ func TestForwardDirectRetriesTransientStaticFailure(t *testing.T) {
 	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
 		t.Fatal(err)
 	}
+	server := newAuthenticatedForwardServer(t, store)
 	req := httptest.NewRequest(http.MethodGet, origin.URL+"/static/js/app.js", nil)
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
-	NewServer(store, func() string { return "node-1" }, nil).ServeHTTP(resp, req)
+	server.ServeHTTP(resp, req)
 
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
@@ -180,7 +218,7 @@ func TestForwardDirectRetriesTransientStaticFailure(t *testing.T) {
 	}
 }
 
-func TestForwardDirectRetriesPostRequest(t *testing.T) {
+func TestForwardDirectDoesNotRetryPostRequest(t *testing.T) {
 	attempts := 0
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		attempts += 1
@@ -203,22 +241,21 @@ func TestForwardDirectRetriesPostRequest(t *testing.T) {
 	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
 		t.Fatal(err)
 	}
+	server := newAuthenticatedForwardServer(t, store)
 	req := httptest.NewRequest(http.MethodPost, origin.URL+"/api/save", strings.NewReader("upload"))
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
-	NewServer(store, func() string { return "node-1" }, nil).ServeHTTP(resp, req)
+	server.ServeHTTP(resp, req)
 
-	if resp.Code != http.StatusOK {
+	if resp.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
 	}
-	if resp.Body.String() != "saved" {
-		t.Fatalf("body = %q", resp.Body.String())
-	}
-	if attempts != 2 {
+	if attempts != 1 {
 		t.Fatalf("attempts = %d", attempts)
 	}
 }
 
-func TestForwardDirectRetriesContentLengthMismatch(t *testing.T) {
+func TestForwardDirectStreamsContentLengthMismatch(t *testing.T) {
 	attempts := 0
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		attempts += 1
@@ -235,17 +272,19 @@ func TestForwardDirectRetriesContentLengthMismatch(t *testing.T) {
 	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
 		t.Fatal(err)
 	}
+	server := newAuthenticatedForwardServer(t, store)
 	req := httptest.NewRequest(http.MethodGet, origin.URL+"/api/scenario/id/track", nil)
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
-	NewServer(store, func() string { return "node-1" }, nil).ServeHTTP(resp, req)
+	server.ServeHTTP(resp, req)
 
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
 	}
-	if resp.Body.String() != "loaded" {
+	if resp.Body.String() != "bad" {
 		t.Fatalf("body = %q", resp.Body.String())
 	}
-	if attempts != 2 {
+	if attempts != 1 {
 		t.Fatalf("attempts = %d", attempts)
 	}
 }
@@ -259,7 +298,7 @@ func TestForwardDirectServesCacheOnlyAfterForwardError(t *testing.T) {
 	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
 		t.Fatal(err)
 	}
-	server := NewServer(store, func() string { return "node-1" }, nil)
+	server := newAuthenticatedForwardServer(t, store)
 	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
 	if err != nil {
 		t.Fatal(err)
@@ -267,6 +306,7 @@ func TestForwardDirectServesCacheOnlyAfterForwardError(t *testing.T) {
 	server.SetResponseCache(cache)
 
 	req := httptest.NewRequest(http.MethodGet, origin.URL+"/api/data", nil)
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK || resp.Body.String() != "cached" {
@@ -278,6 +318,7 @@ func TestForwardDirectServesCacheOnlyAfterForwardError(t *testing.T) {
 	origin.Close()
 
 	req = httptest.NewRequest(http.MethodGet, origin.URL+"/api/data", nil)
+	setForwardProxyToken(req)
 	resp = httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK {
@@ -299,7 +340,7 @@ func TestForwardDirectDoesNotServeCacheForPostError(t *testing.T) {
 	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
 		t.Fatal(err)
 	}
-	server := NewServer(store, func() string { return "node-1" }, nil)
+	server := newAuthenticatedForwardServer(t, store)
 	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
 	if err != nil {
 		t.Fatal(err)
@@ -307,6 +348,7 @@ func TestForwardDirectDoesNotServeCacheForPostError(t *testing.T) {
 	server.SetResponseCache(cache)
 
 	req := httptest.NewRequest(http.MethodPost, origin.URL+"/api/save", strings.NewReader("upload"))
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK {
@@ -315,6 +357,7 @@ func TestForwardDirectDoesNotServeCacheForPostError(t *testing.T) {
 	origin.Close()
 
 	req = httptest.NewRequest(http.MethodPost, origin.URL+"/api/save", strings.NewReader("upload"))
+	setForwardProxyToken(req)
 	resp = httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusBadGateway {
@@ -336,7 +379,7 @@ func TestForwardDirectDoesNotServeCacheForUpstreamBadGatewayResponse(t *testing.
 	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
 		t.Fatal(err)
 	}
-	server := NewServer(store, func() string { return "node-1" }, nil)
+	server := newAuthenticatedForwardServer(t, store)
 	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
 	if err != nil {
 		t.Fatal(err)
@@ -344,6 +387,7 @@ func TestForwardDirectDoesNotServeCacheForUpstreamBadGatewayResponse(t *testing.
 	server.SetResponseCache(cache)
 
 	req := httptest.NewRequest(http.MethodGet, origin.URL+"/api/data", nil)
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK {
@@ -351,6 +395,7 @@ func TestForwardDirectDoesNotServeCacheForUpstreamBadGatewayResponse(t *testing.
 	}
 	fail = true
 	req = httptest.NewRequest(http.MethodGet, origin.URL+"/api/data", nil)
+	setForwardProxyToken(req)
 	resp = httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusBadGateway {
@@ -387,7 +432,7 @@ func TestCachedForwardResponseAnnotatesHTML(t *testing.T) {
 	}
 }
 
-func TestForwardChainViaStreamRetriesContentLengthMismatch(t *testing.T) {
+func TestForwardChainViaStreamStreamsContentLengthMismatch(t *testing.T) {
 	store := policystore.New("")
 	payload, err := json.Marshal(policystore.Snapshot{
 		Nodes: []domain.Node{
@@ -407,20 +452,21 @@ func TestForwardChainViaStreamRetriesContentLengthMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	opener := &scriptedStreamOpener{}
-	server := NewServer(store, func() string { return "node-1" }, nil)
+	server := newAuthenticatedForwardServer(t, store)
 	server.SetDirectStreamOpener(opener)
 
 	req := httptest.NewRequest(http.MethodGet, "http://172.20.116.91:12335/api/scenario/id/track", nil)
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
 	}
-	if resp.Body.String() != "loaded" {
+	if resp.Body.String() != "bad" {
 		t.Fatalf("body = %q", resp.Body.String())
 	}
-	if opener.attempts != 2 {
+	if opener.attempts != 1 {
 		t.Fatalf("attempts = %d", opener.attempts)
 	}
 }
@@ -445,7 +491,7 @@ func TestForwardChainViaStreamServesCacheAfterStreamOpenError(t *testing.T) {
 		t.Fatal(err)
 	}
 	opener := &cacheFallbackStreamOpener{}
-	server := NewServer(store, func() string { return "node-1" }, nil)
+	server := newAuthenticatedForwardServer(t, store)
 	server.SetDirectStreamOpener(opener)
 	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
 	if err != nil {
@@ -454,6 +500,7 @@ func TestForwardChainViaStreamServesCacheAfterStreamOpenError(t *testing.T) {
 	server.SetResponseCache(cache)
 
 	req := httptest.NewRequest(http.MethodGet, "http://172.20.116.91:12335/api/scenario/id/track", nil)
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK || resp.Body.String() != "loaded" {
@@ -461,6 +508,7 @@ func TestForwardChainViaStreamServesCacheAfterStreamOpenError(t *testing.T) {
 	}
 	opener.fail = true
 	req = httptest.NewRequest(http.MethodGet, "http://172.20.116.91:12335/api/scenario/id/track", nil)
+	setForwardProxyToken(req)
 	resp = httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK || resp.Body.String() != "loaded" {
@@ -489,10 +537,11 @@ func TestForwardDirectReportsProxySessionMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
-	server := NewServer(store, func() string { return "node-1" }, nil)
+	server := newAuthenticatedForwardServer(t, store)
 	server.SetProxySessionReporter(reporter)
 
 	req := httptest.NewRequest(http.MethodPost, origin.URL+"/metrics", strings.NewReader("upload"))
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK {
@@ -533,7 +582,7 @@ func TestTunnelDirectReportsProxySessionMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
-	server := NewServer(store, func() string { return "node-1" }, nil)
+	server := newAuthenticatedForwardServer(t, store)
 	server.SetProxySessionReporter(reporter)
 	proxyServer := httptest.NewServer(server)
 	defer proxyServer.Close()
@@ -548,7 +597,7 @@ func TestTunnelDirectReportsProxySessionMetrics(t *testing.T) {
 	}
 	reader := bufio.NewReader(conn)
 	targetAddr := target.Addr().String()
-	if _, err := fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", targetAddr, targetAddr); err != nil {
+	if _, err := fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\nProxy-Authorization: Bearer proxy-token\r\n\r\n", targetAddr, targetAddr); err != nil {
 		t.Fatal(err)
 	}
 	line, err := reader.ReadString('\n')
@@ -605,6 +654,24 @@ func TestForwardProxyRequiresProxyAuthorizationToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusProxyAuthRequired {
+		t.Fatalf("status = %d", resp.Code)
+	}
+	if resp.Header().Get("Proxy-Authenticate") == "" {
+		t.Fatal("missing Proxy-Authenticate")
+	}
+}
+
+func TestForwardProxyRejectsNilValidator(t *testing.T) {
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(store, func() string { return "node-1" }, nil)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	setForwardProxyToken(req)
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 	if resp.Code != http.StatusProxyAuthRequired {
@@ -810,7 +877,7 @@ func TestForwardProxyWebSocketUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := NewServer(store, func() string { return "node-1" }, nil)
+	server := newAuthenticatedForwardServer(t, store)
 	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
 	server.SetProxySessionReporter(reporter)
 	proxy := httptest.NewServer(server)
@@ -820,6 +887,7 @@ func TestForwardProxyWebSocketUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	proxyURL.User = url.UserPassword("token", "proxy-token")
 	dialer := websocket.Dialer{Proxy: http.ProxyURL(proxyURL)}
 	targetURL := "ws" + origin.URL[len("http"):] + "/terminal"
 	conn, _, err := dialer.Dial(targetURL, nil)
@@ -860,7 +928,7 @@ func TestForwardProxyAbsoluteWebSocketUpgradeReportsSessionMetrics(t *testing.T)
 	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","tenantId":"tenant-1","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
 		t.Fatal(err)
 	}
-	server := NewServer(store, func() string { return "node-1" }, nil)
+	server := newAuthenticatedForwardServer(t, store)
 	reporter := recordingSessionReporter{sessions: make(chan domain.ProxySessionMetric, 1)}
 	server.SetProxySessionReporter(reporter)
 	proxy := httptest.NewServer(server)
@@ -875,7 +943,7 @@ func TestForwardProxyAbsoluteWebSocketUpgradeReportsSessionMetrics(t *testing.T)
 	}
 	defer proxyConn.Close()
 	targetURL := "ws" + origin.URL[len("http"):] + "/terminal"
-	if _, err := fmt.Fprintf(proxyConn, "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n", targetURL, strings.TrimPrefix(origin.URL, "http://")); err != nil {
+	if _, err := fmt.Fprintf(proxyConn, "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nProxy-Authorization: Bearer proxy-token\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n", targetURL, strings.TrimPrefix(origin.URL, "http://")); err != nil {
 		t.Fatal(err)
 	}
 	resp, err := http.ReadResponse(bufio.NewReader(proxyConn), nil)
