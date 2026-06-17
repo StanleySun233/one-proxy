@@ -3,15 +3,32 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
-	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/auth"
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
+	proxy "github.com/StanleySun233/python-proxy/apps/panel/api/internal/features/proxy/domain"
 )
 
 type proxyTokenValidateRequest struct {
 	TokenHash    string `json:"tokenHash"`
 	Token        string `json:"token"`
 	AccessPathID string `json:"accessPathId"`
+	TargetHost   string `json:"targetHost"`
+	TargetPort   int    `json:"targetPort"`
+	Protocol     string `json:"protocol"`
+	RouteID      string `json:"routeId"`
+}
+
+type proxyTokenValidateResponse struct {
+	Valid           bool     `json:"valid"`
+	TenantID        string   `json:"tenantId"`
+	AccountID       string   `json:"accountId"`
+	ExpiresAt       string   `json:"expiresAt"`
+	CacheTTLSeconds int      `json:"cacheTtlSeconds"`
+	AllowLocalProxy bool     `json:"allowLocalProxy"`
+	Scopes          []string `json:"scopes"`
+	AccessPathIDs   []string `json:"accessPathIds"`
+	RouteIDs        []string `json:"routeIds"`
 }
 
 func (r *Router) handleProxyTokenValidate(w http.ResponseWriter, req *http.Request) {
@@ -24,38 +41,127 @@ func (r *Router) handleProxyTokenValidate(w http.ResponseWriter, req *http.Reque
 		writeError(w, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	tokenHash := payload.TokenHash
-	if tokenHash == "" && payload.Token != "" {
-		tokenHash = auth.TokenHash(payload.Token)
+	payload.TokenHash = strings.TrimSpace(payload.TokenHash)
+	payload.Token = strings.TrimSpace(payload.Token)
+	payload.AccessPathID = strings.TrimSpace(payload.AccessPathID)
+	payload.TargetHost = strings.TrimSpace(payload.TargetHost)
+	payload.Protocol = strings.TrimSpace(payload.Protocol)
+	payload.RouteID = strings.TrimSpace(payload.RouteID)
+	if payload.Token != "" || !validProxyTokenHash(payload.TokenHash) || payload.AccessPathID == "" || payload.TargetHost == "" || payload.TargetPort < 1 || payload.TargetPort > 65535 || payload.Protocol == "" {
+		writeError(w, http.StatusBadRequest, "invalid_proxy_token_payload")
+		return
 	}
 	nodeID, ok := nodeIDFromContext(req.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "invalid_node_token")
 		return
 	}
-	result := r.service.ValidateProxyTokenHash(tokenHash, nodeID)
-	if !result.Valid {
+	result := r.service.ValidateProxyTokenHash(payload.TokenHash, nodeID)
+	if !result.Valid || !result.AllowLocalProxy {
 		writeError(w, http.StatusUnauthorized, "invalid_proxy_token")
 		return
 	}
-	if result.ActiveTenantID == nil && len(result.TenantMemberships) == 1 {
-		result.ActiveTenantID = &result.TenantMemberships[0].TenantID
-	}
-	if result.ActiveTenantID == nil && !proxyTokenAllowsTenantlessProxy(result) {
+	tenantCtx, tenantID, ok := proxyTokenTenantContext(result)
+	if !ok {
 		writeError(w, http.StatusUnauthorized, "invalid_proxy_token")
 		return
 	}
-	writeSuccess(w, http.StatusOK, result)
+	accessPath, ok := proxyTokenAccessPath(r.service.Proxy().AccessPaths(tenantCtx), payload.AccessPathID, nodeID)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_proxy_token")
+		return
+	}
+	scopes, ok := proxyTokenScopes(r.service.Proxy().Chains(tenantCtx), accessPath.ChainID)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_proxy_token")
+		return
+	}
+	routeIDs := []string{}
+	if payload.RouteID != "" {
+		routeOK := false
+		for _, route := range r.service.Proxy().RouteRules(tenantCtx) {
+			if route.ID == payload.RouteID && route.Enabled && route.ChainID == accessPath.ChainID {
+				routeOK = true
+				routeIDs = append(routeIDs, route.ID)
+				break
+			}
+		}
+		if !routeOK {
+			writeError(w, http.StatusUnauthorized, "invalid_proxy_token")
+			return
+		}
+	}
+	writeSuccess(w, http.StatusOK, proxyTokenValidateResponse{
+		Valid:           true,
+		TenantID:        tenantID,
+		AccountID:       result.Account.ID,
+		ExpiresAt:       result.ExpiresAt,
+		CacheTTLSeconds: result.CacheTTLSeconds,
+		AllowLocalProxy: true,
+		Scopes:          scopes,
+		AccessPathIDs:   []string{accessPath.ID},
+		RouteIDs:        routeIDs,
+	})
 }
 
-func proxyTokenAllowsTenantlessProxy(result domain.ProxyTokenValidation) bool {
-	if result.Account.Role == domain.AccountRoleSuperAdmin {
-		return true
+func validProxyTokenHash(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, char := range value {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func proxyTokenTenantContext(result domain.ProxyTokenValidation) (domain.TenantAuthContext, string, bool) {
+	if result.ActiveTenantID == nil || *result.ActiveTenantID == "" {
+		return domain.TenantAuthContext{}, "", false
 	}
 	for _, membership := range result.TenantMemberships {
-		if membership.Role == domain.TenantRoleAdmin {
+		if membership.TenantID == *result.ActiveTenantID {
+			return domain.TenantAuthContext{
+				Account:      result.Account,
+				ActiveTenant: membership,
+				SuperAdmin:   result.Account.Role == domain.AccountRoleSuperAdmin,
+			}, membership.TenantID, true
+		}
+	}
+	return domain.TenantAuthContext{}, "", false
+}
+
+func proxyTokenAccessPath(paths []domain.NodeAccessPath, accessPathID string, nodeID string) (domain.NodeAccessPath, bool) {
+	for _, path := range paths {
+		if path.ID == accessPathID && path.Enabled && proxyTokenAccessPathIncludesNode(path, nodeID) {
+			return path, true
+		}
+	}
+	return domain.NodeAccessPath{}, false
+}
+
+func proxyTokenAccessPathIncludesNode(path domain.NodeAccessPath, nodeID string) bool {
+	if path.EntryNodeID == nodeID || path.TargetNodeID == nodeID {
+		return true
+	}
+	for _, relayNodeID := range path.RelayNodeIDs {
+		if relayNodeID == nodeID {
 			return true
 		}
 	}
 	return false
+}
+
+func proxyTokenScopes(chains []proxy.Chain, chainID string) ([]string, bool) {
+	for _, chain := range chains {
+		if chain.ID == chainID && chain.Enabled {
+			scopes := []string{}
+			if chain.DestinationScope != "" {
+				scopes = append(scopes, chain.DestinationScope)
+			}
+			return scopes, true
+		}
+	}
+	return nil, false
 }
