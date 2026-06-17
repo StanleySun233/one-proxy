@@ -114,31 +114,31 @@ function refreshDiagnosticLogs() {
 
 function renderGroupList() {
   groupList.innerHTML = '';
-  const groups = bundle.remote.groups || [];
-  if (groups.length === 0) {
+  const accessPaths = bundle.remote.accessPaths || [];
+  if (accessPaths.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     empty.textContent = text('statusNoGroups');
     groupList.appendChild(empty);
     return;
   }
-  for (const group of groups) {
+  for (const accessPath of accessPaths) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `group-row${bundle.activeGroup && bundle.activeGroup.id === group.id ? ' is-active' : ''}`;
+    button.className = `group-row${bundle.activeAccessPath && bundle.activeAccessPath.id === accessPath.id ? ' is-active' : ''}`;
     const name = document.createElement('div');
     name.className = 'group-name';
     const title = document.createElement('strong');
-    title.textContent = group.name;
+    title.textContent = accessPath.name;
     const node = document.createElement('span');
-    node.textContent = group.entryNodeName;
+    node.textContent = accessPath.entryNodeId;
     const meta = document.createElement('div');
     meta.className = 'group-meta';
-    meta.textContent = text('ruleSummary', [String((group.proxyHosts || []).length + (group.proxyCidrs || []).length), String((group.directHosts || []).length + (group.directCidrs || []).length)]);
+    meta.textContent = `${String(accessPath.protocol || '').toUpperCase()} ${accessPath.listenHost}:${accessPath.listenPort}`;
     name.append(title, node);
     button.append(name, meta);
     button.addEventListener('click', () => {
-      sendMessage({ type: 'select-group', groupId: group.id }).then((result) => {
+      sendMessage({ type: 'select-access-path', accessPathId: accessPath.id }).then((result) => {
       if (result && result.error) {
         setFeedback('error', result.error);
         return;
@@ -151,10 +151,13 @@ function renderGroupList() {
 }
 
 function renderGroupDetail() {
-  const group = bundle.activeGroup;
-  groupTitle.textContent = group ? group.name : text('groupDetail');
-  entryMeta.textContent = group ? `${group.proxyScheme} ${group.proxyHost}:${group.proxyPort}` : '-';
-  remoteRuleSummary.textContent = group ? text('ruleSummaryLong', [String((group.proxyHosts || []).length), String((group.proxyCidrs || []).length), String((group.directHosts || []).length), String((group.directCidrs || []).length)]) : text('noRules');
+  const accessPath = bundle.activeAccessPath;
+  const routes = bundle.remote.routes || [];
+  const chainRoutes = routes.filter((route) => route.actionType === 'chain' && route.accessPathId === (accessPath && accessPath.id));
+  const directRoutes = routes.filter((route) => route.actionType === 'direct');
+  groupTitle.textContent = accessPath ? accessPath.name : text('groupDetail');
+  entryMeta.textContent = accessPath ? `${accessPath.proxyScheme} ${accessPath.proxyHost}:${accessPath.proxyPort}` : '-';
+  remoteRuleSummary.textContent = accessPath ? text('ruleSummary', [String(chainRoutes.length), String(directRoutes.length)]) : text('noRules');
   directHosts.value = arrayToLines(bundle.state.localOverrides.directHosts);
   proxyHosts.value = arrayToLines(bundle.state.localOverrides.proxyHosts);
 }
@@ -176,24 +179,24 @@ function renderSession() {
     tenantSelect.appendChild(option);
   }
   tenantSelect.value = session.activeTenantId || '';
-  tenantSelect.disabled = !session.accessToken || (session.tenantMemberships || []).length === 0;
+  tenantSelect.disabled = !session.authenticated || (session.tenantMemberships || []).length === 0;
   policyMeta.textContent = remote.policyRevision ? `${text('policyShort')} ${remote.policyRevision}` : text('notSynced');
   enabledMeta.textContent = state.enabled ? text('on') : text('off');
-  groupCountMeta.textContent = String((remote.groups || []).length);
+  groupCountMeta.textContent = String((remote.accessPaths || []).length);
   overrideCountMeta.textContent = String((state.localOverrides.directHosts || []).length + (state.localOverrides.proxyHosts || []).length);
   syncTimeMeta.textContent = remote.fetchedAt ? new Date(remote.fetchedAt).toLocaleString() : text('notSynced');
-  proxyTokenStatus.textContent = session.proxyToken
+  proxyTokenStatus.textContent = session.proxyTokenAvailable
     ? text('proxyTokenSummary', [session.proxyTokenExpiresAt ? new Date(session.proxyTokenExpiresAt).toLocaleString() : '-'])
     : text('proxyTokenMissing');
   localHelperEnabled.checked = Boolean(state.localHelper && state.localHelper.enabled);
   localHelperScheme.value = state.localHelper && state.localHelper.scheme === 'PROXY' ? 'PROXY' : 'SOCKS5';
   localHelperHost.value = (state.localHelper && state.localHelper.host) || '127.0.0.1';
   localHelperPort.value = String((state.localHelper && state.localHelper.port) || 1080);
-  sessionMeta.textContent = session.accessToken
+  sessionMeta.textContent = session.authenticated
     ? text('sessionSummary', [session.account || '-', session.expiresAt ? new Date(session.expiresAt).toLocaleString() : '-'])
     : text('statusLoginRequired');
-  logoutButton.disabled = !session.accessToken;
-  syncRemote.disabled = !session.accessToken || !session.activeTenantId;
+  logoutButton.disabled = !session.authenticated;
+  syncRemote.disabled = !session.authenticated || !session.activeTenantId;
 }
 
 function render(nextBundle) {

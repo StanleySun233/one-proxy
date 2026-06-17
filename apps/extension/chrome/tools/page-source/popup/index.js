@@ -43,14 +43,31 @@ function setStatus(kind, message) {
   statusMessage.textContent = message;
 }
 
-function countLabel(group) {
-  if (!group) {
+function countLabel(remote) {
+  const routes = remote && Array.isArray(remote.routes) ? remote.routes : [];
+  if (routes.length === 0) {
     return text('noRules');
   }
-  return text('ruleSummary', [String((group.proxyHosts || []).length + (group.proxyCidrs || []).length), String((group.directHosts || []).length + (group.directCidrs || []).length)]);
+  return text('ruleSummary', [
+    String(routes.filter((route) => route.actionType === 'chain').length),
+    String(routes.filter((route) => route.actionType === 'direct').length)
+  ]);
 }
 
-function sourceLabel(source) {
+function sourceLabel(route) {
+  const source = route && route.source;
+  if (source === 'policy' && route.mode === 'proxy') {
+    return text('routeSource_remote_proxy');
+  }
+  if (source === 'policy' && route.mode === 'direct') {
+    return text('routeSource_remote_direct');
+  }
+  if (source === 'policy' && route.mode === 'deny') {
+    return route.denyReason || text('routeSource_unknown');
+  }
+  if (source === 'local_safety_direct') {
+    return text('routeSource_local_direct');
+  }
   return text(`routeSource_${source || 'unknown'}`);
 }
 
@@ -63,6 +80,9 @@ function routeLabel(route) {
   }
   if (route && route.mode === 'direct') {
     return text('routeDirect');
+  }
+  if (route && route.mode === 'deny') {
+    return route.denyReason || text('routeUnknown');
   }
   return text('routeUnknown');
 }
@@ -115,7 +135,7 @@ function renderProbes(results) {
 
 function render(bundle) {
   viewState = bundle;
-  const { state, session, remote, activeGroup, currentTab, currentRoute, monitorRoute } = bundle;
+  const { state, session, remote, activeAccessPath, currentTab, currentRoute, monitorRoute } = bundle;
   applyThemeMode(state.themeMode);
   accountName.textContent = session.account || text('notSignedIn');
   syncMeta.textContent = remote.fetchedAt ? `${text('syncedAt')} ${new Date(remote.fetchedAt).toLocaleTimeString()}` : text('notSynced');
@@ -123,11 +143,11 @@ function render(bundle) {
   masterValue.textContent = state.enabled ? text('on') : text('off');
   setToggleState(masterToggle, state.enabled);
   policyRevision.textContent = remote.policyRevision || '-';
-  ruleCounts.textContent = countLabel(activeGroup);
-  entryNodeName.textContent = activeGroup ? activeGroup.entryNodeName : text('noGroup');
-  entryNodeAddress.textContent = activeGroup ? `${activeGroup.proxyScheme} ${activeGroup.proxyHost}:${activeGroup.proxyPort}` : '-';
+  ruleCounts.textContent = countLabel(remote);
+  entryNodeName.textContent = activeAccessPath ? (activeAccessPath.name || activeAccessPath.entryNodeName) : text('noGroup');
+  entryNodeAddress.textContent = activeAccessPath ? `${activeAccessPath.proxyScheme} ${activeAccessPath.proxyHost}:${activeAccessPath.proxyPort}` : '-';
   currentRouteValue.textContent = routeLabel(currentRoute);
-  currentRouteSource.textContent = sourceLabel(currentRoute && currentRoute.source);
+  currentRouteSource.textContent = sourceLabel(currentRoute);
   routeCard.classList.toggle('is-proxy', Boolean(currentRoute && currentRoute.mode === 'proxy'));
   if (!testUrlInput.value) {
     testUrlInput.value = (state.monitor && state.monitor.targetUrl) || (currentTab && currentTab.url) || '';
@@ -137,23 +157,23 @@ function render(bundle) {
   renderProbes(state.monitor && state.monitor.results);
 
   groupSelect.innerHTML = '';
-  for (const group of remote.groups || []) {
+  for (const accessPath of remote.accessPaths || []) {
     const option = document.createElement('option');
-    option.value = group.id;
-    option.textContent = group.name;
-    option.selected = activeGroup && group.id === activeGroup.id;
+    option.value = accessPath.id;
+    option.textContent = accessPath.name;
+    option.selected = activeAccessPath && accessPath.id === activeAccessPath.id;
     groupSelect.appendChild(option);
   }
-  groupSelect.disabled = !(remote.groups || []).length;
-  masterToggle.disabled = !activeGroup;
+  groupSelect.disabled = !(remote.accessPaths || []).length;
+  masterToggle.disabled = !activeAccessPath;
   addDirect.disabled = !(currentTab && currentTab.host);
   addProxy.disabled = !(currentTab && currentTab.host);
   removeOverride.disabled = !(currentTab && currentTab.host);
-  testUrlButton.disabled = !activeGroup;
+  testUrlButton.disabled = !(remote.routes || []).length;
 
-  if (!session.accessToken) {
+  if (!session.authenticated) {
     setStatus('warning', text('statusLoginRequired'));
-  } else if (!activeGroup) {
+  } else if (!activeAccessPath) {
     setStatus('warning', text('statusNoGroups'));
   } else if (!state.enabled) {
     setStatus('idle', text('statusReadyOff'));
@@ -163,7 +183,7 @@ function render(bundle) {
 }
 
 masterToggle.addEventListener('click', () => {
-  if (!viewState || !viewState.activeGroup) {
+  if (!viewState || !viewState.activeAccessPath) {
     return;
   }
   sendMessage({ type: 'set-enabled', enabled: !viewState.state.enabled }).then((result) => {
@@ -176,7 +196,7 @@ masterToggle.addEventListener('click', () => {
 });
 
 groupSelect.addEventListener('change', (event) => {
-  sendMessage({ type: 'select-group', groupId: event.target.value }).then((result) => {
+  sendMessage({ type: 'select-access-path', accessPathId: event.target.value }).then((result) => {
   if (result && result.error) {
     setStatus('error', result.error);
     return;
@@ -250,7 +270,7 @@ testUrlButton.addEventListener('click', () => {
     })
     .catch((error) => setStatus('error', error.message || 'test_failed'))
     .finally(() => {
-      testUrlButton.disabled = !viewState || !viewState.activeGroup;
+      testUrlButton.disabled = !viewState || !(viewState.remote.routes || []).length;
     });
 });
 
