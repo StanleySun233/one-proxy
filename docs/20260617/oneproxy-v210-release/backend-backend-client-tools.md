@@ -25,6 +25,8 @@
   - Commit: d20d411
 - [x] Type CONNECT tunnel sockets in `apps/cli/src/daemon/http-proxy.ts`
   - Commit: 721b9bc
+- [x] Regenerate tracked CLI dist artifacts in `apps/cli/dist/**` for v2.1.0 source changes
+  - Commit: 9845752
 
 ## Blockers
 
