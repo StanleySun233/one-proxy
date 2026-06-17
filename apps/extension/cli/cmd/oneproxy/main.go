@@ -15,6 +15,7 @@ import (
 )
 
 const version = "0.4.0-dev"
+const defaultNodeHTTPPort = 2988
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -76,21 +77,20 @@ func runLogin(args []string) error {
 	fs.SetOutput(os.Stderr)
 	var panelURL string
 	var account string
-	var password string
 	var tenantID string
 	var tokenFile string
 	var accessTokenFile string
 	fs.StringVar(&panelURL, "panel-url", "", "OneProxy panel URL")
 	fs.StringVar(&account, "account", "", "account")
-	fs.StringVar(&password, "password", "", "password")
 	fs.StringVar(&tenantID, "tenant-id", "", "tenant ID")
 	fs.StringVar(&tokenFile, "token-file", defaultTokenFile(), "file to write the proxy token")
 	fs.StringVar(&accessTokenFile, "access-token-file", defaultAccessTokenFile(), "file to write the account access token")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	password := os.Getenv("ONEPROXY_PASSWORD")
 	if panelURL == "" || account == "" || password == "" {
-		return fmt.Errorf("usage: oneproxy login --panel-url <url> --account <account> --password <password> [--tenant-id <id>] [--token-file path]")
+		return fmt.Errorf("usage: ONEPROXY_PASSWORD=<password> oneproxy login --panel-url <url> --account <account> [--tenant-id <id>] [--token-file path]")
 	}
 	session, err := loginAccount(panelURL, account, password)
 	if err != nil {
@@ -217,7 +217,7 @@ func runTCP(name string, args []string) error {
 	fs.SetOutput(os.Stderr)
 	var cfg proxycommand.Config
 	fs.StringVar(&cfg.EntryHost, "entry-host", "", "OneProxy node host")
-	fs.IntVar(&cfg.EntryPort, "entry-port", 2333, "OneProxy node proxy port")
+	fs.IntVar(&cfg.EntryPort, "entry-port", defaultNodeHTTPPort, "OneProxy node proxy port")
 	fs.StringVar(&cfg.TargetHost, "target-host", "", "target host behind OneProxy")
 	fs.IntVar(&cfg.TargetPort, "target-port", 0, "target port behind OneProxy")
 	fs.StringVar(&cfg.TokenEnv, "token-env", "ONEPROXY_PROXY_TOKEN", "environment variable containing the proxy token")
@@ -254,7 +254,7 @@ func runSocks5(name string, args []string) error {
 	var cfg proxycommand.Socks5Config
 	fs.StringVar(&cfg.ListenAddr, "listen", "127.0.0.1:1080", "local SOCKS5 listen address")
 	fs.StringVar(&cfg.EntryHost, "entry-host", "", "OneProxy node host")
-	fs.IntVar(&cfg.EntryPort, "entry-port", 2333, "OneProxy node proxy port")
+	fs.IntVar(&cfg.EntryPort, "entry-port", defaultNodeHTTPPort, "OneProxy node proxy port")
 	fs.StringVar(&cfg.TokenEnv, "token-env", "ONEPROXY_PROXY_TOKEN", "environment variable containing the proxy token")
 	fs.StringVar(&cfg.TokenFile, "token-file", "", "file containing the proxy token")
 	fs.StringVar(&cfg.PanelURL, "direct-panel-url", "", "OneProxy panel URL for direct sessions")
