@@ -440,20 +440,20 @@ func (r proxyRepository) createNodeAccessPath(ctx context.Context, item domain.N
 func (r proxyRepository) updateNodeAccessPath(ctx context.Context, pathID string, input domain.UpdateNodeAccessPathInput) (domain.NodeAccessPath, error) {
 	now := nowRFC3339()
 	if _, err := r.db.NewUpdate().Model((*NodeAccessPathModel)(nil)).
-		Set("chain_id = NULLIF(?, '')", input.ChainID).
+		Set("chain_id = ?", input.ChainID).
 		Set("name = ?", input.Name).
 		Set("mode = ?", input.Mode).
 		Set("protocol = ?", input.Protocol).
 		Set("service_type = ?", input.ServiceType).
-		Set("target_node_id = NULLIF(?, '')", input.TargetNodeID).
-		Set("entry_node_id = NULLIF(?, '')", input.EntryNodeID).
+		Set("target_node_id = ?", input.TargetNodeID).
+		Set("entry_node_id = ?", input.EntryNodeID).
 		Set("relay_node_ids_json = ?", encodeJSONStringSlice(input.RelayNodeIDs)).
-		Set("listen_host = NULLIF(?, '')", input.ListenHost).
+		Set("listen_host = ?", input.ListenHost).
 		Set("listen_port = ?", input.ListenPort).
 		Set("target_protocol = ?", input.TargetProtocol).
-		Set("target_host = NULLIF(?, '')", input.TargetHost).
+		Set("target_host = ?", input.TargetHost).
 		Set("target_port = ?", input.TargetPort).
-		Set("target_sni = NULLIF(?, '')", input.TargetSNI).
+		Set("target_sni = ?", input.TargetSNI).
 		Set("tls_mode = ?", input.TLSMode).
 		Set("auth_mode = ?", input.AuthMode).
 		Set("options_json = ?", encodeJSONMap(input.Options)).
