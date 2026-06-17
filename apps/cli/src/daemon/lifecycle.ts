@@ -16,7 +16,7 @@ export type OneProxyConfig = {
   schemaVersion: number;
   controlPlaneUrl?: string;
   activeTenantId?: string;
-  activeGroupId?: string;
+  activeAccessPathId?: string;
   overrides?: Partial<LocalOverrides>;
 };
 
@@ -27,30 +27,15 @@ export type EntryNode = {
   protocol: string;
 };
 
-export type RouteRule = {
-  id: string;
-  type: 'domain' | 'suffix' | 'cidr' | 'wildcard';
-  pattern: string;
-  mode: 'direct' | 'proxy';
-};
-
-export type RouteGroup = {
-  id: string;
-  tenantId: string;
-  name?: string;
-  rules: RouteRule[];
-};
-
 export type OneProxyState = {
   schemaVersion: number;
   bootstrap?: {
     tenantId?: string;
-    groupId?: string;
+    accessPathId?: string;
     entryNodes?: EntryNode[];
   };
   policyRevision?: string;
   fetchedAt?: string;
-  routeGroups?: RouteGroup[];
 };
 
 export type OneProxyTokens = {
@@ -82,7 +67,7 @@ export type DaemonMetadata = {
   lastHeartbeatAt: string;
   controlPlaneUrl?: string;
   tenantId?: string;
-  groupId?: string;
+  accessPathId?: string;
   policyRevision?: string;
   bindings: DaemonBindings;
   portSelection: PortSelection;
@@ -227,7 +212,7 @@ export async function buildDaemonMetadata(resolved: ResolvedBindings): Promise<D
     lastHeartbeatAt: now,
     controlPlaneUrl: config.controlPlaneUrl,
     tenantId: config.activeTenantId,
-    groupId: config.activeGroupId,
+    accessPathId: config.activeAccessPathId,
     policyRevision: state.policyRevision,
     bindings: resolved.bindings,
     portSelection: resolved.portSelection,

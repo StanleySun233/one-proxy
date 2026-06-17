@@ -72,7 +72,7 @@ function routeText(route) {
         `Mode: ${route.mode}`,
         `Matched: ${route.matched.source}${route.matched.pattern ? ` ${route.matched.pattern}` : ''}`,
         `Tenant: ${route.tenant.name || route.tenant.id || 'none'}`,
-        `Group: ${route.group.name || route.group.id || 'none'}`
+        `Access path: ${route.accessPath.name || route.accessPath.id || 'none'}`
     ];
     if (route.topology) {
         lines.push(`Entry: ${route.topology.entryHost}:${route.topology.entryPort} (${route.topology.protocol})`);
@@ -93,9 +93,9 @@ export async function statusCommand(_args, context) {
             id: config.activeTenantId ?? null,
             name: null
         },
-        group: {
-            id: config.activeGroupId ?? state.bootstrap?.groupId ?? null,
-            name: state.routeGroups.find((group) => group.id === config.activeGroupId)?.name ?? null
+        accessPath: {
+            id: config.activeAccessPathId ?? state.bootstrap?.accessPathId ?? null,
+            name: state.accessPaths?.find((accessPath) => accessPath.id === (config.activeAccessPathId ?? state.bootstrap?.accessPathId))?.name ?? null
         },
         daemon: {
             running,
@@ -129,7 +129,7 @@ export async function statusCommand(_args, context) {
         `Account: ${tokens?.account?.email || tokens?.account?.account || tokens?.account?.id || 'not logged in'}`,
         `Control plane: ${config.controlPlaneUrl || 'not configured'}`,
         `Tenant: ${result.tenant.id || 'none'}`,
-        `Group: ${result.group.name || result.group.id || 'none'}`,
+        `Access path: ${result.accessPath.name || result.accessPath.id || 'none'}`,
         `Daemon: ${running ? `running pid ${daemon?.pid}` : 'not running'}`,
         `Ports: http=${result.localPorts.http || 'unset'} https=${result.localPorts.https || 'unset'}`,
         `Policy: ${result.policyRevision || 'none'}`,

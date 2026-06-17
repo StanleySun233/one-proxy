@@ -9,7 +9,7 @@ export type OneProxyConfig = {
     schemaVersion: number;
     controlPlaneUrl?: string;
     activeTenantId?: string;
-    activeGroupId?: string;
+    activeAccessPathId?: string;
     overrides?: Partial<LocalOverrides>;
 };
 export type EntryNode = {
@@ -18,28 +18,15 @@ export type EntryNode = {
     port: number;
     protocol: string;
 };
-export type RouteRule = {
-    id: string;
-    type: 'domain' | 'suffix' | 'cidr' | 'wildcard';
-    pattern: string;
-    mode: 'direct' | 'proxy';
-};
-export type RouteGroup = {
-    id: string;
-    tenantId: string;
-    name?: string;
-    rules: RouteRule[];
-};
 export type OneProxyState = {
     schemaVersion: number;
     bootstrap?: {
         tenantId?: string;
-        groupId?: string;
+        accessPathId?: string;
         entryNodes?: EntryNode[];
     };
     policyRevision?: string;
     fetchedAt?: string;
-    routeGroups?: RouteGroup[];
 };
 export type OneProxyTokens = {
     schemaVersion: number;
@@ -68,7 +55,7 @@ export type DaemonMetadata = {
     lastHeartbeatAt: string;
     controlPlaneUrl?: string;
     tenantId?: string;
-    groupId?: string;
+    accessPathId?: string;
     policyRevision?: string;
     bindings: DaemonBindings;
     portSelection: PortSelection;

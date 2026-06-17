@@ -5,8 +5,7 @@ export declare function logout(_args: string[], context: CliContext): Promise<vo
 export declare function refreshSession(): Promise<OneProxyTokens>;
 export declare function tenantList(_args: string[], context: CliContext): Promise<void>;
 export declare function tenantUse(args: string[], context: CliContext): Promise<void>;
-export declare function groupList(_args: string[], context: CliContext): Promise<void>;
-export declare function groupUse(args: string[], context: CliContext): Promise<void>;
-export declare function routeRulesFromBootstrap(_group: unknown): never[];
+export declare function accessPathList(_args: string[], context: CliContext): Promise<void>;
+export declare function accessPathUse(args: string[], context: CliContext): Promise<void>;
 export declare function autoSyncRemoteState(): Promise<boolean>;
 export declare function sync(_args: string[], context: CliContext): Promise<void>;

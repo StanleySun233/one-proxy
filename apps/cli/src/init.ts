@@ -9,11 +9,13 @@ import {
   writeConfig,
   writeState,
   writeTokens,
+  type AccessPathSnapshot,
   type Account,
+  type BootstrapNode,
   type OneProxyTokens,
-  type RouteGroup
+  type RouteEvaluationContract,
+  type RouteSnapshot
 } from './storage.ts';
-import { routeRulesFromBootstrap } from './control-plane.ts';
 
 type Envelope<T> = {
   code: number;
@@ -30,14 +32,21 @@ type Tenant = {
 
 type LoginResult = {
   account: Account;
-  accessToken?: string;
-  refreshToken?: string;
-  expiresAt?: string;
-  tokens?: {
-    accessToken?: string;
-    refreshToken?: string;
-    expiresAt?: string;
-  };
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+};
+
+type ExtensionBootstrap = {
+  schemaVersion: 'v2.1.0';
+  policyRevision: string;
+  fetchedAt: string;
+  proxyToken: string;
+  proxyTokenExpiresAt: string;
+  nodes: BootstrapNode[];
+  accessPaths: AccessPathSnapshot[];
+  routes: RouteSnapshot[];
+  routeEvaluation: RouteEvaluationContract;
 };
 
 function endpoint(baseUrl: string, path: string): string {
@@ -103,10 +112,10 @@ function tokenFromLogin(result: LoginResult): OneProxyTokens {
   return {
     schemaVersion: 1,
     account: result.account,
-    accessToken: result.tokens?.accessToken || result.accessToken,
-    refreshToken: result.tokens?.refreshToken || result.refreshToken,
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken,
     proxyToken: undefined,
-    accessTokenExpiresAt: result.tokens?.expiresAt || result.expiresAt,
+    accessTokenExpiresAt: result.expiresAt,
     refreshTokenExpiresAt: undefined,
     proxyTokenExpiresAt: undefined
   };
@@ -197,43 +206,39 @@ export async function initCommand(_args: string[], _context: CliContext): Promis
     overrides: { direct: [], proxy: [] }
   });
 
-  const bootstrap = await request<any>(panelUrl, '/proxy/extension/bootstrap', {
+  const bootstrap = await request<ExtensionBootstrap>(panelUrl, '/proxy/extension/bootstrap', {
     accessToken: tokens.accessToken,
     tenantId: activeTenantId
   });
-  const routeGroups: RouteGroup[] = (bootstrap.groups ?? []).map((group: any) => ({
-    id: group.id,
-    tenantId: activeTenantId,
-    name: group.name,
-    rules: routeRulesFromBootstrap(group)
-  }));
-  const activeGroup = routeGroups.find((group) => group.id);
-  const entryGroup = (bootstrap.groups ?? []).find((group: any) => group.id === activeGroup?.id);
+  if (bootstrap.schemaVersion !== 'v2.1.0') {
+    throw Object.assign(new Error(`Unsupported bootstrap schema version: ${bootstrap.schemaVersion}`), { code: 'UNSUPPORTED_BOOTSTRAP_CONTRACT' });
+  }
+  const activeAccessPath = bootstrap.accessPaths.find((accessPath) => accessPath.enabled) || bootstrap.accessPaths[0];
   await writeState({
     schemaVersion: 1,
     bootstrap: {
       tenantId: activeTenantId,
-      groupId: activeGroup?.id,
-      entryNodes: entryGroup?.proxyHost
-        ? [{ id: entryGroup.entryNodeId || entryGroup.id, host: entryGroup.proxyHost, port: entryGroup.proxyPort || 443, protocol: entryGroup.proxyScheme || 'connect' }]
-        : []
+      accessPathId: activeAccessPath?.id
     },
     policyRevision: bootstrap.policyRevision,
     fetchedAt: bootstrap.fetchedAt || new Date().toISOString(),
-    routeGroups
+    nodes: bootstrap.nodes,
+    accessPaths: bootstrap.accessPaths,
+    routes: bootstrap.routes,
+    routeEvaluation: bootstrap.routeEvaluation
   });
   await writeTokens({
     ...tokens,
     proxyToken: bootstrap.proxyToken || tokens.proxyToken,
     proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt || tokens.proxyTokenExpiresAt
   });
-  if (activeGroup?.id) {
+  if (activeAccessPath?.id) {
     await writeConfig({
       schemaVersion: 1,
       profileName,
       controlPlaneUrl: panelUrl,
       activeTenantId,
-      activeGroupId: activeGroup.id,
+      activeAccessPathId: activeAccessPath.id,
       overrides: { direct: [], proxy: [] }
     });
   }

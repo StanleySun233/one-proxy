@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as fs from 'node:fs/promises';
-import { autoSyncRemoteState, login, logout, sync, tenantList, tenantUse, groupList, groupUse } from "./control-plane.js";
+import { accessPathList, accessPathUse, autoSyncRemoteState, login, logout, sync, tenantList, tenantUse } from "./control-plane.js";
 import { envOff, envOn, runCommand } from "./session-env.js";
 import { doctor, overrideCommand, routeCommand, statusCommand, testCommand, writeError } from "./commands.js";
 import { serveDaemon } from "./daemon/lifecycle.js";
@@ -38,7 +38,7 @@ function usage() {
         '  logout',
         '  profile add <name> --control-plane <url>|use <name>|list|current',
         '  tenant list|use <name-or-id>',
-        '  group list|use <name-or-id>',
+        '  access-path list|use <name-or-id>',
         '  sync',
         '  status [--json]',
         '  env [on|off]',
@@ -104,15 +104,15 @@ const handlers = {
         }
         throw Object.assign(new Error('tenant requires list or use'), { code: 'SYNTAX_ERROR', exitCode: 2 });
     },
-    group: async (args, context) => {
+    'access-path': async (args, context) => {
         const action = args[0];
         if (action === 'list') {
-            return groupList(args.slice(1), context);
+            return accessPathList(args.slice(1), context);
         }
         if (action === 'use') {
-            return groupUse([requireArg(args[1], 'group use requires a group name or id')], context);
+            return accessPathUse([requireArg(args[1], 'access-path use requires an access path name or id')], context);
         }
-        throw Object.assign(new Error('group requires list or use'), { code: 'SYNTAX_ERROR', exitCode: 2 });
+        throw Object.assign(new Error('access-path requires list or use'), { code: 'SYNTAX_ERROR', exitCode: 2 });
     }
 };
 export async function main(argv = process.argv.slice(2)) {

@@ -164,8 +164,7 @@ export async function readState() {
     const state = await readJson(storageFile('state'));
     return {
         schemaVersion: 1,
-        ...state,
-        routeGroups: state?.routeGroups ?? []
+        ...state
     };
 }
 export async function writeState(state) {

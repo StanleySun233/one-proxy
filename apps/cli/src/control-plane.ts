@@ -151,7 +151,6 @@ type LatestState = Awaited<ReturnType<typeof readState>> & {
   bootstrap?: {
     tenantId?: string;
     accessPathId?: string;
-    groupId?: string;
   };
 };
 
@@ -281,7 +280,6 @@ export async function login(args: string[], context: CliContext): Promise<void> 
   const loginConfig: LatestConfig = {
     ...nextConfig,
     activeTenantId: defaultTenantId || config.activeTenantId,
-    activeGroupId: undefined,
     activeAccessPathId: undefined
   };
   await writeConfig(loginConfig);
@@ -351,7 +349,6 @@ export async function tenantUse(args: string[], context: CliContext): Promise<vo
   const nextConfig: LatestConfig = {
     ...config,
     activeTenantId: nextTenantId,
-    activeGroupId: undefined,
     activeAccessPathId: latestConfig.activeTenantId === nextTenantId ? latestConfig.activeAccessPathId : undefined
   };
   await writeConfig(nextConfig);
@@ -359,7 +356,7 @@ export async function tenantUse(args: string[], context: CliContext): Promise<vo
   print(context.json ? { activeTenantId: tenantIdOf(tenant) } : `Active tenant: ${tenantNameOf(tenant)}`, context);
 }
 
-export async function groupList(_args: string[], context: CliContext): Promise<void> {
+export async function accessPathList(_args: string[], context: CliContext): Promise<void> {
   const config = await readConfig();
   if (!config.activeTenantId) {
     throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
@@ -373,7 +370,7 @@ export async function groupList(_args: string[], context: CliContext): Promise<v
   print(accessPaths.map((accessPath) => `${accessPath.id}\t${accessPath.name || accessPath.id}`).join('\n'), context);
 }
 
-export async function groupUse(args: string[], context: CliContext): Promise<void> {
+export async function accessPathUse(args: string[], context: CliContext): Promise<void> {
   const config = (await readConfig()) as LatestConfig;
   if (!config.activeTenantId) {
     throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
@@ -384,13 +381,9 @@ export async function groupUse(args: string[], context: CliContext): Promise<voi
   if (!accessPath) {
     throw Object.assign(new Error(`Access path not found in synced state: ${args[0]}. Run onep sync first.`), { code: 'ACCESS_PATH_REQUIRED' });
   }
-  const nextConfig: LatestConfig = { ...config, activeGroupId: undefined, activeAccessPathId: accessPath.id };
+  const nextConfig: LatestConfig = { ...config, activeAccessPathId: accessPath.id };
   await writeConfig(nextConfig);
   print(context.json ? { activeAccessPathId: accessPath.id } : `Active access path: ${accessPath.name || accessPath.id}`, context);
-}
-
-export function routeRulesFromBootstrap(_group: unknown): never[] {
-  throw Object.assign(new Error('Route groups are not part of the v2.1.0 bootstrap contract.'), { code: 'UNSUPPORTED_BOOTSTRAP_CONTRACT' });
 }
 
 async function syncRemoteState(config: OneProxyConfig, tokens: OneProxyTokens): Promise<SyncResult> {
@@ -420,8 +413,7 @@ async function syncRemoteState(config: OneProxyConfig, tokens: OneProxyTokens): 
     nodes: bootstrap.nodes,
     accessPaths: bootstrap.accessPaths,
     routes: bootstrap.routes,
-    routeEvaluation: bootstrap.routeEvaluation,
-    routeGroups: []
+    routeEvaluation: bootstrap.routeEvaluation
   };
   await writeState(state);
   await writeTokens({
@@ -430,7 +422,7 @@ async function syncRemoteState(config: OneProxyConfig, tokens: OneProxyTokens): 
     proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt
   });
   if (activeAccessPath?.id && activeAccessPath.id !== latestConfig.activeAccessPathId) {
-    const nextConfig: LatestConfig = { ...config, activeGroupId: undefined, activeAccessPathId: activeAccessPath.id };
+    const nextConfig: LatestConfig = { ...config, activeAccessPathId: activeAccessPath.id };
     await writeConfig(nextConfig);
   }
   return { policyRevision: state.policyRevision, accessPathCount: bootstrap.accessPaths.length };

@@ -63,7 +63,10 @@ function routeResult(input, target, mode, source, route, accessPath, denyReason 
             pattern: route?.matchValue
         },
         tenant: { id: input.config.activeTenantId },
-        group: { id: route?.chainId ?? accessPath?.chainId },
+        accessPath: {
+            id: route?.accessPathId ?? accessPath?.id,
+            name: accessPath?.name
+        },
         topology: mode === 'proxy' && accessPath ? topologyFromAccessPath(accessPath) : null
     };
 }

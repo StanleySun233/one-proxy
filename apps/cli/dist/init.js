@@ -3,7 +3,6 @@ import { stdin as input, stdout as output } from 'node:process';
 import { promptPassword, promptText } from "./prompt.js";
 import { startActivatedShell } from "./shell.js";
 import { addProfile, writeConfig, writeState, writeTokens } from "./storage.js";
-import { routeRulesFromBootstrap } from "./control-plane.js";
 function endpoint(baseUrl, path) {
     return `${baseUrl.replace(/\/+$/, '')}/api${path}`;
 }
@@ -60,10 +59,10 @@ function tokenFromLogin(result) {
     return {
         schemaVersion: 1,
         account: result.account,
-        accessToken: result.tokens?.accessToken || result.accessToken,
-        refreshToken: result.tokens?.refreshToken || result.refreshToken,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
         proxyToken: undefined,
-        accessTokenExpiresAt: result.tokens?.expiresAt || result.expiresAt,
+        accessTokenExpiresAt: result.expiresAt,
         refreshTokenExpiresAt: undefined,
         proxyTokenExpiresAt: undefined
     };
@@ -151,39 +150,35 @@ export async function initCommand(_args, _context) {
         accessToken: tokens.accessToken,
         tenantId: activeTenantId
     });
-    const routeGroups = (bootstrap.groups ?? []).map((group) => ({
-        id: group.id,
-        tenantId: activeTenantId,
-        name: group.name,
-        rules: routeRulesFromBootstrap(group)
-    }));
-    const activeGroup = routeGroups.find((group) => group.id);
-    const entryGroup = (bootstrap.groups ?? []).find((group) => group.id === activeGroup?.id);
+    if (bootstrap.schemaVersion !== 'v2.1.0') {
+        throw Object.assign(new Error(`Unsupported bootstrap schema version: ${bootstrap.schemaVersion}`), { code: 'UNSUPPORTED_BOOTSTRAP_CONTRACT' });
+    }
+    const activeAccessPath = bootstrap.accessPaths.find((accessPath) => accessPath.enabled) || bootstrap.accessPaths[0];
     await writeState({
         schemaVersion: 1,
         bootstrap: {
             tenantId: activeTenantId,
-            groupId: activeGroup?.id,
-            entryNodes: entryGroup?.proxyHost
-                ? [{ id: entryGroup.entryNodeId || entryGroup.id, host: entryGroup.proxyHost, port: entryGroup.proxyPort || 443, protocol: entryGroup.proxyScheme || 'connect' }]
-                : []
+            accessPathId: activeAccessPath?.id
         },
         policyRevision: bootstrap.policyRevision,
         fetchedAt: bootstrap.fetchedAt || new Date().toISOString(),
-        routeGroups
+        nodes: bootstrap.nodes,
+        accessPaths: bootstrap.accessPaths,
+        routes: bootstrap.routes,
+        routeEvaluation: bootstrap.routeEvaluation
     });
     await writeTokens({
         ...tokens,
         proxyToken: bootstrap.proxyToken || tokens.proxyToken,
         proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt || tokens.proxyTokenExpiresAt
     });
-    if (activeGroup?.id) {
+    if (activeAccessPath?.id) {
         await writeConfig({
             schemaVersion: 1,
             profileName,
             controlPlaneUrl: panelUrl,
             activeTenantId,
-            activeGroupId: activeGroup.id,
+            activeAccessPathId: activeAccessPath.id,
             overrides: { direct: [], proxy: [] }
         });
     }

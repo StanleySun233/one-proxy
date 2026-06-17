@@ -82,7 +82,7 @@ export type RouteResult = {
     id?: string;
     name?: string;
   };
-  group: {
+  accessPath: {
     id?: string;
     name?: string;
   };
@@ -185,7 +185,10 @@ function routeResult(
       pattern: route?.matchValue
     },
     tenant: { id: input.config.activeTenantId },
-    group: { id: route?.chainId ?? accessPath?.chainId },
+    accessPath: {
+      id: route?.accessPathId ?? accessPath?.id,
+      name: accessPath?.name
+    },
     topology: mode === 'proxy' && accessPath ? topologyFromAccessPath(accessPath) : null
   };
 }

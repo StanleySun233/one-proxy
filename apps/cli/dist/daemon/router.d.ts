@@ -52,7 +52,7 @@ export type RouteResult = {
         id?: string;
         name?: string;
     };
-    group: {
+    accessPath: {
         id?: string;
         name?: string;
     };

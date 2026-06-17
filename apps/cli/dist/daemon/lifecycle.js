@@ -107,7 +107,7 @@ export async function buildDaemonMetadata(resolved) {
         lastHeartbeatAt: now,
         controlPlaneUrl: config.controlPlaneUrl,
         tenantId: config.activeTenantId,
-        groupId: config.activeGroupId,
+        accessPathId: config.activeAccessPathId,
         policyRevision: state.policyRevision,
         bindings: resolved.bindings,
         portSelection: resolved.portSelection,

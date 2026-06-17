@@ -7,7 +7,7 @@ export type OneProxyConfig = {
     profileName?: string;
     controlPlaneUrl?: string;
     activeTenantId?: string;
-    activeGroupId?: string;
+    activeAccessPathId?: string;
     ignoredCliVersion?: string;
     overrides: LocalOverrides;
 };
@@ -32,28 +32,86 @@ export type EntryNode = {
     port: number;
     protocol: string;
 };
-export type RouteRule = {
+export type BootstrapNode = {
     id: string;
-    type: 'domain' | 'suffix' | 'cidr' | 'wildcard';
-    pattern: string;
-    mode: 'direct' | 'proxy';
+    name: string;
+    mode: string;
+    scopeKey: string;
+    parentNodeId: string;
+    enabled: boolean;
+    status: string;
+    publicHost?: string;
+    publicPort?: number;
 };
-export type RouteGroup = {
+export type TopologyHop = {
+    nodeId: string;
+    nodeName: string;
+    mode: string;
+    scopeKey: string;
+    publicHost?: string;
+    publicPort?: number;
+    transport: string;
+};
+export type AccessPathSnapshot = {
     id: string;
-    tenantId: string;
-    name?: string;
-    rules: RouteRule[];
+    name: string;
+    chainId: string;
+    mode: string;
+    protocol: string;
+    serviceType: string;
+    targetNodeId: string;
+    entryNodeId: string;
+    relayNodeIds: string[];
+    listenHost: string;
+    listenPort: number;
+    targetProtocol: string;
+    targetHost: string;
+    targetPort: number;
+    targetSni: string;
+    tlsMode: string;
+    authMode: 'proxy_token';
+    enabled: boolean;
+    options: Record<string, string>;
+    topology: TopologyHop[];
+    health: {
+        status: string;
+        reason: string;
+        checkedAt: string;
+    };
+};
+export type RouteSnapshot = {
+    id: string;
+    priority: number;
+    matchType: 'domain' | 'domain_suffix' | 'ip' | 'ip_cidr' | 'protocol' | 'default';
+    matchValue: string;
+    actionType: 'chain' | 'direct' | 'deny';
+    chainId: string;
+    accessPathId: string;
+    destinationScope: string;
+    enabled: boolean;
+    topology: TopologyHop[];
+};
+export type RouteEvaluationContract = {
+    defaultClientMode: 'direct';
+    defaultNodeMode: 'deny';
+    ruleOrder: 'priority_asc_then_id_asc';
+    noMatchNodeDenyReason: 'route_not_found';
+    supportedMatchTypes: RouteSnapshot['matchType'][];
+    supportedActions: RouteSnapshot['actionType'][];
 };
 export type OneProxyState = {
     schemaVersion: number;
     bootstrap?: {
         tenantId?: string;
-        groupId?: string;
+        accessPathId?: string;
         entryNodes?: EntryNode[];
     };
     policyRevision?: string;
     fetchedAt?: string;
-    routeGroups: RouteGroup[];
+    nodes?: BootstrapNode[];
+    accessPaths?: AccessPathSnapshot[];
+    routes?: RouteSnapshot[];
+    routeEvaluation?: RouteEvaluationContract;
 };
 export type DaemonBindings = {
     host: string;
@@ -69,7 +127,7 @@ export type DaemonMetadata = {
     lastHeartbeatAt: string;
     controlPlaneUrl?: string;
     tenantId?: string;
-    groupId?: string;
+    accessPathId?: string;
     policyRevision?: string;
     bindings: DaemonBindings;
     portSelection?: {

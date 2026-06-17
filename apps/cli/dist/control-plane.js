@@ -118,7 +118,6 @@ export async function login(args, context) {
     const loginConfig = {
         ...nextConfig,
         activeTenantId: defaultTenantId || config.activeTenantId,
-        activeGroupId: undefined,
         activeAccessPathId: undefined
     };
     await writeConfig(loginConfig);
@@ -180,14 +179,13 @@ export async function tenantUse(args, context) {
     const nextConfig = {
         ...config,
         activeTenantId: nextTenantId,
-        activeGroupId: undefined,
         activeAccessPathId: latestConfig.activeTenantId === nextTenantId ? latestConfig.activeAccessPathId : undefined
     };
     await writeConfig(nextConfig);
     await syncRemoteStateWithRefresh(nextConfig, await requireTokens());
     print(context.json ? { activeTenantId: tenantIdOf(tenant) } : `Active tenant: ${tenantNameOf(tenant)}`, context);
 }
-export async function groupList(_args, context) {
+export async function accessPathList(_args, context) {
     const config = await readConfig();
     if (!config.activeTenantId) {
         throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
@@ -200,7 +198,7 @@ export async function groupList(_args, context) {
     }
     print(accessPaths.map((accessPath) => `${accessPath.id}\t${accessPath.name || accessPath.id}`).join('\n'), context);
 }
-export async function groupUse(args, context) {
+export async function accessPathUse(args, context) {
     const config = (await readConfig());
     if (!config.activeTenantId) {
         throw Object.assign(new Error('Active tenant is required. Run onep tenant use <name-or-id>.'), { code: 'TENANT_REQUIRED' });
@@ -211,12 +209,9 @@ export async function groupUse(args, context) {
     if (!accessPath) {
         throw Object.assign(new Error(`Access path not found in synced state: ${args[0]}. Run onep sync first.`), { code: 'ACCESS_PATH_REQUIRED' });
     }
-    const nextConfig = { ...config, activeGroupId: undefined, activeAccessPathId: accessPath.id };
+    const nextConfig = { ...config, activeAccessPathId: accessPath.id };
     await writeConfig(nextConfig);
     print(context.json ? { activeAccessPathId: accessPath.id } : `Active access path: ${accessPath.name || accessPath.id}`, context);
-}
-export function routeRulesFromBootstrap(_group) {
-    throw Object.assign(new Error('Route groups are not part of the v2.1.0 bootstrap contract.'), { code: 'UNSUPPORTED_BOOTSTRAP_CONTRACT' });
 }
 async function syncRemoteState(config, tokens) {
     if (!config.activeTenantId) {
@@ -244,8 +239,7 @@ async function syncRemoteState(config, tokens) {
         nodes: bootstrap.nodes,
         accessPaths: bootstrap.accessPaths,
         routes: bootstrap.routes,
-        routeEvaluation: bootstrap.routeEvaluation,
-        routeGroups: []
+        routeEvaluation: bootstrap.routeEvaluation
     };
     await writeState(state);
     await writeTokens({
@@ -254,7 +248,7 @@ async function syncRemoteState(config, tokens) {
         proxyTokenExpiresAt: bootstrap.proxyTokenExpiresAt
     });
     if (activeAccessPath?.id && activeAccessPath.id !== latestConfig.activeAccessPathId) {
-        const nextConfig = { ...config, activeGroupId: undefined, activeAccessPathId: activeAccessPath.id };
+        const nextConfig = { ...config, activeAccessPathId: activeAccessPath.id };
         await writeConfig(nextConfig);
     }
     return { policyRevision: state.policyRevision, accessPathCount: bootstrap.accessPaths.length };
