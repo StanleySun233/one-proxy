@@ -10,7 +10,7 @@ v2.1.0 is a final-schema-only release. Fresh panel databases are initialized fro
 
 The release deployment script enforces this for the camelbot panel. `deploy camelbot-panel` requires `ONEPROXY_FINAL_PANEL_DB_NAME`, `ONEPROXY_FINAL_PANEL_ADMIN_PASSWORD`, `ONEPROXY_FINAL_PANEL_JWT_SIGNING_KEY`, and `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema`. The target final database must have zero tables before the final image is started.
 
-Use `scripts/deploy-v210-final-cutover.sh` for the final standing cutover. Its `check` and `dry-run` modes are read-only. Its `run` mode requires `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema`, final panel secrets, an immutable image tag, and `ONEPROXY_FINAL_LOCAL_NODE_PARENT_URL`. The run path uses a fresh final panel database, fresh panel data volume, fresh camelbot node runtime volume, and fresh local node runtime volume, then bootstraps and approves both nodes before creating chains, access paths, routes, publishing policy, validating latest bootstrap, validating proxy-token hashes, and printing database evidence.
+Use `scripts/deploy-v210-final-cutover.sh` for the final standing cutover. Its `check`, `dry-run`, and `verify` modes are read-only. Its `run` mode requires `ONEPROXY_FINAL_SCHEMA_CONFIRM=deploy-final-schema`, final panel secrets, an immutable image tag, and `ONEPROXY_FINAL_LOCAL_NODE_PARENT_URL`. The run path uses a fresh final panel database, fresh panel data volume, fresh camelbot node runtime volume, and fresh local node runtime volume, then bootstraps and approves both nodes before creating chains, access paths, routes, publishing policy, validating latest bootstrap, validating proxy-token hashes, and printing database evidence.
 
 The cutover script restores renamed backup containers when panel, remote-node, local-node, or final control-plane provisioning fails before completion. It does not delete or rewrite the old database.
 
@@ -101,6 +101,7 @@ Modes:
 | `check` | Runs non-destructive current-image and health checks. This is the default mode. |
 | `deploy` | Performs replacement deployment. This mode is required for local node, camelbot node, and camelbot panel replacement. |
 | `final-cutover run` | Performs the final-schema standing cutover through `scripts/deploy-v210-final-cutover.sh run <immutable_tag>`. |
+| `final-cutover verify` | Verifies post-cutover images, node binding health, final DB shape, policy count, access paths, routes, and token hash shapes without changing services. |
 
 Acceptance criteria:
 

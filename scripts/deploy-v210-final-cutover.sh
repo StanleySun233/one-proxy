@@ -34,10 +34,10 @@ local_node_direct_port="${ONEPROXY_FINAL_LOCAL_NODE_DIRECT_PORT:-2992}"
 remote_node_direct_port="${ONEPROXY_FINAL_CAMELBOT_NODE_DIRECT_PORT:-2992}"
 
 case "$mode" in
-  check|dry-run|run)
+  check|dry-run|verify|run)
     ;;
   *)
-    echo "usage: $0 [check|dry-run|run] <immutable_tag>" >&2
+    echo "usage: $0 [check|dry-run|verify|run] <immutable_tag>" >&2
     exit 2
     ;;
 esac
@@ -127,6 +127,75 @@ else
   echo "mysql=missing"
 fi
 REMOTE
+}
+
+verify_final_state() {
+  require_tag
+  expected_panel_image="$(panel_image)"
+  expected_node_image="$(node_image)"
+  status=0
+  echo "target=local-node"
+  local_image="$(docker inspect "$local_node_container" --format '{{.Config.Image}}' 2>/dev/null || true)"
+  local_health="$(curl -fsS http://127.0.0.1:2988/healthz 2>/dev/null || true)"
+  echo "image=${local_image:-missing}"
+  echo "health=${local_health:-unavailable}"
+  if [ "$local_image" != "$expected_node_image" ] || ! printf "%s" "$local_health" | grep -q '"controlPlaneBound":true'; then
+    status=1
+  fi
+  if ! ssh -T "$ssh_host" 'bash -s' -- "$panel_container" "$remote_node_container" "$panel_port" "$mysql_container" "$final_db" "$expected_panel_image" "$expected_node_image" <<'REMOTE'
+set -euo pipefail
+panel_container="$1"
+remote_node_container="$2"
+panel_port="$3"
+mysql_container="$4"
+final_db="$5"
+expected_panel_image="$6"
+expected_node_image="$7"
+status=0
+query() {
+  docker exec -e MYSQL_QUERY="$1" -e MYSQL_DATABASE="$final_db" "$mysql_container" sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -N -B -e "$MYSQL_QUERY"' 2>/dev/null || true
+}
+echo "target=camelbot-panel"
+panel_image="$(docker inspect "$panel_container" --format '{{.Config.Image}}' 2>/dev/null || true)"
+panel_health="$(curl -fsS "http://127.0.0.1:${panel_port}/healthz" 2>/dev/null || true)"
+echo "image=${panel_image:-missing}"
+echo "health=${panel_health:-unavailable}"
+if [ "$panel_image" != "$expected_panel_image" ] || [ -z "$panel_health" ]; then
+  status=1
+fi
+echo "target=camelbot-node"
+node_image="$(docker inspect "$remote_node_container" --format '{{.Config.Image}}' 2>/dev/null || true)"
+node_health="$(curl -fsS http://127.0.0.1:2988/healthz 2>/dev/null || true)"
+echo "image=${node_image:-missing}"
+echo "health=${node_health:-unavailable}"
+if [ "$node_image" != "$expected_node_image" ] || ! printf "%s" "$node_health" | grep -q '"controlPlaneBound":true'; then
+  status=1
+fi
+echo "target=final-db"
+tables="$(query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE();")"
+goose="$(query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'goose_db_version';")"
+nodes="$(query "SELECT COUNT(*) FROM nodes;")"
+access_paths="$(query "SELECT COUNT(*) FROM node_access_paths;")"
+routes="$(query "SELECT COUNT(*) FROM route_rules;")"
+policies="$(query "SELECT COUNT(*) FROM policy_revisions;")"
+session_hashes="$(query "SELECT COUNT(*) FROM sessions WHERE access_token_hash REGEXP '^[0-9a-f]{64}$' AND refresh_token_hash REGEXP '^[0-9a-f]{64}$';")"
+node_token_hashes="$(query "SELECT COUNT(*) FROM node_api_tokens WHERE token_hash REGEXP '^[0-9a-f]{64}$';")"
+bootstrap_token_hashes="$(query "SELECT COUNT(*) FROM bootstrap_tokens WHERE token_hash REGEXP '^[0-9a-f]{64}$';")"
+echo "db=${final_db} tables=${tables:-unknown} goose_tables=${goose:-unknown} nodes=${nodes:-unknown} access_paths=${access_paths:-unknown} routes=${routes:-unknown} policies=${policies:-unknown}"
+echo "hash_shapes=sessions:${session_hashes:-unknown} node_tokens:${node_token_hashes:-unknown} bootstrap_tokens:${bootstrap_token_hashes:-unknown}"
+query "SELECT id, status, enabled, public_host, public_port FROM nodes ORDER BY id;"
+query "SELECT node_id, transport_type, direction, address, status FROM node_transports ORDER BY node_id, transport_type;"
+query "SELECT id, chain_id, entry_node_id, target_node_id, listen_port, target_host, target_port, enabled FROM node_access_paths ORDER BY id;"
+query "SELECT id, priority, match_type, match_value, action_type, chain_id, destination_scope, enabled FROM route_rules ORDER BY priority, id;"
+if [ "${goose:-1}" != "0" ] || [ "${nodes:-0}" -lt 2 ] || [ "${access_paths:-0}" -lt 2 ] || [ "${routes:-0}" -lt 2 ] || [ "${policies:-0}" -lt 1 ]; then
+  status=1
+fi
+exit "$status"
+REMOTE
+  then
+    status=1
+  fi
+  return "$status"
 }
 
 json_get() {
@@ -750,6 +819,9 @@ case "$mode" in
   dry-run)
     require_tag
     print_plan
+    ;;
+  verify)
+    verify_final_state
     ;;
   run)
     run_cutover
