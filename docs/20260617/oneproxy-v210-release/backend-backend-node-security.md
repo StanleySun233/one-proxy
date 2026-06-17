@@ -25,9 +25,16 @@
   - Commit: 4e03ebe4581af324ccf91dbf02422eb9410ba795
 - [x] Verify direct QUIC identity in node-to-node stream clients in `apps/node/api/internal/direct/quic_stream.go`
   - Commit: cac1d22c8c9b72702c7a7c947d21880ef63452de
+- [x] Pass direct QUIC peer identity through node candidates and link plans in `apps/node/api/internal/domain/direct.go`, `apps/node/api/internal/direct/**`, and `apps/panel/api/internal/{domain,store}/direct_transport.go`
+  - Commit: fb5fd71
 
 ## Blockers
 
 | Date | Blocker | Status |
 |------|---------|--------|
-| 2026-06-17 | Node-to-node direct link plans do not currently pass DirectNodeIdentity trust material or certificate fingerprints; the node direct client now fails closed instead of falling back to insecure TLS. | Open |
+| 2026-06-17 | Node-to-node direct link plans do not currently pass DirectNodeIdentity trust material or certificate fingerprints; the node direct client now fails closed instead of falling back to insecure TLS. | Resolved by 5e57334 and fb5fd71 |
+
+## Verification
+
+- `cd apps/node/api && go test ./internal/direct`: pass
+- `cd apps/panel/api && go test ./internal/service ./internal/store ./internal/httpapi`: pass
