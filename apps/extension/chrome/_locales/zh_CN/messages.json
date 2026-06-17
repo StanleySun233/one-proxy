@@ -1,6 +1,6 @@
 {
   "appDescription": {
-    "message": "由控制面远程管理的浏览器代理分组。"
+    "message": "由控制面远程管理的浏览器代理访问路径。"
   },
   "popupEyebrow": {
     "message": "远程代理控制"
@@ -14,8 +14,8 @@
   "account": {
     "message": "账号"
   },
-  "activeGroup": {
-    "message": "当前分组"
+  "activeAccessPath": {
+    "message": "当前访问路径"
   },
   "proxySwitch": {
     "message": "代理"
@@ -29,11 +29,11 @@
   "policyShort": {
     "message": "策略"
   },
-  "groups": {
-    "message": "分组"
+  "accessPaths": {
+    "message": "访问路径"
   },
-  "groupDetail": {
-    "message": "分组详情"
+  "accessPathDetail": {
+    "message": "访问路径详情"
   },
   "thisSiteDirect": {
     "message": "本站直连"
@@ -96,7 +96,7 @@
     "message": "远程代理规则"
   },
   "routeSource_proxy_default": {
-    "message": "分组默认"
+    "message": "访问路径默认"
   },
   "routeSource_default_direct": {
     "message": "默认直连"
@@ -108,7 +108,7 @@
     "message": "One Proxy 设置"
   },
   "optionsHeading": {
-    "message": "远程分组与浏览器路由"
+    "message": "访问路径与浏览器路由"
   },
   "connection": {
     "message": "连接"
@@ -194,8 +194,8 @@
   "notSynced": {
     "message": "未同步"
   },
-  "noGroup": {
-    "message": "无分组"
+  "noAccessPath": {
+    "message": "无访问路径"
   },
   "noRules": {
     "message": "无规则"
@@ -210,16 +210,16 @@
     "message": "关"
   },
   "statusLoginRequired": {
-    "message": "请先到设置页登录，然后再启用远程分组。"
+    "message": "请先到设置页登录，然后再启用远程访问路径。"
   },
-  "statusNoGroups": {
-    "message": "当前账号没有可用的远程分组。"
+  "statusNoAccessPaths": {
+    "message": "当前账号没有可用的远程访问路径。"
   },
   "statusReadyOff": {
     "message": "远程配置已加载，代理当前关闭。"
   },
   "statusReadyOn": {
-    "message": "远程分组已启用，浏览器代理已打开。"
+    "message": "远程访问路径已启用，浏览器代理已打开。"
   },
   "statusSynced": {
     "message": "远程配置已同步。"
@@ -258,7 +258,7 @@
     "message": "本地覆盖已保存。"
   },
   "statusIdle": {
-    "message": "登录后即可使用远程分组。"
+    "message": "登录后即可使用远程访问路径。"
   },
   "proxyToken": {
     "message": "代理 Token"

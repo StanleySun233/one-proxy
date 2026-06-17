@@ -144,7 +144,7 @@ function render(bundle) {
   setToggleState(masterToggle, state.enabled);
   policyRevision.textContent = remote.policyRevision || '-';
   ruleCounts.textContent = countLabel(remote);
-  entryNodeName.textContent = activeAccessPath ? (activeAccessPath.name || activeAccessPath.entryNodeName) : text('noGroup');
+  entryNodeName.textContent = activeAccessPath ? (activeAccessPath.name || activeAccessPath.entryNodeName) : text('noAccessPath');
   entryNodeAddress.textContent = activeAccessPath ? `${activeAccessPath.proxyScheme} ${activeAccessPath.proxyHost}:${activeAccessPath.proxyPort}` : '-';
   currentRouteValue.textContent = routeLabel(currentRoute);
   currentRouteSource.textContent = sourceLabel(currentRoute);
@@ -174,7 +174,7 @@ function render(bundle) {
   if (!session.authenticated) {
     setStatus('warning', text('statusLoginRequired'));
   } else if (!activeAccessPath) {
-    setStatus('warning', text('statusNoGroups'));
+    setStatus('warning', text('statusNoAccessPaths'));
   } else if (!state.enabled) {
     setStatus('idle', text('statusReadyOff'));
   } else {

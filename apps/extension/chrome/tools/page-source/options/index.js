@@ -118,7 +118,7 @@ function renderGroupList() {
   if (accessPaths.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = text('statusNoGroups');
+    empty.textContent = text('statusNoAccessPaths');
     groupList.appendChild(empty);
     return;
   }
@@ -155,7 +155,7 @@ function renderGroupDetail() {
   const routes = bundle.remote.routes || [];
   const chainRoutes = routes.filter((route) => route.actionType === 'chain' && route.accessPathId === (accessPath && accessPath.id));
   const directRoutes = routes.filter((route) => route.actionType === 'direct');
-  groupTitle.textContent = accessPath ? accessPath.name : text('groupDetail');
+  groupTitle.textContent = accessPath ? accessPath.name : text('accessPathDetail');
   entryMeta.textContent = accessPath ? `${accessPath.proxyScheme} ${accessPath.proxyHost}:${accessPath.proxyPort}` : '-';
   remoteRuleSummary.textContent = accessPath ? text('ruleSummary', [String(chainRoutes.length), String(directRoutes.length)]) : text('noRules');
   directHosts.value = arrayToLines(bundle.state.localOverrides.directHosts);

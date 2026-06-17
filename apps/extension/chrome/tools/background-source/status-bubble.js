@@ -5,7 +5,7 @@ import { tabMetricsSnapshot } from './page-metrics.js';
 
 const STATUS_BUBBLE_LABELS = [
   'account',
-  'activeGroup',
+  'activeAccessPath',
   'policyRevision',
   'syncedAt',
   'tenant',
@@ -44,7 +44,7 @@ const PATH_HEALTH_TTL_MS = 60000;
 const pathHealthCache = new Map();
 const STATUS_BUBBLE_FALLBACK_LABELS = {
   account: 'Account',
-  activeGroup: 'Active group',
+  activeAccessPath: 'Active access path',
   policyRevision: 'Policy',
   syncedAt: 'Synced',
   tenant: 'Tenant',
@@ -521,7 +521,7 @@ export function getStatusBubblePageStatus(message, sender) {
           display: shouldDisplay(state, route),
           account: state.session.account || '',
           tenant: tenantFrom(state),
-          group: accessPath ? { id: accessPath.id || '', name: accessPath.name || accessPath.entryNodeName || accessPath.id || '' } : { id: '', name: '' },
+          accessPath: accessPath ? { id: accessPath.id || '', name: accessPath.name || accessPath.entryNodeName || accessPath.id || '' } : { id: '', name: '' },
           accessPath: accessPath ? { id: accessPath.id || '', name: accessPath.name || accessPath.entryNodeName || accessPath.id || '' } : { id: '', name: '' },
           route: routeInfo,
           page,

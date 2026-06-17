@@ -291,10 +291,6 @@ export function activeAccessPathFrom(state) {
   return activePathView(path, state);
 }
 
-export function activeGroupFrom(state) {
-  return activeAccessPathFrom(state);
-}
-
 export function accessPathById(state, accessPathId) {
   const path = state.remote.accessPaths.find((item) => item.id === accessPathId) || null;
   return activePathView(path, state);

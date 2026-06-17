@@ -1,6 +1,6 @@
 {
   "appDescription": {
-    "message": "Remote-managed browser proxy groups backed by the control plane."
+    "message": "Remote-managed browser proxy access paths backed by the control plane."
   },
   "popupEyebrow": {
     "message": "Remote proxy control"
@@ -14,8 +14,8 @@
   "account": {
     "message": "Account"
   },
-  "activeGroup": {
-    "message": "Active group"
+  "activeAccessPath": {
+    "message": "Active access path"
   },
   "proxySwitch": {
     "message": "Proxy"
@@ -29,11 +29,11 @@
   "policyShort": {
     "message": "Policy"
   },
-  "groups": {
-    "message": "Groups"
+  "accessPaths": {
+    "message": "Access paths"
   },
-  "groupDetail": {
-    "message": "Group detail"
+  "accessPathDetail": {
+    "message": "Access path detail"
   },
   "thisSiteDirect": {
     "message": "This site direct"
@@ -96,7 +96,7 @@
     "message": "Remote proxy rule"
   },
   "routeSource_proxy_default": {
-    "message": "Group default"
+    "message": "Access path default"
   },
   "routeSource_default_direct": {
     "message": "Default direct"
@@ -108,7 +108,7 @@
     "message": "One Proxy Settings"
   },
   "optionsHeading": {
-    "message": "Remote groups and browser routing"
+    "message": "Access paths and browser routing"
   },
   "connection": {
     "message": "Connection"
@@ -194,8 +194,8 @@
   "notSynced": {
     "message": "Not synced"
   },
-  "noGroup": {
-    "message": "No group"
+  "noAccessPath": {
+    "message": "No access path"
   },
   "noRules": {
     "message": "No rules"
@@ -210,16 +210,16 @@
     "message": "Off"
   },
   "statusLoginRequired": {
-    "message": "Sign in from Settings before enabling remote groups."
+    "message": "Sign in from Settings before enabling remote access paths."
   },
-  "statusNoGroups": {
-    "message": "No remote groups available for this account."
+  "statusNoAccessPaths": {
+    "message": "No remote access paths available for this account."
   },
   "statusReadyOff": {
     "message": "Remote config is loaded. Proxy is currently off."
   },
   "statusReadyOn": {
-    "message": "Remote group is active and browser proxy is on."
+    "message": "Remote access path is active and browser proxy is on."
   },
   "statusSynced": {
     "message": "Remote config synced."
@@ -258,7 +258,7 @@
     "message": "Local overrides saved."
   },
   "statusIdle": {
-    "message": "Remote groups are ready when you sign in."
+    "message": "Remote access paths are ready when you sign in."
   },
   "proxyToken": {
     "message": "Proxy token"
