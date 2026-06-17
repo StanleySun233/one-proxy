@@ -1126,13 +1126,13 @@ function runProxyMonitor() {
 }
 
 function runProxyProbes(state, targetUrl, route) {
-  const group = activeGroupFrom(state);
+  const accessPath = route && route.accessPathId ? accessPathById(state, route.accessPathId) : null;
   const parsed = parseTargetUrl(targetUrl);
-  if (!state.enabled || !group || !group.proxyHost || !group.proxyPort || !route || route.mode !== 'proxy') {
+  if (!state.enabled || !accessPath || !accessPath.listenHost || !accessPath.listenPort || !route || route.mode !== 'proxy') {
     return probeProtocols().map((protocol) => ({ protocol, status: 'skipped', latencyMs: 0, message: 'proxy_not_applied' }));
   }
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
-  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
+  const endpoint = `http://${accessPath.listenHost}:${accessPath.listenPort}/api/control/relay/probe`;
   return Promise.all(probeProtocols().map((protocol) => runNodeProbe(state, endpoint, {
     protocol,
     remainingHopNodeIds,
@@ -1476,16 +1476,24 @@ function labels() {
   }));
 }
 
-function entryProbeUrl(group) {
-  if (!group || !group.proxyHost || !group.proxyPort) {
-    throw new Error('status_bubble_entry_proxy_required');
-  }
-  return `http://${group.proxyHost}:${group.proxyPort}/healthz`;
+function accessPathForRoute(state, route) {
+  return route && route.accessPathId ? accessPathById(state, route.accessPathId) : null;
 }
 
-function measureEntryLatency(group) {
+function accessPathProbeBaseUrl(accessPath) {
+  if (!accessPath || !accessPath.listenHost || !accessPath.listenPort) {
+    throw new Error('status_bubble_access_path_proxy_required');
+  }
+  return `http://${accessPath.listenHost}:${accessPath.listenPort}`;
+}
+
+function entryProbeUrl(accessPath) {
+  return `${accessPathProbeBaseUrl(accessPath)}/healthz`;
+}
+
+function measureEntryLatency(accessPath) {
   const startedAt = Date.now();
-  return fetch(entryProbeUrl(group), { cache: 'no-store' })
+  return fetch(entryProbeUrl(accessPath), { cache: 'no-store' })
     .then((response) => {
       if (!response.ok) {
         throw new Error(`status_bubble_entry_probe_failed:${response.status}`);
@@ -1494,23 +1502,23 @@ function measureEntryLatency(group) {
     });
 }
 
-function routeTopology(group, route) {
-  const topology = Array.isArray(route.topology) && route.topology.length > 0 ? route.topology : (group && Array.isArray(group.topology) ? group.topology : []);
+function routeTopology(accessPath, route) {
+  const topology = Array.isArray(route.topology) && route.topology.length > 0 ? route.topology : (accessPath && Array.isArray(accessPath.topology) ? accessPath.topology : []);
   if (topology.length > 0) {
     return topology;
   }
-  if (group && (group.entryNodeId || group.entryNodeName)) {
-    return [{ id: group.entryNodeId || group.entryNodeName, name: group.entryNodeName || group.entryNodeId, mode: 'edge' }];
+  if (accessPath && (accessPath.entryNodeId || accessPath.entryNodeName)) {
+    return [{ id: accessPath.entryNodeId || accessPath.entryNodeName, name: accessPath.entryNodeName || accessPath.entryNodeId, mode: 'edge' }];
   }
   return [];
 }
 
-function pathHealthKey(group, route) {
-  const topologyIds = routeTopology(group, route).map((node) => node.id).filter(Boolean).join('>');
+function pathHealthKey(accessPath, route) {
+  const topologyIds = routeTopology(accessPath, route).map((node) => node.id).filter(Boolean).join('>');
   return [
-    group.id || '',
-    group.proxyHost || '',
-    group.proxyPort || '',
+    accessPath.id || '',
+    accessPath.listenHost || '',
+    accessPath.listenPort || '',
     topologyIds,
     route.protocol || '',
     route.host || '',
@@ -1518,8 +1526,8 @@ function pathHealthKey(group, route) {
   ].join('|');
 }
 
-function entryNodeId(group, route) {
-  const first = routeTopology(group, route)[0];
+function entryNodeId(accessPath, route) {
+  const first = routeTopology(accessPath, route)[0];
   if (!first || !first.id) {
     throw new Error('status_bubble_entry_node_required');
   }
@@ -1531,9 +1539,9 @@ function oneProxyTokenHeaders(state) {
   return token ? { 'X-One-Proxy-Token': token } : {};
 }
 
-function requestNodePathHealth(state, group, route) {
-  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
-  const remainingHopNodeIds = routeTopology(group, route).map((node) => node.id).filter(Boolean).slice(1);
+function requestNodePathHealth(state, accessPath, route) {
+  const endpoint = `${accessPathProbeBaseUrl(accessPath)}/api/control/relay/probe`;
+  const remainingHopNodeIds = routeTopology(accessPath, route).map((node) => node.id).filter(Boolean).slice(1);
   return fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...oneProxyTokenHeaders(state) },
@@ -1555,29 +1563,29 @@ function requestNodePathHealth(state, group, route) {
     }));
 }
 
-function measurePathHealth(state, group, route) {
+function measurePathHealth(state, accessPath, route) {
   if (state.localHelper && state.localHelper.enabled) {
     return Promise.resolve({
       sampleTsMs: Date.now(),
       linkTimings: []
     });
   }
-  const key = pathHealthKey(group, route);
+  const key = pathHealthKey(accessPath, route);
   const cached = pathHealthCache.get(key);
   const now = Date.now();
   if (cached && now - cached.sampleTsMs < PATH_HEALTH_TTL_MS) {
     return Promise.resolve(cached);
   }
   return Promise.all([
-    measureEntryLatency(group),
-    requestNodePathHealth(state, group, route)
+    measureEntryLatency(accessPath),
+    requestNodePathHealth(state, accessPath, route)
   ]).then(([entryLatencyMs, nodeTimings]) => {
     const result = {
       sampleTsMs: Date.now(),
       linkTimings: [
         {
           fromNodeId: 'user',
-          toNodeId: entryNodeId(group, route),
+          toNodeId: entryNodeId(accessPath, route),
           roundTripMs: entryLatencyMs,
           sampleTsMs: Date.now(),
           count: 1
@@ -1653,8 +1661,8 @@ function mergePageSnapshot(route, metrics, remoteStatus) {
   };
 }
 
-function pathPayload(state, group, route, status, pageHost) {
-  const topology = routeTopology(group, route);
+function pathPayload(state, accessPath, route, status, pageHost) {
+  const topology = routeTopology(accessPath, route);
   const transport = state.localHelper && state.localHelper.enabled ? 'direct_quic' : (status && status.path && status.path.transport ? String(status.path.transport) : 'relay');
   const nodes = [
     { id: 'user', name: 'User machine', kind: 'user', transport: 'client' },
@@ -1854,8 +1862,8 @@ function getStatusBubblePageStatus(message, sender) {
   return (message.refresh ? syncRemoteConfig() : Promise.resolve(null))
     .then(() => getState())
     .then((state) => {
-      const group = activeGroupFrom(state);
       const route = routePreviewForUrl(state, url);
+      const accessPath = accessPathForRoute(state, route);
       const routeInfo = routePayload(route);
       const metrics = mergeLocalMetrics(tabMetricsSnapshot(sender, url), normalizePageMetrics(message.pageMetrics));
       if (!shouldDisplay(state, route)) {
@@ -1869,7 +1877,7 @@ function getStatusBubblePageStatus(message, sender) {
           lastErrorCode: 'page_status_failed',
           lastErrorMessage: error.message || 'page_status_failed'
         })),
-        Promise.resolve().then(() => measurePathHealth(state, group, route)).catch(() => emptyPathHealth())
+        Promise.resolve().then(() => measurePathHealth(state, accessPath, route)).catch(() => emptyPathHealth())
       ]).then(([remoteStatus, pathHealth]) => {
         const status = remoteStatus || { status: 'unknown' };
         const page = mergePageSnapshot(route, metrics, status);
@@ -1894,7 +1902,8 @@ function getStatusBubblePageStatus(message, sender) {
           display: shouldDisplay(state, route),
           account: state.session.account || '',
           tenant: tenantFrom(state),
-          group: group ? { id: group.id || '', name: group.name || group.entryNodeName || group.id || '' } : { id: '', name: '' },
+          group: accessPath ? { id: accessPath.id || '', name: accessPath.name || accessPath.entryNodeName || accessPath.id || '' } : { id: '', name: '' },
+          accessPath: accessPath ? { id: accessPath.id || '', name: accessPath.name || accessPath.entryNodeName || accessPath.id || '' } : { id: '', name: '' },
           route: routeInfo,
           page,
           io: {
@@ -1904,7 +1913,7 @@ function getStatusBubblePageStatus(message, sender) {
           },
           cache,
           latencyMs,
-          path: pathPayload(state, group, route, status, page.host),
+          path: pathPayload(state, accessPath, route, status, page.host),
           labels: labels(),
           nodeTimings: actualNodeTimings,
           linkTimings,

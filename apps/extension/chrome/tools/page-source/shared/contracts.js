@@ -10,12 +10,23 @@ export const defaultExtensionState = {
     mustRotatePassword: false
   },
   remote: {
+    schemaVersion: 'v2.1.0',
     policyRevision: '',
     fetchedAt: '',
-    groups: []
+    nodes: [],
+    accessPaths: [],
+    routes: [],
+    routeEvaluation: {
+      defaultClientMode: 'direct',
+      defaultNodeMode: 'deny',
+      ruleOrder: 'priority_asc_then_id_asc',
+      noMatchNodeDenyReason: 'route_not_found',
+      supportedMatchTypes: ['domain', 'domain_suffix', 'ip', 'ip_cidr', 'protocol', 'default'],
+      supportedActions: ['chain', 'direct', 'deny']
+    }
   },
   selection: {
-    activeGroupId: ''
+    activeAccessPathId: ''
   },
   localOverrides: {
     directHosts: [],

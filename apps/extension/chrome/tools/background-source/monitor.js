@@ -1,4 +1,4 @@
-import { activeGroupFrom, getState, persistState } from './state.js';
+import { accessPathById, getState, persistState } from './state.js';
 import { parseTargetUrl, routePreviewForUrl } from './routing.js';
 
 export function testUrlRoute(targetUrl, options = {}) {
@@ -40,13 +40,13 @@ export function runProxyMonitor() {
 }
 
 function runProxyProbes(state, targetUrl, route) {
-  const group = activeGroupFrom(state);
+  const accessPath = route && route.accessPathId ? accessPathById(state, route.accessPathId) : null;
   const parsed = parseTargetUrl(targetUrl);
-  if (!state.enabled || !group || !group.proxyHost || !group.proxyPort || !route || route.mode !== 'proxy') {
+  if (!state.enabled || !accessPath || !accessPath.listenHost || !accessPath.listenPort || !route || route.mode !== 'proxy') {
     return probeProtocols().map((protocol) => ({ protocol, status: 'skipped', latencyMs: 0, message: 'proxy_not_applied' }));
   }
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
-  const endpoint = `http://${group.proxyHost}:${group.proxyPort}/api/control/relay/probe`;
+  const endpoint = `http://${accessPath.listenHost}:${accessPath.listenPort}/api/control/relay/probe`;
   return Promise.all(probeProtocols().map((protocol) => runNodeProbe(state, endpoint, {
     protocol,
     remainingHopNodeIds,

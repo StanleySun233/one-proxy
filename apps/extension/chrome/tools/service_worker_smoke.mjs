@@ -100,29 +100,83 @@ chromium.launchPersistentContext(userDataDir, {
                   code: 0,
                   message: 'ok',
                   data: {
+                    schemaVersion: 'v2.1.0',
                     account: { account: 'admin', mustRotatePassword: false },
+                    tenant: { tenantId: 'tenant-1', tenantName: 'Default', role: 'owner', joinedAt: '2026-06-04T00:00:00Z' },
                     policyRevision: 'rev-1',
                     fetchedAt: '2026-06-04T00:00:00Z',
                     proxyToken: 'proxy-token',
                     proxyTokenExpiresAt: '2026-07-04T00:00:00Z',
-                    groups: [{
-                      id: 'group-1',
-                      name: 'Test group',
+                    nodes: [{
+                      id: 'node-1',
+                      name: 'Node 1',
+                      mode: 'edge',
+                      scopeKey: 'tenant-1',
+                      parentNodeId: '',
+                      enabled: true,
+                      status: 'online',
+                      publicHost: '127.0.0.1',
+                      publicPort: 2988
+                    }],
+                    accessPaths: [{
+                      id: 'path-1',
+                      name: 'Test access path',
+                      chainId: 'chain-1',
+                      mode: 'forward',
+                      protocol: 'http',
+                      serviceType: 'http_forward_proxy',
+                      targetNodeId: 'node-1',
                       entryNodeId: 'node-1',
-                      entryNodeName: 'Node 1',
-                      proxyHost: '127.0.0.1',
-                      proxyPort: 2988,
-                      routes: [{
-                        id: 'route-1',
-                        priority: 1,
-                        matchType: 'ip_cidr',
-                        matchValue: '172.20.116.0/24',
-                        actionType: 'chain',
-                        chainId: 'chain-1',
-                        topology: [{ id: 'node-1', name: 'Node 1', mode: 'edge' }]
+                      relayNodeIds: [],
+                      listenHost: '127.0.0.1',
+                      listenPort: 2988,
+                      targetProtocol: 'http',
+                      targetHost: '',
+                      targetPort: 0,
+                      targetSni: '',
+                      tlsMode: '',
+                      authMode: 'proxy_token',
+                      enabled: true,
+                      options: {},
+                      topology: [{
+                        nodeId: 'node-1',
+                        nodeName: 'Node 1',
+                        mode: 'edge',
+                        scopeKey: 'tenant-1',
+                        publicHost: '127.0.0.1',
+                        publicPort: 2988,
+                        transport: 'public_http'
                       }],
-                      topology: [{ id: 'node-1', name: 'Node 1', mode: 'edge' }]
-                    }]
+                      health: { status: 'available', reason: '', checkedAt: '2026-06-04T00:00:00Z' }
+                    }],
+                    routes: [{
+                      id: 'route-1',
+                      priority: 1,
+                      matchType: 'ip_cidr',
+                      matchValue: '172.20.116.0/24',
+                      actionType: 'chain',
+                      chainId: 'chain-1',
+                      accessPathId: 'path-1',
+                      destinationScope: '',
+                      enabled: true,
+                      topology: [{
+                        nodeId: 'node-1',
+                        nodeName: 'Node 1',
+                        mode: 'edge',
+                        scopeKey: 'tenant-1',
+                        publicHost: '127.0.0.1',
+                        publicPort: 2988,
+                        transport: 'public_http'
+                      }]
+                    }],
+                    routeEvaluation: {
+                      defaultClientMode: 'direct',
+                      defaultNodeMode: 'deny',
+                      ruleOrder: 'priority_asc_then_id_asc',
+                      noMatchNodeDenyReason: 'route_not_found',
+                      supportedMatchTypes: ['domain', 'domain_suffix', 'ip', 'ip_cidr', 'protocol', 'default'],
+                      supportedActions: ['chain', 'direct', 'deny']
+                    }
                   }
                 }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
               }

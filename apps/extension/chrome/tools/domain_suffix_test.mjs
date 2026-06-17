@@ -4,25 +4,61 @@ import test from 'node:test';
 import { buildPacScript } from './background-source/pac.js';
 import { routeMatches, routePreviewForHost } from './background-source/routing.js';
 
-function stateWithProxyHost(host) {
+function stateWithDomainSuffixRoute(matchValue) {
   return {
     enabled: true,
     controlPlaneUrl: 'https://panel.example.com',
     localOverrides: { directHosts: [], proxyHosts: [] },
     localHelper: {},
-    selection: { activeGroupId: 'group-1' },
+    selection: { activeAccessPathId: 'path-1' },
     remote: {
-      groups: [
+      nodes: [
         {
-          id: 'group-1',
-          proxyHost: '127.0.0.1',
-          proxyPort: 18080,
-          proxyScheme: 'PROXY',
-          proxyHosts: [host],
-          directHosts: [],
-          proxyCidrs: [],
-          directCidrs: [],
-          routes: [],
+          id: 'node-1',
+          name: 'Node 1',
+          mode: 'edge',
+          scopeKey: 'tenant-1',
+          parentNodeId: '',
+          enabled: true,
+          status: 'online'
+        }
+      ],
+      accessPaths: [
+        {
+          id: 'path-1',
+          name: 'Path 1',
+          chainId: 'chain-1',
+          mode: 'forward',
+          protocol: 'http',
+          serviceType: 'http_forward_proxy',
+          targetNodeId: 'node-1',
+          entryNodeId: 'node-1',
+          relayNodeIds: [],
+          listenHost: '127.0.0.1',
+          listenPort: 18080,
+          targetProtocol: 'http',
+          targetHost: '',
+          targetPort: 0,
+          targetSni: '',
+          tlsMode: '',
+          authMode: 'proxy_token',
+          enabled: true,
+          options: {},
+          topology: [{ id: 'node-1', name: 'Node 1', mode: 'edge' }],
+          health: { status: 'available', reason: '', checkedAt: '' }
+        }
+      ],
+      routes: [
+        {
+          id: 'route-1',
+          priority: 1,
+          matchType: 'domain_suffix',
+          matchValue,
+          actionType: 'chain',
+          chainId: 'chain-1',
+          accessPathId: 'path-1',
+          destinationScope: '',
+          enabled: true,
           topology: []
         }
       ]
@@ -39,16 +75,19 @@ test('domain suffix routes match root and subdomains', () => {
 });
 
 test('route preview treats wildcard host entries as root plus subdomains', () => {
-  for (const host of ['.openai.com', '*.openai.com']) {
-    assert.equal(routePreviewForHost(stateWithProxyHost(host), 'openai.com').mode, 'proxy');
-    assert.equal(routePreviewForHost(stateWithProxyHost(host), 'api.openai.com').mode, 'proxy');
+  for (const matchValue of ['.openai.com', '*.openai.com']) {
+    assert.equal(routePreviewForHost(stateWithDomainSuffixRoute(matchValue), 'openai.com').mode, 'proxy');
+    assert.equal(routePreviewForHost(stateWithDomainSuffixRoute(matchValue), 'api.openai.com').mode, 'proxy');
   }
 });
 
-test('pac host entries include root domain for suffix patterns', () => {
-  const dotScript = buildPacScript(stateWithProxyHost('.openai.com'));
-  assert.match(dotScript, /const proxyHosts = \["openai\.com","\*\.openai\.com"\]/);
+test('pac rules use latest suffix routes and access path proxy targets', () => {
+  const dotScript = buildPacScript(stateWithDomainSuffixRoute('.openai.com'));
+  assert.match(dotScript, /"matchType":"domain_suffix"/);
+  assert.match(dotScript, /"matchValue":"\.openai\.com"/);
+  assert.match(dotScript, /"proxyTarget":"PROXY 127\.0\.0\.1:18080"/);
 
-  const wildcardScript = buildPacScript(stateWithProxyHost('*.openai.com'));
-  assert.match(wildcardScript, /const proxyHosts = \["openai\.com","\*\.openai\.com"\]/);
+  const wildcardScript = buildPacScript(stateWithDomainSuffixRoute('*.openai.com'));
+  assert.match(wildcardScript, /"matchValue":"\*\.openai\.com"/);
+  assert.match(wildcardScript, /"proxyTarget":"PROXY 127\.0\.0\.1:18080"/);
 });
