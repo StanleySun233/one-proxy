@@ -5,7 +5,7 @@
 ## Tasks
 
 - [x] Add residual v2.1.0 latest-contract gaps found during post-implementation audit to `dev-roadmap.md`
-  - Commit:
+  - Commit: b40843b
 - [ ] Verify implementation against product requirements after test-release passes
   - Evidence:
 
