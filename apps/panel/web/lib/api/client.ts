@@ -40,30 +40,13 @@ function notifyUnauthorized() {
     return;
   }
 
-  window.localStorage.removeItem(SESSION_STORAGE_KEY);
   window.dispatchEvent(new Event(AUTH_INVALID_EVENT));
-}
-
-function getStoredActiveTenantId() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
-  if (!stored) {
-    return null;
-  }
-
-  try {
-    return (JSON.parse(stored) as Session).activeTenantId || null;
-  } catch {
-    return null;
-  }
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers();
-  const tenantId = options.tenantId !== undefined ? options.tenantId : options.accessToken ? getStoredActiveTenantId() : null;
+  const tenantId = options.tenantId || null;
+  const body = path === '/auth/refresh' ? undefined : options.body;
 
   for (const [key, value] of Object.entries(options.headers || {})) {
     headers.set(key, value);
@@ -74,7 +57,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (tenantId) {
     headers.set('X-One-Proxy-Tenant-ID', tenantId);
   }
-  if (options.body !== undefined) {
+  if (body !== undefined) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -83,7 +66,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     response = await fetch(`${CONTROL_PLANE_PROXY_BASE}${path}`, {
       method: options.method || 'GET',
       headers,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: 'no-store'
     });
   } catch {
