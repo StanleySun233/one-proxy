@@ -189,7 +189,11 @@ func (r *Registry) OpenDirectStream(ctx context.Context, nextHop domain.Node, re
 	if err != nil {
 		return nil, err
 	}
-	conn, err := transport.Dial(ctx, addr, clientTLSConfig(), &quic.Config{})
+	tlsConfig, err := clientTLSConfig(nextHop)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := transport.Dial(ctx, addr, tlsConfig, &quic.Config{})
 	if err != nil {
 		return nil, err
 	}
@@ -245,8 +249,11 @@ func serverTLSConfig() *tls.Config {
 	return &tls.Config{Certificates: []tls.Certificate{cert}, NextProtos: []string{directALPN}}
 }
 
-func clientTLSConfig() *tls.Config {
-	return &tls.Config{InsecureSkipVerify: true, NextProtos: []string{directALPN}}
+func clientTLSConfig(nextHop domain.Node) (*tls.Config, error) {
+	if nextHop.PublicHost == "" {
+		return nil, errors.New("invalid_direct_node_identity")
+	}
+	return &tls.Config{MinVersion: tls.VersionTLS12, ServerName: nextHop.PublicHost, NextProtos: []string{directALPN}}, nil
 }
 
 func selfSignedCertificate() tls.Certificate {
