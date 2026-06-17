@@ -53,6 +53,8 @@ Each task is scoped to the named file or external gate. No old-version compatibi
 - [ ] backend-client-tools: verify direct QUIC node identity in `apps/extension/cli/internal/proxycommand/direct.go` (depends: api-contract.md)
 - [ ] backend-client-tools: align VS Code SSH generation to access-path identity in `apps/extension/vscode/src/extension.ts` (depends: api-contract.md)
 - [ ] backend-client-tools: send daemon IPC secret from route and probe commands in `apps/cli/src/commands.ts` (depends: lifecycle.ts)
+- [ ] backend-client-tools: align daemon metadata storage type with IPC secret in `apps/cli/src/storage.ts` (depends: lifecycle.ts)
+- [ ] backend-client-tools: fix CONNECT tunnel socket typing in `apps/cli/src/daemon/http-proxy.ts` (depends: http-proxy.ts)
 - [ ] backend-node-security: update node proxy tests for v2.1.0 fail-closed behavior in `apps/node/api/internal/proxy/server_test.go` and `apps/node/api/internal/proxy/reverse_test.go` (depends: auth.go)
 
 ### Frontend Tasks
