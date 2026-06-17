@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/StanleySun233/python-proxy/apps/node/api/internal/controlplane"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/network"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/runtime"
@@ -56,7 +57,9 @@ func (h *Handler) handleAttach(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid_join_password")
 		return
 	}
-	if h.manager.MustRotatePassword() {
+	mustRotatePassword := h.manager.MustRotatePassword()
+	rotatePassword := mustRotatePassword || payload.NewPassword != ""
+	if rotatePassword {
 		if payload.NewPassword == "" {
 			writeError(w, http.StatusBadRequest, "node_password_rotation_required")
 			return
@@ -70,6 +73,10 @@ func (h *Handler) handleAttach(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_attach_payload")
 		return
 	}
+	if !validNodeAccessToken(payload) {
+		writeError(w, http.StatusUnauthorized, "invalid_node_access_token")
+		return
+	}
 	if err := h.manager.Attach(runtime.Binding{
 		ControlPlaneURL: payload.ControlPlaneURL,
 		NodeID:          payload.NodeID,
@@ -81,12 +88,12 @@ func (h *Handler) handleAttach(w http.ResponseWriter, req *http.Request) {
 		NodePublicHost:  payload.NodePublicHost,
 		NodePublicPort:  payload.NodePublicPort,
 	}); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "attach_failed")
 		return
 	}
-	if h.manager.MustRotatePassword() {
+	if rotatePassword {
 		if err := h.manager.RotateJoinPassword(joinPassword, payload.NewPassword); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(w, http.StatusInternalServerError, "join_password_rotation_failed")
 			return
 		}
 	}
@@ -101,6 +108,10 @@ func (h *Handler) handleAttach(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) handleRotatePassword(w http.ResponseWriter, req *http.Request) {
+	if h.manager.JoinPassword() == "" {
+		writeError(w, http.StatusForbidden, "node_join_password_not_configured")
+		return
+	}
 	var payload domain.NodeBootstrapPasswordRotateInput
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json")
@@ -116,13 +127,18 @@ func (h *Handler) handleRotatePassword(w http.ResponseWriter, req *http.Request)
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "join_password_rotation_failed")
 		return
 	}
 	writeSuccess(w, http.StatusOK, map[string]any{
 		"status":             "updated",
 		"mustRotatePassword": h.manager.MustRotatePassword(),
 	})
+}
+
+func validNodeAccessToken(payload domain.NodeBootstrapAttachInput) bool {
+	result, err := controlplane.New(payload.ControlPlaneURL, payload.NodeAccessToken).ValidateNodeAuth()
+	return err == nil && result.NodeID == payload.NodeID
 }
 
 func writeSuccess[T any](w http.ResponseWriter, status int, data T) {
