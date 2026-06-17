@@ -58,47 +58,82 @@ type LogoutInput struct {
 }
 
 type ExtensionBootstrap struct {
-	Account             Account          `json:"account"`
-	PolicyRevision      string           `json:"policyRevision"`
-	FetchedAt           string           `json:"fetchedAt"`
-	ProxyToken          string           `json:"proxyToken"`
-	ProxyTokenExpiresAt string           `json:"proxyTokenExpiresAt"`
-	Groups              []ExtensionGroup `json:"groups"`
+	SchemaVersion       string                   `json:"schemaVersion"`
+	Account             Account                  `json:"account"`
+	Tenant              ExtensionTenant          `json:"tenant"`
+	PolicyRevision      string                   `json:"policyRevision"`
+	FetchedAt           string                   `json:"fetchedAt"`
+	ProxyToken          string                   `json:"proxyToken"`
+	ProxyTokenExpiresAt string                   `json:"proxyTokenExpiresAt"`
+	Nodes               []Node                   `json:"nodes"`
+	AccessPaths         []ExtensionAccessPath    `json:"accessPaths"`
+	Routes              []ExtensionRoute         `json:"routes"`
+	RouteEvaluation     ExtensionRouteEvaluation `json:"routeEvaluation"`
 }
 
-type ExtensionGroup struct {
-	ID            string                  `json:"id"`
-	Name          string                  `json:"name"`
-	EntryNodeID   string                  `json:"entryNodeId"`
-	EntryNodeName string                  `json:"entryNodeName"`
-	ProxyScheme   string                  `json:"proxyScheme"`
-	ProxyHost     string                  `json:"proxyHost"`
-	ProxyPort     int                     `json:"proxyPort"`
-	ProxyDefault  bool                    `json:"proxyDefault"`
-	ProxyHosts    []string                `json:"proxyHosts"`
-	ProxyCIDRs    []string                `json:"proxyCidrs"`
-	DirectHosts   []string                `json:"directHosts"`
-	DirectCIDRs   []string                `json:"directCidrs"`
-	Routes        []ExtensionRoute        `json:"routes"`
-	Topology      []ExtensionTopologyNode `json:"topology"`
+type ExtensionTenant struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
-type ExtensionRoute struct {
-	ID               string                  `json:"id"`
-	Priority         int                     `json:"priority"`
-	MatchType        string                  `json:"matchType"`
-	MatchValue       string                  `json:"matchValue"`
-	ActionType       string                  `json:"actionType"`
-	ChainID          string                  `json:"chainId,omitempty"`
-	DestinationScope string                  `json:"destinationScope,omitempty"`
-	Topology         []ExtensionTopologyNode `json:"topology"`
-}
-
-type ExtensionTopologyNode struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
+type ExtensionTopologyHop struct {
+	NodeID     string `json:"nodeId"`
+	NodeName   string `json:"nodeName"`
 	Mode       string `json:"mode"`
 	ScopeKey   string `json:"scopeKey"`
 	PublicHost string `json:"publicHost,omitempty"`
 	PublicPort int    `json:"publicPort,omitempty"`
+	Transport  string `json:"transport"`
+}
+
+type ExtensionAccessPath struct {
+	ID             string                 `json:"id"`
+	Name           string                 `json:"name"`
+	ChainID        string                 `json:"chainId"`
+	Mode           string                 `json:"mode"`
+	Protocol       string                 `json:"protocol"`
+	ServiceType    string                 `json:"serviceType"`
+	TargetNodeID   string                 `json:"targetNodeId"`
+	EntryNodeID    string                 `json:"entryNodeId"`
+	RelayNodeIDs   []string               `json:"relayNodeIds"`
+	ListenHost     string                 `json:"listenHost"`
+	ListenPort     int                    `json:"listenPort"`
+	TargetProtocol string                 `json:"targetProtocol"`
+	TargetHost     string                 `json:"targetHost"`
+	TargetPort     int                    `json:"targetPort"`
+	TargetSNI      string                 `json:"targetSni"`
+	TLSMode        string                 `json:"tlsMode"`
+	AuthMode       string                 `json:"authMode"`
+	Enabled        bool                   `json:"enabled"`
+	Options        map[string]string      `json:"options"`
+	Topology       []ExtensionTopologyHop `json:"topology"`
+	Health         ExtensionPathHealth    `json:"health"`
+}
+
+type ExtensionPathHealth struct {
+	Status    string `json:"status"`
+	Reason    string `json:"reason"`
+	CheckedAt string `json:"checkedAt"`
+}
+
+type ExtensionRoute struct {
+	ID               string                 `json:"id"`
+	Priority         int                    `json:"priority"`
+	MatchType        string                 `json:"matchType"`
+	MatchValue       string                 `json:"matchValue"`
+	ActionType       string                 `json:"actionType"`
+	ChainID          string                 `json:"chainId"`
+	AccessPathID     string                 `json:"accessPathId"`
+	DestinationScope string                 `json:"destinationScope"`
+	Enabled          bool                   `json:"enabled"`
+	Topology         []ExtensionTopologyHop `json:"topology"`
+}
+
+type ExtensionRouteEvaluation struct {
+	DefaultClientMode     string   `json:"defaultClientMode"`
+	DefaultNodeMode       string   `json:"defaultNodeMode"`
+	RuleOrder             string   `json:"ruleOrder"`
+	NoMatchNodeDenyReason string   `json:"noMatchNodeDenyReason"`
+	SupportedMatchTypes   []string `json:"supportedMatchTypes"`
+	SupportedActions      []string `json:"supportedActions"`
 }

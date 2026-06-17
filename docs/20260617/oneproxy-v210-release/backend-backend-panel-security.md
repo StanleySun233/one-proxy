@@ -17,6 +17,8 @@
   - Commit: 2366a0d061b1147d64cc20c7d85d3a4e985236ee
 - [x] Make access-path update semantics latest-contract-only in `apps/panel/api/internal/store/proxy_repository.go`
   - Commit: ef1ffb3a81c622636731b01acb2b18e8bc4fee8a
+- [x] Store node bootstrap and node API tokens as SHA-256 hashes only in `apps/panel/api/internal/store/mysql_bootstrap_token.go`, `apps/panel/api/internal/store/mysql_node_auth.go`, `apps/panel/api/internal/store/mysql_node_access.go`, and `apps/panel/api/internal/store/mysql_node_enrollment.go`
+  - Commit: 50c3ff2
 
 ## Blockers
 

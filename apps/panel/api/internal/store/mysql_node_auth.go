@@ -3,6 +3,7 @@ package store
 import (
 	"time"
 
+	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/auth"
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
 )
 
@@ -18,7 +19,7 @@ func (s *MySQLStore) AuthenticateNodeToken(accessToken string) (string, bool) {
 		 FROM node_api_tokens t
 		 JOIN nodes n ON n.id = t.node_id
 		 WHERE t.token_hash = ?`,
-		accessToken,
+		auth.TokenHash(accessToken),
 	).Scan(&nodeID, &expiresAt, &status, &enabled)
 	if err != nil {
 		return "", false

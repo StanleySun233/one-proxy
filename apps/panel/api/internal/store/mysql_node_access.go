@@ -68,7 +68,7 @@ func (s *MySQLStore) ProvisionNodeAccess(nodeID string) (domain.ApproveNodeEnrol
 	if _, err := tx.Exec(
 		`INSERT INTO node_api_tokens (id, node_id, token_hash, expires_at, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		nodeTokenID, nodeID, accessToken, expiresAt, now, now,
+		nodeTokenID, nodeID, auth.TokenHash(accessToken), expiresAt, now, now,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}

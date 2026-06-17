@@ -24,7 +24,7 @@ func (s *MySQLStore) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNode
 	)
 	err := s.db.QueryRow(
 		`SELECT id, target_id, node_name, node_mode, scope_key, parent_node_id, public_host, public_port, expires_at, consumed_at FROM bootstrap_tokens WHERE token_hash = ?`,
-		input.Token,
+		auth.TokenHash(input.Token),
 	).Scan(&tokenID, &targetID, &nodeName, &nodeMode, &scopeKey, &parentNodeID, &publicHost, &publicPort, &expiresAt, &consumedAt)
 	if err != nil {
 		return domain.EnrollNodeResult{}, err
@@ -195,7 +195,7 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (do
 	if _, err := tx.Exec(
 		`INSERT INTO node_api_tokens (id, node_id, token_hash, expires_at, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		nodeTokenID, nodeID, accessToken, expiresAt, now, now,
+		nodeTokenID, nodeID, auth.TokenHash(accessToken), expiresAt, now, now,
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
@@ -213,11 +213,9 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (do
 
 func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentInput) (domain.ApproveNodeEnrollmentResult, error) {
 	var (
-		node        domain.Node
-		enabled     int
-		accessToken string
-		expiresAt   string
-		trustValue  string
+		node       domain.Node
+		enabled    int
+		trustValue string
 	)
 	err := s.db.QueryRow(
 		`SELECT id, name, mode, scope_key, COALESCE(parent_node_id, ''), enabled, status, COALESCE(public_host, ''), COALESCE(public_port, 0)
@@ -243,13 +241,6 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 		return domain.ApproveNodeEnrollmentResult{}, fmt.Errorf("node_enrollment_pending")
 	}
 	err = s.db.QueryRow(
-		`SELECT token_hash, expires_at FROM node_api_tokens WHERE node_id = ? ORDER BY created_at DESC LIMIT 1`,
-		input.NodeID,
-	).Scan(&accessToken, &expiresAt)
-	if err != nil {
-		return domain.ApproveNodeEnrollmentResult{}, err
-	}
-	err = s.db.QueryRow(
 		`SELECT material_value FROM node_trust_materials
 		 WHERE node_id = ? AND material_type = 'shared_secret' AND status = 'active'
 		 ORDER BY created_at DESC LIMIT 1`,
@@ -273,12 +264,40 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 			return domain.ApproveNodeEnrollmentResult{}, err
 		}
 	}
-	if _, err := s.db.Exec(
+	accessToken, err := auth.RandomToken()
+	if err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	nodeTokenID, err := s.nextID("node_api_token")
+	if err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	now := nowRFC3339()
+	expiresAt := time.Now().UTC().Add(30 * 24 * time.Hour).Format(time.RFC3339)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(
 		`UPDATE node_trust_materials
 		 SET status = ?, updated_at = ?
 		 WHERE node_id = ? AND material_type = 'enrollment_secret' AND material_value = ? AND status = 'pending'`,
-		domain.TrustMaterialStatusConsumed, nowRFC3339(), input.NodeID, input.EnrollmentSecret,
+		domain.TrustMaterialStatusConsumed, now, input.NodeID, input.EnrollmentSecret,
 	); err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	if _, err := tx.Exec("DELETE FROM node_api_tokens WHERE node_id = ?", input.NodeID); err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO node_api_tokens (id, node_id, token_hash, expires_at, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		nodeTokenID, input.NodeID, auth.TokenHash(accessToken), expiresAt, now, now,
+	); err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	if err := tx.Commit(); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
 	return domain.ApproveNodeEnrollmentResult{

@@ -28,3 +28,51 @@ func TestExtensionBootstrapNodesIncludesAuthorizedChainHops(t *testing.T) {
 		t.Fatalf("nodes = %+v", result)
 	}
 }
+
+func TestExtensionBootstrapSnapshotsUseLatestAccessPathContract(t *testing.T) {
+	nodesByID := map[string]domain.Node{
+		"edge": {ID: "edge", Name: "edge", Mode: domain.NodeModeEdge, ScopeKey: "edge-scope", PublicHost: "edge.example", PublicPort: 2988, Enabled: true},
+	}
+	chainsByID := map[string]proxy.Chain{
+		"chain": {ID: "chain", DestinationScope: "edge-scope", Hops: []string{"edge"}, Enabled: true},
+	}
+	paths := []domain.NodeAccessPath{
+		{
+			ID:             "path",
+			Name:           "Forward path",
+			ChainID:        "chain",
+			Mode:           "forward",
+			Protocol:       "http",
+			ServiceType:    "http_forward_proxy",
+			TargetNodeID:   "edge",
+			EntryNodeID:    "edge",
+			ListenHost:     "127.0.0.1",
+			ListenPort:     2988,
+			TargetProtocol: "http",
+			TargetHost:     "example.test",
+			TargetPort:     80,
+			AuthMode:       domain.AccessAuthProxyToken,
+			Enabled:        true,
+		},
+	}
+	rules := []proxy.RouteRule{
+		{ID: "route", Priority: 10, MatchType: domain.MatchTypeDomainSuffix, MatchValue: ".example.test", ActionType: domain.ActionTypeChain, ChainID: "chain", Enabled: true},
+		{ID: "orphan", Priority: 20, MatchType: domain.MatchTypeDomain, MatchValue: "orphan.test", ActionType: domain.ActionTypeChain, ChainID: "missing", Enabled: true},
+	}
+
+	accessPaths := extensionAccessPaths(paths, chainsByID, nodesByID, "2026-06-17T00:00:00Z")
+	if len(accessPaths) != 1 {
+		t.Fatalf("accessPaths len = %d", len(accessPaths))
+	}
+	if accessPaths[0].ID != "path" || accessPaths[0].Health.Status != "ready" || accessPaths[0].Topology[0].Transport != "public_http" {
+		t.Fatalf("accessPath = %+v", accessPaths[0])
+	}
+
+	routes := extensionRoutes(rules, paths, chainsByID, nodesByID)
+	if len(routes) != 1 {
+		t.Fatalf("routes len = %d", len(routes))
+	}
+	if routes[0].ID != "route" || routes[0].AccessPathID != "path" || routes[0].Topology[0].NodeID != "edge" {
+		t.Fatalf("route = %+v", routes[0])
+	}
+}

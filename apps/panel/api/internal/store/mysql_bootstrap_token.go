@@ -33,7 +33,7 @@ func (s *MySQLStore) CreateBootstrapToken(input domain.CreateBootstrapTokenInput
 	_, err = s.db.Exec(
 		`INSERT INTO bootstrap_tokens (id, token_hash, target_type, target_id, node_name, node_mode, scope_key, parent_node_id, public_host, public_port, expires_at, consumed_at, created_at)
 		 VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?, NULL, ?)`,
-		item.ID, token, item.TargetType, item.TargetID, item.NodeName, item.NodeMode, item.ScopeKey, item.ParentNodeID, item.PublicHost, item.PublicPort, item.ExpiresAt, nowRFC3339(),
+		item.ID, auth.TokenHash(token), item.TargetType, item.TargetID, item.NodeName, item.NodeMode, item.ScopeKey, item.ParentNodeID, item.PublicHost, item.PublicPort, item.ExpiresAt, nowRFC3339(),
 	)
 	return item, err
 }
@@ -89,7 +89,7 @@ func (s *MySQLStore) CreateBootstrapTokenForTenant(tenantCtx domain.TenantAuthCo
 	if _, err := tx.Exec(
 		`INSERT INTO bootstrap_tokens (id, token_hash, target_type, target_id, node_name, node_mode, scope_key, parent_node_id, public_host, public_port, expires_at, consumed_at, created_at)
 		 VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?, NULL, ?)`,
-		item.ID, token, item.TargetType, item.TargetID, item.NodeName, item.NodeMode, item.ScopeKey, item.ParentNodeID, item.PublicHost, item.PublicPort, item.ExpiresAt, item.CreatedAt,
+		item.ID, auth.TokenHash(token), item.TargetType, item.TargetID, item.NodeName, item.NodeMode, item.ScopeKey, item.ParentNodeID, item.PublicHost, item.PublicPort, item.ExpiresAt, item.CreatedAt,
 	); err != nil {
 		return domain.BootstrapToken{}, err
 	}
