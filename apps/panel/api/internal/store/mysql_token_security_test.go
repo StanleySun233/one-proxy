@@ -278,6 +278,7 @@ func TestExchangeNodeEnrollmentIssuesHashedNodeToken(t *testing.T) {
 		t.Fatalf("ExchangeNodeEnrollment: %v", err)
 	}
 
+	assertNoTokenSecurityCall(t, record, "DELETE FROM node_api_tokens")
 	call := findTokenSecurityCall(t, record, "INSERT INTO node_api_tokens")
 	assertStoredTokenHash(t, call.Args[2], result.AccessToken)
 	for _, item := range record.snapshot() {
@@ -314,6 +315,15 @@ func findTokenSecurityCall(t *testing.T, record *tokenSecurityRecord, pattern st
 	}
 	t.Fatalf("missing call containing %q in %#v", pattern, record.snapshot())
 	return tokenSecurityCall{}
+}
+
+func assertNoTokenSecurityCall(t *testing.T, record *tokenSecurityRecord, pattern string) {
+	t.Helper()
+	for _, call := range record.snapshot() {
+		if strings.Contains(normalizedQuery(call.Query), pattern) {
+			t.Fatalf("unexpected call containing %q: %s", pattern, normalizedQuery(call.Query))
+		}
+	}
 }
 
 func assertStoredTokenHash(t *testing.T, stored driver.Value, raw string) {

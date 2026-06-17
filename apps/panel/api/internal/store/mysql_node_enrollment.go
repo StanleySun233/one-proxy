@@ -287,9 +287,6 @@ func (s *MySQLStore) ExchangeNodeEnrollment(input domain.ExchangeNodeEnrollmentI
 	); err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}
-	if _, err := tx.Exec("DELETE FROM node_api_tokens WHERE node_id = ?", input.NodeID); err != nil {
-		return domain.ApproveNodeEnrollmentResult{}, err
-	}
 	if _, err := tx.Exec(
 		`INSERT INTO node_api_tokens (id, node_id, token_hash, expires_at, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
