@@ -282,13 +282,15 @@ chromium.launchPersistentContext(userDataDir, {
                 className: root ? root.className : '',
                 title: root && root.querySelector('.opsb-icon') ? root.querySelector('.opsb-icon').title : ''
               };
-            })));
-          }).then((bubbleResult) => {
+            }))
+            .then((bubbleResult) => ({ bubbleResult, result })));
+          }).then(({ bubbleResult, result }) => {
             if (!String(bubbleResult.className || '').includes('opsb-green') || !bubbleResult.title) {
               throw new Error('service_worker_status_bubble_content_script_failed');
             }
-            return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests);
-          }).then((requests) => {
+            return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests)
+              .then((requests) => ({ requests, result }));
+          }).then(({ requests, result }) => {
             const pageStatusRequests = requests.filter((request) => request.url.includes('/api/proxy/extension/page/status'));
             if (pageStatusRequests.length < 2 || !pageStatusRequests[0].url.includes('routeId=route-1') || pageStatusRequests[1].url.includes('routeId=')) {
               throw new Error('service_worker_status_bubble_host_fallback_missing');
