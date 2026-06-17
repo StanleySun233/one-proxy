@@ -55,7 +55,7 @@ func (a *TokenAuthorizer) Validate(ctx context.Context, token string) bool {
 
 func (a *TokenAuthorizer) Authorize(ctx context.Context, token string) TokenValidation {
 	if a == nil || a.auth.Validator == nil {
-		return TokenValidation{Valid: true}
+		return TokenValidation{}
 	}
 	if token == "" {
 		return TokenValidation{}
@@ -85,6 +85,9 @@ func (a *TokenAuthorizer) Authorize(ctx context.Context, token string) TokenVali
 	if !result.ExpiresAt.IsZero() && result.ExpiresAt.Before(expiresAt) {
 		expiresAt = result.ExpiresAt
 	}
+	if !result.Valid || !now.Before(expiresAt) {
+		return TokenValidation{}
+	}
 	a.cache.set(hash, cachedTokenValidation{
 		valid:           result.Valid,
 		expiresAt:       expiresAt,
@@ -92,7 +95,7 @@ func (a *TokenAuthorizer) Authorize(ctx context.Context, token string) TokenVali
 		tenantID:        result.TenantID,
 	})
 	return TokenValidation{
-		Valid:           result.Valid && now.Before(expiresAt),
+		Valid:           true,
 		ExpiresAt:       expiresAt,
 		AllowLocalProxy: result.AllowLocalProxy,
 		TenantID:        result.TenantID,
@@ -101,9 +104,6 @@ func (a *TokenAuthorizer) Authorize(ctx context.Context, token string) TokenVali
 
 func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) (TokenValidation, bool) {
 	token, source := reverseToken(req)
-	if s.auth.Validator == nil {
-		return TokenValidation{Valid: true}, true
-	}
 	validation := s.authorizer.Authorize(req.Context(), token)
 	if token == "" || !validation.Valid {
 		w.Header().Set("X-One-Proxy-Authenticate", "required")
@@ -123,9 +123,6 @@ func (s *Server) authorizeForward(w http.ResponseWriter, req *http.Request) bool
 
 func (s *Server) authorizeForwardRequest(w http.ResponseWriter, req *http.Request) (TokenValidation, bool) {
 	token := forwardToken(req.Header.Get("Proxy-Authorization"))
-	if s.auth.Validator == nil {
-		return TokenValidation{Valid: true}, true
-	}
 	validation := s.authorizer.Authorize(req.Context(), token)
 	if token == "" || !validation.Valid {
 		w.Header().Set("Proxy-Authenticate", `Basic realm="one-proxy"`)
