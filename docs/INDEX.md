@@ -4,6 +4,7 @@
 
 | Date | Requirement | Status | Roadmap |
 |------|-------------|--------|---------|
+| 20260620 | connection-resilience | planned | [->](./20260620/connection-resilience/dev-roadmap.md) |
 | 20260617 | oneproxy-v210-release | in-progress | [->](./20260617/oneproxy-v210-release/dev-roadmap.md) |
 | 20260616 | route-rule-groups | completed | [->](./20260616/route-rule-groups/dev-roadmap.md) |
 | 20260616 | backend-modernization | in-progress | [->](./20260616/backend-modernization/dev-roadmap.md) |
