@@ -303,6 +303,8 @@ chromium.launchPersistentContext(userDataDir, {
             }));
           }).then(() => context.newPage()).then((contentPage) => contentPage.goto('http://172.20.116.5/')
             .then(() => contentPage.waitForSelector('#one-proxy-status-root.opsb-green', { timeout: 10000 }))
+            .then(() => contentPage.click('#one-proxy-status-root .opsb-icon'))
+            .then(() => contentPage.waitForSelector('#one-proxy-status-root .opsb-hop-latency', { timeout: 10000 }))
             .then(() => contentPage.evaluate(() => {
               const root = document.getElementById('one-proxy-status-root');
               return {
