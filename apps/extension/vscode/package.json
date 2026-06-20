@@ -2,7 +2,7 @@
   "name": "oneproxy-vscode",
   "displayName": "OneProxy",
   "description": "Connect VS Code Remote-SSH through OneProxy access paths.",
-  "version": "2.1.17",
+  "version": "2.1.18",
   "publisher": "oneproxy",
   "engines": {
     "vscode": "^1.90.0"

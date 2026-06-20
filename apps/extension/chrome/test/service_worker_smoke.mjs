@@ -186,7 +186,16 @@ chromium.launchPersistentContext(userDataDir, {
                 const host = parsed.searchParams.get('host') || '';
                 let data = { status: 'ok', latencyMs: 42, uploadBytes: 1234, downloadBytes: 5678, requestCount: 2, failureCount: 0, correlated: true };
                 if (strict || host === '172.20.116.6' || host === '172.20.116.7') {
-                  data = { status: 'unknown', latencyMs: 0, uploadBytes: 0, downloadBytes: 0, requestCount: 0, failureCount: 0, correlated: false };
+                  data = {
+                    status: 'unknown',
+                    latencyMs: 0,
+                    uploadBytes: 0,
+                    downloadBytes: 0,
+                    requestCount: 0,
+                    failureCount: 0,
+                    correlated: false,
+                    linkTimings: [{ fromNodeId: 'node-1', toNodeId: 'target', roundTripMs: 23, sampleTsMs: Date.now(), count: 1 }]
+                  };
                 }
                 return Promise.resolve(new Response(JSON.stringify({ code: 0, message: 'ok', data }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
               }
@@ -298,13 +307,17 @@ chromium.launchPersistentContext(userDataDir, {
               const root = document.getElementById('one-proxy-status-root');
               return {
                 className: root ? root.className : '',
-                title: root && root.querySelector('.opsb-icon') ? root.querySelector('.opsb-icon').title : ''
+                title: root && root.querySelector('.opsb-icon') ? root.querySelector('.opsb-icon').title : '',
+                hopLatencies: root ? [...root.querySelectorAll('.opsb-hop-latency')].map((node) => node.textContent || '') : []
               };
             }))
             .then((bubbleResult) => ({ bubbleResult, result })));
           }).then(({ bubbleResult, result }) => {
             if (!String(bubbleResult.className || '').includes('opsb-green') || !bubbleResult.title) {
               throw new Error('service_worker_status_bubble_content_script_failed');
+            }
+            if (!bubbleResult.hopLatencies[0] || bubbleResult.hopLatencies[0].includes('-')) {
+              throw new Error('service_worker_status_bubble_missing_entry_latency');
             }
             return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests)
               .then((requests) => ({ requests, result }));

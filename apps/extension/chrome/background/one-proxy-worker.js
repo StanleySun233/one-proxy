@@ -1855,6 +1855,21 @@ function normalizeLinkTimings(items) {
   })).filter((item) => item.fromNodeId && item.toNodeId);
 }
 
+function mergeLinkTimings(remoteItems, measuredItems) {
+  const result = [];
+  const indexes = new Map();
+  [...measuredItems, ...remoteItems].forEach((item) => {
+    const key = `${item.fromNodeId}\u0000${item.toNodeId}`;
+    if (indexes.has(key)) {
+      result[indexes.get(key)] = item;
+      return;
+    }
+    indexes.set(key, result.length);
+    result.push(item);
+  });
+  return result;
+}
+
 function shouldDisplay(state, route) {
   const controlPlaneHost = urlHostname(state.controlPlaneUrl);
   if (!route.host || route.host === controlPlaneHost) {
@@ -1892,7 +1907,8 @@ function getStatusBubblePageStatus(message, sender) {
         const latencyMs = effectiveLatencyMs(status, metrics, pathHealth);
         const actualNodeTimings = normalizeNodeTimings(status.nodeTimings);
         const actualLinkTimings = normalizeLinkTimings(status.linkTimings);
-        const linkTimings = actualLinkTimings.length > 0 ? actualLinkTimings : normalizeLinkTimings(pathHealth.linkTimings);
+        const measuredLinkTimings = normalizeLinkTimings(pathHealth.linkTimings);
+        const linkTimings = mergeLinkTimings(actualLinkTimings, measuredLinkTimings);
         const lastErrorCode = status.lastErrorCode || (metrics && metrics.lastErrorCode) || '';
         const lastErrorMessage = status.lastErrorMessage || (metrics && metrics.lastErrorMessage) || '';
         const displayStatus = statusWithLatency(statusFrom(status, metrics, route.mode, pathHealth), latencyMs, route.mode);
