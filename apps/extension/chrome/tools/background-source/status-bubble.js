@@ -117,7 +117,7 @@ function measureEntryLatency(accessPath) {
       if (!response.ok) {
         throw new Error(`status_bubble_entry_probe_failed:${response.status}`);
       }
-      return Date.now() - startedAt;
+      return Math.max(1, Date.now() - startedAt);
     });
 }
 
