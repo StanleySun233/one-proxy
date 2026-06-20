@@ -289,6 +289,17 @@ chromium.launchPersistentContext(userDataDir, {
               throw new Error(helperResult.error || 'service_worker_local_helper_failed');
             }
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({
+              type: 'set-local-helper',
+              enabled: false,
+              scheme: 'SOCKS5',
+              host: '127.0.0.1',
+              port: 1080
+            }));
+          }).then((helperResult) => {
+            if (helperResult.error || helperResult.localHelper.enabled) {
+              throw new Error(helperResult.error || 'service_worker_local_helper_disable_failed');
+            }
+            return optionsPage.evaluate(() => chrome.runtime.sendMessage({
               type: 'status-bubble-page-status',
               url: 'http://172.20.116.5/'
             }));
