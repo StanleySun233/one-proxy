@@ -15,6 +15,9 @@ var (
 	errChildTunnelClosed = errors.New("child_tunnel_closed")
 )
 
+const streamOpenAckTimeout = 5 * time.Second
+const streamReconnectWaitTimeout = 2 * time.Second
+
 type childSession struct {
 	nodeID    string
 	conn      *websocket.Conn
@@ -46,7 +49,7 @@ func (s *childSession) request(message Message) (Message, error) {
 	select {
 	case response := <-ch:
 		return response, nil
-	case <-time.After(5 * time.Second):
+	case <-time.After(streamOpenAckTimeout):
 		return Message{}, errors.New("probe_timeout")
 	case <-s.done:
 		return Message{}, errChildTunnelClosed
@@ -89,7 +92,7 @@ func (s *childSession) openStream(remaining []string, targetHost string, targetP
 			return nil, errors.New(ack.Message)
 		}
 		return stream, nil
-	case <-time.After(5 * time.Second):
+	case <-time.After(streamOpenAckTimeout):
 		s.removeStream(streamID)
 		return nil, errStreamOpenTimeout
 	case <-s.done:

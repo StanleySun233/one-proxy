@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -13,17 +14,20 @@ import (
 const streamChunkSize = 32 * 1024
 
 type streamConn struct {
-	session      *childSession
-	streamID     string
-	readCh       chan []byte
-	ackCh        chan Message
-	done         chan struct{}
-	closeOnce    sync.Once
-	mu           sync.Mutex
-	readBuf      bytes.Buffer
-	closeErr     error
-	localClosed  bool
-	remoteClosed bool
+	session       *childSession
+	streamID      string
+	readCh        chan []byte
+	ackCh         chan Message
+	done          chan struct{}
+	closeOnce     sync.Once
+	mu            sync.Mutex
+	readBuf       bytes.Buffer
+	closeErr      error
+	localClosed   bool
+	remoteClosed  bool
+	deadline      time.Time
+	readDeadline  time.Time
+	writeDeadline time.Time
 }
 
 func (c *streamConn) Read(p []byte) (int, error) {
@@ -42,6 +46,33 @@ func (c *streamConn) Read(p []byte) (int, error) {
 		return 0, err
 	}
 	c.mu.Unlock()
+	deadline := c.currentReadDeadline()
+	if !deadline.IsZero() {
+		if time.Now().After(deadline) {
+			return 0, os.ErrDeadlineExceeded
+		}
+		timer := time.NewTimer(time.Until(deadline))
+		defer timer.Stop()
+		select {
+		case data, ok := <-c.readCh:
+			if !ok {
+				c.mu.Lock()
+				err := c.closeErr
+				c.mu.Unlock()
+				if err == nil {
+					return 0, net.ErrClosed
+				}
+				return 0, err
+			}
+			c.mu.Lock()
+			c.readBuf.Write(data)
+			n, _ := c.readBuf.Read(p)
+			c.mu.Unlock()
+			return n, nil
+		case <-timer.C:
+			return 0, os.ErrDeadlineExceeded
+		}
+	}
 	data, ok := <-c.readCh
 	if !ok {
 		c.mu.Lock()
@@ -65,9 +96,24 @@ func (c *streamConn) Write(p []byte) (int, error) {
 		c.mu.Unlock()
 		return 0, net.ErrClosed
 	}
+	deadline := c.effectiveDeadline(c.writeDeadline)
 	c.mu.Unlock()
+	if !deadline.IsZero() && time.Now().After(deadline) {
+		return 0, os.ErrDeadlineExceeded
+	}
+	if !deadline.IsZero() && c.session != nil && c.session.conn != nil {
+		defer c.session.conn.SetWriteDeadline(time.Time{})
+	}
 	total := 0
 	for len(p) > 0 {
+		if !deadline.IsZero() {
+			if time.Now().After(deadline) {
+				return total, os.ErrDeadlineExceeded
+			}
+			if c.session != nil && c.session.conn != nil {
+				_ = c.session.conn.SetWriteDeadline(deadline)
+			}
+		}
 		chunkLen := len(p)
 		if chunkLen > streamChunkSize {
 			chunkLen = streamChunkSize
@@ -111,11 +157,45 @@ func (c *streamConn) Close() error {
 	return nil
 }
 
-func (c *streamConn) LocalAddr() net.Addr                { return tunnelAddr("local") }
-func (c *streamConn) RemoteAddr() net.Addr               { return tunnelAddr("remote") }
-func (c *streamConn) SetDeadline(_ time.Time) error      { return nil }
-func (c *streamConn) SetReadDeadline(_ time.Time) error  { return nil }
-func (c *streamConn) SetWriteDeadline(_ time.Time) error { return nil }
+func (c *streamConn) LocalAddr() net.Addr  { return tunnelAddr("local") }
+func (c *streamConn) RemoteAddr() net.Addr { return tunnelAddr("remote") }
+
+func (c *streamConn) SetDeadline(deadline time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.deadline = deadline
+	return nil
+}
+
+func (c *streamConn) SetReadDeadline(deadline time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.readDeadline = deadline
+	return nil
+}
+
+func (c *streamConn) SetWriteDeadline(deadline time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.writeDeadline = deadline
+	return nil
+}
+
+func (c *streamConn) currentReadDeadline() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.effectiveDeadline(c.readDeadline)
+}
+
+func (c *streamConn) effectiveDeadline(specific time.Time) time.Time {
+	if c.deadline.IsZero() {
+		return specific
+	}
+	if specific.IsZero() || c.deadline.Before(specific) {
+		return c.deadline
+	}
+	return specific
+}
 
 func (c *streamConn) closeWithError(err error) {
 	c.closeOnce.Do(func() {
