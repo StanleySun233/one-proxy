@@ -57,7 +57,13 @@ func (s *MySQLStore) RefreshNodeStatus(staleAfter time.Duration) error {
 		return err
 	}
 	_, err := s.db.Exec(
-		"UPDATE nodes SET status = 'healthy', updated_at = ? WHERE id IN (SELECT node_id FROM node_health_snapshots WHERE heartbeat_at > ?)",
+		`UPDATE nodes SET status = 'healthy', updated_at = ?
+		 WHERE id IN (
+		   SELECT node_id FROM node_health_snapshots
+		   WHERE heartbeat_at > ?
+		     AND listener_status_json NOT REGEXP ':"(0|degraded|failed|pending|disconnected)"'
+		     AND cert_status_json NOT REGEXP ':"(degraded|renew-soon|expired)"'
+		 )`,
 		nowRFC3339(), staleAt,
 	)
 	return err

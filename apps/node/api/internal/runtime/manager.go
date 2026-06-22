@@ -141,13 +141,29 @@ func (m *Manager) tick(heartbeatAt time.Time) {
 		}
 	}
 	revision, _ := m.store.Current()
-	_, _ = client.SendHeartbeat(heartbeatAt, revision, cloneMap(m.listenerStatus), cloneMap(m.certStatus))
+	listenerStatus, certStatus := m.healthStatus()
+	_, _ = client.SendHeartbeat(heartbeatAt, revision, listenerStatus, certStatus)
+}
+
+func (m *Manager) SetListenerStatus(key string, value string) {
+	if key == "" || value == "" {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.listenerStatus[key] = value
 }
 
 func (m *Manager) setCertStatus(key string, value string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.certStatus[key] = value
+}
+
+func (m *Manager) healthStatus() (map[string]string, map[string]string) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return cloneMap(m.listenerStatus), cloneMap(m.certStatus)
 }
 
 func (m *Manager) load() {

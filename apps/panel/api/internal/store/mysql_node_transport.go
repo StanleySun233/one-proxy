@@ -115,6 +115,11 @@ func (s *MySQLStore) UpsertNodeTransport(input domain.UpsertNodeTransportInput) 
 	if err != nil {
 		return domain.NodeTransport{}, err
 	}
+	if !healthyTransportValues[input.Status] {
+		if _, err := s.db.Exec("UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?", domain.NodeStatusDegraded, now, input.NodeID); err != nil {
+			return domain.NodeTransport{}, err
+		}
+	}
 	return domain.NodeTransport{
 		ID:              id,
 		NodeID:          input.NodeID,

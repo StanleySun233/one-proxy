@@ -40,6 +40,13 @@ func (c *Controller) websocketURL(current runtime.Binding, parentNodeID string) 
 }
 
 func (c *Controller) report(current runtime.Binding, status string, lastHeartbeatAt string) {
+	if c.manager != nil {
+		listenerValue := domain.ListenerStatusDown
+		if status == domain.TransportStatusConnected || status == domain.TransportStatusAvailable {
+			listenerValue = domain.ListenerStatusUp
+		}
+		c.manager.SetListenerStatus("transport:"+domain.TransportTypeReverseWSParent, listenerValue)
+	}
 	client := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken)
 	address, err := c.websocketURL(current, current.NodeParentID)
 	if err != nil {

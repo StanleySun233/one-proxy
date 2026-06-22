@@ -10,6 +10,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var (
+	errStreamOpenTimeout = errors.New("stream_open_timeout")
+	errChildTunnelClosed = errors.New("child_tunnel_closed")
+)
+
 type childSession struct {
 	nodeID    string
 	conn      *websocket.Conn
@@ -19,6 +24,7 @@ type childSession struct {
 	streams   map[string]*streamConn
 	streamsMu sync.RWMutex
 	done      chan struct{}
+	closeOnce sync.Once
 }
 
 func (s *childSession) request(message Message) (Message, error) {
@@ -43,7 +49,7 @@ func (s *childSession) request(message Message) (Message, error) {
 	case <-time.After(5 * time.Second):
 		return Message{}, errors.New("probe_timeout")
 	case <-s.done:
-		return Message{}, errors.New("child_tunnel_closed")
+		return Message{}, errChildTunnelClosed
 	}
 }
 
@@ -85,10 +91,10 @@ func (s *childSession) openStream(remaining []string, targetHost string, targetP
 		return stream, nil
 	case <-time.After(5 * time.Second):
 		s.removeStream(streamID)
-		return nil, errors.New("stream_open_timeout")
+		return nil, errStreamOpenTimeout
 	case <-s.done:
 		s.removeStream(streamID)
-		return nil, errors.New("child_tunnel_closed")
+		return nil, errChildTunnelClosed
 	}
 }
 
@@ -155,4 +161,14 @@ func (s *childSession) closeAll() {
 	for _, stream := range streams {
 		stream.closeWithError(ioEOF("child_tunnel_closed"))
 	}
+}
+
+func (s *childSession) close() {
+	s.closeOnce.Do(func() {
+		s.closeAll()
+		close(s.done)
+		if s.conn != nil {
+			_ = s.conn.Close()
+		}
+	})
 }

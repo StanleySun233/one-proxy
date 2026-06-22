@@ -164,6 +164,7 @@ const (
 const (
 	ListenerStatusUp       = "up"
 	ListenerStatusDegraded = "degraded"
+	ListenerStatusDown     = "0"
 )
 
 // Approval state constants

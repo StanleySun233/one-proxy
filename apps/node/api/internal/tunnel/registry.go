@@ -28,19 +28,26 @@ func (r *Registry) Add(nodeID string, conn *websocket.Conn) *childSession {
 		done:    make(chan struct{}),
 	}
 	r.mu.Lock()
+	previous := r.sessions[nodeID]
 	r.sessions[nodeID] = session
 	r.mu.Unlock()
+	if previous != nil {
+		previous.close()
+	}
 	return session
 }
 
 func (r *Registry) Remove(nodeID string, session *childSession) {
+	removed := false
 	r.mu.Lock()
 	if current, ok := r.sessions[nodeID]; ok && current == session {
 		delete(r.sessions, nodeID)
+		removed = true
 	}
 	r.mu.Unlock()
-	session.closeAll()
-	close(session.done)
+	if removed {
+		session.close()
+	}
 }
 
 func (r *Registry) HasChild(nodeID string) bool {
@@ -92,6 +99,9 @@ func (r *Registry) OpenStream(nextNodeID string, remaining []string, targetHost 
 	conn, err := session.openStream(remaining, targetHost, targetPort)
 	if err != nil {
 		log.Printf("node tunnel stream_open_failed nextNodeID=%s remaining=%v target=%s:%d duration=%s err=%v", nextNodeID, remaining, targetHost, targetPort, time.Since(started), err)
+		if errors.Is(err, errStreamOpenTimeout) || errors.Is(err, errChildTunnelClosed) {
+			r.Remove(nextNodeID, session)
+		}
 	}
 	return conn, err
 }

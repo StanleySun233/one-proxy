@@ -26,7 +26,7 @@ func (c *Controller) Run() {
 		if err := c.connect(current); err != nil {
 			log.Printf("node tunnel disconnected nodeID=%s parentNodeID=%s err=%v", current.NodeID, current.NodeParentID, err)
 			c.closeStreams()
-			c.report(current, "disconnected", "")
+			c.report(current, "failed", "")
 			time.Sleep(3 * time.Second)
 			continue
 		}

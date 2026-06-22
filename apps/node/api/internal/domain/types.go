@@ -6,6 +6,7 @@ const (
 	ActionTypeDeny               = "deny"
 	ListenerStatusUp             = "up"
 	ListenerStatusDegraded       = "degraded"
+	ListenerStatusDown           = "0"
 	CertStatusHealthy            = "healthy"
 	CertStatusDegraded           = "degraded"
 	MatchTypeDomain              = "domain"
@@ -15,6 +16,9 @@ const (
 	MatchTypeProtocol            = "protocol"
 	MatchTypeDefault             = "default"
 	TransportTypeReverseWSParent = "reverse_ws_parent"
+	TransportStatusConnected     = "connected"
+	TransportStatusAvailable     = "available"
+	TransportStatusFailed        = "failed"
 )
 
 type Node struct {

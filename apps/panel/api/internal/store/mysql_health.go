@@ -6,8 +6,9 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
 )
 
-var healthyListenerValues = map[string]bool{domain.ListenerStatusUp: true, domain.NodeStatusHealthy: true}
+var healthyListenerValues = map[string]bool{domain.ListenerStatusUp: true, domain.NodeStatusHealthy: true, domain.TransportStatusConnected: true, domain.TransportStatusAvailable: true}
 var healthyCertValues = map[string]bool{domain.CertStatusHealthy: true, domain.CertStatusRenewed: true}
+var healthyTransportValues = map[string]bool{domain.TransportStatusConnected: true, domain.TransportStatusAvailable: true}
 
 func heartbeatNodeStatus(listenerStatus map[string]string, certStatus map[string]string) string {
 	for _, value := range listenerStatus {
@@ -75,6 +76,7 @@ func (s *MySQLStore) ListNodeHealthHistory(nodeID string, window time.Duration) 
 func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domain.NodeHealth, error) {
 	receivedAt := nowRFC3339()
 	heartbeatAt := input.HeartbeatTime(time.Now()).Format(time.RFC3339)
+	input.ListenerStatus = s.nodeHeartbeatListenerStatus(input.NodeID, input.ListenerStatus)
 	status := heartbeatNodeStatus(input.ListenerStatus, input.CertStatus)
 	revisionID := input.PolicyRevisionID
 	if revisionID != "" {
@@ -121,6 +123,48 @@ func (s *MySQLStore) UpsertNodeHeartbeat(input domain.NodeHeartbeatInput) (domai
 		ListenerStatus:   input.ListenerStatus,
 		CertStatus:       input.CertStatus,
 	}, nil
+}
+
+func (s *MySQLStore) nodeHeartbeatListenerStatus(nodeID string, reported map[string]string) map[string]string {
+	result := cloneStringMap(reported)
+	if result == nil {
+		result = map[string]string{}
+	}
+	rows, err := s.db.Query(
+		`SELECT transport_type, status FROM node_transports WHERE node_id = ?`,
+		nodeID,
+	)
+	if err != nil {
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var transportType string
+		var status string
+		if err := rows.Scan(&transportType, &status); err != nil {
+			continue
+		}
+		key := "transport:" + transportType
+		if healthyTransportValues[status] {
+			if _, ok := result[key]; !ok {
+				result[key] = domain.ListenerStatusUp
+			}
+			continue
+		}
+		result[key] = domain.ListenerStatusDown
+	}
+	return result
+}
+
+func cloneStringMap(value map[string]string) map[string]string {
+	if value == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(value))
+	for key, item := range value {
+		cloned[key] = item
+	}
+	return cloned
 }
 
 func (s *MySQLStore) RenewNodeCertificate(input domain.NodeCertRenewInput) (domain.NodeCertRenewResult, error) {
