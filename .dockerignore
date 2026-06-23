@@ -1,6 +1,6 @@
 .git
 .github
-.codex
+.local
 .next
 node_modules
 **/node_modules
