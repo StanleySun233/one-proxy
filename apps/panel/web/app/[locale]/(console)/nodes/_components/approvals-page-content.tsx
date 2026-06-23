@@ -29,29 +29,24 @@ export function NodeApprovalsPageContent() {
   const unconsumedTokens = nodeConsole.unconsumedTokensQuery.data || [];
   const scopes = nodeConsole.scopesQuery.data || [];
   const scopeNameById = useMemo(() => new Map(scopes.map((scope) => [scope.id, scope.name])), [scopes]);
-  const allItems: Array<{kind: 'pending'; data: Node} | {kind: 'unconsumed'; data: UnconsumedBootstrapToken}> = [
-    ...pendingNodes.map((node) => ({kind: 'pending' as const, data: node})),
-    ...unconsumedTokens.map((token) => ({kind: 'unconsumed' as const, data: token}))
-  ];
-  const combinedCount = allItems.length;
-  const filteredItems = useMemo(() => {
-    return allItems.filter((item) => {
-      if (item.kind === 'pending') {
-        const node = item.data;
-        const scopeName = scopeNameById.get(node.scopeKey) || '';
-        return (!nameFilter.trim() || String(node.name || '').toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
-          (!typeFilter.trim() || node.mode.toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
-          (!targetFilter.trim() || scopeName.toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
-          (!statusFilter.trim() || node.status.toLowerCase().includes(statusFilter.trim().toLowerCase()));
-      }
-      const token = item.data;
+  const filteredPendingNodes = useMemo(() => {
+    return pendingNodes.filter((node) => {
+      const scopeName = scopeNameById.get(node.scopeKey) || '';
+      return (!nameFilter.trim() || String(node.name || '').toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
+        (!typeFilter.trim() || node.mode.toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
+        (!targetFilter.trim() || scopeName.toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
+        (!statusFilter.trim() || node.status.toLowerCase().includes(statusFilter.trim().toLowerCase()));
+    });
+  }, [nameFilter, pendingNodes, scopeNameById, statusFilter, targetFilter, typeFilter]);
+  const filteredUnconsumedTokens = useMemo(() => {
+    return unconsumedTokens.filter((token) => {
       const scopeName = scopeNameById.get(token.scopeKey) || '';
       return (!nameFilter.trim() || String(token.nodeName || '').toLowerCase().includes(nameFilter.trim().toLowerCase())) &&
         (!typeFilter.trim() || nodesT('unconnected').toLowerCase().includes(typeFilter.trim().toLowerCase())) &&
         (!targetFilter.trim() || scopeName.toLowerCase().includes(targetFilter.trim().toLowerCase())) &&
         (!statusFilter.trim() || t('common.unused').toLowerCase().includes(statusFilter.trim().toLowerCase()));
     });
-  }, [allItems, nameFilter, nodesT, scopeNameById, statusFilter, t, targetFilter, typeFilter]);
+  }, [nameFilter, nodesT, scopeNameById, statusFilter, t, targetFilter, typeFilter, unconsumedTokens]);
   const pendingNodeDeleteSections: DeleteImpactSection[] = deletingPendingNode ? [
     {id: 'pendingNode', label: nodesT('deleteImpactPendingNode'), items: [{id: deletingPendingNode.id, name: deletingPendingNode.name || t('common.unknown'), detail: deletingPendingNode.mode}]}
   ] : [];
@@ -80,8 +75,8 @@ export function NodeApprovalsPageContent() {
           </ConsoleFilterItem>
         </ConsoleFilterBar>
 
-        <ConsoleList count={filteredItems.length} title={nodesT('pendingEnrollments')}>
-          {nodeConsole.pendingNodesQuery.isPending || nodeConsole.unconsumedTokensQuery.isPending ? (
+        <ConsoleList count={filteredPendingNodes.length} title={nodesT('pendingEnrollments')}>
+          {nodeConsole.pendingNodesQuery.isPending ? (
             <AsyncState detail={t('common.loading')} title={nodesT('loadingPending')} />
           ) : nodeConsole.pendingNodesQuery.error ? (
             <AsyncState
@@ -90,9 +85,9 @@ export function NodeApprovalsPageContent() {
               onAction={() => void nodeConsole.pendingNodesQuery.refetch()}
               title={nodesT('failedPending')}
             />
-          ) : combinedCount === 0 ? (
+          ) : pendingNodes.length === 0 ? (
             <AsyncState detail={nodesT('emptyPending')} title={t('common.empty')} />
-          ) : filteredItems.length === 0 ? (
+          ) : filteredPendingNodes.length === 0 ? (
             <AsyncState detail={t('common.noMatching')} title={t('common.empty')} />
           ) : (
             <div className="table-card">
@@ -108,51 +103,83 @@ export function NodeApprovalsPageContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.map((item) => {
-                    if (item.kind === 'pending') {
-                      const node = item.data;
-                      const scopeName = scopeNameById.get(node.scopeKey) || '';
-                      return (
-                        <tr key={node.id}>
-                          <td>{node.name ? <NameTag kind="node">{node.name}</NameTag> : <span className="muted-text">{t('common.notSpecified')}</span>}</td>
-                          <td>{node.mode}</td>
-                          <td>{scopeName ? <NameTag kind="scope">{scopeName}</NameTag> : <span className="muted-text">{t('common.unknown')}</span>}</td>
-                          <td>
-                            <span className={statusBadgeClassName(node.status)}>{node.status}</span>
-                          </td>
-                          <td className="muted-text">—</td>
-                          <td>
-                            <div className="registry-actions">
-                              <button
-                                className="secondary-button"
-                                disabled={nodeConsole.approve.isPending}
-                                onClick={() => nodeConsole.approve.mutate(node.id)}
-                                type="button"
-                              >
-                                {t('common.approve')}
-                              </button>
-                              <button
-                                className="danger-button"
-                                disabled={nodeConsole.deleteNode.isPending}
-                                onClick={() => setDeletingPendingNode(node)}
-                                type="button"
-                              >
-                                {t('common.delete')}
-                              </button>
-                              <button
-                                className="danger-button"
-                                disabled={nodeConsole.rejectNode.isPending}
-                                onClick={() => setRejectingNode(node)}
-                                type="button"
-                              >
-                                {t('common.reject')}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }
-                    const token = item.data;
+                  {filteredPendingNodes.map((node) => {
+                    const scopeName = scopeNameById.get(node.scopeKey) || '';
+                    return (
+                      <tr key={node.id}>
+                        <td>{node.name ? <NameTag kind="node">{node.name}</NameTag> : <span className="muted-text">{t('common.notSpecified')}</span>}</td>
+                        <td>{node.mode}</td>
+                        <td>{scopeName ? <NameTag kind="scope">{scopeName}</NameTag> : <span className="muted-text">{t('common.unknown')}</span>}</td>
+                        <td>
+                          <span className={statusBadgeClassName(node.status)}>{node.status}</span>
+                        </td>
+                        <td className="muted-text">—</td>
+                        <td>
+                          <div className="registry-actions">
+                            <button
+                              className="secondary-button"
+                              disabled={nodeConsole.approve.isPending}
+                              onClick={() => nodeConsole.approve.mutate(node.id)}
+                              type="button"
+                            >
+                              {t('common.approve')}
+                            </button>
+                            <button
+                              className="danger-button"
+                              disabled={nodeConsole.deleteNode.isPending}
+                              onClick={() => setDeletingPendingNode(node)}
+                              type="button"
+                            >
+                              {t('common.delete')}
+                            </button>
+                            <button
+                              className="danger-button"
+                              disabled={nodeConsole.rejectNode.isPending}
+                              onClick={() => setRejectingNode(node)}
+                              type="button"
+                            >
+                              {t('common.reject')}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </ConsoleList>
+
+        <ConsoleList count={filteredUnconsumedTokens.length} title={nodesT('unconnectedBootstrapTokens')}>
+          {nodeConsole.unconsumedTokensQuery.isPending ? (
+            <AsyncState detail={t('common.loading')} title={nodesT('loadingUnconnectedBootstrapTokens')} />
+          ) : nodeConsole.unconsumedTokensQuery.error ? (
+            <AsyncState
+              actionLabel={t('common.retry')}
+              detail={formatControlPlaneError(nodeConsole.unconsumedTokensQuery.error)}
+              onAction={() => void nodeConsole.unconsumedTokensQuery.refetch()}
+              title={nodesT('failedUnconnectedBootstrapTokens')}
+            />
+          ) : unconsumedTokens.length === 0 ? (
+            <AsyncState detail={nodesT('emptyUnconnectedBootstrapTokens')} title={t('common.empty')} />
+          ) : filteredUnconsumedTokens.length === 0 ? (
+            <AsyncState detail={t('common.noMatching')} title={t('common.empty')} />
+          ) : (
+            <div className="table-card">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t('common.name')}</th>
+                    <th>{t('common.type')}</th>
+                    <th>{t('common.target')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('common.createdExpires')}</th>
+                    <th>{t('common.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUnconsumedTokens.map((token) => {
                     const scopeName = scopeNameById.get(token.scopeKey) || '';
                     return (
                       <tr key={token.id}>

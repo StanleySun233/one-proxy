@@ -21,11 +21,13 @@ type tokenSecurityCall struct {
 }
 
 type tokenSecurityRecord struct {
-	mu         sync.Mutex
-	calls      []tokenSecurityCall
-	sequences  map[string]int64
-	nodeStatus string
-	tableCount int64
+	mu                       sync.Mutex
+	calls                    []tokenSecurityCall
+	sequences                map[string]int64
+	nodeStatus               string
+	tableCount               int64
+	enrollmentSecretCount    int64
+	enrollmentSecretCountSet bool
 }
 
 func (r *tokenSecurityRecord) add(query string, args []driver.Value) {
@@ -166,7 +168,16 @@ func (r *tokenSecurityRecord) rows(query string, args []driver.Value) driver.Row
 		}
 		return tokenSecurityRow([]string{"id", "name", "mode", "scope_key", "parent_node_id", "enabled", "status", "public_host", "public_port"}, "node-1", "local-node", "relay", "default", "", int64(1), status, "127.0.0.1", int64(2988))
 	case strings.HasPrefix(normalized, "SELECT COUNT(1) FROM node_trust_materials WHERE node_id = ? AND material_type = 'enrollment_secret'"):
-		return tokenSecurityRow([]string{"count"}, int64(1))
+		count := r.enrollmentSecretCount
+		if !r.enrollmentSecretCountSet {
+			count = 1
+		}
+		return tokenSecurityRow([]string{"count"}, count)
+	case strings.HasPrefix(normalized, "SELECT id, name, mode, scope_key, COALESCE(parent_node_id, ''), enabled, status, COALESCE(public_host, ''), COALESCE(public_port, 0), COALESCE(reviewed_by, ''), COALESCE(reviewed_at, ''), COALESCE(reject_reason, '') FROM nodes WHERE status = 'pending'"):
+		if !strings.Contains(normalized, "node_trust_materials") {
+			return &tokenSecurityRows{columns: []string{"empty"}}
+		}
+		return tokenSecurityRowsForPendingNodes()
 	case strings.HasPrefix(normalized, "SELECT material_value FROM node_trust_materials WHERE node_id = ? AND material_type = 'shared_secret'"):
 		return tokenSecurityRow([]string{"material_value"}, "shared-secret")
 	case strings.HasPrefix(normalized, "SELECT t.node_id, t.expires_at, n.status, n.enabled FROM node_api_tokens t JOIN nodes n ON n.id = t.node_id WHERE t.token_hash = ?"):
@@ -178,6 +189,26 @@ func (r *tokenSecurityRecord) rows(query string, args []driver.Value) driver.Row
 
 func tokenSecurityRow(columns []string, values ...driver.Value) driver.Rows {
 	return &tokenSecurityRows{columns: columns, values: [][]driver.Value{values}}
+}
+
+func tokenSecurityRowsForPendingNodes() driver.Rows {
+	return &tokenSecurityRows{
+		columns: []string{"id", "name", "mode", "scope_key", "parent_node_id", "enabled", "status", "public_host", "public_port", "reviewed_by", "reviewed_at", "reject_reason"},
+		values: [][]driver.Value{{
+			"node-1",
+			"local-node",
+			"relay",
+			"default",
+			"",
+			int64(1),
+			domain.NodeStatusPending,
+			"127.0.0.1",
+			int64(2988),
+			"",
+			"",
+			"",
+		}},
+	}
 }
 
 func tokenSecurityNamedValues(args []driver.NamedValue) []driver.Value {
@@ -253,7 +284,7 @@ func TestEnrollNodeLooksUpBootstrapTokenHash(t *testing.T) {
 }
 
 func TestApproveNodeEnrollmentStoresNodeTokenHash(t *testing.T) {
-	record := &tokenSecurityRecord{nodeStatus: domain.NodeStatusPending}
+	record := &tokenSecurityRecord{nodeStatus: domain.NodeStatusPending, enrollmentSecretCount: 1, enrollmentSecretCountSet: true}
 	db := openTokenSecurityTestDB(t, record)
 	defer db.Close()
 
@@ -265,6 +296,35 @@ func TestApproveNodeEnrollmentStoresNodeTokenHash(t *testing.T) {
 
 	call := findTokenSecurityCall(t, record, "INSERT INTO node_api_tokens")
 	assertStoredTokenHash(t, call.Args[2], result.AccessToken)
+}
+
+func TestApproveNodeEnrollmentRequiresPendingEnrollmentSecret(t *testing.T) {
+	record := &tokenSecurityRecord{nodeStatus: domain.NodeStatusPending, enrollmentSecretCount: 0, enrollmentSecretCountSet: true}
+	db := openTokenSecurityTestDB(t, record)
+	defer db.Close()
+
+	store := &MySQLStore{db: db}
+	_, err := store.ApproveNodeEnrollment("node-1", "account-1")
+	if err == nil || !strings.Contains(err.Error(), "node_not_enrolled") {
+		t.Fatalf("ApproveNodeEnrollment error = %v, want node_not_enrolled", err)
+	}
+	assertNoTokenSecurityCall(t, record, "INSERT INTO node_api_tokens")
+}
+
+func TestListPendingNodesRequiresEnrollmentSecret(t *testing.T) {
+	record := &tokenSecurityRecord{nodeStatus: domain.NodeStatusPending, enrollmentSecretCount: 1, enrollmentSecretCountSet: true}
+	db := openTokenSecurityTestDB(t, record)
+	defer db.Close()
+
+	store := &MySQLStore{db: db}
+	nodes := store.ListPendingNodes()
+	if len(nodes) != 1 || nodes[0].ID != "node-1" {
+		t.Fatalf("ListPendingNodes = %#v", nodes)
+	}
+	call := findTokenSecurityCall(t, record, "FROM nodes WHERE status = 'pending'")
+	if !strings.Contains(normalizedQuery(call.Query), "node_trust_materials") {
+		t.Fatalf("pending query does not require enrollment secret: %s", normalizedQuery(call.Query))
+	}
 }
 
 func TestExchangeNodeEnrollmentIssuesHashedNodeToken(t *testing.T) {

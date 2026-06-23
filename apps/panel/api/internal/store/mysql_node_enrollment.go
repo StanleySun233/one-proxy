@@ -156,6 +156,17 @@ func (s *MySQLStore) ApproveNodeEnrollment(nodeID string, reviewedBy string) (do
 	if node.Status != domain.NodeStatusPending {
 		return domain.ApproveNodeEnrollmentResult{}, fmt.Errorf("node_not_pending")
 	}
+	var enrollmentSecretCount int
+	if err := s.db.QueryRow(
+		`SELECT COUNT(1) FROM node_trust_materials
+		 WHERE node_id = ? AND material_type = 'enrollment_secret' AND status = 'pending'`,
+		nodeID,
+	).Scan(&enrollmentSecretCount); err != nil {
+		return domain.ApproveNodeEnrollmentResult{}, err
+	}
+	if enrollmentSecretCount == 0 {
+		return domain.ApproveNodeEnrollmentResult{}, fmt.Errorf("node_not_enrolled")
+	}
 	trustMaterial, err := auth.RandomToken()
 	if err != nil {
 		return domain.ApproveNodeEnrollmentResult{}, err
@@ -318,6 +329,12 @@ func (s *MySQLStore) ListPendingNodes() []domain.Node {
 		        COALESCE(reviewed_by, ''), COALESCE(reviewed_at, ''), COALESCE(reject_reason, '')
 		 FROM nodes
 		 WHERE status = 'pending'
+		   AND EXISTS (
+		     SELECT 1 FROM node_trust_materials ntm
+		     WHERE ntm.node_id = nodes.id
+		       AND ntm.material_type = 'enrollment_secret'
+		       AND ntm.status = 'pending'
+		   )
 		 ORDER BY created_at DESC`,
 	)
 	if err != nil {
@@ -349,6 +366,17 @@ func (s *MySQLStore) RejectNodeEnrollment(nodeID string, reviewedBy string, reas
 	}
 	if status != domain.NodeStatusPending {
 		return fmt.Errorf("node_not_pending")
+	}
+	var enrollmentSecretCount int
+	if err := s.db.QueryRow(
+		`SELECT COUNT(1) FROM node_trust_materials
+		 WHERE node_id = ? AND material_type = 'enrollment_secret' AND status = 'pending'`,
+		nodeID,
+	).Scan(&enrollmentSecretCount); err != nil {
+		return err
+	}
+	if enrollmentSecretCount == 0 {
+		return fmt.Errorf("node_not_enrolled")
 	}
 	now := nowRFC3339()
 	_, err = s.db.Exec(

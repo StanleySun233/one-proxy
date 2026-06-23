@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/auth"
@@ -120,10 +121,64 @@ func (s *MySQLStore) ListUnconsumedBootstrapTokens() []domain.BootstrapToken {
 }
 
 func (s *MySQLStore) DeleteBootstrapToken(tokenID string) error {
-	_, err := s.db.Exec(
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var targetID, createdAt string
+	err = tx.QueryRow(
+		`SELECT COALESCE(target_id, ''), created_at
+		 FROM bootstrap_tokens
+		 WHERE id = ? AND consumed_at IS NULL`,
+		tokenID,
+	).Scan(&targetID, &createdAt)
+	if err == sql.ErrNoRows {
+		return tx.Commit()
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(
 		`DELETE FROM bootstrap_tokens
 		 WHERE id = ? AND consumed_at IS NULL`,
 		tokenID,
-	)
-	return err
+	); err != nil {
+		return err
+	}
+	if targetID != "" {
+		var placeholderCount int
+		if err := tx.QueryRow(
+			`SELECT COUNT(1)
+			 FROM nodes n
+			 WHERE n.id = ?
+			   AND n.status = ?
+			   AND n.created_at = ?
+			   AND NOT EXISTS (SELECT 1 FROM bootstrap_tokens bt WHERE bt.target_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM node_trust_materials ntm WHERE ntm.node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM node_api_tokens nat WHERE nat.node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM node_transports tr WHERE tr.node_id = n.id OR tr.parent_node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM node_health_snapshots nhs WHERE nhs.node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM node_access_paths nap WHERE nap.target_node_id = n.id OR nap.entry_node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM node_links nl WHERE nl.source_node_id = n.id OR nl.target_node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM chain_hops ch WHERE ch.node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM node_policy_assignments npa WHERE npa.node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM node_onboarding_tasks nots WHERE nots.target_node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM node_sla_minutes nsm WHERE nsm.node_id = n.id)
+			   AND NOT EXISTS (SELECT 1 FROM nodes child WHERE child.parent_node_id = n.id)`,
+			targetID, domain.NodeStatusPending, createdAt,
+		).Scan(&placeholderCount); err != nil {
+			return err
+		}
+		if placeholderCount == 1 {
+			if _, err := tx.Exec("DELETE FROM tenant_nodes WHERE node_id = ?", targetID); err != nil {
+				return err
+			}
+			if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", targetID); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
 }

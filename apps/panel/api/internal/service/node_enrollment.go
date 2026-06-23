@@ -32,7 +32,16 @@ func (c *ControlPlane) RejectNodeEnrollment(tenantCtx domain.TenantAuthContext, 
 	}); err != nil {
 		return err
 	}
-	return c.store.RejectNodeEnrollment(nodeID, accountID, reason)
+	if err := c.store.RejectNodeEnrollment(nodeID, accountID, reason); err != nil {
+		if strings.Contains(err.Error(), "node_not_pending") {
+			return invalidInput("node_not_pending")
+		}
+		if strings.Contains(err.Error(), "node_not_enrolled") {
+			return invalidInput("node_not_enrolled")
+		}
+		return err
+	}
+	return nil
 }
 
 func (c *ControlPlane) EnrollNode(input domain.EnrollNodeInput) (domain.EnrollNodeResult, error) {
@@ -55,6 +64,9 @@ func (c *ControlPlane) ApproveNodeEnrollment(tenantCtx domain.TenantAuthContext,
 	if err != nil {
 		if strings.Contains(err.Error(), "node_not_pending") {
 			return domain.ApproveNodeEnrollmentResult{}, invalidInput("node_not_pending")
+		}
+		if strings.Contains(err.Error(), "node_not_enrolled") {
+			return domain.ApproveNodeEnrollmentResult{}, invalidInput("node_not_enrolled")
 		}
 		return domain.ApproveNodeEnrollmentResult{}, err
 	}

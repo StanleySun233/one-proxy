@@ -124,10 +124,19 @@ node_id_by_name() {
 name=sys.argv[1]
 payload=json.load(sys.stdin).get("data") or []
 for item in payload:
-    if str(item.get("name", "")) == name:
+    item_name = item.get("name") or item.get("nodeName") or ""
+    if str(item_name) == name:
         print(item.get("id", ""))
         break
 ' "$1"
+}
+
+sql_quote() {
+  printf "%s" "$1" | sed "s/'/''/g"
+}
+
+mysql_query() {
+  docker exec -e MYSQL_QUERY="$1" -e MYSQL_DATABASE="$db_name" "$mysql_container" sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -N -B -e "$MYSQL_QUERY"' 2>/dev/null
 }
 
 sha256_hex() {
@@ -280,6 +289,32 @@ tenant_response="$(api_request POST /tenants "$access_token" "" "{\"name\":\"Cha
 tenant_id="$(printf "%s" "$tenant_response" | json_get data.tenant.id)"
 scope_response="$(api_request POST /proxy/scopes "$access_token" "$tenant_id" "{\"name\":\"chain-test-scope\",\"description\":\"camelbot full chain test\"}")"
 scope_id="$(printf "%s" "$scope_response" | json_get data.id)"
+unused_bootstrap_response="$(api_request POST /nodes/bootstrap/token "$access_token" "$tenant_id" "{\"targetType\":\"node\",\"nodeName\":\"chain-test-unused-node\",\"nodeMode\":\"relay\",\"scopeKey\":\"${scope_id}\"}")"
+unused_bootstrap_id="$(printf "%s" "$unused_bootstrap_response" | json_get data.id)"
+unused_node_id="$(printf "%s" "$unused_bootstrap_response" | json_get data.targetId)"
+pending_before="$(api_request GET /nodes/pending "$access_token" "$tenant_id")"
+if [ -n "$(printf "%s" "$pending_before" | node_id_by_name chain-test-unused-node)" ]; then
+  echo "bootstrap_lifecycle_contract=failed pending_before_connect" >&2
+  exit 1
+fi
+unconsumed_before="$(api_request GET /nodes/bootstrap/tokens/unconsumed "$access_token" "$tenant_id")"
+if [ -z "$(printf "%s" "$unconsumed_before" | node_id_by_name chain-test-unused-node)" ]; then
+  echo "bootstrap_lifecycle_contract=failed missing_unconsumed_token" >&2
+  exit 1
+fi
+pre_approve_code="$(curl -sS -o /tmp/oneproxy-chain-test-preapprove -w '%{http_code}' -X POST "http://127.0.0.1:${panel_port}/api/nodes/${unused_node_id}/approve" -H "Content-Type: application/json" -H "X-One-Proxy-Access-Token: ${access_token}" -H "X-One-Proxy-Tenant-ID: ${tenant_id}" -d "{}" || true)"
+if [ "$pre_approve_code" != "400" ]; then
+  echo "bootstrap_lifecycle_contract=failed pre_approve_code=${pre_approve_code}" >&2
+  exit 1
+fi
+api_request DELETE "/nodes/bootstrap/tokens/${unused_bootstrap_id}" "$access_token" "$tenant_id" "" >/dev/null
+quoted_unused_node_id="$(sql_quote "$unused_node_id")"
+remaining_unused_nodes="$(mysql_query "SELECT COUNT(*) FROM nodes WHERE id='${quoted_unused_node_id}';")"
+if [ "${remaining_unused_nodes:-0}" != "0" ]; then
+  echo "bootstrap_lifecycle_contract=failed placeholder_node_remaining=${remaining_unused_nodes}" >&2
+  exit 1
+fi
+echo "bootstrap_lifecycle_contract=ok"
 bootstrap_response="$(api_request POST /nodes/bootstrap/token "$access_token" "$tenant_id" "{\"targetType\":\"node\",\"nodeName\":\"chain-test-node\",\"nodeMode\":\"edge\",\"scopeKey\":\"${scope_id}\",\"publicHost\":\"127.0.0.1\",\"publicPort\":2988}")"
 bootstrap_token="$(printf "%s" "$bootstrap_response" | json_get data.token)"
 
