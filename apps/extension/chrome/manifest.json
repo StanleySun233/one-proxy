@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "One Proxy",
-  "version": "2.1.23",
+  "version": "2.1.24",
   "default_locale": "en",
   "description": "__MSG_appDescription__",
   "permissions": [
