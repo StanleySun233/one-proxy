@@ -74,6 +74,7 @@ docker_prune_safe() {
 
 cleanup_test() {
   docker rm -f "$node_container" "$panel_container" "$origin_container" >/dev/null 2>&1 || true
+  docker network disconnect "$network" "$mysql_container" >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
   if docker inspect "$mysql_container" >/dev/null 2>&1; then
     escaped="$(printf "%s" "$db_name" | sed 's/`/``/g')"
