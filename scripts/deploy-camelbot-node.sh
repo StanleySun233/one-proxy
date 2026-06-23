@@ -8,9 +8,9 @@ image_repo="${ONEPROXY_NODE_IMAGE_REPO:-ghcr.io/stanleysun233/oneproxy-node}"
 container="${ONEPROXY_NODE_CONTAINER:-one-proxy-node}"
 mysql_container="${ONEPROXY_MYSQL_CONTAINER:-one-proxy-mysql8}"
 db_name="${ONEPROXY_DB_NAME:-one_proxy}"
-expected_nodes="${ONEPROXY_EXPECTED_NODE_NAMES:-hk-public-node,sg-astar-58}"
-reverse_node="${ONEPROXY_REVERSE_NODE_NAME:-sg-astar-58}"
-direct_node="${ONEPROXY_DIRECT_NODE_NAME:-hk-public-node}"
+expected_nodes="${ONEPROXY_EXPECTED_NODE_NAMES:-camelbot,astar-91}"
+reverse_node="${ONEPROXY_REVERSE_NODE_NAME:-astar-91}"
+direct_node="${ONEPROXY_DIRECT_NODE_NAME:--}"
 
 case "$mode" in
   check)
@@ -108,6 +108,8 @@ reverse_connected() {
 
 direct_available() {
   [ -n "$direct_node" ] || return 0
+  [ "$direct_node" != "none" ] || return 0
+  [ "$direct_node" != "-" ] || return 0
   quoted="$(sql_quote "$direct_node")"
   count="$(mysql_query "SELECT COUNT(*) FROM node_transports t JOIN nodes n ON n.id=t.node_id WHERE n.name='${quoted}' AND t.transport_type='direct_udp_candidate' AND t.status='available';")"
   [ "${count:-0}" -ge 1 ]
