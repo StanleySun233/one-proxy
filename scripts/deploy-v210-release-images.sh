@@ -24,16 +24,16 @@ camelbot_final_jwt_signing_key="${ONEPROXY_FINAL_PANEL_JWT_SIGNING_KEY:-}"
 camelbot_final_schema_confirm="${ONEPROXY_FINAL_SCHEMA_CONFIRM:-}"
 
 case "$mode" in
-  check|dry-run|deploy)
+  check|dry-run|test|deploy)
     ;;
   *)
-    echo "usage: $0 [check|dry-run|deploy] [all|local-node|camelbot-node|camelbot-panel] <immutable_tag>" >&2
+    echo "usage: $0 [check|dry-run|test|deploy] [all|local-node|camelbot-node|camelbot-panel|camelbot-full-chain] <immutable_tag>" >&2
     exit 2
     ;;
 esac
 
 case "$target" in
-  all|local-node|camelbot-node|camelbot-panel)
+  all|local-node|camelbot-node|camelbot-panel|camelbot-full-chain)
     ;;
   *)
     echo "unknown target: $target" >&2
@@ -60,6 +60,34 @@ node_image() {
 
 panel_image() {
   printf "%s:%s" "$panel_repo" "$tag"
+}
+
+prune_camelbot_docker() {
+  ssh -T "$camelbot_ssh_host" 'bash -s' <<'REMOTE'
+set -euo pipefail
+echo "docker_df_before"
+docker system df || true
+docker container prune -f >/dev/null || true
+docker image prune -af --filter "until=24h" >/dev/null || true
+docker builder prune -af >/dev/null || true
+docker network prune -f >/dev/null || true
+echo "docker_df_after"
+docker system df || true
+REMOTE
+}
+
+append_node_env_defaults() {
+  env_file="$1"
+  grep -q '^NODE_FORWARD_RETRY_BODY_MAX_BYTES=' "$env_file" || echo "NODE_FORWARD_RETRY_BODY_MAX_BYTES=8mb" >> "$env_file"
+  grep -q '^NODE_TCP_ACCESS_MAX_SESSIONS=' "$env_file" || echo "NODE_TCP_ACCESS_MAX_SESSIONS=4096" >> "$env_file"
+  grep -q '^NODE_UDP_ACCESS_MAX_IN_FLIGHT=' "$env_file" || echo "NODE_UDP_ACCESS_MAX_IN_FLIGHT=1024" >> "$env_file"
+  grep -q '^NODE_UDP_ACCESS_TIMEOUT=' "$env_file" || echo "NODE_UDP_ACCESS_TIMEOUT=15s" >> "$env_file"
+  reverse_target="$(awk -F= '$1 == "NODE_REVERSE_TARGET_URL" {sub(/^[^=]*=/, "", $0); print; exit}' "$env_file")"
+  reverse_path="$(awk -F= '$1 == "NODE_REVERSE_ACCESS_PATH_ID" {sub(/^[^=]*=/, "", $0); print; exit}' "$env_file")"
+  if [ -n "$reverse_target" ] && [ -z "$reverse_path" ]; then
+    echo "NODE_REVERSE_ACCESS_PATH_ID is required when NODE_REVERSE_TARGET_URL is set" >&2
+    exit 2
+  fi
 }
 
 check_local_node() {
@@ -102,6 +130,7 @@ deploy_local_node() {
 
   docker pull "$image" >/dev/null
   docker inspect "$local_node_container" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -Ev '^(PATH|GOLANG_VERSION|GOTOOLCHAIN|GOPATH|ZONEINFO)=' > "$env_file"
+  append_node_env_defaults "$env_file"
   docker rename "$local_node_container" "$backup"
   renamed=1
   docker stop "$backup" >/dev/null
@@ -143,6 +172,11 @@ check_camelbot_node() {
 deploy_camelbot_node() {
   echo "target=camelbot-node"
   ONEPROXY_NODE_IMAGE_REPO="$node_repo" "$script_dir/deploy-camelbot-node.sh" deploy "$tag"
+}
+
+test_camelbot_full_chain() {
+  echo "target=camelbot-full-chain"
+  ONEPROXY_PANEL_IMAGE_REPO="$panel_repo" ONEPROXY_NODE_IMAGE_REPO="$node_repo" "$script_dir/test-camelbot-full-chain.sh" run "$tag"
 }
 
 check_camelbot_panel() {
@@ -283,6 +317,9 @@ run_target() {
       echo "final_db=${camelbot_final_panel_db_name:-<required>}"
       echo "final_volume=${camelbot_final_panel_volume}"
       ;;
+    dry-run:camelbot-full-chain)
+      echo "would_test=camelbot-full-chain panel_image=$(panel_image) node_image=$(node_image)"
+      ;;
     check:local-node)
       check_local_node
       ;;
@@ -291,6 +328,16 @@ run_target() {
       ;;
     check:camelbot-panel)
       check_camelbot_panel
+      ;;
+    check:camelbot-full-chain)
+      echo "target=camelbot-full-chain"
+      echo "script=${script_dir}/test-camelbot-full-chain.sh"
+      ;;
+    test:camelbot-full-chain)
+      test_camelbot_full_chain
+      ;;
+    test:all)
+      test_camelbot_full_chain
       ;;
     deploy:local-node)
       deploy_local_node
@@ -307,9 +354,20 @@ run_target() {
 require_tag
 
 if [ "$target" = "all" ]; then
-  run_target local-node
-  run_target camelbot-node
-  run_target camelbot-panel
+  if [ "$mode" = "deploy" ]; then
+    prune_camelbot_docker
+    test_camelbot_full_chain
+    prune_camelbot_docker
+    run_target camelbot-panel
+    run_target camelbot-node
+    run_target local-node
+  elif [ "$mode" = "test" ]; then
+    test_camelbot_full_chain
+  else
+    run_target camelbot-panel
+    run_target camelbot-node
+    run_target local-node
+  fi
 else
   run_target "$target"
 fi

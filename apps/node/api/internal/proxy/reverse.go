@@ -15,18 +15,18 @@ import (
 )
 
 func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {
-	body, err := readForwardRequestBody(req)
+	body, bodyStream, err := s.forwardRequestBody(req)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorReverseForwardFailed, proxyErrorReverseForwardFailed)
 		writeProxyError(w, req, proxyErrorReverseForwardFailed, http.StatusBadGateway)
 		return
 	}
-	uploadBytes := int64(len(body))
+	uploadBytes := forwardUploadBytes(req, body)
 
-	transport := &http.Transport{}
+	transport := newForwardTransport(nil)
 	defer transport.CloseIdleConnections()
 	tracker.markForward()
-	resp, err := s.roundTripReverseWithRetry(transport, req, body)
+	resp, err := s.roundTripReverseWithRetry(transport, req, body, bodyStream)
 	if err != nil {
 		if s.writeCachedResponseOnError(w, req, body, proxyErrorReverseForwardFailed, tracker) {
 			return
@@ -43,14 +43,14 @@ func (s *Server) forwardReverse(w http.ResponseWriter, req *http.Request, tracke
 	tracker.finish(uploadBytes, downloadBytes, domain.ProxySessionStatusOK, "", "")
 }
 
-func (s *Server) roundTripReverseWithRetry(transport *http.Transport, req *http.Request, body []byte) (forwardResponse, error) {
-	attempts := 1 + len(forwardRetryBackoffs)
+func (s *Server) roundTripReverseWithRetry(transport *http.Transport, req *http.Request, body []byte, bodyStream io.ReadCloser) (forwardResponse, error) {
+	attempts := forwardAttemptCount(req.Method, bodyStream == nil)
 	var lastErr error
 	for attempt := 0; attempt < attempts; attempt++ {
 		if attempt > 0 {
 			time.Sleep(forwardRetryBackoffs[attempt-1])
 		}
-		outbound := s.newReverseRequest(req, body)
+		outbound := s.newReverseRequest(req, body, bodyStream)
 		resp, err := transport.RoundTrip(outbound)
 		if err != nil {
 			log.Printf("proxy forward attempt failed mode=reverse attempt=%d method=%s target=%s err=%v", attempt+1, req.Method, requestLogTarget(req), err)
@@ -77,7 +77,7 @@ func (s *Server) roundTripReverseWithRetry(transport *http.Transport, req *http.
 	return forwardResponse{}, lastErr
 }
 
-func (s *Server) newReverseRequest(req *http.Request, body []byte) *http.Request {
+func (s *Server) newReverseRequest(req *http.Request, body []byte, bodyStream io.ReadCloser) *http.Request {
 	outbound := req.Clone(req.Context())
 	outbound.Header = req.Header.Clone()
 	outbound.RequestURI = ""
@@ -86,7 +86,10 @@ func (s *Server) newReverseRequest(req *http.Request, body []byte) *http.Request
 	removeHopByHopHeaders(outbound.Header)
 	removeReverseAuthCredentials(outbound)
 	setForwardedHeaders(outbound, req)
-	if body != nil {
+	if bodyStream != nil {
+		outbound.Body = bodyStream
+		outbound.ContentLength = req.ContentLength
+	} else if body != nil {
 		outbound.Body = io.NopCloser(bytes.NewReader(body))
 		outbound.ContentLength = int64(len(body))
 	} else {
@@ -116,7 +119,10 @@ func (s *Server) upgradeReverse(w http.ResponseWriter, req *http.Request, tracke
 	removeReverseAuthCredentials(outbound)
 	setForwardedHeaders(outbound, req)
 	rewriteOrigin(outbound, s.reverseTarget)
-	if err := outbound.Write(targetConn); err != nil {
+	_ = targetConn.SetWriteDeadline(time.Now().Add(forwardDialTimeout))
+	err = outbound.Write(targetConn)
+	_ = targetConn.SetWriteDeadline(time.Time{})
+	if err != nil {
 		targetConn.Close()
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorReverseUpgradeWriteFailed, proxyErrorReverseUpgradeWriteFailed)
 		writeProxyError(w, req, proxyErrorReverseUpgradeWriteFailed, http.StatusBadGateway)
@@ -171,10 +177,22 @@ func dialReverseTarget(target *url.URL) (net.Conn, error) {
 			address = net.JoinHostPort(address, "80")
 		}
 	}
+	dialer := net.Dialer{Timeout: forwardDialTimeout, KeepAlive: 30 * time.Second}
 	if target.Scheme == "https" || target.Scheme == "wss" {
-		return tls.Dial("tcp", address, &tls.Config{ServerName: target.Hostname()})
+		rawConn, err := dialer.Dial("tcp", address)
+		if err != nil {
+			return nil, err
+		}
+		tlsConn := tls.Client(rawConn, &tls.Config{ServerName: target.Hostname(), MinVersion: tls.VersionTLS12})
+		_ = tlsConn.SetDeadline(time.Now().Add(forwardDialTimeout))
+		if err := tlsConn.Handshake(); err != nil {
+			_ = rawConn.Close()
+			return nil, err
+		}
+		_ = tlsConn.SetDeadline(time.Time{})
+		return tlsConn, nil
 	}
-	return net.Dial("tcp", address)
+	return dialer.Dial("tcp", address)
 }
 
 func setForwardedHeaders(outbound *http.Request, original *http.Request) {

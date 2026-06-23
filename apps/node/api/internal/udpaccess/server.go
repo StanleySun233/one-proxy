@@ -12,8 +12,9 @@ import (
 
 const (
 	authTimeout          = 10 * time.Second
-	defaultIdleTimeout   = 2 * time.Minute
+	defaultIdleTimeout   = 15 * time.Second
 	defaultMaxPacketSize = 65507
+	defaultMaxInFlight   = 1024
 )
 
 type Authorizer interface {
@@ -37,10 +38,27 @@ type Server struct {
 	authorizer    Authorizer
 	timeout       time.Duration
 	maxPacketSize int
+	maxInFlight   int
+	inFlight      chan struct{}
 }
 
 func New(authorizer Authorizer) *Server {
-	return &Server{authorizer: authorizer, timeout: defaultIdleTimeout, maxPacketSize: defaultMaxPacketSize}
+	return &Server{authorizer: authorizer, timeout: defaultIdleTimeout, maxPacketSize: defaultMaxPacketSize, maxInFlight: defaultMaxInFlight, inFlight: make(chan struct{}, defaultMaxInFlight)}
+}
+
+func (s *Server) SetTimeout(timeout time.Duration) {
+	if timeout <= 0 {
+		timeout = defaultIdleTimeout
+	}
+	s.timeout = timeout
+}
+
+func (s *Server) SetMaxInFlight(maxInFlight int) {
+	if maxInFlight <= 0 {
+		maxInFlight = defaultMaxInFlight
+	}
+	s.maxInFlight = maxInFlight
+	s.inFlight = make(chan struct{}, maxInFlight)
 }
 
 func (s *Server) Serve(conn *net.UDPConn) error {
@@ -51,7 +69,36 @@ func (s *Server) Serve(conn *net.UDPConn) error {
 			return err
 		}
 		payload := append([]byte(nil), buffer[:n]...)
-		go s.handle(conn, clientAddr, payload)
+		if !s.acquire() {
+			_ = writeResponse(conn, clientAddr, Response{Status: "failed", Message: "too_many_requests"})
+			continue
+		}
+		go func() {
+			defer s.release()
+			s.handle(conn, clientAddr, payload)
+		}()
+	}
+}
+
+func (s *Server) acquire() bool {
+	if s.inFlight == nil {
+		s.SetMaxInFlight(s.maxInFlight)
+	}
+	select {
+	case s.inFlight <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Server) release() {
+	if s.inFlight == nil {
+		return
+	}
+	select {
+	case <-s.inFlight:
+	default:
 	}
 }
 

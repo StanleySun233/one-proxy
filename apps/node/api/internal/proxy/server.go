@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
@@ -14,15 +15,17 @@ import (
 )
 
 type Server struct {
-	store           *policystore.Store
-	nodeIDGetter    func() string
-	tunnelRegistry  *tunnel.Registry
-	directStream    directPeerStreamOpener
-	reverseTarget   *url.URL
-	auth            AuthConfig
-	authorizer      *TokenAuthorizer
-	metricsReporter ProxySessionReporter
-	responseCache   *responsecache.Cache
+	store               *policystore.Store
+	nodeIDGetter        func() string
+	tunnelRegistry      *tunnel.Registry
+	directStream        directPeerStreamOpener
+	reverseTarget       *url.URL
+	reverseAccessPathID string
+	auth                AuthConfig
+	authorizer          *TokenAuthorizer
+	metricsReporter     ProxySessionReporter
+	responseCache       *responsecache.Cache
+	retryBodyMaxBytes   int64
 }
 
 type AuthConfig struct {
@@ -37,7 +40,7 @@ type chainHop struct {
 }
 
 func NewServer(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry) *Server {
-	return &Server{store: store, nodeIDGetter: nodeIDGetter, tunnelRegistry: tunnelRegistry}
+	return &Server{store: store, nodeIDGetter: nodeIDGetter, tunnelRegistry: tunnelRegistry, retryBodyMaxBytes: defaultForwardRetryBodyMaxBytes}
 }
 
 func (s *Server) SetDirectStreamOpener(opener directPeerStreamOpener) {
@@ -46,6 +49,16 @@ func (s *Server) SetDirectStreamOpener(opener directPeerStreamOpener) {
 
 func (s *Server) SetResponseCache(cache *responsecache.Cache) {
 	s.responseCache = cache
+}
+
+func (s *Server) SetReverseAccessPathID(accessPathID string) {
+	s.reverseAccessPathID = strings.TrimSpace(accessPathID)
+}
+
+func (s *Server) SetRetryBodyMaxBytes(limit int64) {
+	if limit > 0 {
+		s.retryBodyMaxBytes = limit
+	}
 }
 
 func NewServerWithReverseTarget(store *policystore.Store, nodeIDGetter func() string, tunnelRegistry *tunnel.Registry, reverseTargetURL string) (*Server, error) {
@@ -94,26 +107,24 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	revision, snapshot := s.store.Current()
 	match := Match(snapshot, req)
+	if !match.Found {
+		validation, ok := s.authenticateForwardRequest(w, req)
+		if !ok {
+			return
+		}
+		tracker := s.newProxySession(req, domain.RouteRule{
+			TenantID:   validation.TenantID,
+			ActionType: domain.ActionTypeDeny,
+			MatchType:  domain.MatchTypeDefault,
+			MatchValue: targetHostForAudit(req),
+		}, validation.TenantID, revision)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorRouteNotFound, proxyErrorRouteNotFound)
+		writeProxyError(w, req, proxyErrorRouteNotFound, http.StatusForbidden)
+		return
+	}
 	validation, ok := s.authorizeForwardRequest(w, req, tokenValidationRequestFrom(req, match))
 	if !ok {
 		return
-	}
-	if !match.Found {
-		if !validation.AllowLocalProxy {
-			tracker := s.newProxySession(req, domain.RouteRule{
-				TenantID:   validation.TenantID,
-				ActionType: domain.ActionTypeDeny,
-				MatchType:  domain.MatchTypeDefault,
-				MatchValue: targetHostForAudit(req),
-			}, validation.TenantID, revision)
-			tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorRouteNotFound, proxyErrorRouteNotFound)
-			writeProxyError(w, req, proxyErrorRouteNotFound, http.StatusForbidden)
-			return
-		}
-		match = RouteMatch{Rule: domain.RouteRule{
-			TenantID:   validation.TenantID,
-			ActionType: domain.ActionTypeDirect,
-		}, Found: true}
 	}
 	tracker := s.newProxySession(req, match.Rule, routeTenantID(snapshot, match.Rule, validation.TenantID), revision)
 	switch match.Rule.ActionType {

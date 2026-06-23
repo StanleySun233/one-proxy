@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,7 +17,7 @@ func (s *Server) tunnelDirect(w http.ResponseWriter, req *http.Request, tracker 
 	targetHost, _ := targetAddress(req)
 	tracker.markForward()
 	dialStarted := time.Now().UTC()
-	targetConn, err := net.Dial("tcp", req.Host)
+	targetConn, err := dialTCPWithTimeout(req.Context(), req.Host)
 	tracker.addLinkTiming(s.nodeIDGetter(), targetHost, dialStarted)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorConnectFailed, proxyErrorConnectFailed)
@@ -52,19 +53,21 @@ func (s *Server) tunnelViaProxy(w http.ResponseWriter, req *http.Request, nextHo
 	}
 	tracker.markForward()
 	connectStarted := time.Now().UTC()
-	proxyConn, err := net.Dial("tcp", net.JoinHostPort(nextHop.PublicHost, strconv.Itoa(nextHop.PublicPort)))
+	proxyConn, err := dialTCPWithTimeout(req.Context(), net.JoinHostPort(nextHop.PublicHost, strconv.Itoa(nextHop.PublicPort)))
 	if err != nil {
 		tracker.addLinkTiming(s.nodeIDGetter(), nextHop.ID, connectStarted)
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)
 		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
 		return
 	}
+	_ = proxyConn.SetDeadline(time.Now().Add(forwardHeaderTimeout))
 	if _, err := fmt.Fprintf(proxyConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\nProxy-Authorization: %s\r\n\r\n", req.Host, req.Host, nextHopAuth); err != nil {
 		proxyConn.Close()
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)
 		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
 		return
 	}
+	_ = proxyConn.SetDeadline(time.Time{})
 	reader := bufio.NewReader(proxyConn)
 	line, err := reader.ReadString('\n')
 	tracker.addLinkTiming(s.nodeIDGetter(), nextHop.ID, connectStarted)
@@ -141,4 +144,9 @@ func nextHopProxyAuthorization(req *http.Request) string {
 		return ""
 	}
 	return value
+}
+
+func dialTCPWithTimeout(ctx context.Context, address string) (net.Conn, error) {
+	dialer := net.Dialer{Timeout: forwardDialTimeout, KeepAlive: 30 * time.Second}
+	return dialer.DialContext(ctx, "tcp", address)
 }

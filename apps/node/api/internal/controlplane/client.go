@@ -182,6 +182,24 @@ func (c *Client) ValidateProxyToken(ctx context.Context, input ProxyTokenValidat
 	return envelope.Data, nil
 }
 
+func (c *Client) AuthenticateProxyToken(ctx context.Context, tokenHash string) (ProxyTokenValidation, error) {
+	body, err := json.Marshal(ProxyTokenValidationRequest{TokenHash: tokenHash})
+	if err != nil {
+		return ProxyTokenValidation{}, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/node/agent/proxy/token/authenticate", bytes.NewReader(body))
+	if err != nil {
+		return ProxyTokenValidation{}, err
+	}
+	req.Header.Set("X-One-Proxy-Node-Token", c.token)
+	req.Header.Set("Content-Type", "application/json")
+	var envelope responseEnvelope[ProxyTokenValidation]
+	if err := c.do(req, &envelope); err != nil {
+		return ProxyTokenValidation{}, err
+	}
+	return envelope.Data, nil
+}
+
 func (c *Client) ReportProxySessions(ctx context.Context, input domain.ProxySessionMetricsInput) error {
 	body, err := json.Marshal(input)
 	if err != nil {

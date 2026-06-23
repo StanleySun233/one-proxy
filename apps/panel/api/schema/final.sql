@@ -626,8 +626,7 @@ INSERT IGNORE INTO field_enum (id, field, value, name, meta) VALUES
 ('enum-approval_state-rejected', 'approval_state', 'rejected', 'Rejected', '{"color":"#ef4444","className":"is-bad"}'),
 ('enum-match_type-domain', 'match_type', 'domain', 'Domain', '{"placeholder":"example.com","validationRegex":"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*\\.[a-zA-Z]{2,}$"}'),
 ('enum-match_type-domain_suffix', 'match_type', 'domain_suffix', 'Domain Suffix', '{"placeholder":".example.com","validationRegex":"^\\*?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+\\.[a-zA-Z]{2,}$"}'),
+('enum-match_type-ip', 'match_type', 'ip', 'IP', '{"placeholder":"10.0.0.1","validationRegex":"^([0-9]{1,3}\\.){3}[0-9]{1,3}$"}'),
 ('enum-match_type-ip_cidr', 'match_type', 'ip_cidr', 'IP CIDR', '{"placeholder":"10.0.0.0/24","validationRegex":"^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"}'),
-('enum-match_type-ip_range', 'match_type', 'ip_range', 'IP Range', '{"placeholder":"10.0.0.1-10.0.0.255","validationRegex":"^([0-9]{1,3}\\.){3}[0-9]{1,3}-([0-9]{1,3}\\.){3}[0-9]{1,3}$"}'),
-('enum-match_type-port', 'match_type', 'port', 'Port', '{"placeholder":"8080","validationRegex":"^[0-9]{1,5}$"}'),
-('enum-match_type-url_regex', 'match_type', 'url_regex', 'URL Regex', '{"placeholder":"^https://.*\\\\.example\\\\.com/.*","validationRegex":""}'),
+('enum-match_type-protocol', 'match_type', 'protocol', 'Protocol', '{"placeholder":"https","validationRegex":"^(http|https|ws|wss|tcp|udp|quic)$"}'),
 ('enum-match_type-default', 'match_type', 'default', 'Default (Catch-all)', '{"placeholder":"*","validationRegex":""}');

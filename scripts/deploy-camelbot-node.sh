@@ -166,6 +166,16 @@ deploy() {
 
   docker pull "$image" >/dev/null
   docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -Ev '^(PATH|GOLANG_VERSION|GOTOOLCHAIN|GOPATH|ZONEINFO)=' > "$env_file"
+  grep -q '^NODE_FORWARD_RETRY_BODY_MAX_BYTES=' "$env_file" || echo "NODE_FORWARD_RETRY_BODY_MAX_BYTES=8mb" >> "$env_file"
+  grep -q '^NODE_TCP_ACCESS_MAX_SESSIONS=' "$env_file" || echo "NODE_TCP_ACCESS_MAX_SESSIONS=4096" >> "$env_file"
+  grep -q '^NODE_UDP_ACCESS_MAX_IN_FLIGHT=' "$env_file" || echo "NODE_UDP_ACCESS_MAX_IN_FLIGHT=1024" >> "$env_file"
+  grep -q '^NODE_UDP_ACCESS_TIMEOUT=' "$env_file" || echo "NODE_UDP_ACCESS_TIMEOUT=15s" >> "$env_file"
+  reverse_target="$(awk -F= '$1 == "NODE_REVERSE_TARGET_URL" {sub(/^[^=]*=/, "", $0); print; exit}' "$env_file")"
+  reverse_path="$(awk -F= '$1 == "NODE_REVERSE_ACCESS_PATH_ID" {sub(/^[^=]*=/, "", $0); print; exit}' "$env_file")"
+  if [ -n "$reverse_target" ] && [ -z "$reverse_path" ]; then
+    echo "NODE_REVERSE_ACCESS_PATH_ID is required when NODE_REVERSE_TARGET_URL is set" >&2
+    exit 2
+  fi
   docker rename "$container" "$backup"
   renamed=1
   docker stop "$backup" >/dev/null

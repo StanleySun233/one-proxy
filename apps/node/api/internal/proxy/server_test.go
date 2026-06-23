@@ -26,6 +26,7 @@ import (
 
 type recordingTokenValidator struct {
 	validations     []TokenValidationRequest
+	authentications []string
 	valid           bool
 	expiresAt       time.Time
 	allowLocalProxy bool
@@ -93,6 +94,14 @@ func (s *cacheFallbackStreamOpener) OpenDirectStream(_ context.Context, _ domain
 
 func (v *recordingTokenValidator) ValidateProxyToken(_ context.Context, request TokenValidationRequest) (TokenValidation, error) {
 	v.validations = append(v.validations, request)
+	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt, AllowLocalProxy: v.allowLocalProxy, TenantID: v.tenantID}, nil
+}
+
+func (v *recordingTokenValidator) AuthenticateProxyToken(_ context.Context, tokenHash string) (TokenValidation, error) {
+	v.authentications = append(v.authentications, tokenHash)
+	if !v.allowLocalProxy {
+		return TokenValidation{}, nil
+	}
 	return TokenValidation{Valid: v.valid, ExpiresAt: v.expiresAt, AllowLocalProxy: v.allowLocalProxy, TenantID: v.tenantID}, nil
 }
 
@@ -772,12 +781,9 @@ func TestForwardProxyTokenValidationIncludesRouteContext(t *testing.T) {
 	}
 }
 
-func TestForwardProxyAllowsAuthorizedLocalProxyFallback(t *testing.T) {
+func TestForwardProxyDeniesNoMatchAfterTokenAuthentication(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.URL.Path != "/local-proxy" {
-			t.Fatalf("path = %q", req.URL.Path)
-		}
-		_, _ = w.Write([]byte("ok"))
+		t.Fatalf("origin should not receive no-match request path=%q", req.URL.Path)
 	}))
 	defer origin.Close()
 
@@ -797,15 +803,77 @@ func TestForwardProxyAllowsAuthorizedLocalProxyFallback(t *testing.T) {
 	req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("token:local-proxy-token")))
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
-	if resp.Code != http.StatusOK {
+	if resp.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
 	}
-	if resp.Body.String() != "ok" {
-		t.Fatalf("body = %q", resp.Body.String())
-	}
 	session := receiveSession(t, reporter.sessions)
-	if session.TenantID != "tenant-1" || session.DecisionSource != "default" || session.MatchedAction != domain.ActionTypeDirect || session.Status != domain.ProxySessionStatusOK {
+	if session.TenantID != "tenant-1" || session.DecisionSource != "default" || session.MatchedAction != domain.ActionTypeDeny || session.Status != domain.ProxySessionStatusError || session.ErrorCode != proxyErrorRouteNotFound {
 		t.Fatalf("session = %+v", session)
+	}
+}
+
+func TestForwardProxyNoMatchUsesAuthenticateOnly(t *testing.T) {
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[]}`); err != nil {
+		t.Fatal(err)
+	}
+	validator := &recordingTokenValidator{valid: true, expiresAt: time.Now().UTC().Add(time.Hour), allowLocalProxy: true, tenantID: "tenant-1"}
+	server, err := NewServerWithOptions(store, func() string { return "node-1" }, nil, "", AuthConfig{
+		Validator: validator,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	setForwardProxyToken(req)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusForbidden {
+		t.Fatalf("status = %d", resp.Code)
+	}
+	if len(validator.validations) != 0 || len(validator.authentications) != 1 || validator.authentications[0] != sha256Hex("proxy-token") {
+		t.Fatalf("validations=%+v authentications=%+v", validator.validations, validator.authentications)
+	}
+}
+
+func TestForwardRetryableBodyOverLimitStreamsOnce(t *testing.T) {
+	attempts := 0
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		attempts += 1
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != "larger-than-limit" {
+			t.Fatalf("body = %q", body)
+		}
+		http.Error(w, "bad_gateway", http.StatusBadGateway)
+	}))
+	defer origin.Close()
+
+	store := policystore.New("")
+	payload, err := json.Marshal(policystore.Snapshot{
+		RouteRules: []domain.RouteRule{
+			{ID: "route-1", MatchType: domain.MatchTypeDefault, MatchValue: "*", ActionType: domain.ActionTypeDirect, DestinationScope: "scope-a", Enabled: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update("test", string(payload)); err != nil {
+		t.Fatal(err)
+	}
+	server := newAuthenticatedForwardServer(t, store)
+	server.SetRetryBodyMaxBytes(4)
+	req := httptest.NewRequest(http.MethodGet, origin.URL+"/upload", strings.NewReader("larger-than-limit"))
+	setForwardProxyToken(req)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d body=%q", resp.Code, resp.Body.String())
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d", attempts)
 	}
 }
 
@@ -826,12 +894,8 @@ func TestForwardProxyRejectsLocalProxyFallbackWithoutNodeGrant(t *testing.T) {
 	req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("token:local-proxy-token")))
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
-	if resp.Code != http.StatusForbidden {
+	if resp.Code != http.StatusProxyAuthRequired {
 		t.Fatalf("status = %d", resp.Code)
-	}
-	session := receiveSession(t, reporter.sessions)
-	if session.TenantID != "tenant-1" || session.Status != domain.ProxySessionStatusError || session.ErrorCode != "route_not_found" || session.MatchedAction != domain.ActionTypeDeny {
-		t.Fatalf("session = %+v", session)
 	}
 }
 

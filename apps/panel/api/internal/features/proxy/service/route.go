@@ -143,6 +143,9 @@ func (s *Service) MatchTypes() []proxy.MatchType {
 	items, _ := s.store.ListFieldEnumsByField("match_type")
 	result := make([]proxy.MatchType, 0, len(items))
 	for _, item := range items {
+		if !isSupportedRouteMatchType(item.Value) {
+			continue
+		}
 		mt := proxy.MatchType{
 			Type:        item.Value,
 			Label:       item.Name,
@@ -345,5 +348,14 @@ func (s *Service) RouteRuleSuggestions(tenantCtx domain.TenantAuthContext, match
 	return proxy.RouteRuleSuggestionResult{
 		MatchType:   matchType,
 		Suggestions: suggestions,
+	}
+}
+
+func isSupportedRouteMatchType(matchType string) bool {
+	switch matchType {
+	case domain.MatchTypeDomain, domain.MatchTypeDomainSuffix, domain.MatchTypeIP, domain.MatchTypeIPCIDR, domain.MatchTypeProtocol, domain.MatchTypeDefault:
+		return true
+	default:
+		return false
 	}
 }

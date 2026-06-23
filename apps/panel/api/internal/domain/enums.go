@@ -178,9 +178,8 @@ const (
 const (
 	MatchTypeDomain       = "domain"
 	MatchTypeDomainSuffix = "domain_suffix"
+	MatchTypeIP           = "ip"
 	MatchTypeIPCIDR       = "ip_cidr"
-	MatchTypeIPRange      = "ip_range"
-	MatchTypePort         = "port"
-	MatchTypeURLRegex     = "url_regex"
+	MatchTypeProtocol     = "protocol"
 	MatchTypeDefault      = "default"
 )

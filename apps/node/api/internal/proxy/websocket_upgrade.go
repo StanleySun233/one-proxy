@@ -7,13 +7,14 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
 )
 
 func (s *Server) upgradeDirect(w http.ResponseWriter, req *http.Request, tracker *proxySessionTracker) {
 	targetHost, targetPort := targetAddress(req)
-	targetConn, err := net.Dial("tcp", net.JoinHostPort(targetHost, strconv.Itoa(targetPort)))
+	targetConn, err := dialTCPWithTimeout(req.Context(), net.JoinHostPort(targetHost, strconv.Itoa(targetPort)))
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorConnectFailed, proxyErrorConnectFailed)
 		writeProxyError(w, req, proxyErrorConnectFailed, http.StatusBadGateway)
@@ -30,7 +31,7 @@ func (s *Server) upgradeDirect(w http.ResponseWriter, req *http.Request, tracker
 }
 
 func (s *Server) upgradeViaProxy(w http.ResponseWriter, req *http.Request, nextHop domain.Node, tracker *proxySessionTracker) {
-	proxyConn, err := net.Dial("tcp", net.JoinHostPort(nextHop.PublicHost, strconv.Itoa(nextHop.PublicPort)))
+	proxyConn, err := dialTCPWithTimeout(req.Context(), net.JoinHostPort(nextHop.PublicHost, strconv.Itoa(nextHop.PublicPort)))
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)
 		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
@@ -78,10 +79,14 @@ func writeUpgradeRequest(conn net.Conn, req *http.Request, absoluteForm bool) er
 		outbound.URL.Scheme = ""
 		outbound.URL.Host = ""
 	}
-	return outbound.Write(conn)
+	_ = conn.SetWriteDeadline(time.Now().Add(forwardDialTimeout))
+	err := outbound.Write(conn)
+	_ = conn.SetWriteDeadline(time.Time{})
+	return err
 }
 
 func completeUpgrade(w http.ResponseWriter, req *http.Request, backendConn net.Conn, tracker *proxySessionTracker) {
+	_ = backendConn.SetDeadline(time.Now().Add(forwardHeaderTimeout))
 	reader := bufio.NewReader(backendConn)
 	resp, err := http.ReadResponse(reader, req)
 	if err != nil {
@@ -90,6 +95,7 @@ func completeUpgrade(w http.ResponseWriter, req *http.Request, backendConn net.C
 		writeProxyError(w, req, proxyErrorUpgradeResponseFailed, http.StatusBadGateway)
 		return
 	}
+	_ = backendConn.SetDeadline(time.Time{})
 	tracker.markResponseReceive()
 	tracker.markStatusCode(resp.StatusCode)
 	if resp.StatusCode != http.StatusSwitchingProtocols {

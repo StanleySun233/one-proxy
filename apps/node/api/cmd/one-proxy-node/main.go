@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/agentconfig"
@@ -37,6 +38,9 @@ import (
 func main() {
 	startedAt := time.Now()
 	cfg := agentconfig.Load()
+	if cfg.NodeReverseTargetURL != "" && strings.TrimSpace(cfg.NodeReverseAccessPathID) == "" {
+		log.Fatal("NODE_REVERSE_ACCESS_PATH_ID is required when NODE_REVERSE_TARGET_URL is set")
+	}
 	if cfg.NodeMode == "edge" && cfg.NodePublicHost == "" {
 		cfg.NodePublicHost = detectPublicHost()
 	}
@@ -121,10 +125,9 @@ func main() {
 			}
 		}
 	}
-	startedBound := manager.Bound()
-	startupNodeAuthValid := !startedBound || validateCurrentNodeAuth(manager)
+	readiness := newNodeAuthReadiness(manager, 5*time.Second)
 	dataPathReady := func() bool {
-		return manager.Bound() && startupNodeAuthValid
+		return readiness.Ready()
 	}
 	proxyAuth := proxy.AuthConfig{
 		Validator: managerProxyTokenValidator{manager: manager},
@@ -138,6 +141,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("init proxy server failed: %v", err)
 	}
+	proxyHandler.SetReverseAccessPathID(cfg.NodeReverseAccessPathID)
+	proxyHandler.SetRetryBodyMaxBytes(parseBytesOrDefault(cfg.NodeForwardRetryBodyMax, 8*1024*1024))
 	cache, err := responsecache.New(responsecache.Config{
 		Dir:            cfg.NodeResponseCacheDir,
 		TTL:            parseDurationOrDefault(cfg.NodeResponseCacheTTL, time.Hour),
@@ -150,10 +155,7 @@ func main() {
 		proxyHandler.SetResponseCache(cache)
 		log.Printf("proxy response cache enabled dir=%s ttl=%s memoryMax=%s diskMax=%s", cfg.NodeResponseCacheDir, cfg.NodeResponseCacheTTL, cfg.NodeResponseCacheMemory, cfg.NodeResponseCacheDisk)
 	}
-	if dataPathReady() {
-		current := manager.Current()
-		proxyHandler.SetProxySessionReporter(controlplane.New(current.ControlPlaneURL, current.NodeAccessToken))
-	}
+	proxyHandler.SetProxySessionReporter(managerProxySessionReporter{manager: manager})
 	proxyHandler.SetDirectStreamOpener(directRegistry)
 	dataPathHandler := dataPathReadyHandler(dataPathReady, proxyHandler)
 	mux := http.NewServeMux()
@@ -170,30 +172,27 @@ func main() {
 	}))
 	mux.Handle("/api/node/bootstrap/attach", bootstrap.New(cfg.ListenAddr, cfg.HTTPSListenAddr, manager))
 	mux.Handle(cfg.NodeTunnelPath, tunnel.NewServer(manager, tunnelRegistry))
+	forwarder := dynamicControlProxy(manager, dataPathReady)
+	mux.Handle("/api/nodes/enroll", forwarder)
+	mux.Handle("/api/nodes/exchange", forwarder)
+	mux.Handle("/api/node/agent/policy", forwarder)
+	mux.Handle("/api/node/agent/auth/validate", forwarder)
+	mux.Handle("/api/node/agent/heartbeat", forwarder)
+	mux.Handle("/api/node/agent/cert/renew", forwarder)
+	mux.Handle("/api/node/agent/transports", forwarder)
+	mux.Handle("/api/node/agent/proxy/sessions", forwarder)
+	mux.Handle("/api/node/agent/direct/candidates", forwarder)
+	mux.Handle("/api/node/agent/direct/link/plan", forwarder)
+	mux.Handle("/api/node/agent/direct/status", forwarder)
 	if dataPathReady() {
 		current := manager.Current()
-		forwarder, err := controlproxy.New(current.ControlPlaneURL)
-		if err != nil {
-			log.Fatalf("init control proxy failed: %v", err)
-		}
-		mux.Handle("/api/nodes/enroll", forwarder)
-		mux.Handle("/api/nodes/exchange", forwarder)
-		mux.Handle("/api/node/agent/policy", forwarder)
-		mux.Handle("/api/node/agent/auth/validate", forwarder)
-		mux.Handle("/api/node/agent/heartbeat", forwarder)
-		mux.Handle("/api/node/agent/cert/renew", forwarder)
-		mux.Handle("/api/node/agent/transports", forwarder)
-		mux.Handle("/api/node/agent/proxy/sessions", forwarder)
-		mux.Handle("/api/node/agent/direct/candidates", forwarder)
-		mux.Handle("/api/node/agent/direct/link/plan", forwarder)
-		mux.Handle("/api/node/agent/direct/status", forwarder)
 		log.Printf("proxy-node bound nodeID=%s controlPlaneURL=%s", current.NodeID, current.ControlPlaneURL)
 	} else {
 		log.Printf("proxy-node starting without control plane binding localIPs=%v", network.LocalIPs())
 	}
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		if manager.Bound() {
+		if dataPathReady() {
 			_, _ = w.Write([]byte(`{"status":"ok","mode":"proxy-node","controlPlaneBound":true}`))
 			return
 		}
@@ -208,28 +207,26 @@ func main() {
 		certStatus["public"] = domain.CertStatusHealthy
 		go func() {
 			httpsServer := &http.Server{
-				Addr:      cfg.HTTPSListenAddr,
-				Handler:   mux,
-				TLSConfig: certManager.TLSConfig(),
+				Addr:              cfg.HTTPSListenAddr,
+				Handler:           mux,
+				TLSConfig:         certManager.TLSConfig(),
+				ReadHeaderTimeout: 10 * time.Second,
+				IdleTimeout:       120 * time.Second,
+				MaxHeaderBytes:    1 << 20,
 			}
 			log.Fatal(httpsServer.ListenAndServeTLS("", ""))
 		}()
 	}
 	tunnelController := tunnel.NewController(manager, tunnelRegistry, cfg.NodeTunnelPath, tunnelInterval)
-	if !startedBound || dataPathReady() {
-		go tunnelController.Run()
-	}
-	startDirectManager(cfg, manager, directRegistry, dataPathReady())
+	go tunnelController.Run()
+	startDeferredDataPathServices(cfg, manager, directRegistry, proxyAuthorizer, tunnelRegistry, dataPathReady)
 	go manager.Run()
-	if cfg.TCPAccessListenAddr != "" && dataPathReady() {
-		go tcpaccess.ListenAndServe(cfg.TCPAccessListenAddr, tcpaccess.New(proxyAuthorizer, tunnelRegistry))
-	}
-	if cfg.UDPAccessListenAddr != "" && dataPathReady() {
-		go udpaccess.ListenAndServe(cfg.UDPAccessListenAddr, udpaccess.New(proxyAuthorizer))
-	}
 	server := &http.Server{
-		Addr:    cfg.ListenAddr,
-		Handler: withObservability(httpHandler),
+		Addr:              cfg.ListenAddr,
+		Handler:           withObservability(httpHandler),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 	log.Printf("proxy-node listening on http=%s https=%s localIPs=%v", cfg.ListenAddr, cfg.HTTPSListenAddr, network.LocalIPs())
 	log.Fatal(server.ListenAndServe())
@@ -269,6 +266,39 @@ func startDirectManager(cfg agentconfig.Config, manager *runtime.Manager, regist
 	})
 }
 
+func startDeferredDataPathServices(cfg agentconfig.Config, manager *runtime.Manager, directRegistry *direct.Registry, proxyAuthorizer *proxy.TokenAuthorizer, tunnelRegistry *tunnel.Registry, dataPathReady func() bool) {
+	go func() {
+		for {
+			if dataPathReady != nil && dataPathReady() {
+				startDirectManager(cfg, manager, directRegistry, true)
+				startTCPAccess(cfg, proxyAuthorizer, tunnelRegistry)
+				startUDPAccess(cfg, proxyAuthorizer)
+				return
+			}
+			time.Sleep(2 * time.Second)
+		}
+	}()
+}
+
+func startTCPAccess(cfg agentconfig.Config, proxyAuthorizer *proxy.TokenAuthorizer, tunnelRegistry *tunnel.Registry) {
+	if cfg.TCPAccessListenAddr == "" {
+		return
+	}
+	server := tcpaccess.New(proxyAuthorizer, tunnelRegistry)
+	server.SetMaxSessions(parseIntOrDefault(cfg.TCPAccessMaxSessions, 4096))
+	go tcpaccess.ListenAndServe(cfg.TCPAccessListenAddr, server)
+}
+
+func startUDPAccess(cfg agentconfig.Config, proxyAuthorizer *proxy.TokenAuthorizer) {
+	if cfg.UDPAccessListenAddr == "" {
+		return
+	}
+	server := udpaccess.New(proxyAuthorizer)
+	server.SetMaxInFlight(parseIntOrDefault(cfg.UDPAccessMaxInFlight, 1024))
+	server.SetTimeout(parseDurationOrDefault(cfg.UDPAccessTimeout, 15*time.Second))
+	go udpaccess.ListenAndServe(cfg.UDPAccessListenAddr, server)
+}
+
 type clientDirectSessionValidator struct {
 	client *controlplane.Client
 }
@@ -304,6 +334,21 @@ func splitCSV(value string) []string {
 
 type managerProxyTokenValidator struct {
 	manager *runtime.Manager
+}
+
+func (v managerProxyTokenValidator) AuthenticateProxyToken(ctx context.Context, tokenHash string) (proxy.TokenValidation, error) {
+	if v.manager == nil {
+		return proxy.TokenValidation{}, errors.New("node_control_plane_unbound")
+	}
+	current := v.manager.Current()
+	if !bindingComplete(current) {
+		return proxy.TokenValidation{}, errors.New("node_control_plane_unbound")
+	}
+	result, err := controlplane.New(current.ControlPlaneURL, current.NodeAccessToken).AuthenticateProxyToken(ctx, tokenHash)
+	if err != nil {
+		return proxy.TokenValidation{}, err
+	}
+	return proxyTokenValidationFromControlPlane(result), nil
 }
 
 func (v managerProxyTokenValidator) ValidateProxyToken(ctx context.Context, request proxy.TokenValidationRequest) (proxy.TokenValidation, error) {
@@ -342,6 +387,24 @@ func (v managerProxyTokenValidator) ValidateProxyToken(ctx context.Context, requ
 	}, nil
 }
 
+func proxyTokenValidationFromControlPlane(result controlplane.ProxyTokenValidation) proxy.TokenValidation {
+	tenantID := result.TenantID
+	if tenantID == "" {
+		tenantID = stringValue(result.ActiveTenantID)
+	}
+	expiresAt, err := time.Parse(time.RFC3339, result.ExpiresAt)
+	if err != nil {
+		return proxy.TokenValidation{Valid: result.Valid, AllowLocalProxy: result.AllowLocalProxy, TenantID: tenantID}
+	}
+	return proxy.TokenValidation{
+		Valid:           result.Valid,
+		ExpiresAt:       expiresAt,
+		CacheTTL:        time.Duration(result.CacheTTLSeconds) * time.Second,
+		AllowLocalProxy: result.AllowLocalProxy,
+		TenantID:        tenantID,
+	}
+}
+
 func validateCurrentNodeAuth(manager *runtime.Manager) bool {
 	current := manager.Current()
 	if !bindingComplete(current) {
@@ -353,6 +416,67 @@ func validateCurrentNodeAuth(manager *runtime.Manager) bool {
 		return false
 	}
 	return true
+}
+
+type nodeAuthReadiness struct {
+	mu       sync.Mutex
+	manager  *runtime.Manager
+	interval time.Duration
+	last     time.Time
+	ready    bool
+}
+
+func newNodeAuthReadiness(manager *runtime.Manager, interval time.Duration) *nodeAuthReadiness {
+	return &nodeAuthReadiness{manager: manager, interval: interval}
+}
+
+func (r *nodeAuthReadiness) Ready() bool {
+	if r == nil || r.manager == nil || !r.manager.Bound() {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.interval <= 0 {
+		r.interval = 5 * time.Second
+	}
+	now := time.Now()
+	if !r.last.IsZero() && now.Sub(r.last) < r.interval {
+		return r.ready
+	}
+	r.ready = validateCurrentNodeAuth(r.manager)
+	r.last = now
+	return r.ready
+}
+
+type managerProxySessionReporter struct {
+	manager *runtime.Manager
+}
+
+func (r managerProxySessionReporter) ReportProxySessions(ctx context.Context, input domain.ProxySessionMetricsInput) error {
+	if r.manager == nil {
+		return errors.New("node_control_plane_unbound")
+	}
+	current := r.manager.Current()
+	if !bindingComplete(current) {
+		return errors.New("node_control_plane_unbound")
+	}
+	return controlplane.New(current.ControlPlaneURL, current.NodeAccessToken).ReportProxySessions(ctx, input)
+}
+
+func dynamicControlProxy(manager *runtime.Manager, ready func() bool) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if ready == nil || !ready() || manager == nil {
+			http.Error(w, "node_control_plane_unbound", http.StatusServiceUnavailable)
+			return
+		}
+		current := manager.Current()
+		forwarder, err := controlproxy.New(current.ControlPlaneURL)
+		if err != nil {
+			http.Error(w, "node_control_plane_unbound", http.StatusServiceUnavailable)
+			return
+		}
+		forwarder.ServeHTTP(w, req)
+	})
 }
 
 func bindingComplete(binding runtime.Binding) bool {
@@ -372,6 +496,14 @@ func parseDurationOrDefault(value string, fallback time.Duration) time.Duration 
 		return fallback
 	}
 	return duration
+}
+
+func parseIntOrDefault(value string, fallback int) int {
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
 
 func parseBytesOrDefault(value string, fallback int64) int64 {

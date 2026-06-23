@@ -1,10 +1,8 @@
 package proxyservice
 
 import (
-	"fmt"
 	"net"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/StanleySun233/python-proxy/apps/panel/api/internal/domain"
@@ -34,24 +32,18 @@ func (s *Service) validateMatchValue(matchType, matchValue string) proxy.MatchVa
 			return proxy.MatchValueValidation{Valid: false, Format: "ip_cidr", Message: "Invalid CIDR notation"}
 		}
 		return proxy.MatchValueValidation{Valid: true, Format: "ip_cidr", Message: "Valid CIDR notation"}
-	case domain.MatchTypeIPRange:
-		parts := strings.SplitN(matchValue, "-", 2)
-		if len(parts) != 2 || net.ParseIP(strings.TrimSpace(parts[0])) == nil || net.ParseIP(strings.TrimSpace(parts[1])) == nil {
-			return proxy.MatchValueValidation{Valid: false, Format: "ip_range", Message: "Invalid IP range format"}
+	case domain.MatchTypeIP:
+		if net.ParseIP(matchValue) == nil {
+			return proxy.MatchValueValidation{Valid: false, Format: "ip", Message: "Invalid IP address"}
 		}
-		return proxy.MatchValueValidation{Valid: true, Format: "ip_range", Message: "Valid IP range"}
-	case domain.MatchTypePort:
-		p, err := strconv.Atoi(matchValue)
-		if err != nil || p < 1 || p > 65535 {
-			return proxy.MatchValueValidation{Valid: false, Format: "port", Message: "Port must be between 1 and 65535"}
+		return proxy.MatchValueValidation{Valid: true, Format: "ip", Message: "Valid IP address"}
+	case domain.MatchTypeProtocol:
+		switch strings.ToLower(strings.TrimSpace(matchValue)) {
+		case "http", "https", "ws", "wss", "tcp", "udp", "quic":
+			return proxy.MatchValueValidation{Valid: true, Format: "protocol", Message: "Valid protocol"}
+		default:
+			return proxy.MatchValueValidation{Valid: false, Format: "protocol", Message: "Invalid protocol"}
 		}
-		return proxy.MatchValueValidation{Valid: true, Format: "port", Message: "Valid port"}
-	case domain.MatchTypeURLRegex:
-		_, err := regexp.Compile(matchValue)
-		if err != nil {
-			return proxy.MatchValueValidation{Valid: false, Format: "url_regex", Message: fmt.Sprintf("Invalid regex: %s", err.Error())}
-		}
-		return proxy.MatchValueValidation{Valid: true, Format: "url_regex", Message: "Valid regex pattern"}
 	case domain.MatchTypeDefault:
 		return proxy.MatchValueValidation{Valid: true, Format: "default", Message: "Default match type"}
 	}

@@ -185,6 +185,40 @@ func TestReverseTargetReportsProxySessionMetrics(t *testing.T) {
 	}
 }
 
+func TestReverseTargetTokenValidationIncludesAccessPathAndTarget(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer origin.Close()
+
+	validator := validRecordingTokenValidator()
+	server, err := NewServerWithOptions(policystore.New(""), func() string { return "node-1" }, nil, origin.URL, AuthConfig{
+		Validator: validator,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.SetReverseAccessPathID("reverse-path")
+
+	req := httptest.NewRequest(http.MethodGet, "http://proxy.local/reverse", nil)
+	req.URL.Scheme = ""
+	req.URL.Host = ""
+	setReverseProxyToken(req)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%q", resp.Code, resp.Body.String())
+	}
+	if len(validator.validations) != 1 {
+		t.Fatalf("validations = %d", len(validator.validations))
+	}
+	got := validator.validations[0]
+	host, port := targetURLAddress(server.reverseTarget)
+	if got.AccessPathID != "reverse-path" || got.TargetHost != host || got.TargetPort != port || got.Protocol != "http" {
+		t.Fatalf("validation = %+v", got)
+	}
+}
+
 func TestReverseTargetRetriesContentLengthMismatch(t *testing.T) {
 	attempts := 0
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -220,7 +254,7 @@ func TestReverseTargetRetriesContentLengthMismatch(t *testing.T) {
 	}
 }
 
-func TestReverseTargetRetriesPostRequest(t *testing.T) {
+func TestReverseTargetDoesNotRetryPostRequest(t *testing.T) {
 	attempts := 0
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		attempts += 1
@@ -247,13 +281,10 @@ func TestReverseTargetRetriesPostRequest(t *testing.T) {
 	resp := httptest.NewRecorder()
 	server.ServeHTTP(resp, req)
 
-	if resp.Code != http.StatusOK {
+	if resp.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d body=%q", resp.Code, resp.Body.String())
 	}
-	if resp.Body.String() != "saved" {
-		t.Fatalf("body = %q", resp.Body.String())
-	}
-	if attempts != 2 {
+	if attempts != 1 {
 		t.Fatalf("attempts = %d", attempts)
 	}
 }

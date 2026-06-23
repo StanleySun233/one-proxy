@@ -16,7 +16,9 @@ type Config struct {
 	NodeJoinPassword          string
 	NodeJoinPasswordProvided  bool
 	NodeReverseTargetURL      string
+	NodeReverseAccessPathID   string
 	NodeProxyTokenCacheTTL    string
+	NodeForwardRetryBodyMax   string
 	NodeTunnelPath            string
 	NodeTunnelHeartbeat       string
 	NodeDirectListenAddr      string
@@ -31,7 +33,10 @@ type Config struct {
 	ListenAddr                string
 	HTTPSListenAddr           string
 	TCPAccessListenAddr       string
+	TCPAccessMaxSessions      string
 	UDPAccessListenAddr       string
+	UDPAccessMaxInFlight      string
+	UDPAccessTimeout          string
 	HeartbeatInterval         string
 	PolicyStatePath           string
 	RuntimeConfigPath         string
@@ -59,7 +64,9 @@ func Load() Config {
 		NodeJoinPassword:          joinPassword,
 		NodeJoinPasswordProvided:  joinPasswordProvided,
 		NodeReverseTargetURL:      envOrDefault("NODE_REVERSE_TARGET_URL", ""),
+		NodeReverseAccessPathID:   envOrDefault("NODE_REVERSE_ACCESS_PATH_ID", ""),
 		NodeProxyTokenCacheTTL:    envOrDefault("NODE_PROXY_TOKEN_CACHE_TTL", "24h"),
+		NodeForwardRetryBodyMax:   envOrDefault("NODE_FORWARD_RETRY_BODY_MAX_BYTES", "8mb"),
 		NodeTunnelPath:            envOrDefault("NODE_TUNNEL_PATH", "/api/node/tunnel/connect"),
 		NodeTunnelHeartbeat:       envOrDefault("NODE_TUNNEL_HEARTBEAT_INTERVAL", "15s"),
 		NodeDirectListenAddr:      envOrDefault("NODE_DIRECT_LISTEN_ADDR", ""),
@@ -74,7 +81,10 @@ func Load() Config {
 		ListenAddr:                envOrDefault("NODE_LISTEN_ADDR", ":2988"),
 		HTTPSListenAddr:           envOrDefault("NODE_HTTPS_LISTEN_ADDR", ":2989"),
 		TCPAccessListenAddr:       envOrDefault("NODE_TCP_ACCESS_LISTEN_ADDR", ""),
+		TCPAccessMaxSessions:      envOrDefault("NODE_TCP_ACCESS_MAX_SESSIONS", "4096"),
 		UDPAccessListenAddr:       envOrDefault("NODE_UDP_ACCESS_LISTEN_ADDR", ""),
+		UDPAccessMaxInFlight:      envOrDefault("NODE_UDP_ACCESS_MAX_IN_FLIGHT", "1024"),
+		UDPAccessTimeout:          envOrDefault("NODE_UDP_ACCESS_TIMEOUT", "15s"),
 		HeartbeatInterval:         envOrDefault("NODE_HEARTBEAT_INTERVAL", "10s"),
 		PolicyStatePath:           envOrDefault("NODE_POLICY_STATE_PATH", "runtime/node-policy-state.json"),
 		RuntimeConfigPath:         envOrDefault("NODE_RUNTIME_CONFIG_PATH", "runtime/node-runtime.json"),

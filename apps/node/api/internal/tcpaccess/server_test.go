@@ -25,6 +25,11 @@ func (v *testTokenValidator) ValidateProxyToken(_ context.Context, request proxy
 	return proxy.TokenValidation{Valid: v.valid, ExpiresAt: time.Now().UTC().Add(time.Hour)}, nil
 }
 
+func (v *testTokenValidator) AuthenticateProxyToken(_ context.Context, tokenHash string) (proxy.TokenValidation, error) {
+	v.validations = append(v.validations, tokenHash)
+	return proxy.TokenValidation{Valid: v.valid, ExpiresAt: time.Now().UTC().Add(time.Hour)}, nil
+}
+
 type fakeStreamOpener struct {
 	nextNodeID string
 	remaining  []string
@@ -86,6 +91,31 @@ func TestTCPAccessRejectsInvalidToken(t *testing.T) {
 	}
 	response := readResponse(t, conn)
 	if response.Status != "failed" || response.Message != "auth_required" {
+		t.Fatalf("response = %+v", response)
+	}
+}
+
+func TestTCPAccessRejectsOverMaxSessions(t *testing.T) {
+	server := New(proxy.NewTokenAuthorizer(proxy.AuthConfig{Validator: &testTokenValidator{valid: true}}), nil)
+	server.SetMaxSessions(1)
+	listener := listenTCPAccess(t, server)
+	defer listener.Close()
+
+	held, err := net.Dial("tcp", listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+	overflow, err := net.Dial("tcp", listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer overflow.Close()
+	if err := overflow.SetDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	response := readResponse(t, overflow)
+	if response.Status != "failed" || response.Message != "too_many_sessions" {
 		t.Fatalf("response = %+v", response)
 	}
 }

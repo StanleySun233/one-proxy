@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"io"
 	"net"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -40,7 +41,7 @@ func (c *Controller) resolveStreamTarget(message Message) (net.Conn, error) {
 		nextNodeID := message.RemainingHopNodeIDs[0]
 		return c.registry.OpenStream(nextNodeID, message.RemainingHopNodeIDs[1:], message.TargetHost, message.TargetPort)
 	}
-	return net.Dial("tcp", net.JoinHostPort(message.TargetHost, strconvPort(message.TargetPort)))
+	return net.DialTimeout("tcp", net.JoinHostPort(message.TargetHost, strconvPort(message.TargetPort)), streamDataQueueTimeout)
 }
 
 func (c *Controller) handleStreamData(message Message) error {
@@ -54,8 +55,14 @@ func (c *Controller) handleStreamData(message Message) error {
 	if err != nil {
 		return err
 	}
+	_ = targetConn.SetWriteDeadline(time.Now().Add(streamDataQueueTimeout))
 	_, err = targetConn.Write(payload)
-	return err
+	_ = targetConn.SetWriteDeadline(time.Time{})
+	if err != nil {
+		c.handleStreamClose(message.StreamID)
+		return nil
+	}
+	return nil
 }
 
 func (c *Controller) handleStreamClose(streamID string) {

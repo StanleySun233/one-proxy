@@ -11,12 +11,14 @@ import (
 )
 
 var (
-	errStreamOpenTimeout = errors.New("stream_open_timeout")
-	errChildTunnelClosed = errors.New("child_tunnel_closed")
+	errStreamOpenTimeout  = errors.New("stream_open_timeout")
+	errChildTunnelClosed  = errors.New("child_tunnel_closed")
+	errStreamBackpressure = errors.New("stream_backpressure")
 )
 
 const streamOpenAckTimeout = 5 * time.Second
 const streamReconnectWaitTimeout = 2 * time.Second
+const streamDataQueueTimeout = 5 * time.Second
 
 type childSession struct {
 	nodeID    string
@@ -135,6 +137,19 @@ func (s *childSession) handleMessage(message Message) {
 		select {
 		case stream.readCh <- payload:
 		case <-stream.done:
+		case <-time.After(streamDataQueueTimeout):
+			stream.closeWithError(errStreamBackpressure)
+			if s.conn != nil {
+				s.writeMu.Lock()
+				_ = s.conn.SetWriteDeadline(time.Now().Add(streamDataQueueTimeout))
+				_ = s.conn.WriteJSON(Message{
+					Type:     "close_stream",
+					StreamID: message.StreamID,
+					Message:  errStreamBackpressure.Error(),
+				})
+				_ = s.conn.SetWriteDeadline(time.Time{})
+				s.writeMu.Unlock()
+			}
 		}
 	case "close_stream":
 		stream.markRemoteClosed(message.Message)

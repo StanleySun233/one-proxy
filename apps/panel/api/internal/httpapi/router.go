@@ -76,6 +76,7 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/node/agent/direct/link/plan", r.requireNode(r.handleDirectLinkPlan))
 	r.mux.HandleFunc("/api/node/agent/direct/status", r.requireNode(r.handleDirectStatus))
 	r.mux.HandleFunc("/api/node/agent/direct/client/session/validate", r.requireNode(r.handleClientDirectSessionValidate))
+	r.mux.HandleFunc("/api/node/agent/proxy/token/authenticate", r.requireNode(r.handleProxyTokenAuthenticate))
 	r.mux.HandleFunc("/api/node/agent/proxy/token/validate", r.requireNode(r.handleProxyTokenValidate))
 	r.mux.HandleFunc("/api/node/agent/proxy/sessions", r.requireNode(r.handleNodeAgentProxySessions))
 	proxyhttpapi.Register(r.mux, r.requireAccount, r.service.Proxy(), r.service, r.service)

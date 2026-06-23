@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +22,10 @@ const (
 
 type TokenValidator interface {
 	ValidateProxyToken(ctx context.Context, request TokenValidationRequest) (TokenValidation, error)
+}
+
+type TokenAuthenticator interface {
+	AuthenticateProxyToken(ctx context.Context, tokenHash string) (TokenValidation, error)
 }
 
 type TokenValidationRequest struct {
@@ -60,7 +65,36 @@ func NewTokenAuthorizer(auth AuthConfig) *TokenAuthorizer {
 }
 
 func (a *TokenAuthorizer) Validate(ctx context.Context, token string) bool {
-	return a.Authorize(ctx, token, TokenValidationRequest{}).Valid
+	return a.Authenticate(ctx, token).Valid
+}
+
+func (a *TokenAuthorizer) Authenticate(ctx context.Context, token string) TokenValidation {
+	if a == nil || a.auth.Validator == nil {
+		return TokenValidation{}
+	}
+	if token == "" {
+		return TokenValidation{}
+	}
+	hash := proxyTokenHash(token)
+	cacheKey := tokenAuthenticationCacheKey(hash)
+	now := time.Now().UTC()
+	if validation, ok := a.cache.get(cacheKey, now); ok {
+		return TokenValidation{
+			Valid:           validation.valid,
+			ExpiresAt:       validation.expiresAt,
+			AllowLocalProxy: validation.allowLocalProxy,
+			TenantID:        validation.tenantID,
+		}
+	}
+	authenticator, ok := a.auth.Validator.(TokenAuthenticator)
+	if !ok {
+		return TokenValidation{}
+	}
+	result, err := authenticator.AuthenticateProxyToken(ctx, hash)
+	if err != nil {
+		return TokenValidation{}
+	}
+	return a.cacheResult(cacheKey, result, now)
 }
 
 func (a *TokenAuthorizer) Authorize(ctx context.Context, token string, request TokenValidationRequest) TokenValidation {
@@ -86,6 +120,10 @@ func (a *TokenAuthorizer) Authorize(ctx context.Context, token string, request T
 	if err != nil {
 		return TokenValidation{}
 	}
+	return a.cacheResult(cacheKey, result, now)
+}
+
+func (a *TokenAuthorizer) cacheResult(cacheKey string, result TokenValidation, now time.Time) TokenValidation {
 	ttl := result.CacheTTL
 	if ttl <= 0 {
 		ttl = a.auth.CacheTTL
@@ -116,9 +154,12 @@ func (a *TokenAuthorizer) Authorize(ctx context.Context, token string, request T
 
 func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) (TokenValidation, bool) {
 	token, source := reverseToken(req)
+	targetHost, targetPort := targetURLAddress(s.reverseTarget)
 	validation := s.authorizer.Authorize(req.Context(), token, TokenValidationRequest{
-		TargetHost: targetHostForAudit(req),
-		Protocol:   requestProtocol(req),
+		AccessPathID: s.reverseAccessPathID,
+		TargetHost:   targetHost,
+		TargetPort:   targetPort,
+		Protocol:     reverseTargetProtocol(s.reverseTarget),
 	})
 	if token == "" || !validation.Valid {
 		w.Header().Set("X-One-Proxy-Authenticate", "required")
@@ -134,6 +175,17 @@ func (s *Server) authorizeReverse(w http.ResponseWriter, req *http.Request) (Tok
 func (s *Server) authorizeForward(w http.ResponseWriter, req *http.Request) bool {
 	_, ok := s.authorizeForwardRequest(w, req, TokenValidationRequest{})
 	return ok
+}
+
+func (s *Server) authenticateForwardRequest(w http.ResponseWriter, req *http.Request) (TokenValidation, bool) {
+	token := forwardToken(req.Header.Get("Proxy-Authorization"))
+	validation := s.authorizer.Authenticate(req.Context(), token)
+	if token == "" || !validation.Valid {
+		w.Header().Set("Proxy-Authenticate", `Basic realm="one-proxy"`)
+		writeProxyError(w, req, proxyErrorProxyAuthRequired, http.StatusProxyAuthRequired)
+		return TokenValidation{}, false
+	}
+	return validation, true
 }
 
 func (s *Server) authorizeForwardRequest(w http.ResponseWriter, req *http.Request, request TokenValidationRequest) (TokenValidation, bool) {
@@ -156,6 +208,26 @@ func tokenValidationCacheKey(request TokenValidationRequest) string {
 		strconv.Itoa(request.TargetPort),
 		request.Protocol,
 	}, "\x00")
+}
+
+func tokenAuthenticationCacheKey(tokenHash string) string {
+	return strings.Join([]string{"auth", tokenHash}, "\x00")
+}
+
+func reverseTargetProtocol(target *url.URL) string {
+	if target == nil || target.Scheme == "" {
+		return "http"
+	}
+	switch strings.ToLower(target.Scheme) {
+	case "wss":
+		return "wss"
+	case "ws":
+		return "ws"
+	case "https":
+		return "https"
+	default:
+		return "http"
+	}
 }
 
 func (s *Server) setReverseTokenCookie(w http.ResponseWriter, req *http.Request, token string) {

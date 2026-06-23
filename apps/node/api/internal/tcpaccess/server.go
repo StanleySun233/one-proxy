@@ -14,7 +14,10 @@ import (
 	"time"
 )
 
-const authTimeout = 10 * time.Second
+const (
+	authTimeout        = 10 * time.Second
+	defaultMaxSessions = 4096
+)
 
 type Authorizer interface {
 	Validate(ctx context.Context, token string) bool
@@ -25,9 +28,11 @@ type StreamOpener interface {
 }
 
 type Server struct {
-	authorizer Authorizer
-	streams    StreamOpener
-	dial       func(context.Context, string, int) (net.Conn, error)
+	authorizer  Authorizer
+	streams     StreamOpener
+	dial        func(context.Context, string, int) (net.Conn, error)
+	maxSessions int
+	sessionSem  chan struct{}
 }
 
 type AuthFrame struct {
@@ -46,10 +51,20 @@ type responseFrame struct {
 
 func New(authorizer Authorizer, streams StreamOpener) *Server {
 	return &Server{
-		authorizer: authorizer,
-		streams:    streams,
-		dial:       dialTCP,
+		authorizer:  authorizer,
+		streams:     streams,
+		dial:        dialTCP,
+		maxSessions: defaultMaxSessions,
+		sessionSem:  make(chan struct{}, defaultMaxSessions),
 	}
+}
+
+func (s *Server) SetMaxSessions(maxSessions int) {
+	if maxSessions <= 0 {
+		maxSessions = defaultMaxSessions
+	}
+	s.maxSessions = maxSessions
+	s.sessionSem = make(chan struct{}, maxSessions)
 }
 
 func (s *Server) Serve(listener net.Listener) error {
@@ -58,7 +73,37 @@ func (s *Server) Serve(listener net.Listener) error {
 		if err != nil {
 			return err
 		}
-		go s.handle(conn)
+		if !s.acquireSession() {
+			_ = writeResponse(conn, "failed", "too_many_sessions")
+			_ = conn.Close()
+			continue
+		}
+		go func() {
+			defer s.releaseSession()
+			s.handle(conn)
+		}()
+	}
+}
+
+func (s *Server) acquireSession() bool {
+	if s.sessionSem == nil {
+		s.SetMaxSessions(s.maxSessions)
+	}
+	select {
+	case s.sessionSem <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Server) releaseSession() {
+	if s.sessionSem == nil {
+		return
+	}
+	select {
+	case <-s.sessionSem:
+	default:
 	}
 }
 
@@ -144,7 +189,7 @@ func writeResponse(conn net.Conn, status string, message string) error {
 }
 
 func dialTCP(ctx context.Context, host string, port int) (net.Conn, error) {
-	dialer := net.Dialer{}
+	dialer := net.Dialer{Timeout: authTimeout, KeepAlive: 30 * time.Second}
 	return dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 }
 

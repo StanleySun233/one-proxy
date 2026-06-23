@@ -20,9 +20,10 @@ import (
 var forwardRetryBackoffs = []time.Duration{100 * time.Millisecond, 250 * time.Millisecond}
 
 const (
-	forwardDialTimeout   = 10 * time.Second
-	forwardHeaderTimeout = 30 * time.Second
-	forwardIdleTimeout   = 90 * time.Second
+	forwardDialTimeout              = 10 * time.Second
+	forwardHeaderTimeout            = 30 * time.Second
+	forwardIdleTimeout              = 90 * time.Second
+	defaultForwardRetryBodyMaxBytes = 8 * 1024 * 1024
 )
 
 type forwardResponse struct {
@@ -67,7 +68,7 @@ func (s *Server) forwardViaProxy(w http.ResponseWriter, req *http.Request, nextH
 
 func (s *Server) forwardHTTP(w http.ResponseWriter, req *http.Request, proxyURL *url.URL, nextHopID string, nextHopAuth string, tracker *proxySessionTracker) {
 	targetHost, _ := targetAddress(req)
-	body, bodyStream, err := forwardRequestBody(req)
+	body, bodyStream, err := s.forwardRequestBody(req)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorForwardFailed, proxyErrorForwardFailed)
 		writeProxyError(w, req, proxyErrorForwardFailed, http.StatusBadGateway)
@@ -153,9 +154,19 @@ func (s *Server) roundTripWithRetry(transport *http.Transport, req *http.Request
 	return forwardResponse{}, lastErr
 }
 
-func forwardRequestBody(req *http.Request) ([]byte, io.ReadCloser, error) {
+func (s *Server) forwardRequestBody(req *http.Request) ([]byte, io.ReadCloser, error) {
 	if retryableForwardMethod(req.Method) {
-		body, err := readForwardRequestBody(req)
+		if req.Body == nil || req.Body == http.NoBody {
+			return nil, nil, nil
+		}
+		limit := s.retryBodyMaxBytes
+		if limit <= 0 {
+			limit = defaultForwardRetryBodyMaxBytes
+		}
+		if req.ContentLength < 0 || req.ContentLength > limit {
+			return nil, req.Body, nil
+		}
+		body, err := readForwardRequestBody(req, limit)
 		return body, nil, err
 	}
 	if req.Body == nil || req.Body == http.NoBody {
@@ -164,11 +175,21 @@ func forwardRequestBody(req *http.Request) ([]byte, io.ReadCloser, error) {
 	return nil, req.Body, nil
 }
 
-func readForwardRequestBody(req *http.Request) ([]byte, error) {
+func readForwardRequestBody(req *http.Request, limit int64) ([]byte, error) {
 	if req.Body == nil || req.Body == http.NoBody {
 		return nil, nil
 	}
-	return io.ReadAll(req.Body)
+	if limit <= 0 {
+		limit = defaultForwardRetryBodyMaxBytes
+	}
+	body, err := io.ReadAll(io.LimitReader(req.Body, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > limit {
+		return nil, errors.New("request_body_too_large")
+	}
+	return body, nil
 }
 
 func newForwardRequest(req *http.Request, body []byte, bodyStream io.ReadCloser, nextHopAuth string) *http.Request {
@@ -311,7 +332,7 @@ func retryableForwardMethod(method string) bool {
 
 func (s *Server) forwardViaStream(w http.ResponseWriter, req *http.Request, hop chainHop, tracker *proxySessionTracker) {
 	targetHost, targetPort := targetAddress(req)
-	body, bodyStream, err := forwardRequestBody(req)
+	body, bodyStream, err := s.forwardRequestBody(req)
 	if err != nil {
 		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorStreamResponseFailed, proxyErrorStreamResponseFailed)
 		writeProxyError(w, req, proxyErrorStreamResponseFailed, http.StatusBadGateway)

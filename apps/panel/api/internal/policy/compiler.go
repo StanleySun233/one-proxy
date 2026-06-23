@@ -86,6 +86,9 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []proxy.Chain,
 		if rule.ActionType != domain.ActionTypeChain && rule.ActionType != domain.ActionTypeDirect {
 			return "", fmt.Errorf("rule %s has invalid_action_type", rule.ID)
 		}
+		if !supportedNodeMatchType(rule.MatchType) {
+			return "", fmt.Errorf("rule %s has unsupported_match_type %s", rule.ID, rule.MatchType)
+		}
 		switch rule.ActionType {
 		case domain.ActionTypeChain:
 			if _, ok := chainSet[rule.ChainID]; !ok {
@@ -119,6 +122,15 @@ func Compile(nodes []domain.Node, links []domain.NodeLink, chains []proxy.Chain,
 		return "", err
 	}
 	return string(payload), nil
+}
+
+func supportedNodeMatchType(matchType string) bool {
+	switch matchType {
+	case domain.MatchTypeDomain, domain.MatchTypeDomainSuffix, domain.MatchTypeIP, domain.MatchTypeIPCIDR, domain.MatchTypeProtocol, domain.MatchTypeDefault:
+		return true
+	default:
+		return false
+	}
 }
 
 func CompileForNode(nodeID string, nodes []domain.Node, links []domain.NodeLink, chains []proxy.Chain, rules []proxy.RouteRule, groups []GroupScopeEntry) (string, error) {

@@ -25,6 +25,8 @@ import (
 
 const directALPN = "one-proxy-direct/1"
 
+const directStreamOpenTimeout = 10 * time.Second
+
 type streamOpenRequest struct {
 	Mode          string   `json:"mode,omitempty"`
 	SessionID     string   `json:"sessionId,omitempty"`
@@ -107,6 +109,7 @@ func (r *Registry) handleQUICConn(ctx context.Context, conn *quic.Conn) {
 }
 
 func (r *Registry) handleQUICStream(ctx context.Context, conn *quic.Conn, stream *quic.Stream) {
+	_ = stream.SetReadDeadline(time.Now().Add(directStreamOpenTimeout))
 	reader := bufio.NewReader(stream)
 	line, err := reader.ReadBytes('\n')
 	if err != nil {
@@ -119,6 +122,7 @@ func (r *Registry) handleQUICStream(ctx context.Context, conn *quic.Conn, stream
 		_ = stream.Close()
 		return
 	}
+	_ = stream.SetReadDeadline(time.Time{})
 	if request.Mode != "" && request.Mode != "client_direct" {
 		_ = writeStreamAck(stream, "failed", "invalid_direct_stream_mode")
 		_ = stream.Close()
@@ -144,7 +148,9 @@ func (r *Registry) handleQUICStream(ctx context.Context, conn *quic.Conn, stream
 		_ = stream.Close()
 		return
 	}
-	targetConn, err := net.Dial("tcp", net.JoinHostPort(request.TargetHost, strconv.Itoa(request.TargetPort)))
+	dialCtx, cancel := context.WithTimeout(ctx, directStreamOpenTimeout)
+	defer cancel()
+	targetConn, err := (&net.Dialer{Timeout: directStreamOpenTimeout}).DialContext(dialCtx, "tcp", net.JoinHostPort(request.TargetHost, strconv.Itoa(request.TargetPort)))
 	if err != nil {
 		_ = writeStreamAck(stream, "failed", err.Error())
 		_ = stream.Close()
@@ -178,6 +184,12 @@ func (r *Registry) validateClientSession(ctx context.Context, request streamOpen
 }
 
 func (r *Registry) OpenDirectStream(ctx context.Context, nextHop domain.Node, remaining []string, targetHost string, targetPort int) (net.Conn, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, directStreamOpenTimeout)
+	defer cancel()
 	state, ok := r.Get(nextHop.ID)
 	if !ok {
 		return nil, errors.New("direct_peer_not_found")
@@ -216,11 +228,13 @@ func (r *Registry) OpenDirectStream(ctx context.Context, nextHop domain.Node, re
 		_ = conn.CloseWithError(0, "")
 		return nil, err
 	}
+	_ = stream.SetReadDeadline(time.Now().Add(directStreamOpenTimeout))
 	var ack streamOpenAck
 	if err := json.NewDecoder(stream).Decode(&ack); err != nil {
 		_ = conn.CloseWithError(0, "")
 		return nil, err
 	}
+	_ = stream.SetReadDeadline(time.Time{})
 	if ack.Status != "connected" {
 		_ = conn.CloseWithError(0, "")
 		if ack.Message == "" {

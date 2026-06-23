@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/controlplane"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
@@ -13,7 +14,9 @@ import (
 
 func (c *Controller) writeMessage(conn *websocket.Conn, message Message) error {
 	c.writeMu.Lock()
+	_ = conn.SetWriteDeadline(time.Now().Add(streamDataQueueTimeout))
 	err := conn.WriteJSON(message)
+	_ = conn.SetWriteDeadline(time.Time{})
 	c.writeMu.Unlock()
 	return err
 }
