@@ -5,6 +5,15 @@ export type LocalOverrides = {
     direct: string[];
     proxy: string[];
 };
+export type TopologyHop = {
+    nodeId: string;
+    nodeName: string;
+    mode: string;
+    scopeKey: string;
+    publicHost?: string;
+    publicPort?: number;
+    transport: string;
+};
 export type OneProxyConfig = {
     schemaVersion: number;
     controlPlaneUrl?: string;
@@ -12,21 +21,39 @@ export type OneProxyConfig = {
     activeAccessPathId?: string;
     overrides?: Partial<LocalOverrides>;
 };
-export type EntryNode = {
+export type AccessPathSnapshot = {
     id: string;
-    host: string;
-    port: number;
-    protocol: string;
+    name?: string;
+    chainId?: string;
+    protocol?: string;
+    entryNodeId?: string;
+    listenHost: string;
+    listenPort: number;
+    enabled?: boolean;
+    topology: TopologyHop[];
+};
+export type RouteSnapshot = {
+    id: string;
+    priority: number;
+    matchType: 'domain' | 'domain_suffix' | 'ip' | 'ip_cidr' | 'protocol' | 'default';
+    matchValue: string;
+    actionType: 'chain' | 'direct' | 'deny';
+    chainId: string;
+    accessPathId: string;
+    destinationScope: string;
+    enabled: boolean;
+    topology: TopologyHop[];
 };
 export type OneProxyState = {
     schemaVersion: number;
     bootstrap?: {
         tenantId?: string;
         accessPathId?: string;
-        entryNodes?: EntryNode[];
     };
     policyRevision?: string;
     fetchedAt?: string;
+    accessPaths?: AccessPathSnapshot[];
+    routes?: RouteSnapshot[];
 };
 export type OneProxyTokens = {
     schemaVersion: number;

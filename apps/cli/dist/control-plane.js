@@ -224,6 +224,9 @@ async function syncRemoteState(config, tokens) {
         accessToken: tokens.accessToken,
         tenantId: config.activeTenantId
     });
+    if (bootstrap.schemaVersion !== 'v2.1.0') {
+        throw Object.assign(new Error(`Unsupported bootstrap schema version: ${bootstrap.schemaVersion}`), { code: 'UNSUPPORTED_BOOTSTRAP_CONTRACT' });
+    }
     const latestConfig = config;
     const activeAccessPath = bootstrap.accessPaths.find((accessPath) => accessPath.enabled && accessPath.id === latestConfig.activeAccessPathId) ||
         bootstrap.accessPaths.find((accessPath) => accessPath.enabled);

@@ -82,7 +82,7 @@ async function proxyBypassHosts() {
     const [config, state] = await Promise.all([readConfig(), readState()]);
     return [
         hostnameFromUrl(config.controlPlaneUrl),
-        ...(state.bootstrap?.entryNodes ?? []).map((node) => node.host)
+        ...(state.accessPaths ?? []).map((accessPath) => accessPath.listenHost)
     ].filter(Boolean);
 }
 function hostnameFromUrl(value) {

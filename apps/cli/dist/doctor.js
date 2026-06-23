@@ -40,7 +40,7 @@ export async function runDoctor(routeTarget = 'https://example.com') {
     });
     const state = await readState();
     checks.push(await controlPlaneHealthCheck(config?.controlPlaneUrl));
-    checks.push(bootstrapSyncCheck(state.fetchedAt, state.bootstrap?.entryNodes?.length ?? 0));
+    checks.push(bootstrapSyncCheck(state.fetchedAt, state.accessPaths?.length ?? 0, state.routes?.length ?? 0));
     const runtime = await startDaemonRuntime();
     const metadata = runtime.metadata;
     const health = await probeDaemon(metadata);
@@ -74,11 +74,11 @@ async function controlPlaneHealthCheck(controlPlaneUrl) {
         message: 'Control plane health endpoint is not reachable'
     };
 }
-function bootstrapSyncCheck(fetchedAt, entryNodeCount) {
-    if (!fetchedAt || entryNodeCount === 0) {
-        return { name: 'bootstrap_sync', status: 'fail', message: 'Bootstrap state is missing entry nodes', action: 'Run onep sync' };
+function bootstrapSyncCheck(fetchedAt, accessPathCount, routeCount) {
+    if (!fetchedAt || accessPathCount === 0) {
+        return { name: 'bootstrap_sync', status: 'fail', message: 'Bootstrap state is missing access paths', action: 'Run onep sync' };
     }
-    return { name: 'bootstrap_sync', status: 'pass', message: 'Bootstrap state has entry nodes' };
+    return { name: 'bootstrap_sync', status: 'pass', message: `Bootstrap state has ${accessPathCount} access path(s) and ${routeCount} route(s)` };
 }
 async function localPortsCheck(metadata) {
     if (!metadata) {

@@ -26,12 +26,6 @@ export type OneProxyTokens = {
     refreshTokenExpiresAt?: string;
     proxyTokenExpiresAt?: string;
 };
-export type EntryNode = {
-    id: string;
-    host: string;
-    port: number;
-    protocol: string;
-};
 export type BootstrapNode = {
     id: string;
     name: string;
@@ -104,7 +98,6 @@ export type OneProxyState = {
     bootstrap?: {
         tenantId?: string;
         accessPathId?: string;
-        entryNodes?: EntryNode[];
     };
     policyRevision?: string;
     fetchedAt?: string;
