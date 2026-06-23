@@ -1,6 +1,6 @@
 import { clearDiagnosticLogs, diagnosticLogs, appendLog } from './diagnostics.js';
 import { login, logout, normalizeControlPlaneUrl, selectTenant, syncRemoteConfig, testConnection } from './api.js';
-import { activeAccessPathFrom, getState, persistState, setPartialState, uniqueStrings } from './state.js';
+import { accessPathsView, getState, persistState, setPartialState, uniqueStrings } from './state.js';
 import { pacSummary } from './pac.js';
 import { routePreviewForUrl, sanitizeHost } from './routing.js';
 import { testUrlRoute } from './monitor.js';
@@ -20,7 +20,7 @@ const INTERNAL_MESSAGE_TYPES = new Set([
   'sync-remote-config',
   'select-tenant',
   'test-url-route',
-  'select-access-path',
+  'set-access-path-enabled',
   'set-local-overrides',
   'set-local-helper',
   'add-current-host-to-direct',
@@ -85,7 +85,7 @@ function computedStateView(state, currentTab) {
     state: stateView(state),
     session: sessionView(state.session),
     remote: state.remote,
-    activeAccessPath: activeAccessPathFrom(state),
+    accessPaths: accessPathsView(state),
     currentTab,
     currentRoute: routePreviewForUrl(state, currentTab && currentTab.url),
     monitorRoute: routePreviewForUrl(state, state.monitor.targetUrl)
@@ -166,14 +166,22 @@ function handleMessage(message, sender) {
       return testUrlRoute(message.url, { saveMonitorTarget: Boolean(message.saveMonitorTarget) });
     case 'status-bubble-page-status':
       return getStatusBubblePageStatus(message, sender);
-    case 'select-access-path':
-      return computedAfter(() => setPartialState((state) => ({
-        ...state,
-        selection: {
-          ...state.selection,
-          activeAccessPathId: message.accessPathId || ''
+    case 'set-access-path-enabled':
+      return computedAfter(() => setPartialState((state) => {
+        const accessPathId = String(message.accessPathId || '');
+        const disabled = uniqueStrings(state.accessPathSwitches && state.accessPathSwitches.disabledAccessPathIds)
+          .filter((id) => id !== accessPathId);
+        if (accessPathId && !message.enabled) {
+          disabled.push(accessPathId);
         }
-      })));
+        return {
+          ...state,
+          accessPathSwitches: {
+            ...(state.accessPathSwitches || {}),
+            disabledAccessPathIds: uniqueStrings(disabled)
+          }
+        };
+      }));
     case 'set-local-overrides':
       return computedAfter(() => setPartialState((state) => ({
         ...state,

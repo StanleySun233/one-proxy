@@ -5,7 +5,7 @@
   const REFRESH_INTERVAL_MS = 30000;
   const LABEL_FALLBACKS = {
     account: 'Account',
-    activeAccessPath: 'Active access path',
+    routeAccessPath: 'Route access path',
     policyRevision: 'Policy',
     syncedAt: 'Synced',
     tenant: 'Tenant',
@@ -377,7 +377,7 @@
     const section = el('div', 'opsb-section');
     section.append(row(label('account'), payload.account));
     section.append(row(label('tenant'), payload.tenant && payload.tenant.name));
-    section.append(row(label('activeAccessPath'), payload.accessPath && payload.accessPath.name));
+    section.append(row(label('routeAccessPath'), payload.accessPath && payload.accessPath.name));
     section.append(row(label('statusBubbleRoute'), routeText(payload)));
     section.append(row(label('policyRevision'), payload.policyRevision));
     section.append(row(label('syncedAt'), formatDateTime(payload.configFetchedAt)));

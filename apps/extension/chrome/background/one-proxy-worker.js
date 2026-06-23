@@ -64,8 +64,8 @@ const DEFAULT_STATE = {
     routes: [],
     routeEvaluation: DEFAULT_ROUTE_EVALUATION
   },
-  selection: {
-    activeAccessPathId: ''
+  accessPathSwitches: {
+    disabledAccessPathIds: []
   },
   localOverrides: {
     directHosts: [],
@@ -213,7 +213,7 @@ function mergeState(raw) {
   const rest = raw || {};
   const rawSession = publicSession(rest.session || {});
   const remote = rest.remote || {};
-  const selection = rest.selection || {};
+  const accessPathSwitches = rest.accessPathSwitches || {};
   const state = {
     ...DEFAULT_STATE,
     enabled: Boolean(rest.enabled),
@@ -228,8 +228,8 @@ function mergeState(raw) {
       routes: Array.isArray(remote.routes) ? remote.routes.map(normalizeRoute) : [],
       routeEvaluation: normalizeRouteEvaluation(remote.routeEvaluation)
     },
-    selection: {
-      activeAccessPathId: String(selection.activeAccessPathId || '')
+    accessPathSwitches: {
+      disabledAccessPathIds: uniqueStrings(accessPathSwitches.disabledAccessPathIds)
     },
     localOverrides: {
       directHosts: uniqueStrings(rest.localOverrides && rest.localOverrides.directHosts),
@@ -250,11 +250,8 @@ function mergeState(raw) {
   if (!state.session.tenantMemberships.find((membership) => membership.tenantId === state.session.activeTenantId)) {
     state.session.activeTenantId = state.session.tenantMemberships.length === 1 ? state.session.tenantMemberships[0].tenantId : '';
   }
-  const selectedPath = state.remote.accessPaths.find((path) => path.id === state.selection.activeAccessPathId);
-  if (!selectedPath) {
-    const firstEnabled = state.remote.accessPaths.find((path) => path.enabled);
-    state.selection.activeAccessPathId = (firstEnabled || state.remote.accessPaths[0] || {}).id || '';
-  }
+  const knownPathIds = new Set(state.remote.accessPaths.map((path) => path.id));
+  state.accessPathSwitches.disabledAccessPathIds = state.accessPathSwitches.disabledAccessPathIds.filter((id) => knownPathIds.has(id));
   return state;
 }
 
@@ -288,13 +285,17 @@ function mergeSessionSecrets(durableState, secrets) {
   };
 }
 
-function activePathView(path, state) {
+function accessPathView(path, state) {
   if (!path) {
     return null;
   }
   const entryNode = state.remote.nodes.find((node) => node.id === path.entryNodeId);
+  const disabledIds = uniqueStrings(state.accessPathSwitches && state.accessPathSwitches.disabledAccessPathIds);
+  const userEnabled = !disabledIds.includes(path.id);
   return {
     ...path,
+    userEnabled,
+    effectiveEnabled: Boolean(path.enabled && userEnabled),
     proxyScheme: path.protocol === 'https' ? 'HTTPS' : 'PROXY',
     proxyHost: path.listenHost,
     proxyPort: path.listenPort,
@@ -321,14 +322,17 @@ function getState() {
   });
 }
 
-function activeAccessPathFrom(state) {
-  const path = state.remote.accessPaths.find((item) => item.id === state.selection.activeAccessPathId) || state.remote.accessPaths[0] || null;
-  return activePathView(path, state);
-}
-
 function accessPathById(state, accessPathId) {
   const path = state.remote.accessPaths.find((item) => item.id === accessPathId) || null;
-  return activePathView(path, state);
+  return accessPathView(path, state);
+}
+
+function accessPathsView(state) {
+  return state.remote.accessPaths.map((path) => accessPathView(path, state)).filter(Boolean);
+}
+
+function enabledAccessPathsFrom(state) {
+  return accessPathsView(state).filter((path) => path.effectiveEnabled);
 }
 
 function persistState(nextState) {
@@ -608,6 +612,7 @@ function isLoopbackHost(host) {
 function isUsableAccessPath(accessPath) {
   return Boolean(accessPath &&
     accessPath.enabled &&
+    accessPath.effectiveEnabled !== false &&
     accessPath.authMode === 'proxy_token' &&
     accessPath.serviceType === 'http_forward_proxy' &&
     accessPath.listenHost &&
@@ -801,22 +806,20 @@ function FindProxyForURL(url, host) {
 
 function pacSummary(state) {
   const helperTarget = localHelperTarget(state);
-  const activePath = accessPathById(state, state.selection.activeAccessPathId);
-  const activeTarget = helperTarget || accessPathProxyTarget(activePath) || 'DIRECT';
   const rules = compiledRules(state);
+  const proxyTargets = uniqueStrings(rules.map((rule) => rule.proxyTarget).filter(Boolean));
   return {
     enabled: Boolean(state.enabled),
-    activeAccessPathId: activePath ? activePath.id : '',
-    activeAccessPathName: activePath ? activePath.name : '',
-    proxyTarget: activeTarget,
+    proxyTarget: proxyTargets.length === 1 ? proxyTargets[0] : '',
     localHelper: helperTarget,
     accessPaths: state.remote.accessPaths.length,
+    enabledAccessPaths: state.remote.accessPaths.filter((path) => isUsableAccessPath(accessPathById(state, path.id))).length,
     routes: state.remote.routes.length,
     enabledRoutes: rules.length,
     chainRoutes: rules.filter((rule) => rule.actionType === 'chain').length,
     directRoutes: rules.filter((rule) => rule.actionType === 'direct').length,
     denyRoutes: rules.filter((rule) => rule.actionType === 'deny').length,
-    proxyTargets: uniqueStrings(rules.map((rule) => rule.proxyTarget)).length
+    proxyTargets: proxyTargets.length
   };
 }
 
@@ -1064,7 +1067,7 @@ function selectTenant(tenantId) {
         proxyTokenExpiresAt: ''
       },
       remote: DEFAULT_STATE.remote,
-      selection: DEFAULT_STATE.selection
+      accessPathSwitches: DEFAULT_STATE.accessPathSwitches
     });
     return persistState(nextState)
       .then(() => appendLog('info', 'tenant_selected', { tenantId: activeTenantId }))
@@ -1085,7 +1088,7 @@ function logout() {
       enabled: false,
       session: DEFAULT_STATE.session,
       remote: DEFAULT_STATE.remote,
-      selection: DEFAULT_STATE.selection
+      accessPathSwitches: DEFAULT_STATE.accessPathSwitches
     });
     return logoutRequest
       .then(() => persistState(nextState))
@@ -1135,7 +1138,7 @@ function runProxyProbes(state, targetUrl, route) {
   const accessPath = route && route.accessPathId ? accessPathById(state, route.accessPathId) : null;
   const parsed = parseTargetUrl(targetUrl);
   if (!state.enabled || !accessPath || !accessPath.listenHost || !accessPath.listenPort || !route || route.mode !== 'proxy') {
-    return probeProtocols().map((protocol) => ({ protocol, status: 'skipped', latencyMs: 0, message: 'proxy_not_applied' }));
+    return Promise.resolve(probeProtocols().map((protocol) => ({ protocol, status: 'skipped', latencyMs: 0, message: 'proxy_not_applied' })));
   }
   const remainingHopNodeIds = (route.topology || []).map((node) => node.id).filter(Boolean).slice(1);
   const endpoint = `http://${accessPath.listenHost}:${accessPath.listenPort}/api/control/relay/probe`;
@@ -1392,7 +1395,7 @@ function registerPageMetrics() {
 
 const STATUS_BUBBLE_LABELS = [
   'account',
-  'activeAccessPath',
+  'routeAccessPath',
   'policyRevision',
   'syncedAt',
   'tenant',
@@ -1431,7 +1434,7 @@ const PATH_HEALTH_TTL_MS = 60000;
 const pathHealthCache = new Map();
 const STATUS_BUBBLE_FALLBACK_LABELS = {
   account: 'Account',
-  activeAccessPath: 'Active access path',
+  routeAccessPath: 'Route access path',
   policyRevision: 'Policy',
   syncedAt: 'Synced',
   tenant: 'Tenant',
@@ -1977,7 +1980,7 @@ const INTERNAL_MESSAGE_TYPES = new Set([
   'sync-remote-config',
   'select-tenant',
   'test-url-route',
-  'select-access-path',
+  'set-access-path-enabled',
   'set-local-overrides',
   'set-local-helper',
   'add-current-host-to-direct',
@@ -2042,7 +2045,7 @@ function computedStateView(state, currentTab) {
     state: stateView(state),
     session: sessionView(state.session),
     remote: state.remote,
-    activeAccessPath: activeAccessPathFrom(state),
+    accessPaths: accessPathsView(state),
     currentTab,
     currentRoute: routePreviewForUrl(state, currentTab && currentTab.url),
     monitorRoute: routePreviewForUrl(state, state.monitor.targetUrl)
@@ -2123,14 +2126,22 @@ function handleMessage(message, sender) {
       return testUrlRoute(message.url, { saveMonitorTarget: Boolean(message.saveMonitorTarget) });
     case 'status-bubble-page-status':
       return getStatusBubblePageStatus(message, sender);
-    case 'select-access-path':
-      return computedAfter(() => setPartialState((state) => ({
-        ...state,
-        selection: {
-          ...state.selection,
-          activeAccessPathId: message.accessPathId || ''
+    case 'set-access-path-enabled':
+      return computedAfter(() => setPartialState((state) => {
+        const accessPathId = String(message.accessPathId || '');
+        const disabled = uniqueStrings(state.accessPathSwitches && state.accessPathSwitches.disabledAccessPathIds)
+          .filter((id) => id !== accessPathId);
+        if (accessPathId && !message.enabled) {
+          disabled.push(accessPathId);
         }
-      })));
+        return {
+          ...state,
+          accessPathSwitches: {
+            ...(state.accessPathSwitches || {}),
+            disabledAccessPathIds: uniqueStrings(disabled)
+          }
+        };
+      }));
     case 'set-local-overrides':
       return computedAfter(() => setPartialState((state) => ({
         ...state,
@@ -2211,6 +2222,7 @@ function proxyTargetKey(host, port) {
 
 function proxyAuthTargetsFrom(state) {
   return new Set((state.remote.accessPaths || [])
+    .map((path) => accessPathById(state, path.id))
     .filter(isUsableAccessPath)
     .map((path) => proxyTargetKey(path.listenHost, path.listenPort)));
 }

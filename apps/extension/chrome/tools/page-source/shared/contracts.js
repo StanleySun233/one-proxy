@@ -25,8 +25,8 @@ export const defaultExtensionState = {
       supportedActions: ['chain', 'direct', 'deny']
     }
   },
-  selection: {
-    activeAccessPathId: ''
+  accessPathSwitches: {
+    disabledAccessPathIds: []
   },
   localOverrides: {
     directHosts: [],

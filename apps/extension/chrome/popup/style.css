@@ -91,6 +91,15 @@ body {
   gap: 7px;
 }
 
+.path-summary {
+  min-height: 38px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card-strong);
+  font-weight: 700;
+}
+
 .compact {
   min-width: 72px;
 }

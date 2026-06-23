@@ -243,6 +243,7 @@ function isLoopbackHost(host) {
 export function isUsableAccessPath(accessPath) {
   return Boolean(accessPath &&
     accessPath.enabled &&
+    accessPath.effectiveEnabled !== false &&
     accessPath.authMode === 'proxy_token' &&
     accessPath.serviceType === 'http_forward_proxy' &&
     accessPath.listenHost &&

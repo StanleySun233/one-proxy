@@ -116,6 +116,10 @@ label.wide {
   border-color: var(--accent-line);
 }
 
+.group-row.is-disabled {
+  opacity: 0.72;
+}
+
 .group-name {
   display: flex;
   align-items: center;

@@ -250,8 +250,8 @@ chromium.launchPersistentContext(userDataDir, {
             if (!syncResult.remote || syncResult.remote.accessPaths.length !== 1 || syncResult.remote.routes.length !== 1) {
               throw new Error('service_worker_sync_missing_access_paths_or_routes');
             }
-            if (!syncResult.activeAccessPath || syncResult.activeAccessPath.id !== 'path-1') {
-              throw new Error('service_worker_sync_missing_active_access_path');
+            if (!Array.isArray(syncResult.accessPaths) || syncResult.accessPaths.length !== 1 || syncResult.accessPaths[0].id !== 'path-1' || syncResult.accessPaths[0].effectiveEnabled !== true) {
+              throw new Error('service_worker_sync_missing_parallel_access_paths');
             }
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'get-diagnostic-logs' }));
           }).then((logs) => {
@@ -274,7 +274,7 @@ chromium.launchPersistentContext(userDataDir, {
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({ type: 'get-diagnostic-logs' }));
           }).then((logs) => {
             const applied = [...logs].reverse().find((entry) => entry.event === 'proxy_applied' && entry.details.enabled === true);
-            if (!applied || applied.details.activeAccessPathId !== 'path-1' || applied.details.accessPaths !== 1 || applied.details.routes !== 1 || applied.details.enabledRoutes !== 1 || applied.details.chainRoutes !== 1 || applied.details.proxyTarget !== 'PROXY 127.0.0.1:2988' || Object.hasOwn(applied.details, 'groups')) {
+            if (!applied || applied.details.accessPaths !== 1 || applied.details.enabledAccessPaths !== 1 || applied.details.routes !== 1 || applied.details.enabledRoutes !== 1 || applied.details.chainRoutes !== 1 || applied.details.proxyTarget !== 'PROXY 127.0.0.1:2988' || applied.details.proxyTargets !== 1 || Object.hasOwn(applied.details, 'activeAccessPathId') || Object.hasOwn(applied.details, 'groups')) {
               throw new Error('service_worker_proxy_applied_contract_invalid');
             }
             return optionsPage.evaluate(() => chrome.runtime.sendMessage({

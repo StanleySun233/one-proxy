@@ -5,13 +5,12 @@
 Browser-side client for:
 
 - login
-- node selection
-- profile selection
+- parallel access path switches
 - browser proxy activation
 - local site overrides
 
 ## Current Direction
 
 - keep plain JavaScript
-- move from local-only profile groups to server-backed node and profile selection
+- use server-backed access paths as independent local switches
 - keep the existing color system as the shared visual language for the full product

@@ -14,8 +14,8 @@
   "account": {
     "message": "账号"
   },
-  "activeAccessPath": {
-    "message": "当前访问路径"
+  "routeAccessPath": {
+    "message": "路由访问路径"
   },
   "proxySwitch": {
     "message": "代理"
@@ -209,11 +209,17 @@
   "off": {
     "message": "关"
   },
+  "disabled": {
+    "message": "已禁用"
+  },
   "statusLoginRequired": {
     "message": "请先到设置页登录，然后再启用远程访问路径。"
   },
   "statusNoAccessPaths": {
     "message": "当前账号没有可用的远程访问路径。"
+  },
+  "statusAllAccessPathsOff": {
+    "message": "所有远程访问路径都已关闭。"
   },
   "statusReadyOff": {
     "message": "远程配置已加载，代理当前关闭。"

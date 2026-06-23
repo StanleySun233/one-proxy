@@ -62,7 +62,7 @@ const masterValue = document.getElementById('masterValue');
 const accountName = document.getElementById('accountName');
 const syncMeta = document.getElementById('syncMeta');
 const statusMessage = document.getElementById('statusMessage');
-const groupSelect = document.getElementById('groupSelect');
+const accessPathSummary = document.getElementById('accessPathSummary');
 const currentSite = document.getElementById('currentSite');
 const entryNodeName = document.getElementById('entryNodeName');
 const entryNodeAddress = document.getElementById('entryNodeAddress');
@@ -191,7 +191,12 @@ function renderProbes(results) {
 
 function render(bundle) {
   viewState = bundle;
-  const { state, session, remote, activeAccessPath, currentTab, currentRoute, monitorRoute } = bundle;
+  const { state, session, remote, accessPaths, currentTab, currentRoute, monitorRoute } = bundle;
+  const pathViews = accessPaths || remote.accessPaths || [];
+  const enabledPaths = pathViews.filter((accessPath) => accessPath.effectiveEnabled);
+  const routeAccessPath = currentRoute && currentRoute.mode === 'proxy' && currentRoute.accessPathId
+    ? pathViews.find((accessPath) => accessPath.id === currentRoute.accessPathId)
+    : null;
   applyThemeMode(state.themeMode);
   accountName.textContent = session.account || text('notSignedIn');
   syncMeta.textContent = remote.fetchedAt ? `${text('syncedAt')} ${new Date(remote.fetchedAt).toLocaleTimeString()}` : text('notSynced');
@@ -200,8 +205,9 @@ function render(bundle) {
   setToggleState(masterToggle, state.enabled);
   policyRevision.textContent = remote.policyRevision || '-';
   ruleCounts.textContent = countLabel(remote);
-  entryNodeName.textContent = activeAccessPath ? (activeAccessPath.name || activeAccessPath.entryNodeName) : text('noAccessPath');
-  entryNodeAddress.textContent = activeAccessPath ? `${activeAccessPath.proxyScheme} ${activeAccessPath.proxyHost}:${activeAccessPath.proxyPort}` : '-';
+  accessPathSummary.textContent = `${enabledPaths.length}/${pathViews.length} ${text('on')}`;
+  entryNodeName.textContent = routeAccessPath ? (routeAccessPath.name || routeAccessPath.entryNodeName) : text('noAccessPath');
+  entryNodeAddress.textContent = routeAccessPath ? `${routeAccessPath.proxyScheme} ${routeAccessPath.proxyHost}:${routeAccessPath.proxyPort}` : '-';
   currentRouteValue.textContent = routeLabel(currentRoute);
   currentRouteSource.textContent = sourceLabel(currentRoute);
   routeCard.classList.toggle('is-proxy', Boolean(currentRoute && currentRoute.mode === 'proxy'));
@@ -212,16 +218,7 @@ function render(bundle) {
   renderTopology(state.monitor && state.monitor.targetUrl ? monitorRoute : currentRoute);
   renderProbes(state.monitor && state.monitor.results);
 
-  groupSelect.innerHTML = '';
-  for (const accessPath of remote.accessPaths || []) {
-    const option = document.createElement('option');
-    option.value = accessPath.id;
-    option.textContent = accessPath.name;
-    option.selected = activeAccessPath && accessPath.id === activeAccessPath.id;
-    groupSelect.appendChild(option);
-  }
-  groupSelect.disabled = !(remote.accessPaths || []).length;
-  masterToggle.disabled = !activeAccessPath;
+  masterToggle.disabled = pathViews.length === 0;
   addDirect.disabled = !(currentTab && currentTab.host);
   addProxy.disabled = !(currentTab && currentTab.host);
   removeOverride.disabled = !(currentTab && currentTab.host);
@@ -229,8 +226,10 @@ function render(bundle) {
 
   if (!session.authenticated) {
     setStatus('warning', text('statusLoginRequired'));
-  } else if (!activeAccessPath) {
+  } else if (pathViews.length === 0) {
     setStatus('warning', text('statusNoAccessPaths'));
+  } else if (enabledPaths.length === 0) {
+    setStatus('warning', text('statusAllAccessPathsOff'));
   } else if (!state.enabled) {
     setStatus('idle', text('statusReadyOff'));
   } else {
@@ -239,20 +238,10 @@ function render(bundle) {
 }
 
 masterToggle.addEventListener('click', () => {
-  if (!viewState || !viewState.activeAccessPath) {
+  if (!viewState || !(viewState.accessPaths || viewState.remote.accessPaths || []).length) {
     return;
   }
   sendMessage({ type: 'set-enabled', enabled: !viewState.state.enabled }).then((result) => {
-  if (result && result.error) {
-    setStatus('error', result.error);
-    return;
-  }
-  render(result);
-  });
-});
-
-groupSelect.addEventListener('change', (event) => {
-  sendMessage({ type: 'select-access-path', accessPathId: event.target.value }).then((result) => {
   if (result && result.error) {
     setStatus('error', result.error);
     return;

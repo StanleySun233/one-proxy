@@ -172,22 +172,20 @@ function FindProxyForURL(url, host) {
 
 export function pacSummary(state) {
   const helperTarget = localHelperTarget(state);
-  const activePath = accessPathById(state, state.selection.activeAccessPathId);
-  const activeTarget = helperTarget || accessPathProxyTarget(activePath) || 'DIRECT';
   const rules = compiledRules(state);
+  const proxyTargets = uniqueStrings(rules.map((rule) => rule.proxyTarget).filter(Boolean));
   return {
     enabled: Boolean(state.enabled),
-    activeAccessPathId: activePath ? activePath.id : '',
-    activeAccessPathName: activePath ? activePath.name : '',
-    proxyTarget: activeTarget,
+    proxyTarget: proxyTargets.length === 1 ? proxyTargets[0] : '',
     localHelper: helperTarget,
     accessPaths: state.remote.accessPaths.length,
+    enabledAccessPaths: state.remote.accessPaths.filter((path) => isUsableAccessPath(accessPathById(state, path.id))).length,
     routes: state.remote.routes.length,
     enabledRoutes: rules.length,
     chainRoutes: rules.filter((rule) => rule.actionType === 'chain').length,
     directRoutes: rules.filter((rule) => rule.actionType === 'direct').length,
     denyRoutes: rules.filter((rule) => rule.actionType === 'deny').length,
-    proxyTargets: uniqueStrings(rules.map((rule) => rule.proxyTarget)).length
+    proxyTargets: proxyTargets.length
   };
 }
 

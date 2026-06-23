@@ -233,7 +233,7 @@ export function selectTenant(tenantId) {
         proxyTokenExpiresAt: ''
       },
       remote: DEFAULT_STATE.remote,
-      selection: DEFAULT_STATE.selection
+      accessPathSwitches: DEFAULT_STATE.accessPathSwitches
     });
     return persistState(nextState)
       .then(() => appendLog('info', 'tenant_selected', { tenantId: activeTenantId }))
@@ -254,7 +254,7 @@ export function logout() {
       enabled: false,
       session: DEFAULT_STATE.session,
       remote: DEFAULT_STATE.remote,
-      selection: DEFAULT_STATE.selection
+      accessPathSwitches: DEFAULT_STATE.accessPathSwitches
     });
     return logoutRequest
       .then(() => persistState(nextState))

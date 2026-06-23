@@ -34,8 +34,8 @@ export const DEFAULT_STATE = {
     routes: [],
     routeEvaluation: DEFAULT_ROUTE_EVALUATION
   },
-  selection: {
-    activeAccessPathId: ''
+  accessPathSwitches: {
+    disabledAccessPathIds: []
   },
   localOverrides: {
     directHosts: [],
@@ -183,7 +183,7 @@ export function mergeState(raw) {
   const rest = raw || {};
   const rawSession = publicSession(rest.session || {});
   const remote = rest.remote || {};
-  const selection = rest.selection || {};
+  const accessPathSwitches = rest.accessPathSwitches || {};
   const state = {
     ...DEFAULT_STATE,
     enabled: Boolean(rest.enabled),
@@ -198,8 +198,8 @@ export function mergeState(raw) {
       routes: Array.isArray(remote.routes) ? remote.routes.map(normalizeRoute) : [],
       routeEvaluation: normalizeRouteEvaluation(remote.routeEvaluation)
     },
-    selection: {
-      activeAccessPathId: String(selection.activeAccessPathId || '')
+    accessPathSwitches: {
+      disabledAccessPathIds: uniqueStrings(accessPathSwitches.disabledAccessPathIds)
     },
     localOverrides: {
       directHosts: uniqueStrings(rest.localOverrides && rest.localOverrides.directHosts),
@@ -220,11 +220,8 @@ export function mergeState(raw) {
   if (!state.session.tenantMemberships.find((membership) => membership.tenantId === state.session.activeTenantId)) {
     state.session.activeTenantId = state.session.tenantMemberships.length === 1 ? state.session.tenantMemberships[0].tenantId : '';
   }
-  const selectedPath = state.remote.accessPaths.find((path) => path.id === state.selection.activeAccessPathId);
-  if (!selectedPath) {
-    const firstEnabled = state.remote.accessPaths.find((path) => path.enabled);
-    state.selection.activeAccessPathId = (firstEnabled || state.remote.accessPaths[0] || {}).id || '';
-  }
+  const knownPathIds = new Set(state.remote.accessPaths.map((path) => path.id));
+  state.accessPathSwitches.disabledAccessPathIds = state.accessPathSwitches.disabledAccessPathIds.filter((id) => knownPathIds.has(id));
   return state;
 }
 
@@ -258,13 +255,17 @@ function mergeSessionSecrets(durableState, secrets) {
   };
 }
 
-function activePathView(path, state) {
+function accessPathView(path, state) {
   if (!path) {
     return null;
   }
   const entryNode = state.remote.nodes.find((node) => node.id === path.entryNodeId);
+  const disabledIds = uniqueStrings(state.accessPathSwitches && state.accessPathSwitches.disabledAccessPathIds);
+  const userEnabled = !disabledIds.includes(path.id);
   return {
     ...path,
+    userEnabled,
+    effectiveEnabled: Boolean(path.enabled && userEnabled),
     proxyScheme: path.protocol === 'https' ? 'HTTPS' : 'PROXY',
     proxyHost: path.listenHost,
     proxyPort: path.listenPort,
@@ -291,14 +292,17 @@ export function getState() {
   });
 }
 
-export function activeAccessPathFrom(state) {
-  const path = state.remote.accessPaths.find((item) => item.id === state.selection.activeAccessPathId) || state.remote.accessPaths[0] || null;
-  return activePathView(path, state);
-}
-
 export function accessPathById(state, accessPathId) {
   const path = state.remote.accessPaths.find((item) => item.id === accessPathId) || null;
-  return activePathView(path, state);
+  return accessPathView(path, state);
+}
+
+export function accessPathsView(state) {
+  return state.remote.accessPaths.map((path) => accessPathView(path, state)).filter(Boolean);
+}
+
+export function enabledAccessPathsFrom(state) {
+  return accessPathsView(state).filter((path) => path.effectiveEnabled);
 }
 
 export function persistState(nextState) {

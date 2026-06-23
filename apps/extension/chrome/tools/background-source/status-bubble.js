@@ -5,7 +5,7 @@ import { tabMetricsSnapshot } from './page-metrics.js';
 
 const STATUS_BUBBLE_LABELS = [
   'account',
-  'activeAccessPath',
+  'routeAccessPath',
   'policyRevision',
   'syncedAt',
   'tenant',
@@ -44,7 +44,7 @@ const PATH_HEALTH_TTL_MS = 60000;
 const pathHealthCache = new Map();
 const STATUS_BUBBLE_FALLBACK_LABELS = {
   account: 'Account',
-  activeAccessPath: 'Active access path',
+  routeAccessPath: 'Route access path',
   policyRevision: 'Policy',
   syncedAt: 'Synced',
   tenant: 'Tenant',

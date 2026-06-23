@@ -14,8 +14,8 @@
   "account": {
     "message": "Account"
   },
-  "activeAccessPath": {
-    "message": "Active access path"
+  "routeAccessPath": {
+    "message": "Route access path"
   },
   "proxySwitch": {
     "message": "Proxy"
@@ -209,17 +209,23 @@
   "off": {
     "message": "Off"
   },
+  "disabled": {
+    "message": "Disabled"
+  },
   "statusLoginRequired": {
     "message": "Sign in from Settings before enabling remote access paths."
   },
   "statusNoAccessPaths": {
     "message": "No remote access paths available for this account."
   },
+  "statusAllAccessPathsOff": {
+    "message": "All remote access paths are off."
+  },
   "statusReadyOff": {
     "message": "Remote config is loaded. Proxy is currently off."
   },
   "statusReadyOn": {
-    "message": "Remote access path is active and browser proxy is on."
+    "message": "Remote access paths are enabled and browser proxy is on."
   },
   "statusSynced": {
     "message": "Remote config synced."

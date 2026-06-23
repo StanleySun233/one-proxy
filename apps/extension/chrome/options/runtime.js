@@ -170,7 +170,7 @@ function refreshDiagnosticLogs() {
 
 function renderGroupList() {
   groupList.innerHTML = '';
-  const accessPaths = bundle.remote.accessPaths || [];
+  const accessPaths = bundle.accessPaths || bundle.remote.accessPaths || [];
   if (accessPaths.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
@@ -181,20 +181,21 @@ function renderGroupList() {
   for (const accessPath of accessPaths) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `group-row${bundle.activeAccessPath && bundle.activeAccessPath.id === accessPath.id ? ' is-active' : ''}`;
+    button.className = `group-row${accessPath.effectiveEnabled ? ' is-active' : ' is-disabled'}`;
+    button.disabled = !accessPath.enabled;
     const name = document.createElement('div');
     name.className = 'group-name';
     const title = document.createElement('strong');
     title.textContent = accessPath.name;
     const node = document.createElement('span');
-    node.textContent = accessPath.entryNodeId;
+    node.textContent = accessPath.enabled ? (accessPath.effectiveEnabled ? text('on') : text('off')) : text('disabled');
     const meta = document.createElement('div');
     meta.className = 'group-meta';
     meta.textContent = `${String(accessPath.protocol || '').toUpperCase()} ${accessPath.listenHost}:${accessPath.listenPort}`;
     name.append(title, node);
     button.append(name, meta);
     button.addEventListener('click', () => {
-      sendMessage({ type: 'select-access-path', accessPathId: accessPath.id }).then((result) => {
+      sendMessage({ type: 'set-access-path-enabled', accessPathId: accessPath.id, enabled: !accessPath.effectiveEnabled }).then((result) => {
       if (result && result.error) {
         setFeedback('error', result.error);
         return;
@@ -207,13 +208,14 @@ function renderGroupList() {
 }
 
 function renderGroupDetail() {
-  const accessPath = bundle.activeAccessPath;
   const routes = bundle.remote.routes || [];
-  const chainRoutes = routes.filter((route) => route.actionType === 'chain' && route.accessPathId === (accessPath && accessPath.id));
+  const accessPaths = bundle.accessPaths || bundle.remote.accessPaths || [];
+  const enabledPaths = accessPaths.filter((accessPath) => accessPath.effectiveEnabled);
+  const chainRoutes = routes.filter((route) => route.actionType === 'chain');
   const directRoutes = routes.filter((route) => route.actionType === 'direct');
-  groupTitle.textContent = accessPath ? accessPath.name : text('accessPathDetail');
-  entryMeta.textContent = accessPath ? `${accessPath.proxyScheme} ${accessPath.proxyHost}:${accessPath.proxyPort}` : '-';
-  remoteRuleSummary.textContent = accessPath ? text('ruleSummary', [String(chainRoutes.length), String(directRoutes.length)]) : text('noRules');
+  groupTitle.textContent = text('accessPathDetail');
+  entryMeta.textContent = `${enabledPaths.length}/${accessPaths.length} ${text('on')}`;
+  remoteRuleSummary.textContent = routes.length > 0 ? text('ruleSummary', [String(chainRoutes.length), String(directRoutes.length)]) : text('noRules');
   directHosts.value = arrayToLines(bundle.state.localOverrides.directHosts);
   proxyHosts.value = arrayToLines(bundle.state.localOverrides.proxyHosts);
 }
