@@ -71,9 +71,12 @@
     return `${(Number(bytes || 0) / 1024 / 1024).toFixed(2)} MB`;
   }
 
-  function formatLatency(ms) {
+  function formatLatency(ms, options) {
     const value = Number(ms || 0);
-    return value > 0 ? `${Math.round(value)} ms` : '-';
+    if (value > 0) {
+      return `${Math.round(value)} ms`;
+    }
+    return options && options.showZero && ms !== null && ms !== undefined ? '0 ms' : '-';
   }
 
   function pad2(value) {
@@ -213,7 +216,11 @@
     const timing = (payload.linkTimings || []).find(function (item) {
       return item && item.fromNodeId === fromNodeId && item.toNodeId === toNodeId;
     });
-    return timing ? Number(timing.roundTripMs || 0) : 0;
+    if (!timing) {
+      return null;
+    }
+    const value = Number(timing.roundTripMs || 0);
+    return Number.isFinite(value) ? value : 0;
   }
 
   function edgeLatency(payload, previous, node) {
@@ -251,7 +258,7 @@
   function pathConnector(payload, previous, node, className) {
     const connector = el('div', className || 'opsb-path-link');
     const transport = node.transport || previous.transport || '';
-    connector.append(el('span', 'opsb-hop-latency', `${label('statusBubbleRoundTrip')} ${formatLatency(edgeLatency(payload, previous, node))}`));
+    connector.append(el('span', 'opsb-hop-latency', `${label('statusBubbleRoundTrip')} ${formatLatency(edgeLatency(payload, previous, node), { showZero: true })}`));
     connector.append(el('span', 'opsb-hop-transport', transportLabel(transport)));
     connector.append(el('span', 'opsb-hop-segment'));
     return connector;

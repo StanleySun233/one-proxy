@@ -194,7 +194,7 @@ chromium.launchPersistentContext(userDataDir, {
                     requestCount: 0,
                     failureCount: 0,
                     correlated: false,
-                    linkTimings: [{ fromNodeId: 'node-1', toNodeId: 'target', roundTripMs: 23, sampleTsMs: Date.now(), count: 1 }]
+                    linkTimings: [{ fromNodeId: 'node-1', toNodeId: '172.20.116.5', roundTripMs: 0, sampleTsMs: Date.now(), count: 1 }]
                   };
                 }
                 return Promise.resolve(new Response(JSON.stringify({ code: 0, message: 'ok', data }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
@@ -204,7 +204,7 @@ chromium.launchPersistentContext(userDataDir, {
               }
               if (String(url).includes('/api/control/relay/probe')) {
                 return Promise.resolve(new Response(JSON.stringify({
-                  pathTimings: [{ fromNodeId: 'node-1', toNodeId: 'target', roundTripMs: 23, sampleTsMs: Date.now(), count: 1 }]
+                  pathTimings: [{ fromNodeId: 'node-1', toNodeId: '172.20.116.5', roundTripMs: 0, sampleTsMs: Date.now(), count: 1 }]
                 }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
               }
               if (String(url).endsWith('/api/auth/refresh')) {
@@ -321,7 +321,8 @@ chromium.launchPersistentContext(userDataDir, {
               return {
                 className: root ? root.className : '',
                 title: root && root.querySelector('.opsb-icon') ? root.querySelector('.opsb-icon').title : '',
-                hopLatencies: root ? [...root.querySelectorAll('.opsb-hop-latency')].map((node) => node.textContent || '') : []
+                hopLatencies: root ? [...root.querySelectorAll('.opsb-hop-latency')].map((node) => node.textContent || '') : [],
+                panelOverflowY: root && root.querySelector('.opsb-panel') ? getComputedStyle(root.querySelector('.opsb-panel')).overflowY : ''
               };
             }))
             .then((bubbleResult) => ({ bubbleResult, result })));
@@ -331,6 +332,13 @@ chromium.launchPersistentContext(userDataDir, {
             }
             if (!bubbleResult.hopLatencies[0] || bubbleResult.hopLatencies[0].includes('-')) {
               throw new Error('service_worker_status_bubble_missing_entry_latency');
+            }
+            const finalLatency = bubbleResult.hopLatencies[bubbleResult.hopLatencies.length - 1] || '';
+            if (!finalLatency.includes('0 ms')) {
+              throw new Error('service_worker_status_bubble_missing_zero_latency');
+            }
+            if (bubbleResult.panelOverflowY === 'auto' || bubbleResult.panelOverflowY === 'scroll') {
+              throw new Error('service_worker_status_bubble_panel_scroll_enabled');
             }
             return serviceWorker.evaluate(() => globalThis.__oneProxySmokeRequests)
               .then((requests) => ({ requests, result }));

@@ -54,14 +54,14 @@
 }
 
 #one-proxy-status-root .opsb-panel {
-  width: min(380px, calc(100vw - 32px));
-  max-height: min(640px, calc(100vh - 86px));
+  width: min(520px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  height: auto;
   position: absolute;
   left: 0;
   bottom: 52px;
   display: none;
-  overflow: auto;
-  scrollbar-width: none;
+  overflow: visible;
   padding: 14px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 12px;
@@ -69,11 +69,6 @@
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
   opacity: 1;
   transition: opacity 180ms ease;
-}
-
-#one-proxy-status-root .opsb-panel::-webkit-scrollbar {
-  width: 0;
-  height: 0;
 }
 
 #one-proxy-status-root.opsb-open .opsb-panel {
@@ -111,7 +106,7 @@
 
 #one-proxy-status-root .opsb-stats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin-top: 12px;
 }
@@ -373,6 +368,11 @@
 @media (max-width: 420px) {
   #one-proxy-status-root .opsb-panel {
     width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+
+  #one-proxy-status-root .opsb-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   #one-proxy-status-root .opsb-row {
