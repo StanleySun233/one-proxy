@@ -334,8 +334,8 @@ chromium.launchPersistentContext(userDataDir, {
               throw new Error('service_worker_status_bubble_missing_entry_latency');
             }
             const finalLatency = bubbleResult.hopLatencies[bubbleResult.hopLatencies.length - 1] || '';
-            if (!finalLatency.includes('0 ms')) {
-              throw new Error('service_worker_status_bubble_missing_zero_latency');
+            if (!finalLatency.includes('<1 ms')) {
+              throw new Error('service_worker_status_bubble_missing_submillisecond_latency');
             }
             if (bubbleResult.panelOverflowY === 'auto' || bubbleResult.panelOverflowY === 'scroll') {
               throw new Error('service_worker_status_bubble_panel_scroll_enabled');

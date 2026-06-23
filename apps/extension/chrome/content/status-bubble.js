@@ -76,7 +76,7 @@
     if (value > 0) {
       return `${Math.round(value)} ms`;
     }
-    return options && options.showZero && ms !== null && ms !== undefined ? '0 ms' : '-';
+    return options && options.showZero && ms !== null && ms !== undefined ? '<1 ms' : '-';
   }
 
   function pad2(value) {

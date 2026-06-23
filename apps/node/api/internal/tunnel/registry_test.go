@@ -128,6 +128,18 @@ func TestRegistryOpenStreamRetriesAfterClosedSession(t *testing.T) {
 	}
 }
 
+func TestRoundTripMsRoundsSubMillisecondUp(t *testing.T) {
+	if got := roundTripMs(time.Nanosecond); got != 1 {
+		t.Fatalf("roundTripMs(time.Nanosecond) = %d, want 1", got)
+	}
+}
+
+func TestRoundTripMsKeepsZeroForInvalidDuration(t *testing.T) {
+	if got := roundTripMs(0); got != 0 {
+		t.Fatalf("roundTripMs(0) = %d, want 0", got)
+	}
+}
+
 func testWebsocketClient(t *testing.T, handler func(*websocket.Conn)) *websocket.Conn {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

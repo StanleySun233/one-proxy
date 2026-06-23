@@ -89,11 +89,22 @@ func (r *Registry) ForwardProbe(fromNodeID string, nextNodeID string, requestID 
 	response.PathTimings = append([]PathTiming{{
 		FromNodeID:  fromNodeID,
 		ToNodeID:    nextNodeID,
-		RoundTripMs: ended.Sub(started).Milliseconds(),
+		RoundTripMs: roundTripMs(ended.Sub(started)),
 		SampleTSMs:  ended.UnixMilli(),
 		Count:       1,
 	}}, response.PathTimings...)
 	return response, nil
+}
+
+func roundTripMs(elapsed time.Duration) int64 {
+	if elapsed <= 0 {
+		return 0
+	}
+	ms := elapsed.Milliseconds()
+	if ms == 0 {
+		return 1
+	}
+	return ms
 }
 
 func (r *Registry) OpenStream(nextNodeID string, remaining []string, targetHost string, targetPort int) (net.Conn, error) {

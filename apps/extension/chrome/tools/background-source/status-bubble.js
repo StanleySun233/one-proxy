@@ -462,19 +462,33 @@ function normalizeLinkTimings(items) {
   return (Array.isArray(items) ? items : []).map((item) => ({
     fromNodeId: item.fromNodeId || '',
     toNodeId: item.toNodeId || '',
-    roundTripMs: Number(item.roundTripMs || item.rttMs || 0),
+    roundTripMs: normalizedRoundTripMs(item),
     sampleTsMs: Number(item.sampleTsMs || 0),
     count: Number(item.count || 1)
   })).filter((item) => item.fromNodeId && item.toNodeId);
 }
 
+function normalizedRoundTripMs(item) {
+  const raw = item && item.roundTripMs !== undefined && item.roundTripMs !== null ? item.roundTripMs : item && item.rttMs;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.round(value));
+}
+
 function mergeLinkTimings(remoteItems, measuredItems) {
   const result = [];
   const indexes = new Map();
-  [...measuredItems, ...remoteItems].forEach((item) => {
+  [...remoteItems, ...measuredItems].forEach((item) => {
     const key = `${item.fromNodeId}\u0000${item.toNodeId}`;
     if (indexes.has(key)) {
-      result[indexes.get(key)] = item;
+      const current = result[indexes.get(key)];
+      const currentMs = Number(current.roundTripMs || 0);
+      const nextMs = Number(item.roundTripMs || 0);
+      if (nextMs > 0 || currentMs <= 0) {
+        result[indexes.get(key)] = item;
+      }
       return;
     }
     indexes.set(key, result.length);
