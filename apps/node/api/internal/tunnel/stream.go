@@ -38,6 +38,16 @@ func (c *streamConn) Read(p []byte) (int, error) {
 		return n, nil
 	}
 	if c.remoteClosed {
+		select {
+		case data, ok := <-c.readCh:
+			if ok {
+				c.readBuf.Write(data)
+				n, _ := c.readBuf.Read(p)
+				c.mu.Unlock()
+				return n, nil
+			}
+		default:
+		}
 		err := c.closeErr
 		c.mu.Unlock()
 		if err == nil {
