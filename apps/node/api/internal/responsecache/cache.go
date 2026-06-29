@@ -61,6 +61,15 @@ type diskMeta struct {
 
 var ErrMiss = errors.New("cache_miss")
 
+var streamingContentTypes = map[string]bool{
+	"application/json-seq":      true,
+	"application/ndjson":        true,
+	"application/stream+json":   true,
+	"application/x-json-stream": true,
+	"application/x-ndjson":      true,
+	"text/event-stream":         true,
+}
+
 func New(cfg Config) (*Cache, error) {
 	if cfg.TTL <= 0 {
 		cfg.TTL = time.Hour
@@ -136,8 +145,30 @@ func CanStore(req *http.Request, statusCode int, header http.Header, bodySize in
 	if strings.Contains(strings.ToLower(header.Get("Pragma")), "no-cache") {
 		return false
 	}
-	contentType := strings.ToLower(strings.TrimSpace(header.Get("Content-Type")))
-	return !strings.HasPrefix(contentType, "text/event-stream")
+	return !IsStreamingContentType(header.Get("Content-Type"))
+}
+
+func IsStreamingContentType(contentType string) bool {
+	mediaType := strings.ToLower(strings.TrimSpace(contentType))
+	if index := strings.Index(mediaType, ";"); index >= 0 {
+		mediaType = strings.TrimSpace(mediaType[:index])
+	}
+	if streamingContentTypes[mediaType] {
+		return true
+	}
+	mediaParts := strings.SplitN(mediaType, "/", 2)
+	if len(mediaParts) != 2 {
+		return false
+	}
+	mediaClass := mediaParts[0]
+	subtype := mediaParts[1]
+	if mediaClass == "audio" || mediaClass == "video" {
+		return true
+	}
+	if mediaClass == "multipart" && (subtype == "x-mixed-replace" || subtype == "mixed") {
+		return true
+	}
+	return strings.Contains(subtype, "stream") || strings.Contains(subtype, "ndjson") || strings.Contains(subtype, "json-seq")
 }
 
 func (c *Cache) Set(key string, entry Entry) error {

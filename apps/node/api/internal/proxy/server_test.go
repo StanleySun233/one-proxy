@@ -298,9 +298,131 @@ func TestForwardDirectStreamsContentLengthMismatch(t *testing.T) {
 	}
 }
 
+func TestForwardDirectStreamsNDJSONWithResponseCache(t *testing.T) {
+	attempts := 0
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		attempts += 1
+		w.Header().Set("Content-Type", "application/x-ndjson; charset=utf-8")
+		w.Header().Set("Content-Length", "6")
+		_, _ = w.Write([]byte("bad"))
+	}))
+	defer origin.Close()
+
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	server := newAuthenticatedForwardServer(t, store)
+	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.SetResponseCache(cache)
+
+	req := httptest.NewRequest(http.MethodGet, origin.URL+"/api/cognitive/ais/frame/tiles/stream", nil)
+	setForwardProxyToken(req)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+	if resp.Body.String() != "bad" {
+		t.Fatalf("body = %q", resp.Body.String())
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d", attempts)
+	}
+}
+
+func TestForwardDirectDoesNotCacheNDJSONStream(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		_, _ = w.Write([]byte("{\"type\":\"complete\"}\n"))
+	}))
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	server := newAuthenticatedForwardServer(t, store)
+	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.SetResponseCache(cache)
+
+	req := httptest.NewRequest(http.MethodGet, origin.URL+"/api/cognitive/ais/frame/tiles/stream", nil)
+	setForwardProxyToken(req)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK || resp.Body.String() != "{\"type\":\"complete\"}\n" {
+		t.Fatalf("first response status=%d body=%q", resp.Code, resp.Body.String())
+	}
+	origin.Close()
+
+	req = httptest.NewRequest(http.MethodGet, origin.URL+"/api/cognitive/ais/frame/tiles/stream", nil)
+	setForwardProxyToken(req)
+	resp = httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusBadGateway {
+		t.Fatalf("stream should not use cache, status=%d body=%q", resp.Code, resp.Body.String())
+	}
+	if resp.Header().Get(responseCacheHeader) != "" {
+		t.Fatalf("cache header = %q", resp.Header().Get(responseCacheHeader))
+	}
+}
+
+func TestForwardDirectStreamsUnknownLengthWithResponseCache(t *testing.T) {
+	attempts := 0
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		attempts += 1
+		w.Header().Set("Content-Type", "application/json")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("missing flusher")
+		}
+		flusher.Flush()
+		_, _ = w.Write([]byte("{\"chunk\":true}\n"))
+	}))
+	store := policystore.New("")
+	if err := store.Update("test", `{"nodes":[],"links":[],"chains":[],"routeRules":[{"id":"default","matchType":"default","actionType":"direct","enabled":true}]}`); err != nil {
+		t.Fatal(err)
+	}
+	server := newAuthenticatedForwardServer(t, store)
+	cache, err := responsecache.New(responsecache.Config{Dir: t.TempDir(), TTL: time.Hour, MemoryMaxBytes: 1024, DiskMaxBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.SetResponseCache(cache)
+
+	req := httptest.NewRequest(http.MethodGet, origin.URL+"/api/custom/stream", nil)
+	setForwardProxyToken(req)
+	resp := httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK || resp.Body.String() != "{\"chunk\":true}\n" {
+		t.Fatalf("first response status=%d body=%q", resp.Code, resp.Body.String())
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d", attempts)
+	}
+	origin.Close()
+
+	req = httptest.NewRequest(http.MethodGet, origin.URL+"/api/custom/stream", nil)
+	setForwardProxyToken(req)
+	resp = httptest.NewRecorder()
+	server.ServeHTTP(resp, req)
+	if resp.Code != http.StatusBadGateway {
+		t.Fatalf("unknown-length response should not use cache, status=%d body=%q", resp.Code, resp.Body.String())
+	}
+	if resp.Header().Get(responseCacheHeader) != "" {
+		t.Fatalf("cache header = %q", resp.Header().Get(responseCacheHeader))
+	}
+}
+
 func TestForwardDirectServesCacheOnlyAfterForwardError(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Length", "6")
 		_, _ = w.Write([]byte("cached"))
 	}))
 	store := policystore.New("")

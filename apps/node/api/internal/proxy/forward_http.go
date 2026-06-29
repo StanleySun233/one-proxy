@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
@@ -261,11 +260,17 @@ func (s *Server) shouldBufferForwardResponse(req *http.Request, resp *http.Respo
 	if method == http.MethodHead {
 		return true
 	}
-	return s.responseCache != nil && responsecache.CanStore(req, resp.StatusCode, resp.Header, 0)
+	if s.responseCache == nil || shouldStreamForwardResponse(resp, method) {
+		return false
+	}
+	if resp.ContentLength < 0 || len(resp.TransferEncoding) > 0 {
+		return false
+	}
+	return responsecache.CanStore(req, resp.StatusCode, resp.Header, int(resp.ContentLength))
 }
 
 func shouldStreamForwardResponse(resp *http.Response, method string) bool {
-	return method != http.MethodHead && strings.HasPrefix(strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))), "text/event-stream")
+	return method != http.MethodHead && responsecache.IsStreamingContentType(resp.Header.Get("Content-Type"))
 }
 
 func writeForwardResponse(w http.ResponseWriter, resp forwardResponse) int64 {

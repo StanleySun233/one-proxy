@@ -42,6 +42,37 @@ func TestCanStoreOnlySafeCompleteResponses(t *testing.T) {
 	}
 }
 
+func TestCanStoreRejectsStreamingContentTypes(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "http://example.test/stream", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, contentType := range []string{
+		"text/event-stream",
+		"text/event-stream; charset=utf-8",
+		"application/x-ndjson",
+		"application/x-ndjson; charset=utf-8",
+		"application/ndjson",
+		"application/json-seq",
+		"application/stream+json",
+		"application/vnd.acme.stream+json",
+		"application/vnd.acme.ndjson",
+		"application/x-json-stream",
+		"application/octet-stream",
+		"audio/mpeg",
+		"video/mp4",
+		"multipart/x-mixed-replace",
+	} {
+		header := http.Header{"Content-Type": []string{contentType}}
+		if CanStore(req, http.StatusOK, header, 2) {
+			t.Fatalf("streaming content type should not be cacheable: %s", contentType)
+		}
+		if !IsStreamingContentType(contentType) {
+			t.Fatalf("streaming content type not recognized: %s", contentType)
+		}
+	}
+}
+
 func TestCacheClearsDiskOnStartupAndExpiresEntries(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "old.cache"), []byte("old"), 0o644); err != nil {
