@@ -3,6 +3,14 @@ import * as net from 'node:net';
 import { closeServer, listenHttpServer, readConfig, readState, readTokens } from "./lifecycle.js";
 import { resolveRoute } from "./router.js";
 const maxRetryBufferBytes = 8 * 1024 * 1024;
+const streamingContentTypes = new Set([
+    'application/json-seq',
+    'application/ndjson',
+    'application/stream+json',
+    'application/x-json-stream',
+    'application/x-ndjson',
+    'text/event-stream'
+]);
 export async function startHttpProxyListeners(input, bindings, liveState = false, onProxyActivity) {
     const httpServer = createHttpProxyServer(input, liveState, onProxyActivity);
     const httpsServer = createHttpProxyServer(input, liveState, onProxyActivity);
@@ -318,6 +326,22 @@ function collectOrStreamHttpProxyResponse(upstreamOptions, body, response, skipL
             const chunks = [];
             let totalBytes = 0;
             const statusCode = upstreamResponse.statusCode ?? 502;
+            const streamResponse = (prefixChunks = []) => {
+                response.writeHead(statusCode, upstreamResponse.headers);
+                for (const chunk of prefixChunks) {
+                    response.write(chunk);
+                }
+                upstreamResponse.once('aborted', () => {
+                    response.destroy(new Error('upstream_response_aborted'));
+                    settle(new Error('upstream_response_aborted'));
+                });
+                upstreamResponse.once('error', (error) => {
+                    response.destroy(error);
+                    settle(error);
+                });
+                upstreamResponse.once('end', () => settle(null, { streamed: true }));
+                upstreamResponse.pipe(response);
+            };
             const cleanupBufferedHandlers = () => {
                 upstreamResponse.off('aborted', onAborted);
                 upstreamResponse.off('error', onError);
@@ -349,21 +373,12 @@ function collectOrStreamHttpProxyResponse(upstreamOptions, body, response, skipL
             };
             const streamOverflow = () => {
                 cleanupBufferedHandlers();
-                response.writeHead(statusCode, upstreamResponse.headers);
-                for (const chunk of chunks) {
-                    response.write(chunk);
-                }
-                upstreamResponse.once('aborted', () => {
-                    response.destroy(new Error('upstream_response_aborted'));
-                    settle(new Error('upstream_response_aborted'));
-                });
-                upstreamResponse.once('error', (error) => {
-                    response.destroy(error);
-                    settle(error);
-                });
-                upstreamResponse.once('end', () => settle(null, { streamed: true }));
-                upstreamResponse.pipe(response);
+                streamResponse(chunks);
             };
+            if (shouldStreamBufferedProxyResponse(upstreamResponse, skipLengthCheck, allowRetry)) {
+                streamResponse();
+                return;
+            }
             const onData = (chunk) => {
                 chunks.push(Buffer.from(chunk));
                 totalBytes += chunk.length;
@@ -414,6 +429,43 @@ function expectedContentLength(headers) {
     }
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+function shouldStreamBufferedProxyResponse(upstreamResponse, isHead, allowRetry) {
+    if (isHead) {
+        return false;
+    }
+    const statusCode = upstreamResponse.statusCode ?? 502;
+    if (allowRetry && isRetryableProxyStatus(statusCode)) {
+        return false;
+    }
+    const contentLength = expectedContentLength(upstreamResponse.headers);
+    if (contentLength !== null) {
+        return contentLength > maxRetryBufferBytes || isStreamingContentType(headerValue(upstreamResponse.headers['content-type']));
+    }
+    return true;
+}
+function isStreamingContentType(contentType) {
+    const mediaType = contentType.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+    if (!mediaType) {
+        return false;
+    }
+    if (streamingContentTypes.has(mediaType)) {
+        return true;
+    }
+    const [type, subtype] = mediaType.split('/', 2);
+    if (type === 'audio' || type === 'video') {
+        return true;
+    }
+    if (type === 'multipart' && (subtype === 'mixed' || subtype === 'x-mixed-replace')) {
+        return true;
+    }
+    return Boolean(subtype && (subtype.includes('stream') || subtype.includes('ndjson') || subtype.includes('json-seq')));
+}
+function headerValue(value) {
+    if (Array.isArray(value)) {
+        return value[0] ?? '';
+    }
+    return value ?? '';
 }
 function bufferedResponseHeaders(headers, bodyLength, preserveContentLength) {
     const next = { ...headers };

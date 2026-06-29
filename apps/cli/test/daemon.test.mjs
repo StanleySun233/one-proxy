@@ -511,6 +511,77 @@ test('HTTP proxy listener streams large safe responses without retry buffering',
   }
 });
 
+test('HTTP proxy listener streams stream-like safe responses without retry buffering', async () => {
+  const { startHttpProxyListeners } = await import('../src/daemon/http-proxy.ts');
+  const cases = [
+    'application/x-ndjson',
+    'application/vnd.acme.stream+json',
+    'application/vnd.acme.ndjson',
+    'audio/mpeg',
+    'video/mp4',
+    'multipart/x-mixed-replace; boundary=frame',
+    'application/json'
+  ];
+  for (const contentType of cases) {
+    let endUpstream = () => {};
+    const upstream = http.createServer((_request, response) => {
+      response.setHeader('content-type', contentType);
+      response.write('first\n');
+      endUpstream = () => response.end('second\n');
+    });
+    const upstreamPort = await listen(upstream);
+    const proxy = await startHttpProxyListeners({
+      config: { schemaVersion: 1, overrides: { direct: ['127.0.0.1'], proxy: [] } },
+      state: { schemaVersion: 1 }
+    }, {
+      host: '127.0.0.1',
+      httpPort: 0,
+      httpsPort: 0,
+      ipcPort: 0
+    });
+    const httpPort = proxy.httpServer.address().port;
+
+    try {
+      let body = '';
+      let responseHeaders = {};
+      let firstChunkResolve;
+      const firstChunk = new Promise((resolve) => {
+        firstChunkResolve = resolve;
+      });
+      const done = new Promise((resolve, reject) => {
+        const request = http.get({
+          host: '127.0.0.1',
+          port: httpPort,
+          path: `http://127.0.0.1:${upstreamPort}/stream`,
+          headers: { host: `127.0.0.1:${upstreamPort}` }
+        }, (response) => {
+          responseHeaders = response.headers;
+          response.setEncoding('utf8');
+          response.on('data', (chunk) => {
+            body += chunk;
+            if (body.includes('first\n')) {
+              firstChunkResolve(body);
+            }
+          });
+          response.on('end', () => resolve(body));
+        });
+        request.on('error', reject);
+      });
+      const earlyBody = await Promise.race([
+        firstChunk,
+        new Promise((resolve) => setTimeout(() => resolve(''), 250))
+      ]);
+      assert.equal(earlyBody, 'first\n', contentType);
+      assert.equal(responseHeaders['content-length'], undefined, contentType);
+      endUpstream();
+      assert.equal(await done, 'first\nsecond\n', contentType);
+    } finally {
+      await proxy.close();
+      await closeServer(upstream);
+    }
+  }
+});
+
 test('monitor parser reads Windows netstat connection rows', async () => {
   const { monitorInternals } = await import('../src/monitor.ts');
   const entries = monitorInternals.parseWindowsNetstat(`

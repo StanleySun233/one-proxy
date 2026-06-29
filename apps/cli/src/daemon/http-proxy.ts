@@ -16,6 +16,14 @@ export type ProxyServers = {
 };
 
 const maxRetryBufferBytes = 8 * 1024 * 1024;
+const streamingContentTypes = new Set([
+  'application/json-seq',
+  'application/ndjson',
+  'application/stream+json',
+  'application/x-json-stream',
+  'application/x-ndjson',
+  'text/event-stream'
+]);
 
 export async function startHttpProxyListeners(input: ProxyRouteContext, bindings: DaemonBindings, liveState = false, onProxyActivity?: () => void): Promise<ProxyServers> {
   const httpServer = createHttpProxyServer(input, liveState, onProxyActivity);
@@ -346,6 +354,22 @@ function collectOrStreamHttpProxyResponse(upstreamOptions: http.RequestOptions, 
       const chunks: Buffer[] = [];
       let totalBytes = 0;
       const statusCode = upstreamResponse.statusCode ?? 502;
+      const streamResponse = (prefixChunks: Buffer[] = []) => {
+        response.writeHead(statusCode, upstreamResponse.headers);
+        for (const chunk of prefixChunks) {
+          response.write(chunk);
+        }
+        upstreamResponse.once('aborted', () => {
+          response.destroy(new Error('upstream_response_aborted'));
+          settle(new Error('upstream_response_aborted'));
+        });
+        upstreamResponse.once('error', (error) => {
+          response.destroy(error);
+          settle(error);
+        });
+        upstreamResponse.once('end', () => settle(null, { streamed: true }));
+        upstreamResponse.pipe(response);
+      };
       const cleanupBufferedHandlers = () => {
         upstreamResponse.off('aborted', onAborted);
         upstreamResponse.off('error', onError);
@@ -377,21 +401,12 @@ function collectOrStreamHttpProxyResponse(upstreamOptions: http.RequestOptions, 
       };
       const streamOverflow = () => {
         cleanupBufferedHandlers();
-        response.writeHead(statusCode, upstreamResponse.headers);
-        for (const chunk of chunks) {
-          response.write(chunk);
-        }
-        upstreamResponse.once('aborted', () => {
-          response.destroy(new Error('upstream_response_aborted'));
-          settle(new Error('upstream_response_aborted'));
-        });
-        upstreamResponse.once('error', (error) => {
-          response.destroy(error);
-          settle(error);
-        });
-        upstreamResponse.once('end', () => settle(null, { streamed: true }));
-        upstreamResponse.pipe(response);
+        streamResponse(chunks);
       };
+      if (shouldStreamBufferedProxyResponse(upstreamResponse, skipLengthCheck, allowRetry)) {
+        streamResponse();
+        return;
+      }
       const onData = (chunk: Buffer) => {
         chunks.push(Buffer.from(chunk));
         totalBytes += chunk.length;
@@ -446,6 +461,46 @@ function expectedContentLength(headers: http.IncomingHttpHeaders) {
   }
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function shouldStreamBufferedProxyResponse(upstreamResponse: http.IncomingMessage, isHead: boolean, allowRetry: boolean) {
+  if (isHead) {
+    return false;
+  }
+  const statusCode = upstreamResponse.statusCode ?? 502;
+  if (allowRetry && isRetryableProxyStatus(statusCode)) {
+    return false;
+  }
+  const contentLength = expectedContentLength(upstreamResponse.headers);
+  if (contentLength !== null) {
+    return contentLength > maxRetryBufferBytes || isStreamingContentType(headerValue(upstreamResponse.headers['content-type']));
+  }
+  return true;
+}
+
+function isStreamingContentType(contentType: string) {
+  const mediaType = contentType.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+  if (!mediaType) {
+    return false;
+  }
+  if (streamingContentTypes.has(mediaType)) {
+    return true;
+  }
+  const [type, subtype] = mediaType.split('/', 2);
+  if (type === 'audio' || type === 'video') {
+    return true;
+  }
+  if (type === 'multipart' && (subtype === 'mixed' || subtype === 'x-mixed-replace')) {
+    return true;
+  }
+  return Boolean(subtype && (subtype.includes('stream') || subtype.includes('ndjson') || subtype.includes('json-seq')));
+}
+
+function headerValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? '';
+  }
+  return value ?? '';
 }
 
 function bufferedResponseHeaders(headers: http.IncomingHttpHeaders, bodyLength: number, preserveContentLength: boolean): http.OutgoingHttpHeaders {
