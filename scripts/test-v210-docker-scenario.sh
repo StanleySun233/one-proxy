@@ -9,6 +9,7 @@ node_repo="${ONEPROXY_NODE_IMAGE_REPO:-ghcr.io/stanleysun233/oneproxy-node}"
 tag="${ONEPROXY_IMAGE_TAG:-v2.1.0-rc.local}"
 mysql_image="${ONEPROXY_MYSQL_IMAGE:-mysql:8.4}"
 redis_image="${ONEPROXY_REDIS_IMAGE:-redis:7}"
+guacd_image="${ONEPROXY_GUACD_IMAGE:-guacamole/guacd:1.6.0}"
 mysql_db="${ONEPROXY_V210_DB:-oneproxy_v210}"
 mysql_root_password="${ONEPROXY_V210_MYSQL_ROOT_PASSWORD:-oneproxy-v210-root}"
 jwt_key="${ONEPROXY_V210_JWT_SIGNING_KEY:-oneproxy-v210-jwt}"
@@ -83,16 +84,20 @@ services:
       - "127.0.0.1:${redis_host_port}:6379"
     volumes:
       - redis-data:/data
+  guacd:
+    image: ${guacd_image}
   panel:
     image: ${panel_repo}:${tag}
     depends_on:
       - mysql
       - redis
+      - guacd
     environment:
       MYSQL_DSN: "root:${mysql_root_password}@tcp(mysql:3306)/${mysql_db}?charset=utf8mb4&parseTime=true&loc=UTC"
       ADMIN_PASSWORD: "${admin_password}"
       JWT_SIGNING_KEY: "${jwt_key}"
       REDIS_URL: "redis://redis:6379/0"
+      GUACD_ADDR: "guacd:4822"
       PORT: "2886"
       HTTP_ADDR: "0.0.0.0:2887"
       CONTROL_PLANE_URL: "http://panel:2887"
@@ -144,11 +149,12 @@ print_plan() {
   echo "release=${release}"
   echo "mode=${mode}"
   echo "project=${project}"
-  echo "services=mysql,redis,panel,node"
+  echo "services=mysql,redis,guacd,panel,node"
   echo "panel_image=${panel_repo}:${tag}"
   echo "node_image=${node_repo}:${tag}"
   echo "mysql_image=${mysql_image}"
   echo "redis_image=${redis_image}"
+  echo "guacd_image=${guacd_image}"
   echo "tenant_name=${tenant_name}"
   echo "node_name=${node_name}"
   echo "host_ports=panel:${panel_host_port},node_http:${node_http_host_port},node_https:${node_https_host_port},node_tcp:${node_tcp_host_port},node_udp:${node_udp_host_port},node_direct:${node_direct_host_port},mysql:${mysql_host_port},redis:${redis_host_port}"

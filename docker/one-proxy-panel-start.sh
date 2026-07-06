@@ -23,7 +23,7 @@ WEB_PORT="${WEB_PORT:-2885}"
 EDGE_ADDR="${EDGE_ADDR:-:${PUBLIC_PORT}}"
 EDGE_WEB_URL="${EDGE_WEB_URL:-http://127.0.0.1:${WEB_PORT}}"
 EDGE_API_URL="${EDGE_API_URL:-http://127.0.0.1:2887}"
-GUACD_ADDR="${GUACD_ADDR:-127.0.0.1:4822}"
+GUACD_ADDR="${GUACD_ADDR:-guacd:4822}"
 HOSTNAME="${HOSTNAME:-0.0.0.0}"
 CONTROL_PLANE_URL="${CONTROL_PLANE_URL:-http://127.0.0.1:2887}"
 TZ="${TZ:-Asia/Shanghai}"
@@ -37,8 +37,31 @@ export HOSTNAME
 export CONTROL_PLANE_URL
 export TZ
 
-/usr/sbin/guacd -b 127.0.0.1 -l 4822 -f &
-guacd_pid="$!"
+guacd_pid=""
+embedded_guacd=0
+case "${EMBEDDED_GUACD:-auto}" in
+  1|true|yes)
+    embedded_guacd=1
+    ;;
+  auto)
+    case "$GUACD_ADDR" in
+      127.0.0.1:4822|localhost:4822)
+        if command -v guacd >/dev/null 2>&1; then
+          embedded_guacd=1
+        fi
+        ;;
+    esac
+    ;;
+esac
+if [ "$embedded_guacd" = "1" ]; then
+  guacd_bin="$(command -v guacd || true)"
+  if [ -z "$guacd_bin" ]; then
+    echo "embedded_guacd_unavailable" >&2
+    exit 1
+  fi
+  "$guacd_bin" -b 127.0.0.1 -l 4822 -f &
+  guacd_pid="$!"
+fi
 /app/bin/one-proxy-panel &
 backend_pid="$!"
 frontend_pid=""
@@ -69,7 +92,7 @@ frontend_pid="$!"
 edge_pid="$!"
 
 while :; do
-  if ! kill -0 "$guacd_pid" 2>/dev/null; then
+  if [ -n "$guacd_pid" ] && ! kill -0 "$guacd_pid" 2>/dev/null; then
     capture_wait "$guacd_pid"
     status="$wait_status"
     cleanup
