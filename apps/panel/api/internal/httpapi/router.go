@@ -10,12 +10,14 @@ import (
 type Router struct {
 	mux     *http.ServeMux
 	service *service.ControlPlane
+	relay   *directRelayHub
 }
 
 func NewRouter(cfg HTTPConfig, service *service.ControlPlane) http.Handler {
 	router := &Router{
 		mux:     http.NewServeMux(),
 		service: service,
+		relay:   newDirectRelayHub(),
 	}
 	router.routes(cfg)
 	return withObservability(router.mux)
@@ -42,6 +44,10 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/audit/proxy/events", r.requireAccount(r.handleAuditProxyEvents))
 	r.mux.HandleFunc("/api/proxy/extension/bootstrap", r.requireAccount(r.handleExtensionBootstrap))
 	r.mux.HandleFunc("/api/proxy/extension/direct/session", r.requireAccount(r.handleClientDirectSession))
+	r.mux.HandleFunc("/api/remote/credentials", r.requireAccount(r.handleRemoteCredentials))
+	r.mux.HandleFunc("/api/remote/credentials/", r.requireAccount(r.handleRemoteCredentialByID))
+	r.mux.HandleFunc("/api/remote/sessions", r.requireAccount(r.handleRemoteSessions))
+	r.mux.HandleFunc("/api/remote/sessions/", r.handleRemoteSessionByID)
 	r.mux.HandleFunc("/api/overview", r.requireAccount(r.handleOverview))
 	r.mux.HandleFunc("/api/tenants", r.requireAccount(r.handleTenants))
 	r.mux.HandleFunc("/api/tenants/", r.requireAccount(r.handleTenantByID))
@@ -75,6 +81,9 @@ func (r *Router) routes(cfg HTTPConfig) {
 	r.mux.HandleFunc("/api/node/agent/direct/candidates", r.requireNode(r.handleDirectCandidates))
 	r.mux.HandleFunc("/api/node/agent/direct/link/plan", r.requireNode(r.handleDirectLinkPlan))
 	r.mux.HandleFunc("/api/node/agent/direct/status", r.requireNode(r.handleDirectStatus))
+	r.mux.HandleFunc("/api/node/agent/direct/relay/control", r.requireNode(r.handleDirectRelayControl))
+	r.mux.HandleFunc("/api/node/agent/direct/relay/source", r.requireNode(r.handleDirectRelaySource))
+	r.mux.HandleFunc("/api/node/agent/direct/relay/target", r.requireNode(r.handleDirectRelayTarget))
 	r.mux.HandleFunc("/api/node/agent/direct/client/session/validate", r.requireNode(r.handleClientDirectSessionValidate))
 	r.mux.HandleFunc("/api/node/agent/proxy/token/authenticate", r.requireNode(r.handleProxyTokenAuthenticate))
 	r.mux.HandleFunc("/api/node/agent/proxy/token/validate", r.requireNode(r.handleProxyTokenValidate))

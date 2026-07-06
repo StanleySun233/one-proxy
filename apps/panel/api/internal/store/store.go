@@ -12,6 +12,12 @@ type AccountStore interface {
 	CreateAccount(input domain.CreateAccountInput) (domain.Account, error)
 	UpdateAccount(accountID string, input domain.UpdateAccountInput) (domain.Account, error)
 	DeleteAccount(accountID string) error
+	ListRemoteCredentials(account domain.Account, tenantCtx domain.TenantAuthContext, protocol string) []domain.RemoteCredential
+	CreateRemoteCredential(account domain.Account, tenantCtx domain.TenantAuthContext, input domain.CreateRemoteCredentialInput) (domain.RemoteCredential, error)
+	UpdateRemoteCredential(account domain.Account, tenantCtx domain.TenantAuthContext, credentialID string, input domain.UpdateRemoteCredentialInput) (domain.RemoteCredential, error)
+	DeleteRemoteCredential(account domain.Account, tenantCtx domain.TenantAuthContext, credentialID string) error
+	RemoteCredential(account domain.Account, tenantCtx domain.TenantAuthContext, credentialID string) (domain.RemoteCredential, bool)
+	TouchRemoteCredential(credentialID string) error
 }
 
 type SessionStore interface {

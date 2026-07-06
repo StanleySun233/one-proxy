@@ -224,6 +224,7 @@ export function NodeTopologyPageContent() {
                     <th>{nodesT('direction')}</th>
                     <th>{t('common.status')}</th>
                     <th>{nodesT('address')}</th>
+                    <th>{nodesT('reason')}</th>
                     <th>{t('common.parent')}</th>
                     <th>{t('common.heartbeat')}</th>
                   </tr>
@@ -238,6 +239,7 @@ export function NodeTopologyPageContent() {
                         <span className={transportBadgeClassName(transport.status, enums)}>{transport.status}</span>
                       </td>
                       <td className="mono">{transport.address}</td>
+                      <td className="mono">{transportDetail(transport.details) || <span className="muted-text">{t('common.none')}</span>}</td>
                       <td>{describeNodeName(transport.parentNodeId, nodesByID) || <span className="muted-text">{t('common.root')}</span>}</td>
                       <td className="mono">{transport.lastHeartbeatAt ? formatISODateTime(transport.lastHeartbeatAt) : <span className="muted-text">{t('common.never')}</span>}</td>
                     </tr>
@@ -304,4 +306,8 @@ export function NodeTopologyPageContent() {
       </ConsolePage>
     </AuthGate>
   );
+}
+
+function transportDetail(details: Record<string, string>) {
+  return details.fallbackReason || details.selectedCandidate || details.natType || details.source || '';
 }

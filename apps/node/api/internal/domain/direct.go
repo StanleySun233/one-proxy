@@ -4,6 +4,7 @@ const (
 	TransportTypeRelayWSParent      = "relay_ws_parent"
 	TransportTypeDirectUDPCandidate = "direct_udp_candidate"
 	TransportTypeDirectQUIC         = "direct_quic"
+	TransportTypeDirectRelay        = "direct_relay"
 	TransportDirectionPeer          = "peer"
 	CandidateTypeHost               = "host"
 	CandidateTypeServerReflexive    = "srflx"

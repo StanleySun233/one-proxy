@@ -21,6 +21,7 @@ import (
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/controlproxy"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/controlrelay"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/direct"
+	"github.com/StanleySun233/python-proxy/apps/node/api/internal/directrelay"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/domain"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/localconsole"
 	"github.com/StanleySun233/python-proxy/apps/node/api/internal/network"
@@ -65,6 +66,8 @@ func main() {
 	}
 	tunnelRegistry := tunnel.NewRegistry()
 	directRegistry := direct.NewRegistry()
+	directRelay := directrelay.New(manager)
+	directRegistry.SetRelayStreamOpener(directRelay)
 	if cfg.ControlPlaneURL != "" && cfg.NodeAccessToken != "" && cfg.NodeID != "" {
 		current := manager.Current()
 		if err := manager.Attach(runtime.Binding{
@@ -184,6 +187,9 @@ func main() {
 	mux.Handle("/api/node/agent/direct/candidates", forwarder)
 	mux.Handle("/api/node/agent/direct/link/plan", forwarder)
 	mux.Handle("/api/node/agent/direct/status", forwarder)
+	mux.Handle("/api/node/agent/direct/relay/control", forwarder)
+	mux.Handle("/api/node/agent/direct/relay/source", forwarder)
+	mux.Handle("/api/node/agent/direct/relay/target", forwarder)
 	if dataPathReady() {
 		current := manager.Current()
 		log.Printf("proxy-node bound nodeID=%s controlPlaneURL=%s", current.NodeID, current.ControlPlaneURL)
@@ -219,6 +225,7 @@ func main() {
 	}
 	tunnelController := tunnel.NewController(manager, tunnelRegistry, cfg.NodeTunnelPath, tunnelInterval)
 	go tunnelController.Run()
+	go directRelay.Run(context.Background())
 	startDeferredDataPathServices(cfg, manager, directRegistry, proxyAuthorizer, tunnelRegistry, dataPathReady)
 	go manager.Run()
 	server := &http.Server{

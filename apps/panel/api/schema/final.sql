@@ -48,6 +48,25 @@ CREATE TABLE IF NOT EXISTS tenant_memberships (
   CONSTRAINT fk_tenant_memberships_create_id FOREIGN KEY (create_id) REFERENCES accounts(id)
 );
 
+CREATE TABLE IF NOT EXISTS remote_credentials (
+  id VARCHAR(191) PRIMARY KEY,
+  tenant_id VARCHAR(191),
+  account_id VARCHAR(191) NOT NULL,
+  name VARCHAR(191) NOT NULL,
+  protocol VARCHAR(64) NOT NULL,
+  scope VARCHAR(64) NOT NULL,
+  username VARCHAR(255) NOT NULL,
+  secret_type VARCHAR(64) NOT NULL,
+  encrypted_payload LONGTEXT NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  last_used_at VARCHAR(64),
+  INDEX idx_remote_credentials_account (account_id, protocol),
+  INDEX idx_remote_credentials_tenant (tenant_id, protocol),
+  CONSTRAINT fk_remote_credentials_account_id FOREIGN KEY (account_id) REFERENCES accounts(id),
+  CONSTRAINT fk_remote_credentials_tenant_id FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS nodes (
   id VARCHAR(191) PRIMARY KEY,
   name VARCHAR(191) NOT NULL,
@@ -377,6 +396,15 @@ CREATE TABLE IF NOT EXISTS node_transports (
   CONSTRAINT fk_node_transports_parent_node_id FOREIGN KEY (parent_node_id) REFERENCES nodes(id)
 );
 
+CREATE TABLE IF NOT EXISTS direct_link_attempts (
+  link_id VARCHAR(191) PRIMARY KEY,
+  punch_token VARCHAR(191) NOT NULL,
+  expires_at VARCHAR(64) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_direct_link_attempts_link_id FOREIGN KEY (link_id) REFERENCES node_links(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS chain_probe_results (
   chain_id VARCHAR(191) PRIMARY KEY,
   status VARCHAR(64) NOT NULL,
@@ -597,6 +625,7 @@ INSERT IGNORE INTO field_enum (id, field, value, name, meta) VALUES
 ('enum-transport_type-reverse_ws_parent', 'transport_type', 'reverse_ws_parent', 'Reverse WS Parent', '{}'),
 ('enum-transport_type-direct_udp_candidate', 'transport_type', 'direct_udp_candidate', 'Direct UDP Candidate', '{}'),
 ('enum-transport_type-direct_quic', 'transport_type', 'direct_quic', 'Direct QUIC', '{}'),
+('enum-transport_type-direct_relay', 'transport_type', 'direct_relay', 'Direct Relay', '{}'),
 ('enum-transport_type-child_ws', 'transport_type', 'child_ws', 'Child WS', '{}'),
 ('enum-transport_type-reverse_ws', 'transport_type', 'reverse_ws', 'Reverse WS', '{}'),
 ('enum-transport_status-connected', 'transport_status', 'connected', 'Connected', '{"color":"#22c55e","className":"is-good"}'),

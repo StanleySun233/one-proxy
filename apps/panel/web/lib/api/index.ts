@@ -29,4 +29,5 @@ export { getSetupStatus, testSetupConnection, generateSetupKey, submitSetupInit 
 export { fetchEnums } from './enums';
 export { getAuditBusinessEvents, getAuditDashboard, getAuditNetworkSessions } from './audit';
 export { getNodeReleaseTags } from './releases';
+export { getRemoteCredentials, createRemoteCredential, updateRemoteCredential, deleteRemoteCredential, createRemoteSession } from './remote';
 export type { NodeReleaseTags } from './releases';

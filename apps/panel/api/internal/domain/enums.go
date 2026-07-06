@@ -108,6 +108,7 @@ const (
 	TransportTypePublicHTTP      = "public_http"
 	TransportTypePublicHTTPS     = "public_https"
 	TransportTypeReverseWSParent = "reverse_ws_parent"
+	TransportTypeDirectRelay     = "direct_relay"
 	TransportTypeChildWS         = "child_ws"
 	TransportTypeReverseWS       = "reverse_ws"
 )

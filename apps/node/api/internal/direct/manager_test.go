@@ -12,6 +12,7 @@ import (
 type fakeSignalingClient struct {
 	reported domain.ReportDirectCandidatesInput
 	plan     domain.DirectLinkPlan
+	statuses []domain.ReportDirectStatusInput
 }
 
 func (c *fakeSignalingClient) ReportDirectCandidates(input domain.ReportDirectCandidatesInput) (domain.ReportDirectCandidatesResult, error) {
@@ -24,6 +25,7 @@ func (c *fakeSignalingClient) FetchDirectLinkPlan() (domain.DirectLinkPlan, erro
 }
 
 func (c *fakeSignalingClient) ReportDirectStatus(input domain.ReportDirectStatusInput) (domain.ReportDirectStatusResult, error) {
+	c.statuses = append(c.statuses, input)
 	return domain.ReportDirectStatusResult{LinkID: input.LinkID, PeerNodeID: input.PeerNodeID, Status: input.Status}, nil
 }
 
@@ -66,7 +68,7 @@ func TestManagerRefreshReportsCandidatesAndAppliesPlan(t *testing.T) {
 		t.Fatalf("missing direct identity report: %#v", client.reported.DirectIdentity)
 	}
 	state, ok := manager.Registry().Get("node-b")
-	if !ok || state.Status != domain.DirectStatusProbing {
+	if !ok || state.Status != domain.DirectStatusFailed || state.FallbackReason != "direct_candidates_unavailable" {
 		t.Fatalf("unexpected peer state: %#v ok=%v", state, ok)
 	}
 	if state.PeerIdentity.NodeID != "node-b" {
@@ -75,7 +77,8 @@ func TestManagerRefreshReportsCandidatesAndAppliesPlan(t *testing.T) {
 }
 
 func TestManagerRejectsPlanWithoutPeerIdentity(t *testing.T) {
-	manager := NewManager(nil, CandidateGatherer{}, nil, NewRegistry())
+	client := &fakeSignalingClient{}
+	manager := NewManager(nil, CandidateGatherer{}, client, NewRegistry())
 	manager.applyPlan(context.Background(), domain.DirectLinkPlan{
 		NodeID: "node-a",
 		Links:  []domain.DirectLinkItem{{LinkID: "link-1", PeerNodeID: "node-b"}},
@@ -83,6 +86,62 @@ func TestManagerRejectsPlanWithoutPeerIdentity(t *testing.T) {
 	state, ok := manager.Registry().Get("node-b")
 	if !ok || state.Status != domain.DirectStatusFailed || state.FallbackReason != "direct_identity_required" {
 		t.Fatalf("unexpected peer state: %#v ok=%v", state, ok)
+	}
+	if len(client.statuses) != 1 || client.statuses[0].FallbackReason != "direct_identity_required" {
+		t.Fatalf("unexpected status reports: %#v", client.statuses)
+	}
+}
+
+func TestManagerProbePeerUsesRepeatedPunchAndReply(t *testing.T) {
+	left, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer left.Close()
+	right, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer right.Close()
+
+	leftManager := NewManager(UDPConnPacketIO{Conn: left}, CandidateGatherer{}, nil, NewRegistry())
+	rightManager := NewManager(UDPConnPacketIO{Conn: right}, CandidateGatherer{}, nil, NewRegistry())
+	linkAB := domain.DirectLinkItem{
+		LinkID:     "link-1",
+		PeerNodeID: "node-b",
+		PunchToken: "shared-token",
+		PeerCandidates: []domain.DirectCandidate{{
+			Type:     domain.CandidateTypeHost,
+			Address:  "127.0.0.1",
+			Port:     right.LocalAddr().(*net.UDPAddr).Port,
+			Protocol: domain.CandidateProtocolUDP,
+		}},
+	}
+	linkBA := domain.DirectLinkItem{
+		LinkID:     "link-1",
+		PeerNodeID: "node-a",
+		PunchToken: "shared-token",
+		PeerCandidates: []domain.DirectCandidate{{
+			Type:     domain.CandidateTypeHost,
+			Address:  "127.0.0.1",
+			Port:     left.LocalAddr().(*net.UDPAddr).Port,
+			Protocol: domain.CandidateProtocolUDP,
+		}},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	leftResult := make(chan bool, 1)
+	rightResult := make(chan bool, 1)
+	go func() {
+		_, _, _, ok := leftManager.probePeer(ctx, "node-a", linkAB)
+		leftResult <- ok
+	}()
+	go func() {
+		_, _, _, ok := rightManager.probePeer(ctx, "node-b", linkBA)
+		rightResult <- ok
+	}()
+	if !<-leftResult || !<-rightResult {
+		t.Fatal("expected both peers to connect")
 	}
 }
 

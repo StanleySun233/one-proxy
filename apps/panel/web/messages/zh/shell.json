@@ -20,6 +20,8 @@
   "scopeBoard": "范围",
   "chainStudio": "链路",
   "accessPaths": "网络",
+  "remoteSSH": "WebSSH",
+  "remoteRDP": "WebRDP",
   "routeBoard": "规则",
   "routeGroups": "规则组",
   "routeRules": "规则",

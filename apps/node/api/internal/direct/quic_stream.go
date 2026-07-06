@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"net"
@@ -184,6 +185,24 @@ func (r *Registry) validateClientSession(ctx context.Context, request streamOpen
 }
 
 func (r *Registry) OpenDirectStream(ctx context.Context, nextHop domain.Node, remaining []string, targetHost string, targetPort int) (net.Conn, error) {
+	conn, err := r.openDirectQUICStream(ctx, nextHop, remaining, targetHost, targetPort)
+	if err == nil {
+		return conn, nil
+	}
+	r.mu.RLock()
+	relay := r.relay
+	r.mu.RUnlock()
+	if relay == nil {
+		return nil, err
+	}
+	relayConn, relayErr := relay.OpenRelayStream(ctx, nextHop.ID, remaining, targetHost, targetPort)
+	if relayErr != nil {
+		return nil, fmt.Errorf("direct_stream_failed=%v relay_stream_failed=%w", err, relayErr)
+	}
+	return relayConn, nil
+}
+
+func (r *Registry) openDirectQUICStream(ctx context.Context, nextHop domain.Node, remaining []string, targetHost string, targetPort int) (net.Conn, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}

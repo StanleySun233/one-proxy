@@ -65,7 +65,6 @@ func (s *MySQLStore) DirectLinkPlans(nodeID string, ttl time.Duration) (domain.D
 	}
 	defer rows.Close()
 
-	expiresAt := time.Now().UTC().Add(ttl).Format(time.RFC3339)
 	result := domain.DirectLinkPlanResult{NodeID: nodeID, Links: []domain.DirectLinkPlan{}}
 	for rows.Next() {
 		var linkID, sourceNodeID, targetNodeID string
@@ -78,7 +77,7 @@ func (s *MySQLStore) DirectLinkPlans(nodeID string, ttl time.Duration) (domain.D
 			peerNodeID = targetNodeID
 			role = "listener"
 		}
-		token, err := punchToken()
+		token, expiresAt, err := s.directPunchToken(linkID, ttl)
 		if err != nil {
 			return domain.DirectLinkPlanResult{}, err
 		}
@@ -128,7 +127,7 @@ func (s *MySQLStore) UpsertDirectStatus(nodeID string, input domain.DirectStatus
 		return domain.DirectStatusResult{}, sql.ErrNoRows
 	}
 	now := nowRFC3339()
-	address := fmt.Sprintf("%s:%d", input.SelectedCandidate.Address, input.SelectedCandidate.Port)
+	address := input.PeerNodeID
 	connectedAt := ""
 	if input.Status == domain.TransportStatusConnected {
 		connectedAt = input.LastProbeAt
@@ -138,8 +137,11 @@ func (s *MySQLStore) UpsertDirectStatus(nodeID string, input domain.DirectStatus
 		"linkId":            input.LinkID,
 		"fallbackTransport": "relay_ws_parent",
 		"fallbackReason":    input.FallbackReason,
-		"candidateType":     input.SelectedCandidate.Type,
-		"protocol":          input.SelectedCandidate.Protocol,
+	}
+	if input.SelectedCandidate.Address != "" && input.SelectedCandidate.Port > 0 {
+		details["candidateType"] = input.SelectedCandidate.Type
+		details["protocol"] = input.SelectedCandidate.Protocol
+		details["selectedCandidate"] = fmt.Sprintf("%s:%d", input.SelectedCandidate.Address, input.SelectedCandidate.Port)
 	}
 	if _, err := s.UpsertNodeTransport(domain.UpsertNodeTransportInput{
 		NodeID:          nodeID,
@@ -208,6 +210,35 @@ func (s *MySQLStore) authorizedDirectLink(nodeID, linkID, peerNodeID string) (bo
 		linkID, domain.TrustStateTrusted, domain.TrustStateActive, nodeID, peerNodeID, peerNodeID, nodeID,
 	).Scan(&count)
 	return count > 0, err
+}
+
+func (s *MySQLStore) directPunchToken(linkID string, ttl time.Duration) (string, string, error) {
+	now := nowRFC3339()
+	expiresAt := time.Now().UTC().Add(ttl).Format(time.RFC3339)
+	token, err := punchToken()
+	if err != nil {
+		return "", "", err
+	}
+	if _, err := s.db.Exec(
+		`INSERT IGNORE INTO direct_link_attempts (link_id, punch_token, expires_at, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?)`,
+		linkID, token, expiresAt, now, now,
+	); err != nil {
+		return "", "", err
+	}
+	if _, err := s.db.Exec(
+		`UPDATE direct_link_attempts
+		 SET punch_token = ?, expires_at = ?, updated_at = ?
+		 WHERE link_id = ? AND expires_at <= ?`,
+		token, expiresAt, now, linkID, now,
+	); err != nil {
+		return "", "", err
+	}
+	row := s.db.QueryRow(`SELECT punch_token, expires_at FROM direct_link_attempts WHERE link_id = ?`, linkID)
+	if err := row.Scan(&token, &expiresAt); err != nil {
+		return "", "", err
+	}
+	return token, expiresAt, nil
 }
 
 func splitHostPort(address string) (string, int) {

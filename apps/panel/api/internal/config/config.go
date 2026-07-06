@@ -20,6 +20,7 @@ type Config struct {
 	PublicCertProvider    string
 	RedisURL              string
 	ProxyTokenCacheTTL    string
+	GuacdAddr             string
 }
 
 func envOrDefault(key string, fallback string) string {
@@ -82,5 +83,6 @@ func Load() Config {
 		PublicCertProvider:    envOrDefault("PUBLIC_CERT_PROVIDER", "lets_encrypt"),
 		RedisURL:              os.Getenv("REDIS_URL"),
 		ProxyTokenCacheTTL:    envOrDefault("PROXY_TOKEN_CACHE_TTL", "24h"),
+		GuacdAddr:             envOrDefault("GUACD_ADDR", "127.0.0.1:4822"),
 	}
 }

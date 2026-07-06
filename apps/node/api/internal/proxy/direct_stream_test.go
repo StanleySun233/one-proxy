@@ -207,3 +207,13 @@ func TestOpenDirectFirstStreamRequiresFallbackAfterDirectMiss(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestShouldUseStreamAllowsPrivateNextHopWithDirectStreamOpener(t *testing.T) {
+	server := &Server{directStream: &fakeDirectStreamOpener{}}
+	if !server.shouldUseStream(domain.Node{ID: "node-2"}) {
+		t.Fatal("private next hop did not use stream")
+	}
+	if server.shouldUseStream(domain.Node{ID: "node-2", PublicHost: "node-2.example", PublicPort: 9443}) {
+		t.Fatal("public next hop used stream without a direct peer")
+	}
+}

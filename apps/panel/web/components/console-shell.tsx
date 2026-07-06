@@ -7,6 +7,7 @@ import {
   GitBranch,
   Languages,
   LayoutDashboard,
+  Monitor,
   ShieldCheck,
   Shirt,
   Users,
@@ -88,6 +89,16 @@ export function ConsoleShell({children}: {children: ReactNode}) {
         {label: t('shell.nodeBootstrap'), href: '/nodes/bootstrap'},
         {label: t('shell.nodeApprovals'), href: '/nodes/approvals'},
         {label: t('shell.nodeRegistry'), href: '/nodes/registry'}
+      ]
+    },
+    {
+      key: 'remote',
+      label: t('nav.remote'),
+      href: '/remote/ssh',
+      icon: Monitor,
+      items: [
+        {label: t('shell.remoteSSH'), href: '/remote/ssh'},
+        {label: t('shell.remoteRDP'), href: '/remote/rdp'}
       ]
     },
     {

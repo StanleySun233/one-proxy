@@ -1,7 +1,7 @@
 'use client';
 
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {Edit, Share2, Trash2} from 'lucide-react';
+import {Edit, Monitor, Share2, Terminal, Trash2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import {useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
@@ -11,6 +11,7 @@ import {ConsoleCrudModal, ConsoleFilterBar, ConsoleFilterItem, ConsoleList} from
 import {DeleteConfirmationModal, DeleteImpactSection} from '@/components/delete-confirmation-modal';
 import {NameTag} from '@/components/common/name-tag';
 import {ResourceGrantModal} from '@/components/resource-grant-modal';
+import {Link} from '@/i18n/navigation';
 import {createNodeAccessPath, deleteNodeAccessPath, fetchEnums, getNodeAccessPaths, getNodeAccessPathDeleteImpact, updateNodeAccessPath} from '@/lib/api';
 import {formatControlPlaneError} from '@/lib/presentation';
 import type {Chain, FieldEnumEntry, Node, NodeAccessPath, NodeAccessPathDeleteImpact, NodeAccessPathPayload} from '@/lib/types';
@@ -143,6 +144,10 @@ function accessPathHealthBadgeClassName(status?: string) {
 
 function accessPathHealthTitle(health?: AccessPathHealth) {
   return [health?.reason, health?.checkedAt].filter(Boolean).join(' | ') || health?.status || 'unknown';
+}
+
+function isRemoteTCPPath(path: NodeAccessPath) {
+  return path.enabled && path.mode === 'tcp' && path.protocol === 'tcp' && path.serviceType === 'tcp_access';
 }
 
 function NodeTagPath({labels}: {labels: string[]}) {
@@ -416,7 +421,7 @@ export function AccessPathPanel({
                   <th>{t('common.target')}</th>
                   <th>{accessPathsT('listen')}</th>
                   <th>{t('common.status')}</th>
-                  {canWrite ? <th>{t('common.actions')}</th> : null}
+                  <th>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -438,31 +443,45 @@ export function AccessPathPanel({
                           </span>
                         </div>
                       </td>
-                      {canWrite ? (
-                        <td>
-                          <div className="chain-list-actions">
-                            {canManage ? (
-                              <button className="secondary-button" onClick={() => setGrantPath(path)} type="button">
-                                <Share2 size={14} />
-                                {t('common.grant')}
+                      <td>
+                        <div className="chain-list-actions">
+                          {isRemoteTCPPath(path) ? (
+                            <>
+                              <Link className="secondary-button" href={`/remote/ssh?pathId=${encodeURIComponent(path.id)}`}>
+                                <Terminal size={14} />
+                                {t('shell.remoteSSH')}
+                              </Link>
+                              <Link className="secondary-button" href={`/remote/rdp?pathId=${encodeURIComponent(path.id)}`}>
+                                <Monitor size={14} />
+                                {t('shell.remoteRDP')}
+                              </Link>
+                            </>
+                          ) : null}
+                          {canWrite && canManage ? (
+                            <button className="secondary-button" onClick={() => setGrantPath(path)} type="button">
+                              <Share2 size={14} />
+                              {t('common.grant')}
+                            </button>
+                          ) : null}
+                          {canWrite ? (
+                            <>
+                              <button className="secondary-button" disabled={!canManage} onClick={() => handleEdit(path)} type="button">
+                                <Edit size={14} />
+                                {t('common.edit')}
                               </button>
-                            ) : null}
-                            <button className="secondary-button" disabled={!canManage} onClick={() => handleEdit(path)} type="button">
-                              <Edit size={14} />
-                              {t('common.edit')}
-                            </button>
-                            <button
-                              className="danger-button"
-                              disabled={deleteMutation.isPending || deleteImpactMutation.isPending || !canManage}
-                              onClick={() => openDeletePath(path)}
-                              type="button"
-                            >
-                              <Trash2 size={14} />
-                              {t('common.delete')}
-                            </button>
-                          </div>
-                        </td>
-                      ) : null}
+                              <button
+                                className="danger-button"
+                                disabled={deleteMutation.isPending || deleteImpactMutation.isPending || !canManage}
+                                onClick={() => openDeletePath(path)}
+                                type="button"
+                              >
+                                <Trash2 size={14} />
+                                {t('common.delete')}
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}

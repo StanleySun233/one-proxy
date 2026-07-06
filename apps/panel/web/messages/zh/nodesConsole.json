@@ -55,6 +55,7 @@
   "trustState": "信任状态",
   "direction": "方向",
   "address": "地址",
+  "reason": "原因",
   "noRuntimeTransports": "尚未上报运行时传输。",
   "source": "源",
   "target": "目标",

@@ -14,7 +14,8 @@ const messageNamespaces = [
   'health',
   'nodesConsole',
   'nodes',
-  'accessPaths'
+  'accessPaths',
+  'remote'
 ] as const;
 
 export async function loadMessages(locale: string) {

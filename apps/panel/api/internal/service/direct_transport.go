@@ -90,6 +90,9 @@ func validDirectStatus(input domain.DirectStatusInput) bool {
 	if _, err := time.Parse(time.RFC3339, input.LastProbeAt); err != nil {
 		return false
 	}
+	if input.Status != domain.TransportStatusConnected {
+		return input.Status == domain.TransportStatusFailed || input.Status == "probing" || input.Status == "fallback"
+	}
 	return validCandidate(input.SelectedCandidate, false)
 }
 

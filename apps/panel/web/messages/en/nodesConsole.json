@@ -55,6 +55,7 @@
   "trustState": "Trust state",
   "direction": "Direction",
   "address": "Address",
+  "reason": "Reason",
   "noRuntimeTransports": "No runtime transports have been reported yet.",
   "source": "Source",
   "target": "Target",

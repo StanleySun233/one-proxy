@@ -3,6 +3,7 @@ package direct
 import (
 	"context"
 	"errors"
+	"net"
 	"sync"
 	"time"
 
@@ -38,6 +39,10 @@ type ClientSessionValidator interface {
 	ValidateClientDirectSession(context.Context, ClientSessionValidationRequest) (ClientSessionValidationResult, error)
 }
 
+type RelayStreamOpener interface {
+	OpenRelayStream(ctx context.Context, peerNodeID string, remaining []string, targetHost string, targetPort int) (net.Conn, error)
+}
+
 type Registry struct {
 	mu              sync.RWMutex
 	peers           map[string]PeerState
@@ -45,6 +50,7 @@ type Registry struct {
 	listener        *quic.Listener
 	directIdentity  domain.DirectNodeIdentity
 	clientValidator ClientSessionValidator
+	relay           RelayStreamOpener
 }
 
 func NewRegistry() *Registry {
@@ -73,6 +79,12 @@ func (r *Registry) Remove(peerNodeID string) {
 func (r *Registry) SetClientSessionValidator(validator ClientSessionValidator) {
 	r.mu.Lock()
 	r.clientValidator = validator
+	r.mu.Unlock()
+}
+
+func (r *Registry) SetRelayStreamOpener(opener RelayStreamOpener) {
+	r.mu.Lock()
+	r.relay = opener
 	r.mu.Unlock()
 }
 

@@ -20,6 +20,8 @@
   "scopeBoard": "Scopes",
   "chainStudio": "Chains",
   "accessPaths": "Network",
+  "remoteSSH": "WebSSH",
+  "remoteRDP": "WebRDP",
   "routeBoard": "Rules",
   "routeGroups": "Rule groups",
   "routeRules": "Rules",

@@ -27,6 +27,9 @@ type ControlPlane struct {
 	proxyStatus        *proxyStatusStore
 	clientDirectMu     sync.Mutex
 	clientDirect       map[string]clientDirectSessionRecord
+	guacdAddr          string
+	remoteMu           sync.Mutex
+	remoteSessions     map[string]remoteSessionRecord
 }
 
 func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
@@ -55,6 +58,8 @@ func NewControlPlane(store store.Store, cfg config.Config) *ControlPlane {
 		publicRenewWindow:  parseDuration(cfg.PublicCertRenewWindow, 7*24*time.Hour),
 		proxyStatus:        newProxyStatusStore(5000),
 		clientDirect:       make(map[string]clientDirectSessionRecord),
+		guacdAddr:          cfg.GuacdAddr,
+		remoteSessions:     make(map[string]remoteSessionRecord),
 	}
 	controlPlane.proxy = proxyservice.New(store)
 	return controlPlane

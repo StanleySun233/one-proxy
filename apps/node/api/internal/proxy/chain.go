@@ -55,7 +55,8 @@ func (s *Server) forwardChain(w http.ResponseWriter, req *http.Request, snapshot
 }
 
 func (s *Server) shouldUseStream(nextHop domain.Node) bool {
-	return s.shouldUseTunnel(nextHop) || (s.hasDirectPeer(nextHop.ID) && (nextHop.PublicHost == "" || nextHop.PublicPort <= 0))
+	privateNextHop := nextHop.PublicHost == "" || nextHop.PublicPort <= 0
+	return s.shouldUseTunnel(nextHop) || (privateNextHop && (s.hasDirectPeer(nextHop.ID) || s.directStream != nil))
 }
 
 func (s *Server) shouldUseTunnel(nextHop domain.Node) bool {

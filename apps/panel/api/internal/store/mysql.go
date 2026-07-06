@@ -46,6 +46,12 @@ func (s *MySQLStore) init(ctx context.Context) error {
 	if err := s.initSchema(ctx); err != nil {
 		return err
 	}
+	if err := s.initRemoteSchema(ctx); err != nil {
+		return err
+	}
+	if err := s.initDirectSchema(ctx); err != nil {
+		return err
+	}
 	if err := s.db.PingContext(ctx); err != nil {
 		return err
 	}
