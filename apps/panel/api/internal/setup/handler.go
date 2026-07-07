@@ -22,9 +22,11 @@ import (
 const setupDBPingTimeout = 5 * time.Second
 
 type SetupHandler struct {
-	envFilePath  string
-	transitionFn func() error
-	mu           sync.Mutex
+	envFilePath      string
+	transitionFn     func() error
+	configuredFn     func() bool
+	allowExistingEnv bool
+	mu               sync.Mutex
 }
 
 func NewSetupHandler(envFilePath string, transitionFn func() error) *SetupHandler {
@@ -32,6 +34,16 @@ func NewSetupHandler(envFilePath string, transitionFn func() error) *SetupHandle
 		envFilePath:  envFilePath,
 		transitionFn: transitionFn,
 	}
+}
+
+func (h *SetupHandler) WithConfiguredFunc(configuredFn func() bool) *SetupHandler {
+	h.configuredFn = configuredFn
+	return h
+}
+
+func (h *SetupHandler) WithExistingEnvAllowed() *SetupHandler {
+	h.allowExistingEnv = true
+	return h
 }
 
 func (h *SetupHandler) Register(mux *http.ServeMux) {
@@ -110,6 +122,12 @@ func (h *SetupHandler) handleHealthz(w http.ResponseWriter, r *http.Request) {
 func (h *SetupHandler) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if h.configuredFn != nil {
+		writeSuccess(w, http.StatusOK, map[string]bool{
+			"configured": h.configuredFn(),
+		})
 		return
 	}
 	_, err := os.Stat(h.envFilePath)
@@ -208,10 +226,11 @@ func (h *SetupHandler) handleInit(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if _, err := os.Stat(h.envFilePath); err == nil {
+	_, err := os.Stat(h.envFilePath)
+	if err == nil && !h.allowExistingEnv {
 		writeError(w, http.StatusConflict, "setup_already_configured")
 		return
-	} else if !os.IsNotExist(err) {
+	} else if err != nil && !os.IsNotExist(err) {
 		log.Printf("setup env stat failed: %v", err)
 		writeError(w, http.StatusInternalServerError, "setup_status_failed")
 		return

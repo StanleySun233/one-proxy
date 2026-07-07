@@ -44,14 +44,23 @@ func New() *App {
 
 func (a *App) Run() error {
 	if config.IsUnconfigured() {
-		return a.runSetupMode()
+		return a.runSetupMode(false)
 	}
-	return a.runFullMode()
+	activeStore, err := store.NewMySQLStore(a.config.MySQLDSN)
+	if err != nil {
+		return err
+	}
+	if !activeStore.IsInitialized() {
+		log.Printf("configured env found but no admin account exists; continuing in setup mode")
+		return a.runSetupMode(true)
+	}
+	return a.runFullMode(activeStore)
 }
 
-func (a *App) runSetupMode() error {
+func (a *App) runSetupMode(allowExistingEnv bool) error {
 	envPath := config.EnvFilePath()
 	dh := &dynamicHandler{}
+	initialized := atomic.Bool{}
 
 	transitionFn := func() error {
 		if err := config.LoadEnvFile(envPath); err != nil {
@@ -77,11 +86,15 @@ func (a *App) runSetupMode() error {
 			EnvFilePath: config.EnvFilePath(),
 		}, controlPlane)
 		dh.handler.Store(fullHandler)
+		initialized.Store(controlPlane.IsInitialized())
 		log.Printf("control-plane transitioned to full mode")
 		return nil
 	}
 
-	setupHandler := setup.NewSetupHandler(envPath, transitionFn)
+	setupHandler := setup.NewSetupHandler(envPath, transitionFn).WithConfiguredFunc(initialized.Load)
+	if allowExistingEnv {
+		setupHandler.WithExistingEnvAllowed()
+	}
 	mux := http.NewServeMux()
 	setupHandler.Register(mux)
 	wrappedMux := recoveryMiddleware(mux)
@@ -95,11 +108,7 @@ func (a *App) runSetupMode() error {
 	return server.ListenAndServe()
 }
 
-func (a *App) runFullMode() error {
-	activeStore, err := store.NewMySQLStore(a.config.MySQLDSN)
-	if err != nil {
-		return err
-	}
+func (a *App) runFullMode(activeStore *store.MySQLStore) error {
 	if password := activeStore.BootstrapAdminPassword(); password != "" {
 		log.Printf("bootstrap admin account initialized: account=admin")
 	}
