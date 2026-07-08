@@ -26,6 +26,7 @@ type Config struct {
 	NodeDirectRefreshInterval string
 	NodeLogDir                string
 	NodeLogRetention          string
+	NodeLogMaxDisk            string
 	NodeResponseCacheDir      string
 	NodeResponseCacheTTL      string
 	NodeResponseCacheMemory   string
@@ -73,7 +74,8 @@ func Load() Config {
 		NodeDirectSTUNServers:     envOrDefault("NODE_DIRECT_STUN_SERVERS", "stun.cloudflare.com:3478"),
 		NodeDirectRefreshInterval: envOrDefault("NODE_DIRECT_REFRESH_INTERVAL", "30s"),
 		NodeLogDir:                envOrDefault("NODE_LOG_DIR", "runtime/logs"),
-		NodeLogRetention:          envOrDefault("NODE_LOG_RETENTION", "72h"),
+		NodeLogRetention:          envOrDefault("NODE_LOG_RETENTION", "336h"),
+		NodeLogMaxDisk:            envOrDefault("NODE_LOG_MAX_DISK", "1gb"),
 		NodeResponseCacheDir:      envOrDefault("NODE_RESPONSE_CACHE_DIR", "runtime/cache/responses"),
 		NodeResponseCacheTTL:      envOrDefault("NODE_RESPONSE_CACHE_TTL", "1h"),
 		NodeResponseCacheMemory:   envOrDefault("NODE_RESPONSE_CACHE_MEMORY", "512mb"),

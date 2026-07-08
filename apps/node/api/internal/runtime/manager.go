@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -129,20 +130,26 @@ func (m *Manager) tick(heartbeatAt time.Time) {
 	policy, err := client.FetchPolicy()
 	if err == nil {
 		if err := m.store.Update(policy.PolicyRevisionID, policy.PayloadJSON); err != nil {
+			log.Printf("runtime policy update failed nodeID=%s revision=%s err=%v", current.NodeID, policy.PolicyRevisionID, err)
 			return
 		}
+	} else {
+		log.Printf("runtime policy fetch failed nodeID=%s err=%v", current.NodeID, err)
 	}
 	if m.managePublicCert {
 		result, renewErr := client.RenewCertificate("public")
 		if renewErr != nil {
 			m.setCertStatus("public", domain.CertStatusDegraded)
+			log.Printf("runtime cert renew failed nodeID=%s cert=public err=%v", current.NodeID, renewErr)
 		} else {
 			m.setCertStatus("public", result.Status)
 		}
 	}
 	revision, _ := m.store.Current()
 	listenerStatus, certStatus := m.healthStatus()
-	_, _ = client.SendHeartbeat(heartbeatAt, revision, listenerStatus, certStatus)
+	if _, err := client.SendHeartbeat(heartbeatAt, revision, listenerStatus, certStatus); err != nil {
+		log.Printf("runtime heartbeat failed nodeID=%s revision=%s err=%v", current.NodeID, revision, err)
+	}
 }
 
 func (m *Manager) SetListenerStatus(key string, value string) {
@@ -172,10 +179,14 @@ func (m *Manager) load() {
 	}
 	raw, err := os.ReadFile(m.path)
 	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("runtime state load failed path=%s err=%v", m.path, err)
+		}
 		return
 	}
 	var state persistedState
 	if err := json.Unmarshal(raw, &state); err != nil {
+		log.Printf("runtime state parse failed path=%s err=%v", m.path, err)
 		return
 	}
 	m.binding = state.Binding

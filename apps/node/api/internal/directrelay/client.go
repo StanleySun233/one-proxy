@@ -3,7 +3,9 @@ package directrelay
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -63,6 +65,7 @@ func (c *Client) Run(ctx context.Context) {
 		}
 		current := c.manager.Current()
 		if err := c.runControl(ctx, current); err != nil {
+			log.Printf("direct relay control disconnected nodeID=%s err=%v", current.NodeID, err)
 			sleep(ctx, 3*time.Second)
 		}
 	}
@@ -73,8 +76,11 @@ func (c *Client) runControl(ctx context.Context, current runtime.Binding) error 
 	if err != nil {
 		return err
 	}
-	conn, _, err := dialRelay(ctx, wsURL, current.NodeAccessToken)
+	conn, resp, err := dialRelay(ctx, wsURL, current.NodeAccessToken)
 	if err != nil {
+		if resp != nil {
+			return fmt.Errorf("direct_relay_control_dial_failed status=%d err=%w", resp.StatusCode, err)
+		}
 		return err
 	}
 	defer conn.Close()
@@ -135,6 +141,7 @@ func (c *Client) OpenRelayStream(ctx context.Context, peerNodeID string, remaini
 
 func (c *Client) handleOpen(ctx context.Context, current runtime.Binding, controlConn *websocket.Conn, request openRequest) {
 	if len(request.RemainingHops) > 0 {
+		log.Printf("direct relay target open failed streamID=%s sourceNodeID=%s target=%s:%d err=relay_remaining_hops_not_supported", request.StreamID, request.SourceNodeID, request.TargetHost, request.TargetPort)
 		c.writeControl(controlConn, controlMessage{Type: "open_failed", StreamID: request.StreamID, Message: "relay_remaining_hops_not_supported"})
 		return
 	}
@@ -142,6 +149,7 @@ func (c *Client) handleOpen(ctx context.Context, current runtime.Binding, contro
 	targetConn, err := (&net.Dialer{Timeout: openTimeout}).DialContext(dialCtx, "tcp", net.JoinHostPort(request.TargetHost, strconv.Itoa(request.TargetPort)))
 	cancel()
 	if err != nil {
+		log.Printf("direct relay target dial failed streamID=%s sourceNodeID=%s target=%s:%d err=%v", request.StreamID, request.SourceNodeID, request.TargetHost, request.TargetPort, err)
 		c.writeControl(controlConn, controlMessage{Type: "open_failed", StreamID: request.StreamID, Message: err.Error()})
 		return
 	}
@@ -156,6 +164,7 @@ func (c *Client) handleOpen(ctx context.Context, current runtime.Binding, contro
 	wsConn, _, err := dialRelay(ctx, wsURL, current.NodeAccessToken)
 	if err != nil {
 		_ = targetConn.Close()
+		log.Printf("direct relay target attach failed streamID=%s sourceNodeID=%s target=%s:%d err=%v", request.StreamID, request.SourceNodeID, request.TargetHost, request.TargetPort, err)
 		c.writeControl(controlConn, controlMessage{Type: "open_failed", StreamID: request.StreamID, Message: err.Error()})
 		return
 	}

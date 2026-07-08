@@ -39,17 +39,22 @@ import (
 func main() {
 	startedAt := time.Now()
 	cfg := agentconfig.Load()
+	logRetention := parseDurationOrDefault(cfg.NodeLogRetention, 14*24*time.Hour)
+	logMaxDiskBytes := parseBytesOrDefault(cfg.NodeLogMaxDisk, 1024*1024*1024)
+	if err := nodelog.Configure(nodelog.Config{
+		Dir:          cfg.NodeLogDir,
+		Retention:    logRetention,
+		MaxDiskBytes: logMaxDiskBytes,
+	}); err != nil {
+		log.Printf("node log file disabled err=%v", err)
+	} else if cfg.NodeLogDir != "" {
+		log.Printf("node log file enabled dir=%s retention=%s maxDiskBytes=%d", cfg.NodeLogDir, logRetention, logMaxDiskBytes)
+	}
 	if cfg.NodeReverseTargetURL != "" && strings.TrimSpace(cfg.NodeReverseAccessPathID) == "" {
 		log.Fatal("NODE_REVERSE_ACCESS_PATH_ID is required when NODE_REVERSE_TARGET_URL is set")
 	}
 	if cfg.NodeMode == "edge" && cfg.NodePublicHost == "" {
 		cfg.NodePublicHost = detectPublicHost()
-	}
-	if err := nodelog.Configure(nodelog.Config{
-		Dir:       cfg.NodeLogDir,
-		Retention: parseDurationOrDefault(cfg.NodeLogRetention, 72*time.Hour),
-	}); err != nil {
-		log.Printf("node log file disabled err=%v", err)
 	}
 	store := policystore.New(cfg.PolicyStatePath)
 	interval, err := time.ParseDuration(cfg.HeartbeatInterval)

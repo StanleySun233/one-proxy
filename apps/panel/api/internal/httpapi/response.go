@@ -1,11 +1,13 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -183,6 +185,10 @@ type statusWriter struct {
 func (w *statusWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(w.ResponseWriter).Hijack()
 }
 
 func withObservability(next http.Handler) http.Handler {

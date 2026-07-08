@@ -25,8 +25,11 @@ func TestLoadUsesParentURLAsNodeBootstrapEndpoint(t *testing.T) {
 func TestLoadUsesNodeOperationalDefaults(t *testing.T) {
 	cfg := Load()
 
-	if cfg.NodeLogRetention != "72h" {
+	if cfg.NodeLogRetention != "336h" {
 		t.Fatalf("NodeLogRetention = %q", cfg.NodeLogRetention)
+	}
+	if cfg.NodeLogMaxDisk != "1gb" {
+		t.Fatalf("NodeLogMaxDisk = %q", cfg.NodeLogMaxDisk)
 	}
 	if cfg.NodeResponseCacheTTL != "1h" {
 		t.Fatalf("NodeResponseCacheTTL = %q", cfg.NodeResponseCacheTTL)
