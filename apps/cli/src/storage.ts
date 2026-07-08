@@ -146,6 +146,7 @@ export type DaemonMetadata = {
     excludedCommonPorts: number[];
   };
   idleTimeoutSeconds?: number;
+  persistent?: boolean;
   daemonSecret: string;
 };
 

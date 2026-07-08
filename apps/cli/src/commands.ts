@@ -174,7 +174,8 @@ export async function statusCommand(_args: string[], context: CliContext): Promi
       running,
       pid: running ? daemon?.pid : null,
       startedAt: running ? daemon?.startedAt : null,
-      lastHeartbeatAt: running ? daemon?.lastHeartbeatAt : null
+      lastHeartbeatAt: running ? daemon?.lastHeartbeatAt : null,
+      persistent: running ? daemon?.persistent === true : false
     },
     localPorts: {
       http: ports?.httpPort ?? null,
@@ -204,7 +205,7 @@ export async function statusCommand(_args: string[], context: CliContext): Promi
       `Control plane: ${config.controlPlaneUrl || 'not configured'}`,
       `Tenant: ${result.tenant.id || 'none'}`,
       `Access path: ${result.accessPath.name || result.accessPath.id || 'none'}`,
-      `Daemon: ${running ? `running pid ${daemon?.pid}` : 'not running'}`,
+      `Daemon: ${running ? `running pid ${daemon?.pid}${daemon?.persistent ? ' persistent' : ''}` : 'not running'}`,
       `Ports: http=${result.localPorts.http || 'unset'} https=${result.localPorts.https || 'unset'}`,
       `Policy: ${result.policyRevision || 'none'}`,
       `Overrides: direct=${result.overrides.directCount} proxy=${result.overrides.proxyCount}`

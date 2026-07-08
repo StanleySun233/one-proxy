@@ -5,6 +5,7 @@ import { closeServer, listenHttpServer, readConfig, readState, readTokens } from
 import type { DaemonBindings } from './lifecycle.ts';
 import { resolveRoute } from './router.ts';
 import type { RouteResolverInput, RouteResult } from './router.ts';
+import { systemProxyForRoute } from './system-proxy.ts';
 
 export type ProxyRouteContext = Omit<RouteResolverInput, 'target' | 'protocol'>;
 
@@ -26,9 +27,9 @@ const streamingContentTypes = new Set([
 ]);
 
 export async function startHttpProxyListeners(input: ProxyRouteContext, bindings: DaemonBindings, liveState = false, onProxyActivity?: () => void): Promise<ProxyServers> {
-  const httpServer = createHttpProxyServer(input, liveState, onProxyActivity);
-  const httpsServer = createHttpProxyServer(input, liveState, onProxyActivity);
-  const proxyOnlyServer = bindings.proxyOnlyPort !== undefined ? createHttpProxyServer(input, liveState, onProxyActivity, true) : undefined;
+  const httpServer = createHttpProxyServer(input, bindings, liveState, onProxyActivity);
+  const httpsServer = createHttpProxyServer(input, bindings, liveState, onProxyActivity);
+  const proxyOnlyServer = bindings.proxyOnlyPort !== undefined ? createHttpProxyServer(input, bindings, liveState, onProxyActivity, true) : undefined;
   const listeners = [
     listenHttpServer(httpServer, bindings.httpPort),
     listenHttpServer(httpsServer, bindings.httpsPort)
@@ -47,10 +48,10 @@ export async function startHttpProxyListeners(input: ProxyRouteContext, bindings
   };
 }
 
-export function createHttpProxyServer(input: ProxyRouteContext, liveState = false, onProxyActivity?: () => void, proxyOnly = false) {
+export function createHttpProxyServer(input: ProxyRouteContext, bindings: DaemonBindings, liveState = false, onProxyActivity?: () => void, proxyOnly = false) {
   const server = http.createServer((request, response) => {
     onProxyActivity?.();
-    proxyHttpRequest(input, liveState, request, response, proxyOnly).catch(() => {
+    proxyHttpRequest(input, bindings, liveState, request, response, proxyOnly).catch(() => {
       if (!response.headersSent) {
         response.writeHead(502);
       }
@@ -80,13 +81,17 @@ export function createHttpProxyServer(input: ProxyRouteContext, liveState = fals
       clientSocket.end('HTTP/1.1 407 Proxy Authentication Required\r\n\r\nproxy_auth_required');
       return;
     }
+    const systemProxy = systemProxyForRoute(route, bindings);
     const upstream = route.mode === 'proxy' && route.topology ? {
       host: route.topology.entryHost,
       port: route.topology.entryPort
+    } : systemProxy ? {
+      host: systemProxy.host,
+      port: systemProxy.port
     } : target;
     const upstreamSocket = net.connect(upstream.port, upstream.host, async () => {
-      if (route.mode === 'proxy') {
-        upstreamSocket.write(connectRequest(target.host, target.port, token));
+      if (route.mode === 'proxy' || systemProxy) {
+        upstreamSocket.write(connectRequest(target.host, target.port, route.mode === 'proxy' ? `Bearer ${token}` : systemProxy?.authorization));
         try {
           const proxyResponse = await readConnectProxyResponse(upstreamSocket);
           if (proxyResponse.statusCode !== 200) {
@@ -113,7 +118,7 @@ export function createHttpProxyServer(input: ProxyRouteContext, liveState = fals
   return server;
 }
 
-async function proxyHttpRequest(input: ProxyRouteContext, liveState: boolean, request: http.IncomingMessage, response: http.ServerResponse, proxyOnly: boolean) {
+async function proxyHttpRequest(input: ProxyRouteContext, bindings: DaemonBindings, liveState: boolean, request: http.IncomingMessage, response: http.ServerResponse, proxyOnly: boolean) {
   const target = parseHttpTarget(request);
   if (!target) {
     response.writeHead(400);
@@ -143,11 +148,15 @@ async function proxyHttpRequest(input: ProxyRouteContext, liveState: boolean, re
     }
     headers['proxy-authorization'] = `Bearer ${token}`;
   }
+  const systemProxy = systemProxyForRoute(route, bindings);
+  if (systemProxy?.authorization) {
+    headers['proxy-authorization'] = systemProxy.authorization;
+  }
   const upstreamOptions = {
-    host: route.mode === 'proxy' && route.topology ? route.topology.entryHost : target.host,
-    port: route.mode === 'proxy' && route.topology ? route.topology.entryPort : target.port,
+    host: route.mode === 'proxy' && route.topology ? route.topology.entryHost : systemProxy ? systemProxy.host : target.host,
+    port: route.mode === 'proxy' && route.topology ? route.topology.entryPort : systemProxy ? systemProxy.port : target.port,
     method: request.method,
-    path: route.mode === 'proxy' ? target.url : target.path,
+    path: route.mode === 'proxy' || systemProxy ? target.url : target.path,
     headers
   };
   try {
@@ -201,13 +210,13 @@ function parseHttpTarget(request: http.IncomingMessage) {
   };
 }
 
-function connectRequest(host: string, port: number, token: string | undefined) {
+function connectRequest(host: string, port: number, proxyAuthorization: string | undefined) {
   const lines = [
     `CONNECT ${host}:${port} HTTP/1.1`,
     `Host: ${host}:${port}`
   ];
-  if (token) {
-    lines.push(`Proxy-Authorization: Bearer ${token}`);
+  if (proxyAuthorization) {
+    lines.push(`Proxy-Authorization: ${proxyAuthorization}`);
   }
   return `${lines.join('\r\n')}\r\n\r\n`;
 }

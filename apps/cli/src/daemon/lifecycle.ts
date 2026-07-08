@@ -101,6 +101,7 @@ export type DaemonMetadata = {
   bindings: DaemonBindings;
   portSelection: PortSelection;
   idleTimeoutSeconds: number;
+  persistent: boolean;
   daemonSecret: string;
 };
 
@@ -112,6 +113,7 @@ export type DaemonHealth = {
   bindings: DaemonBindings;
   portSelection: PortSelection;
   policyRevision?: string;
+  persistent: boolean;
 };
 
 export type DaemonRuntime = {
@@ -119,6 +121,10 @@ export type DaemonRuntime = {
   ipcServer: http.Server;
   proxyServers?: { close: () => Promise<void> };
   close: () => Promise<void>;
+};
+
+export type DaemonRuntimeOptions = {
+  persistent?: boolean;
 };
 
 export const loopbackHost = '127.0.0.1';
@@ -231,9 +237,10 @@ export async function resolveBindings(config?: OneProxyConfig): Promise<Resolved
   };
 }
 
-export async function buildDaemonMetadata(resolved: ResolvedBindings): Promise<DaemonMetadata> {
+export async function buildDaemonMetadata(resolved: ResolvedBindings, options: DaemonRuntimeOptions = {}): Promise<DaemonMetadata> {
   const [config, state] = await Promise.all([readConfig(), readState()]);
   const now = new Date().toISOString();
+  const persistent = options.persistent === true;
   return {
     schemaVersion: 1,
     pid: process.pid,
@@ -245,7 +252,8 @@ export async function buildDaemonMetadata(resolved: ResolvedBindings): Promise<D
     policyRevision: state.policyRevision,
     bindings: resolved.bindings,
     portSelection: resolved.portSelection,
-    idleTimeoutSeconds: envIdleTimeoutSeconds,
+    idleTimeoutSeconds: persistent ? 0 : envIdleTimeoutSeconds,
+    persistent,
     daemonSecret: randomBytes(32).toString('hex')
   };
 }
@@ -258,7 +266,8 @@ export function healthFromMetadata(metadata: DaemonMetadata): DaemonHealth {
     lastHeartbeatAt: metadata.lastHeartbeatAt,
     bindings: metadata.bindings,
     portSelection: metadata.portSelection,
-    policyRevision: metadata.policyRevision
+    policyRevision: metadata.policyRevision,
+    persistent: metadata.persistent === true
   };
 }
 
@@ -299,17 +308,24 @@ export function createIpcServer(metadata: DaemonMetadata, handlers: Record<strin
   });
 }
 
-export async function startDaemonRuntime(handlers?: Record<string, (body: unknown) => Promise<unknown>>): Promise<DaemonRuntime> {
+export async function startDaemonRuntime(handlers?: Record<string, (body: unknown) => Promise<unknown>>, options: DaemonRuntimeOptions = {}): Promise<DaemonRuntime> {
   const resolved = await resolveBindings();
-  const metadata = await buildDaemonMetadata(resolved);
+  const metadata = await buildDaemonMetadata(resolved, options);
   const [config, state] = await Promise.all([readConfig(), readState()]);
   const { startHttpProxyListeners } = await import('./http-proxy.ts');
   let activeSessions = 0;
-  let idleTimeoutSeconds = envIdleTimeoutSeconds;
+  let idleTimeoutSeconds = metadata.idleTimeoutSeconds;
   let lastProxyActivity = Date.now();
   let runtime: DaemonRuntime;
   let shutdownTimer: NodeJS.Timeout | undefined;
   const scheduleIdleCheck = () => {
+    if (metadata.persistent || idleTimeoutSeconds <= 0) {
+      if (shutdownTimer) {
+        clearTimeout(shutdownTimer);
+        shutdownTimer = undefined;
+      }
+      return;
+    }
     if (shutdownTimer) {
       clearTimeout(shutdownTimer);
     }
@@ -332,6 +348,17 @@ export async function startDaemonRuntime(handlers?: Record<string, (body: unknow
     lastProxyActivity = Date.now();
     scheduleIdleCheck();
   });
+  const enablePersistent = async () => {
+    metadata.persistent = true;
+    metadata.idleTimeoutSeconds = 0;
+    idleTimeoutSeconds = 0;
+    if (shutdownTimer) {
+      clearTimeout(shutdownTimer);
+      shutdownTimer = undefined;
+    }
+    await writeDaemonMetadata(metadata);
+    return { persistent: metadata.persistent, idleTimeoutSeconds: metadata.idleTimeoutSeconds };
+  };
   const runtimeHandlers = {
     ...defaultDaemonHandlers(),
     ...handlers,
@@ -341,11 +368,20 @@ export async function startDaemonRuntime(handlers?: Record<string, (body: unknow
     },
     '/v1/session/end': async () => {
       activeSessions = Math.max(0, activeSessions - 1);
-      idleTimeoutSeconds = runIdleTimeoutSeconds;
-      metadata.idleTimeoutSeconds = idleTimeoutSeconds;
-      await writeDaemonMetadata(metadata);
-      scheduleIdleCheck();
-      return { activeSessions, idleTimeoutSeconds };
+      if (!metadata.persistent) {
+        idleTimeoutSeconds = runIdleTimeoutSeconds;
+        metadata.idleTimeoutSeconds = idleTimeoutSeconds;
+        await writeDaemonMetadata(metadata);
+        scheduleIdleCheck();
+      }
+      return { activeSessions, idleTimeoutSeconds: metadata.idleTimeoutSeconds, persistent: metadata.persistent };
+    },
+    '/v1/persistent/on': enablePersistent,
+    '/v1/shutdown': async () => {
+      setTimeout(() => {
+        void runtime.close().finally(() => process.exit(0));
+      }, 10).unref();
+      return { accepted: true };
     }
   };
   const ipcServer = createIpcServer(metadata, runtimeHandlers);
@@ -402,14 +438,22 @@ export async function startDaemonSession(): Promise<{ metadata: DaemonMetadata; 
   };
 }
 
-export async function ensureDaemon(): Promise<{ metadata: DaemonMetadata }> {
+export async function ensureDaemon(options: DaemonRuntimeOptions = {}): Promise<{ metadata: DaemonMetadata }> {
   const existing = await readDaemonMetadata();
   const health = await probeDaemon(existing);
   if (existing && health) {
+    if (options.persistent && !existing.persistent) {
+      try {
+        await postDaemon(existing, '/v1/persistent/on');
+        return { metadata: await readDaemonMetadata() ?? { ...existing, persistent: true, idleTimeoutSeconds: 0 } };
+      } catch (error) {
+        await appendLog(`daemon persistent switch failed: ${(error as Error).message || String(error)}`);
+      }
+    }
     return { metadata: existing };
   }
   if (process.env.ONEPROXY_DAEMON_CHILD === '1') {
-    return { metadata: (await startDaemonRuntime()).metadata };
+    return { metadata: (await startDaemonRuntime(undefined, { persistent: options.persistent || process.env.ONEPROXY_DAEMON_PERSISTENT === '1' })).metadata };
   }
   const entrypoint = process.argv[1];
   if (!entrypoint) {
@@ -423,7 +467,8 @@ export async function ensureDaemon(): Promise<{ metadata: DaemonMetadata }> {
     windowsHide: true,
     env: {
       ...process.env,
-      ONEPROXY_DAEMON_CHILD: '1'
+      ONEPROXY_DAEMON_CHILD: '1',
+      ONEPROXY_DAEMON_PERSISTENT: options.persistent ? '1' : '0'
     }
   });
   await logFile.close();
@@ -453,8 +498,23 @@ export async function ensureDaemon(): Promise<{ metadata: DaemonMetadata }> {
 }
 
 export async function serveDaemon(): Promise<void> {
-  await startDaemonRuntime();
+  await startDaemonRuntime(undefined, { persistent: process.env.ONEPROXY_DAEMON_PERSISTENT === '1' });
   await new Promise(() => undefined);
+}
+
+export async function shutdownDaemon(): Promise<boolean> {
+  const metadata = await readDaemonMetadata();
+  const health = metadata ? await probeDaemon(metadata) : null;
+  if (!metadata || !health) {
+    return false;
+  }
+  try {
+    await postDaemon(metadata, '/v1/shutdown');
+    return true;
+  } catch (error) {
+    await appendLog(`daemon shutdown failed: ${(error as Error).message || String(error)}`);
+    return false;
+  }
 }
 
 export async function probeDaemon(metadata?: DaemonMetadata | null): Promise<DaemonHealth | null> {

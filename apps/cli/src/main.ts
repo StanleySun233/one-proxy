@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import * as fs from 'node:fs/promises';
 import { accessPathList, accessPathUse, autoSyncRemoteState, login, logout, sync, tenantList, tenantUse } from './control-plane.ts';
-import { envOff, envOn, runCommand } from './session-env.ts';
+import { envOff, envOn, onepOff, onepOn, runCommand } from './session-env.ts';
 import { doctor, overrideCommand, routeCommand, statusCommand, testCommand, writeError } from './commands.ts';
 import { serveDaemon } from './daemon/lifecycle.ts';
 import { runSsh } from './ssh.ts';
@@ -49,6 +49,8 @@ function usage(): string {
     '  access-path list|use <name-or-id>',
     '  sync',
     '  status [--json]',
+    '  on',
+    '  off',
     '  env [on|off]',
     '  shell',
     '  run <command...>',
@@ -77,6 +79,8 @@ const handlers: Record<string, CommandHandler> = {
   logout,
   sync,
   status: statusCommand,
+  on: async (args) => onepOn(args),
+  off: async (args) => onepOff(args),
   route: routeCommand,
   test: testCommand,
   doctor,
@@ -152,7 +156,7 @@ function shouldAutoSync(command: string): boolean {
   if (process.env.ONEPROXY_DAEMON_CHILD === '1') {
     return false;
   }
-  return !new Set(['daemon', 'init', 'login', 'logout', 'sync', 'version']).has(command);
+  return !new Set(['daemon', 'init', 'login', 'logout', 'off', 'on', 'sync', 'version']).has(command);
 }
 
 main()

@@ -659,6 +659,7 @@ test('lifecycle metadata and health expose contract shape', async () => {
     const health = healthFromMetadata(metadata);
     assert.equal(metadata.schemaVersion, 1);
     assert.equal(metadata.idleTimeoutSeconds, envIdleTimeoutSeconds);
+    assert.equal(metadata.persistent, false);
     assert.equal(metadata.bindings.host, '127.0.0.1');
     assert.equal(metadata.bindings.httpsPort, metadata.bindings.httpPort + 1);
     assert.deepEqual(health, {
@@ -668,8 +669,34 @@ test('lifecycle metadata and health expose contract shape', async () => {
       lastHeartbeatAt: metadata.lastHeartbeatAt,
       bindings: metadata.bindings,
       portSelection: metadata.portSelection,
-      policyRevision: 'rev_1'
+      policyRevision: 'rev_1',
+      persistent: false
     });
+  });
+});
+
+test('persistent daemon metadata disables idle cleanup', async () => {
+  await withHome(async (home) => {
+    const {
+      buildDaemonMetadata,
+      healthFromMetadata,
+      resolveBindings
+    } = await import('../src/daemon/lifecycle.ts');
+
+    const root = profileRoot();
+    await mkdir(root, { recursive: true });
+    await writeFile(path.join(root, 'config.json'), JSON.stringify({
+      schemaVersion: 1,
+      overrides: { direct: [], proxy: [] }
+    }));
+    await writeFile(path.join(root, 'state.json'), JSON.stringify({
+      schemaVersion: 1
+    }));
+
+    const metadata = await buildDaemonMetadata(await resolveBindings(), { persistent: true });
+    assert.equal(metadata.persistent, true);
+    assert.equal(metadata.idleTimeoutSeconds, 0);
+    assert.equal(healthFromMetadata(metadata).persistent, true);
   });
 });
 

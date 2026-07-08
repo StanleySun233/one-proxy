@@ -21,21 +21,22 @@ const preservedProxyVariables = [
 const unsetMarker = '__ONEPROXY_UNSET__';
 
 type LifecycleModule = {
-  ensureDaemon?: () => Promise<{ metadata: { bindings: DaemonBindings } }>;
+  ensureDaemon?: (options?: { persistent?: boolean }) => Promise<{ metadata: { bindings: DaemonBindings } }>;
+  shutdownDaemon?: () => Promise<boolean>;
   startDaemonSession?: () => Promise<{ metadata: { bindings: DaemonBindings }; end: () => Promise<void> }>;
 };
 
-async function lifecycleBindings(): Promise<DaemonBindings | null> {
+async function lifecycleBindings(persistent = false): Promise<DaemonBindings | null> {
   const lifecycle = (await import('./daemon/lifecycle.ts')) as LifecycleModule;
-  const result = await lifecycle.ensureDaemon?.();
+  const result = await lifecycle.ensureDaemon?.({ persistent });
   if (!result) {
     throw Object.assign(new Error('Daemon lifecycle is unavailable'), { code: 'DAEMON_UNAVAILABLE' });
   }
   return result.metadata.bindings;
 }
 
-export async function ensureSessionProxyBindings(): Promise<DaemonBindings> {
-  const lifecycle = await lifecycleBindings();
+export async function ensureSessionProxyBindings(persistent = false): Promise<DaemonBindings> {
+  const lifecycle = await lifecycleBindings(persistent);
   if (!lifecycle?.httpPort || !lifecycle.httpsPort) {
     throw Object.assign(new Error('Daemon did not return proxy bindings'), { code: 'DAEMON_UNAVAILABLE' });
   }
@@ -93,6 +94,11 @@ export async function sessionProxyEnv(bindings?: DaemonBindings): Promise<Record
   };
 }
 
+async function stopDaemon(): Promise<void> {
+  const lifecycle = (await import('./daemon/lifecycle.ts')) as LifecycleModule;
+  await lifecycle.shutdownDaemon?.();
+}
+
 function noProxyValue(extraHosts: string[] = []): string {
   return [...new Set(['localhost', '127.0.0.1', '::1', ...extraHosts].map((item) => item.trim()).filter(Boolean))].join(',');
 }
@@ -140,7 +146,7 @@ function posixOff(): string {
   for (const key of preservedProxyVariables) {
     lines.push(`if [ "\${ONEPROXY_PREV_${key}-}" = ${quotePosix(unsetMarker)} ]; then unset ${key}; elif [ -n "\${ONEPROXY_PREV_${key}+x}" ]; then export ${key}="\$ONEPROXY_PREV_${key}"; fi`);
   }
-  lines.push('unset ONEPROXY_ACTIVE ONEPROXY_HTTP_PORT ONEPROXY_HTTPS_PORT');
+  lines.push('unset ONEPROXY_ACTIVE ONEPROXY_HTTP_PORT ONEPROXY_HTTPS_PORT ONEPROXY_PROXY_ONLY');
   for (const key of preservedProxyVariables) {
     lines.push(`unset ONEPROXY_PREV_${key}`);
   }
@@ -163,7 +169,7 @@ function fishOff(): string {
   for (const key of preservedProxyVariables) {
     lines.push(`if test "$ONEPROXY_PREV_${key}" = ${quoteFish(unsetMarker)}; set -e ${key}; else if set -q ONEPROXY_PREV_${key}; set -gx ${key} "$ONEPROXY_PREV_${key}"; end`);
   }
-  lines.push('set -e ONEPROXY_ACTIVE ONEPROXY_HTTP_PORT ONEPROXY_HTTPS_PORT');
+  lines.push('set -e ONEPROXY_ACTIVE ONEPROXY_HTTP_PORT ONEPROXY_HTTPS_PORT ONEPROXY_PROXY_ONLY');
   for (const key of preservedProxyVariables) {
     lines.push(`set -e ONEPROXY_PREV_${key}`);
   }
@@ -186,7 +192,7 @@ function powershellOff(): string {
   for (const key of preservedProxyVariables) {
     lines.push(`if ((Get-Item Env:ONEPROXY_PREV_${key} -ErrorAction SilentlyContinue).Value -eq ${JSON.stringify(unsetMarker)}) { Remove-Item Env:${key} -ErrorAction SilentlyContinue } elseif (Test-Path Env:ONEPROXY_PREV_${key}) { Set-Item Env:${key} (Get-Item Env:ONEPROXY_PREV_${key}).Value }`);
   }
-  lines.push('Remove-Item Env:ONEPROXY_ACTIVE,Env:ONEPROXY_HTTP_PORT,Env:ONEPROXY_HTTPS_PORT -ErrorAction SilentlyContinue');
+  lines.push('Remove-Item Env:ONEPROXY_ACTIVE,Env:ONEPROXY_HTTP_PORT,Env:ONEPROXY_HTTPS_PORT,Env:ONEPROXY_PROXY_ONLY -ErrorAction SilentlyContinue');
   for (const key of preservedProxyVariables) {
     lines.push(`Remove-Item Env:ONEPROXY_PREV_${key} -ErrorAction SilentlyContinue`);
   }
@@ -212,6 +218,7 @@ function cmdOff(): string {
   lines.push('set "ONEPROXY_ACTIVE="');
   lines.push('set "ONEPROXY_HTTP_PORT="');
   lines.push('set "ONEPROXY_HTTPS_PORT="');
+  lines.push('set "ONEPROXY_PROXY_ONLY="');
   for (const key of preservedProxyVariables) {
     lines.push(`set "ONEPROXY_PREV_${key}="`);
   }
@@ -258,6 +265,17 @@ export async function envOn(args: string[] = []): Promise<void> {
 
 export async function envOff(args: string[] = []): Promise<void> {
   parseEnvCommandArgs(args);
+  process.stdout.write(deactivationScript());
+}
+
+export async function onepOn(args: string[] = []): Promise<void> {
+  parseEnvCommandArgs(args);
+  process.stdout.write(activationScript(await sessionProxyEnv(await ensureSessionProxyBindings(true))));
+}
+
+export async function onepOff(args: string[] = []): Promise<void> {
+  parseEnvCommandArgs(args);
+  await stopDaemon();
   process.stdout.write(deactivationScript());
 }
 

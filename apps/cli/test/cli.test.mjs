@@ -227,6 +227,15 @@ test('env off prints shell restoration output', async () => {
   });
 });
 
+test('onep off prints shell restoration output without a running daemon', async () => {
+  await withHome(async (home) => {
+    const result = runCli(['off'], home, { ONEPROXY_SHELL: '/bin/bash' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /unset ONEPROXY_ACTIVE ONEPROXY_HTTP_PORT ONEPROXY_HTTPS_PORT ONEPROXY_PROXY_ONLY/);
+    assert.equal(result.stderr, '');
+  });
+});
+
 test('env command relies on shell auto-detection instead of shell flags', () => {
   assert.deepEqual(parseEnvCommandArgs([]), {});
   assert.throws(() => parseEnvCommandArgs(['--shell', 'bash']), /Unknown env option: --shell/);
