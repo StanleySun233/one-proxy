@@ -14,7 +14,7 @@ import (
 
 func (c *Controller) writeMessage(conn *websocket.Conn, message Message) error {
 	c.writeMu.Lock()
-	_ = conn.SetWriteDeadline(time.Now().Add(streamDataQueueTimeout))
+	_ = conn.SetWriteDeadline(time.Now().Add(streamTransportWriteTimeout))
 	err := conn.WriteJSON(message)
 	_ = conn.SetWriteDeadline(time.Time{})
 	c.writeMu.Unlock()

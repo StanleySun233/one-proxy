@@ -140,6 +140,14 @@ func TestRoundTripMsKeepsZeroForInvalidDuration(t *testing.T) {
 	}
 }
 
+func TestIsTunnelUnavailableCoversReconnectErrors(t *testing.T) {
+	for _, err := range []error{ErrChildTunnelNotFound, ErrChildTunnelClosed, ErrStreamOpenTimeout} {
+		if !IsTunnelUnavailable(err) {
+			t.Fatalf("IsTunnelUnavailable(%v) = false", err)
+		}
+	}
+}
+
 func testWebsocketClient(t *testing.T, handler func(*websocket.Conn)) *websocket.Conn {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

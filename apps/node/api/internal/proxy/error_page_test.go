@@ -59,6 +59,7 @@ func TestProxyErrorCatalogCoversAllCodes(t *testing.T) {
 		proxyErrorNextHopConnectFailed,
 		proxyErrorNextHopUnreachable,
 		proxyErrorProxyAuthRequired,
+		proxyErrorRelayTunnelUnavailable,
 		proxyErrorReverseAuthRequired,
 		proxyErrorReverseConnectFailed,
 		proxyErrorReverseForwardFailed,

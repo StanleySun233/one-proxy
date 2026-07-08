@@ -11,14 +11,37 @@ import (
 )
 
 var (
-	errStreamOpenTimeout  = errors.New("stream_open_timeout")
-	errChildTunnelClosed  = errors.New("child_tunnel_closed")
-	errStreamBackpressure = errors.New("stream_backpressure")
+	ErrStreamOpenTimeout   = errors.New("stream_open_timeout")
+	ErrChildTunnelClosed   = errors.New("child_tunnel_closed")
+	ErrChildTunnelNotFound = errors.New("child_tunnel_not_found")
+	errStreamBackpressure  = errors.New("stream_backpressure")
 )
 
 const streamOpenAckTimeout = 5 * time.Second
 const streamReconnectWaitTimeout = 2 * time.Second
 const streamDataQueueTimeout = 5 * time.Second
+const streamTransportWriteTimeout = 30 * time.Second
+
+func IsTunnelUnavailable(err error) bool {
+	return errors.Is(err, ErrStreamOpenTimeout) || errors.Is(err, ErrChildTunnelClosed) || errors.Is(err, ErrChildTunnelNotFound)
+}
+
+func (s *childSession) writeMessage(message Message) error {
+	return s.writeMessageWithDeadline(message, time.Now().Add(streamTransportWriteTimeout))
+}
+
+func (s *childSession) writeMessageWithDeadline(message Message, deadline time.Time) error {
+	s.writeMu.Lock()
+	if !deadline.IsZero() {
+		_ = s.conn.SetWriteDeadline(deadline)
+	}
+	err := s.conn.WriteJSON(message)
+	if !deadline.IsZero() {
+		_ = s.conn.SetWriteDeadline(time.Time{})
+	}
+	s.writeMu.Unlock()
+	return err
+}
 
 type childSession struct {
 	nodeID    string
@@ -42,10 +65,7 @@ func (s *childSession) request(message Message) (Message, error) {
 		delete(s.pending, message.RequestID)
 		s.pendingMu.Unlock()
 	}()
-	s.writeMu.Lock()
-	err := s.conn.WriteJSON(message)
-	s.writeMu.Unlock()
-	if err != nil {
+	if err := s.writeMessage(message); err != nil {
 		return Message{}, err
 	}
 	select {
@@ -54,7 +74,7 @@ func (s *childSession) request(message Message) (Message, error) {
 	case <-time.After(streamOpenAckTimeout):
 		return Message{}, errors.New("probe_timeout")
 	case <-s.done:
-		return Message{}, errChildTunnelClosed
+		return Message{}, ErrChildTunnelClosed
 	}
 }
 
@@ -77,10 +97,7 @@ func (s *childSession) openStream(remaining []string, targetHost string, targetP
 		TargetHost:          targetHost,
 		TargetPort:          targetPort,
 	}
-	s.writeMu.Lock()
-	err := s.conn.WriteJSON(message)
-	s.writeMu.Unlock()
-	if err != nil {
+	if err := s.writeMessage(message); err != nil {
 		s.removeStream(streamID)
 		return nil, err
 	}
@@ -96,10 +113,10 @@ func (s *childSession) openStream(remaining []string, targetHost string, targetP
 		return stream, nil
 	case <-time.After(streamOpenAckTimeout):
 		s.removeStream(streamID)
-		return nil, errStreamOpenTimeout
+		return nil, ErrStreamOpenTimeout
 	case <-s.done:
 		s.removeStream(streamID)
-		return nil, errChildTunnelClosed
+		return nil, ErrChildTunnelClosed
 	}
 }
 
@@ -140,15 +157,11 @@ func (s *childSession) handleMessage(message Message) {
 		case <-time.After(streamDataQueueTimeout):
 			stream.closeWithError(errStreamBackpressure)
 			if s.conn != nil {
-				s.writeMu.Lock()
-				_ = s.conn.SetWriteDeadline(time.Now().Add(streamDataQueueTimeout))
-				_ = s.conn.WriteJSON(Message{
+				_ = s.writeMessage(Message{
 					Type:     "close_stream",
 					StreamID: message.StreamID,
 					Message:  errStreamBackpressure.Error(),
 				})
-				_ = s.conn.SetWriteDeadline(time.Time{})
-				s.writeMu.Unlock()
 			}
 		}
 	case "close_stream":
@@ -177,7 +190,7 @@ func (s *childSession) closeAll() {
 	}
 	s.streamsMu.Unlock()
 	for _, stream := range streams {
-		stream.closeWithError(ioEOF("child_tunnel_closed"))
+		stream.closeWithError(ErrChildTunnelClosed)
 	}
 }
 

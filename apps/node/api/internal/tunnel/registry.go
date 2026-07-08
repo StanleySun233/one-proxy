@@ -71,7 +71,7 @@ func (r *Registry) ForwardProbe(fromNodeID string, nextNodeID string, requestID 
 	session, ok := r.sessions[nextNodeID]
 	r.mu.RUnlock()
 	if !ok {
-		return Message{}, errors.New("child_tunnel_not_found")
+		return Message{}, ErrChildTunnelNotFound
 	}
 	started := time.Now()
 	response, err := session.request(Message{
@@ -114,7 +114,7 @@ func (r *Registry) OpenStream(nextNodeID string, remaining []string, targetHost 
 			waited, waitErr := r.waitForSession(nextNodeID, streamReconnectWaitTimeout)
 			if waitErr != nil {
 				log.Printf("node tunnel stream_open_failed nextNodeID=%s target=%s:%d err=child_tunnel_not_found", nextNodeID, targetHost, targetPort)
-				return nil, errors.New("child_tunnel_not_found")
+				return nil, ErrChildTunnelNotFound
 			}
 			session = waited
 		}
@@ -124,7 +124,7 @@ func (r *Registry) OpenStream(nextNodeID string, remaining []string, targetHost 
 			return conn, nil
 		}
 		log.Printf("node tunnel stream_open_failed nextNodeID=%s remaining=%v target=%s:%d duration=%s err=%v", nextNodeID, remaining, targetHost, targetPort, time.Since(started), err)
-		if errors.Is(err, errStreamOpenTimeout) || errors.Is(err, errChildTunnelClosed) {
+		if errors.Is(err, ErrStreamOpenTimeout) || errors.Is(err, ErrChildTunnelClosed) {
 			r.Remove(nextNodeID, session)
 			if attempt == 0 {
 				if _, waitErr := r.waitForSession(nextNodeID, streamReconnectWaitTimeout); waitErr == nil {
@@ -134,7 +134,7 @@ func (r *Registry) OpenStream(nextNodeID string, remaining []string, targetHost 
 		}
 		return nil, err
 	}
-	return nil, errors.New("child_tunnel_not_found")
+	return nil, ErrChildTunnelNotFound
 }
 
 func (r *Registry) session(nodeID string) (*childSession, bool) {
@@ -146,7 +146,7 @@ func (r *Registry) session(nodeID string) (*childSession, bool) {
 
 func (r *Registry) waitForSession(nodeID string, timeout time.Duration) (*childSession, error) {
 	if timeout <= 0 {
-		return nil, errors.New("child_tunnel_not_found")
+		return nil, ErrChildTunnelNotFound
 	}
 	waiter := make(chan struct{})
 	r.mu.Lock()
@@ -164,10 +164,10 @@ func (r *Registry) waitForSession(nodeID string, timeout time.Duration) (*childS
 		if ok {
 			return session, nil
 		}
-		return nil, errors.New("child_tunnel_not_found")
+		return nil, ErrChildTunnelNotFound
 	case <-timer.C:
 		r.removeWaiter(nodeID, waiter)
-		return nil, errors.New("child_tunnel_not_found")
+		return nil, ErrChildTunnelNotFound
 	}
 }
 

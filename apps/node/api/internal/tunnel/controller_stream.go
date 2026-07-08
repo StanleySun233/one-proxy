@@ -3,6 +3,7 @@ package tunnel
 import (
 	"encoding/base64"
 	"io"
+	"log"
 	"net"
 	"time"
 
@@ -32,7 +33,7 @@ func (c *Controller) handleOpenStream(wsConn *websocket.Conn, message Message) e
 		c.handleStreamClose(message.StreamID)
 		return err
 	}
-	go c.pipeStreamBack(wsConn, message.StreamID, targetConn)
+	go c.pipeStreamBack(wsConn, message.StreamID, targetConn, message.TargetHost, message.TargetPort)
 	return nil
 }
 
@@ -44,7 +45,7 @@ func (c *Controller) resolveStreamTarget(message Message) (net.Conn, error) {
 	return net.DialTimeout("tcp", net.JoinHostPort(message.TargetHost, strconvPort(message.TargetPort)), streamDataQueueTimeout)
 }
 
-func (c *Controller) handleStreamData(message Message) error {
+func (c *Controller) handleStreamData(wsConn *websocket.Conn, message Message) error {
 	c.streamsMu.RLock()
 	targetConn, ok := c.streams[message.StreamID]
 	c.streamsMu.RUnlock()
@@ -60,7 +61,11 @@ func (c *Controller) handleStreamData(message Message) error {
 	_ = targetConn.SetWriteDeadline(time.Time{})
 	if err != nil {
 		c.handleStreamClose(message.StreamID)
-		return nil
+		return c.writeMessage(wsConn, Message{
+			Type:     "close_stream",
+			StreamID: message.StreamID,
+			Message:  err.Error(),
+		})
 	}
 	return nil
 }
@@ -77,7 +82,7 @@ func (c *Controller) handleStreamClose(streamID string) {
 	}
 }
 
-func (c *Controller) pipeStreamBack(wsConn *websocket.Conn, streamID string, targetConn net.Conn) {
+func (c *Controller) pipeStreamBack(wsConn *websocket.Conn, streamID string, targetConn net.Conn, targetHost string, targetPort int) {
 	buffer := make([]byte, streamChunkSize)
 	for {
 		n, err := targetConn.Read(buffer)
@@ -87,10 +92,14 @@ func (c *Controller) pipeStreamBack(wsConn *websocket.Conn, streamID string, tar
 				StreamID: streamID,
 				Data:     base64.StdEncoding.EncodeToString(buffer[:n]),
 			}); writeErr != nil {
+				log.Printf("node tunnel stream_write_failed streamID=%s target=%s:%d err=%v", streamID, targetHost, targetPort, writeErr)
 				break
 			}
 		}
 		if err != nil {
+			if err != io.EOF {
+				log.Printf("node tunnel target_read_failed streamID=%s target=%s:%d err=%v", streamID, targetHost, targetPort, err)
+			}
 			if err != io.EOF {
 				_ = c.writeMessage(wsConn, Message{
 					Type:     "close_stream",

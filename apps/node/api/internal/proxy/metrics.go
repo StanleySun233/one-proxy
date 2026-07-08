@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -240,6 +241,8 @@ func (w countingWriter) Write(p []byte) (int, error) {
 func bridgeTunnelWithMetrics(clientConn net.Conn, backendConn net.Conn, backendReader io.Reader, tracker *proxySessionTracker) {
 	var uploadBytes int64
 	var downloadBytes int64
+	var uploadErr error
+	var downloadErr error
 	var wait sync.WaitGroup
 	var closeOnce sync.Once
 	closeBoth := func() {
@@ -251,16 +254,32 @@ func bridgeTunnelWithMetrics(clientConn net.Conn, backendConn net.Conn, backendR
 	wait.Add(2)
 	go func() {
 		defer wait.Done()
-		_, _ = io.Copy(countingWriter{Writer: backendConn, bytes: &uploadBytes}, clientConn)
+		_, uploadErr = io.Copy(countingWriter{Writer: backendConn, bytes: &uploadBytes}, clientConn)
 		closeBoth()
 	}()
 	go func() {
 		defer wait.Done()
-		_, _ = io.Copy(countingWriter{Writer: clientConn, bytes: &downloadBytes}, backendReader)
+		_, downloadErr = io.Copy(countingWriter{Writer: clientConn, bytes: &downloadBytes}, backendReader)
 		closeBoth()
 	}()
 	go func() {
 		wait.Wait()
-		tracker.finish(atomic.LoadInt64(&uploadBytes), atomic.LoadInt64(&downloadBytes), domain.ProxySessionStatusOK, "", "")
+		uploaded := atomic.LoadInt64(&uploadBytes)
+		downloaded := atomic.LoadInt64(&downloadBytes)
+		errorCode := proxyErrorForTunnelCopyErrors(uploadErr, downloadErr)
+		if errorCode != "" {
+			protocol, targetHost, targetPort := tunnelLogTarget(tracker)
+			log.Printf("proxy tunnel closed with error protocol=%s target=%s:%d uploadBytes=%d downloadBytes=%d errorCode=%s uploadErr=%v downloadErr=%v", protocol, targetHost, targetPort, uploaded, downloaded, errorCode, uploadErr, downloadErr)
+			tracker.finish(uploaded, downloaded, domain.ProxySessionStatusError, errorCode, errorCode)
+			return
+		}
+		tracker.finish(uploaded, downloaded, domain.ProxySessionStatusOK, "", "")
 	}()
+}
+
+func tunnelLogTarget(tracker *proxySessionTracker) (string, string, int) {
+	if tracker == nil {
+		return "", "", 0
+	}
+	return tracker.metric.Protocol, tracker.metric.TargetHost, tracker.metric.TargetPort
 }

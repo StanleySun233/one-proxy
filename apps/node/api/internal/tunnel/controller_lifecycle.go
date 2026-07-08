@@ -114,7 +114,7 @@ func (c *Controller) readMessages(conn *websocket.Conn, current runtime.Binding,
 				return
 			}
 		case "stream_data":
-			if err := c.handleStreamData(message); err != nil {
+			if err := c.handleStreamData(conn, message); err != nil {
 				done <- err
 				return
 			}

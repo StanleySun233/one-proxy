@@ -46,10 +46,11 @@ func NewServer(manager *runtime.Manager, registry *Registry) http.Handler {
 		}
 		defer conn.Close()
 		connectedAt := time.Now()
+		var disconnectErr error
 		session := registry.Add(auth.NodeID, conn)
 		defer func() {
 			registry.Remove(auth.NodeID, session)
-			log.Printf("node tunnel child_disconnected childNodeID=%s parentNodeID=%s duration=%s", auth.NodeID, current.NodeID, time.Since(connectedAt))
+			log.Printf("node tunnel child_disconnected childNodeID=%s parentNodeID=%s duration=%s err=%v", auth.NodeID, current.NodeID, time.Since(connectedAt), disconnectErr)
 		}()
 		_ = conn.SetReadDeadline(time.Now().Add(45 * time.Second))
 		conn.SetPongHandler(func(string) error {
@@ -58,6 +59,7 @@ func NewServer(manager *runtime.Manager, registry *Registry) http.Handler {
 		for {
 			var message Message
 			if err := conn.ReadJSON(&message); err != nil {
+				disconnectErr = err
 				return
 			}
 			_ = conn.SetReadDeadline(time.Now().Add(45 * time.Second))

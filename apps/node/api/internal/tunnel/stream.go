@@ -111,18 +111,14 @@ func (c *streamConn) Write(p []byte) (int, error) {
 	if !deadline.IsZero() && time.Now().After(deadline) {
 		return 0, os.ErrDeadlineExceeded
 	}
-	if !deadline.IsZero() && c.session != nil && c.session.conn != nil {
-		defer c.session.conn.SetWriteDeadline(time.Time{})
-	}
 	total := 0
 	for len(p) > 0 {
-		if !deadline.IsZero() {
-			if time.Now().After(deadline) {
-				return total, os.ErrDeadlineExceeded
-			}
-			if c.session != nil && c.session.conn != nil {
-				_ = c.session.conn.SetWriteDeadline(deadline)
-			}
+		writeDeadline := deadline
+		if writeDeadline.IsZero() {
+			writeDeadline = time.Now().Add(streamTransportWriteTimeout)
+		}
+		if !writeDeadline.IsZero() && time.Now().After(writeDeadline) {
+			return total, os.ErrDeadlineExceeded
 		}
 		chunkLen := len(p)
 		if chunkLen > streamChunkSize {
@@ -130,13 +126,11 @@ func (c *streamConn) Write(p []byte) (int, error) {
 		}
 		chunk := p[:chunkLen]
 		p = p[chunkLen:]
-		c.session.writeMu.Lock()
-		err := c.session.conn.WriteJSON(Message{
+		err := c.session.writeMessageWithDeadline(Message{
 			Type:     "stream_data",
 			StreamID: c.streamID,
 			Data:     base64.StdEncoding.EncodeToString(chunk),
-		})
-		c.session.writeMu.Unlock()
+		}, writeDeadline)
 		if err != nil {
 			c.closeWithError(err)
 			return total, err
@@ -151,13 +145,11 @@ func (c *streamConn) Close() error {
 		c.mu.Lock()
 		c.localClosed = true
 		c.mu.Unlock()
-		c.session.writeMu.Lock()
-		_ = c.session.conn.WriteJSON(Message{
+		_ = c.session.writeMessage(Message{
 			Type:     "close_stream",
 			StreamID: c.streamID,
 			Message:  "closed",
 		})
-		c.session.writeMu.Unlock()
 		c.session.streamsMu.Lock()
 		delete(c.session.streams, c.streamID)
 		c.session.streamsMu.Unlock()
@@ -244,6 +236,9 @@ func (a tunnelAddr) String() string  { return string(a) }
 func ioEOF(reason string) error {
 	if reason == "" || reason == "closed" || reason == "eof" {
 		return io.EOF
+	}
+	if reason == ErrChildTunnelClosed.Error() {
+		return ErrChildTunnelClosed
 	}
 	return errors.New(reason)
 }

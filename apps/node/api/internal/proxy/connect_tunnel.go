@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -115,8 +116,10 @@ func (s *Server) tunnelViaStream(w http.ResponseWriter, req *http.Request, hop c
 	streamConn, err := openDirectFirstStream(req.Context(), s.directStream, s.fallbackStreamOpener(), hop, targetHost, targetPort)
 	tracker.addLinkTiming(s.nodeIDGetter(), hop.node.ID, streamStarted)
 	if err != nil {
-		tracker.finish(0, 0, domain.ProxySessionStatusError, proxyErrorNextHopConnectFailed, proxyErrorNextHopConnectFailed)
-		writeProxyError(w, req, proxyErrorNextHopConnectFailed, http.StatusBadGateway)
+		errorCode := proxyErrorForStreamFailure(err)
+		log.Printf("proxy tunnel open failed mode=stream method=%s target=%s nextHop=%s remainingHops=%v errorCode=%s err=%v", req.Method, requestLogTarget(req), hop.node.ID, hop.remainingHops, errorCode, err)
+		tracker.finish(0, 0, domain.ProxySessionStatusError, errorCode, errorCode)
+		writeProxyError(w, req, errorCode, http.StatusBadGateway)
 		return
 	}
 	hijacker, ok := w.(http.Hijacker)

@@ -15,6 +15,7 @@ const (
 	proxyErrorNextHopConnectFailed      = "next_hop_connect_failed"
 	proxyErrorNextHopUnreachable        = "next_hop_unreachable"
 	proxyErrorProxyAuthRequired         = "proxy_auth_required"
+	proxyErrorRelayTunnelUnavailable    = "relay_tunnel_unavailable"
 	proxyErrorReverseAuthRequired       = "reverse_auth_required"
 	proxyErrorReverseConnectFailed      = "reverse_connect_failed"
 	proxyErrorReverseForwardFailed      = "reverse_forward_failed"
@@ -116,6 +117,15 @@ var proxyErrorCatalog = map[string]proxyErrorContent{
 			"Refresh the browser extension or client proxy credentials.",
 			"Confirm the token has not expired or been revoked.",
 			"Verify the token grants access to this node and tenant.",
+		},
+	},
+	proxyErrorRelayTunnelUnavailable: {
+		Title:   "Relay Tunnel Unavailable",
+		Summary: "The selected relay node is offline, reconnecting, or its parent tunnel closed during the request.",
+		Checks: []string{
+			"Wait a few seconds and retry after the relay reconnects.",
+			"Check the relay node transport status and recent tunnel disconnect logs.",
+			"Use a smaller transfer only to confirm whether the issue is sustained load or general connectivity.",
 		},
 	},
 	proxyErrorReverseAuthRequired: {
