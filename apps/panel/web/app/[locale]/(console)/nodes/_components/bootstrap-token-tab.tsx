@@ -144,7 +144,7 @@ export function BootstrapTokenTab({
     const hostPublicPort = publicPort.trim() || '2988';
     return [
       'docker rm -f one-proxy-node >/dev/null 2>&1 || true',
-      'docker volume rm -f one-proxy-node-runtime >/dev/null 2>&1 || true',
+      'if docker volume inspect one-proxy-node-runtime >/dev/null 2>&1; then docker volume rm -f one-proxy-node-runtime; fi',
       'docker run -d --name one-proxy-node --restart unless-stopped \\',
       `  -p ${hostPublicPort}:2988 \\`,
       '  -p 2989:2989 \\',
