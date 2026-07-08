@@ -46,6 +46,23 @@ type cacheFallbackStreamOpener struct {
 	fail     bool
 }
 
+type fullBodyThenErrorReadCloser struct {
+	data []byte
+	done bool
+}
+
+func (r *fullBodyThenErrorReadCloser) Read(p []byte) (int, error) {
+	if r.done {
+		return 0, errors.New("websocket close 1006")
+	}
+	r.done = true
+	return copy(p, r.data), errors.New("websocket close 1006")
+}
+
+func (r *fullBodyThenErrorReadCloser) Close() error {
+	return nil
+}
+
 func (s *scriptedStreamOpener) HasDirectPeer(string) bool {
 	return true
 }
@@ -647,6 +664,21 @@ func TestForwardChainViaStreamServesCacheAfterStreamOpenError(t *testing.T) {
 	}
 	if resp.Header().Get(responseCacheHeader) != "stale" {
 		t.Fatalf("cache header = %q", resp.Header().Get(responseCacheHeader))
+	}
+}
+
+func TestReadForwardResponseAcceptsCompleteBodyWithTransportClose(t *testing.T) {
+	resp, err := readForwardResponse(&http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        http.Header{"Content-Type": []string{"application/javascript"}},
+		ContentLength: 6,
+		Body:          &fullBodyThenErrorReadCloser{data: []byte("loaded")},
+	}, http.MethodGet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.statusCode != http.StatusOK || string(resp.body) != "loaded" {
+		t.Fatalf("response status=%d body=%q", resp.statusCode, resp.body)
 	}
 }
 

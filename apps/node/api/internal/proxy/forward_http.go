@@ -233,7 +233,9 @@ func readForwardResponse(resp *http.Response, method string) (forwardResponse, e
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return forwardResponse{}, err
+		if method == http.MethodHead || resp.ContentLength < 0 || resp.ContentLength != int64(len(body)) {
+			return forwardResponse{}, err
+		}
 	}
 	if method != http.MethodHead && resp.ContentLength >= 0 && resp.ContentLength != int64(len(body)) {
 		return forwardResponse{}, errors.New("response_content_length_mismatch")
