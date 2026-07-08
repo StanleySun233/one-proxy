@@ -20,7 +20,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const openTimeout = 10 * time.Second
+const (
+	openTimeout            = 10 * time.Second
+	relayKeepAliveInterval = 25 * time.Second
+	relayWriteTimeout      = 5 * time.Second
+)
 
 type Client struct {
 	manager *runtime.Manager
@@ -84,6 +88,9 @@ func (c *Client) runControl(ctx context.Context, current runtime.Binding) error 
 		return err
 	}
 	defer conn.Close()
+	done := make(chan struct{})
+	defer close(done)
+	go c.keepControlAlive(ctx, conn, current.NodeID, done)
 	for {
 		var request openRequest
 		if err := conn.ReadJSON(&request); err != nil {
@@ -175,6 +182,28 @@ func (c *Client) writeControl(conn *websocket.Conn, message controlMessage) {
 	c.writeMu.Lock()
 	_ = conn.WriteJSON(message)
 	c.writeMu.Unlock()
+}
+
+func (c *Client) keepControlAlive(ctx context.Context, conn *websocket.Conn, nodeID string, done <-chan struct{}) {
+	ticker := time.NewTicker(relayKeepAliveInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-done:
+			return
+		case <-ticker.C:
+			c.writeMu.Lock()
+			err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(relayWriteTimeout))
+			c.writeMu.Unlock()
+			if err != nil {
+				log.Printf("direct relay control ping failed nodeID=%s err=%v", nodeID, err)
+				_ = conn.Close()
+				return
+			}
+		}
+	}
 }
 
 func (c *Client) reportRelayStatus(current runtime.Binding, peerNodeID string, status string, message string) {

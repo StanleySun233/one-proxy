@@ -10,13 +10,17 @@ import (
 )
 
 type wsConn struct {
-	conn   *websocket.Conn
-	reader io.Reader
-	write  sync.Mutex
+	conn      *websocket.Conn
+	reader    io.Reader
+	write     sync.Mutex
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 func newWSConn(conn *websocket.Conn) net.Conn {
-	return &wsConn{conn: conn}
+	wrapped := &wsConn{conn: conn, done: make(chan struct{})}
+	go wrapped.keepAlive()
+	return wrapped
 }
 
 func (c *wsConn) Read(p []byte) (int, error) {
@@ -59,7 +63,12 @@ func (c *wsConn) Write(p []byte) (int, error) {
 }
 
 func (c *wsConn) Close() error {
-	return c.conn.Close()
+	var err error
+	c.closeOnce.Do(func() {
+		close(c.done)
+		err = c.conn.Close()
+	})
+	return err
 }
 
 func (c *wsConn) LocalAddr() net.Addr {
@@ -89,3 +98,22 @@ type relayAddr string
 
 func (a relayAddr) Network() string { return "direct_relay" }
 func (a relayAddr) String() string  { return string(a) }
+
+func (c *wsConn) keepAlive() {
+	ticker := time.NewTicker(relayKeepAliveInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+			c.write.Lock()
+			err := c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(relayWriteTimeout))
+			c.write.Unlock()
+			if err != nil {
+				_ = c.Close()
+				return
+			}
+		}
+	}
+}
