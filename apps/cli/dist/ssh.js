@@ -31,7 +31,7 @@ export async function buildSshCommandPlan(argv) {
     const route = resolveRoute({ config, state, target: `ssh://${target.host}:${target.port}`, protocol: 'ssh' });
     const args = ['-p', String(target.port)];
     if (route.mode === 'proxy') {
-        args.push('-o', `ProxyCommand=${proxyCommand(metadata.bindings.host, metadata.bindings.httpPort)}`);
+        args.push('-o', `ProxyCommand=${buildSshProxyCommand(metadata.bindings.host, metadata.bindings.httpPort)}`);
     }
     args.push(target.original);
     return {
@@ -67,13 +67,16 @@ export function parseSshTarget(argv) {
     }
     return { user, host, port, original: target };
 }
-function proxyCommand(proxyHost, proxyPort) {
+export function buildSshProxyCommand(proxyHost, proxyPort) {
     const helper = [
         "const net=require('node:net')",
         'const [host,port,proxyHost,proxyPort]=process.argv.slice(1)',
-        'const socket=net.connect(Number(proxyPort),proxyHost,()=>socket.write(`CONNECT ${host}:${port} HTTP/1.1\\r\\nHost: ${host}:${port}\\r\\n\\r\\n`))',
-        "let buffer=''",
-        "socket.on('data',(chunk)=>{if(buffer!==null){buffer+=chunk.toString('latin1');const index=buffer.indexOf('\\r\\n\\r\\n');if(index>=0){if(!/^HTTP\\/1\\.[01] 2\\d\\d/.test(buffer))process.exit(1);const rest=Buffer.from(buffer.slice(index+4),'latin1');if(rest.length)process.stdout.write(rest);buffer=null;socket.pipe(process.stdout);process.stdin.pipe(socket)}}else process.stdout.write(chunk)})",
+        "const target=host+':'+port",
+        "const request='CONNECT '+target+' HTTP/1.1\\r\\nHost: '+target+'\\r\\n\\r\\n'",
+        'const socket=net.connect(Number(proxyPort),proxyHost,()=>socket.write(request))',
+        'let buffer=Buffer.alloc(0)',
+        "const onData=(chunk)=>{buffer=Buffer.concat([buffer,chunk]);const index=buffer.indexOf('\\r\\n\\r\\n');if(index<0){if(buffer.length>65536)process.exit(1);return}socket.off('data',onData);const header=buffer.subarray(0,index).toString('ascii');if(!/^HTTP\\/1\\.[01] 2\\d\\d/.test(header))process.exit(1);const rest=buffer.subarray(index+4);if(rest.length)socket.unshift(rest);socket.pipe(process.stdout);process.stdin.pipe(socket)}",
+        "socket.on('data',onData)",
         "socket.on('error',()=>process.exit(1))"
     ].join(';');
     return `${shellQuote(process.execPath)} -e ${JSON.stringify(helper)} %h %p ${proxyHost} ${proxyPort}`;

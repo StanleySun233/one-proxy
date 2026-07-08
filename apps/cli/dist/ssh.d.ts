@@ -22,3 +22,4 @@ export declare function parseSshCommandArgs(argv: string[]): {
 };
 export declare function buildSshCommandPlan(argv: string[]): Promise<SshCommandPlan>;
 export declare function parseSshTarget(argv: string[]): SshTarget;
+export declare function buildSshProxyCommand(proxyHost: string, proxyPort: number): string;

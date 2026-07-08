@@ -14,7 +14,7 @@ import {
   writeTokens
 } from '../src/storage.ts';
 import { resolveRoute } from '../src/daemon/router.ts';
-import { parseSshCommandArgs, parseSshTarget } from '../src/ssh.ts';
+import { buildSshProxyCommand, parseSshCommandArgs, parseSshTarget } from '../src/ssh.ts';
 import { parseShellCommandArgs } from '../src/shell.ts';
 import { parseEnvCommandArgs, parseRunCommandArgs, proxyEnv } from '../src/session-env.ts';
 import { runIsolationInternals, runProxyOnlyBestEffortCommand } from '../src/run-isolation.ts';
@@ -337,6 +337,13 @@ test('ssh --tui parsing strips the runtime flag before target parsing', () => {
     port: 2222,
     original: 'stanley@Ssh.Example'
   });
+});
+
+test('ssh proxy command helper avoids shell substitution metacharacters', () => {
+  const command = buildSshProxyCommand('127.0.0.1', 12345);
+  assert.doesNotMatch(command, /[`$]/);
+  assert.match(command, /CONNECT/);
+  assert.match(command, /127\.0\.0\.1 12345$/);
 });
 
 test('shell --tui parsing enables TUI without passing the flag to the child shell', () => {
